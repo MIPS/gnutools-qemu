@@ -18,6 +18,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef CONFIG_USER_ONLY
+#include "sysemu.h"
+#endif
+
 /* CPU / CPU family specific config register values. */
 
 /* Have config1, uncached coherency */
@@ -92,7 +96,7 @@ struct mips_def_t {
 
 /*****************************************************************************/
 /* MIPS CPU definitions */
-static const mips_def_t mips_defs[] =
+static mips_def_t mips_defs[] =
 {
     {
         .name = "4Kc",
@@ -488,7 +492,7 @@ static const mips_def_t mips_defs[] =
 #endif
 };
 
-static const mips_def_t *cpu_mips_find_by_name (const char *name)
+static mips_def_t *cpu_mips_find_by_name (const char *name)
 {
     int i;
 
@@ -554,6 +558,78 @@ static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
             cpu_abort(env, "MMU type not supported\n");
     }
 }
+
+#ifdef MIPS_AVP
+
+#define CHECK_SET_CONFIG(NAME, TYPE) \
+    if (!strcmp(name, #NAME )) { \
+        def->NAME = (def->NAME & (~(TYPE)mask)) | (TYPE)value; \
+        continue; \
+    }
+
+static void cpu_config(CPUMIPSState *env, mips_def_t* def, const char* filename)
+{
+    FILE* fp = NULL;
+    int res = 0;
+    uint32_t value, mask;
+    char line[LINE_MAX];
+    char name[LINE_MAX];
+    
+    if (!filename)
+        return;
+
+    if (!(fp = fopen(filename, "r")))
+        cpu_abort(env,"Cannot open config file '%s'\n",filename);
+
+    while (fgets(line, LINE_MAX, fp) != NULL) {
+        if (line[0] == '#' || line[0] == '\n') {
+            continue;
+        }
+      
+        res = sscanf(line, "%s %u %u", name, &value, &mask);
+
+        if (res != 3) {
+            cpu_abort(env,"Bad line in configfile %s: %s\n", filename, line);
+        }
+
+        printf("INFO: overriding config: name=%s value=0x%x mask=0x%x\n",
+               name,value,mask);
+
+        CHECK_SET_CONFIG(CP0_PRid, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config0, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config1, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config2, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config3, uint32_t);
+//        CHECK_SET_CONFIG(CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config6, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config7, uint32_t);
+        CHECK_SET_CONFIG(CP0_LLAddr_rw_bitmask, target_ulong);
+        CHECK_SET_CONFIG(CP0_LLAddr_shift, int);
+        CHECK_SET_CONFIG(SYNCI_Step, uint32_t);
+        CHECK_SET_CONFIG(CCRes, uint32_t);
+        CHECK_SET_CONFIG(CP0_Status_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_TCStatus_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSCtl, uint32_t);
+        CHECK_SET_CONFIG(CP1_fcr0, uint32_t);
+        CHECK_SET_CONFIG(SEGBITS, uint32_t);
+        CHECK_SET_CONFIG(PABITS, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf0_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf0, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf1_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf1, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf2_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf2, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf3_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf3, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf4_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
+        CHECK_SET_CONFIG(insn_flags, int);
+
+        cpu_abort(env,"Unknown override option %s\n",name);
+    }
+}
+#endif
+
 #endif /* CONFIG_USER_ONLY */
 
 static void fpu_init (CPUMIPSState *env, const mips_def_t *def)

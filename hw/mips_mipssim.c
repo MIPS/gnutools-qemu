@@ -50,6 +50,12 @@ typedef struct ResetData {
     uint64_t vector;
 } ResetData;
 
+/* For AVPs:
+ *  Use -kernel to load first ELF file (as usual)
+ *  Use -initrd to load second MIPS 'hex' file (normally a binary image)
+ *  Leave the starting point as the reset vector
+ */
+
 static int64_t load_kernel(void)
 {
     int64_t entry, kernel_high;
@@ -81,6 +87,7 @@ static int64_t load_kernel(void)
     initrd_size = 0;
     initrd_offset = 0;
     if (loaderparams.initrd_filename) {
+#ifndef MIPS_AVP
         initrd_size = get_image_size (loaderparams.initrd_filename);
         if (initrd_size > 0) {
             initrd_offset = (kernel_high + ~TARGET_PAGE_MASK) & TARGET_PAGE_MASK;
@@ -93,6 +100,9 @@ static int64_t load_kernel(void)
             initrd_size = load_image_targphys(loaderparams.initrd_filename,
                 initrd_offset, loaderparams.ram_size - initrd_offset);
         }
+#else
+        initrd_size = load_mips_hex(loaderparams.initrd_filename, big_endian);
+#endif
         if (initrd_size == (target_ulong) -1) {
             fprintf(stderr, "qemu: could not load initial ram disk '%s'\n",
                     loaderparams.initrd_filename);
@@ -203,17 +213,31 @@ mips_mipssim_init (ram_addr_t ram_size,
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
 
+#ifndef MIPS_AVP
     /* Register 64 KB of ISA IO space at 0x1fd00000. */
     isa_mmio_init(0x1fd00000, 0x00010000);
+#endif
 
     /* A single 16450 sits at offset 0x3f8. It is attached to
        MIPS CPU INT2, which is interrupt 4. */
     if (serial_hds[0])
+#ifndef MIPS_AVP
         serial_init(0x3f8, env->irq[4], 115200, serial_hds[0]);
+#else
+        /* Locate serial at 0x1fff_f000, aka 0xbfff_f000 */
+#ifdef TARGET_WORDS_BIGENDIAN
+        serial_mm_init(0x20000000 - (1 << TARGET_PAGE_BITS), 8, env->irq[4], 115200, serial_hds[0], 1, 1);
+#else
+        serial_mm_init(0x20000000 - (1 << TARGET_PAGE_BITS), 8, env->irq[4], 115200, serial_hds[0], 1, 0);
+#endif
+#endif
 
+
+#ifndef MIPS_AVP
     if (nd_table[0].vlan)
         /* MIPSnet uses the MIPS CPU INT0, which is interrupt 2. */
         mipsnet_init(0x4200, env->irq[2], &nd_table[0]);
+#endif
 }
 
 static QEMUMachine mips_mipssim_machine = {

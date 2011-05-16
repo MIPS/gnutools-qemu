@@ -233,6 +233,10 @@ int boot_menu;
 uint8_t *boot_splash_filedata;
 int boot_splash_filedata_size;
 uint8_t qemu_extra_params_fw[2];
+#ifdef MIPS_AVP
+char* cpu_model_name = NULL;
+char* cpu_config_name = NULL;
+#endif
 
 typedef struct FWBootEntry FWBootEntry;
 
@@ -306,6 +310,16 @@ static void res_free(void)
         boot_splash_filedata = NULL;
     }
 }
+
+#ifdef MIPS_AVP
+static void mips_avp_clean_up(void)
+{
+    if (cpu_model_name) {
+        free(cpu_model_name);
+        cpu_model_name = NULL;
+    }
+}
+#endif
 
 static int default_driver_check(QemuOpts *opts, void *opaque)
 {
@@ -2290,7 +2304,26 @@ int main(int argc, char **argv, char **envp)
                     list_cpus(stdout, &fprintf, optarg);
                     exit(0);
                 } else {
+#ifdef MIPS_AVP
+                    char* comma = NULL;
+
+                    cpu_model_name = malloc(strlen(optarg) + 1);
+                    strcpy(cpu_model_name, optarg);
+
+                    comma = strchr(cpu_model_name, ',');
+
+                    if (comma)
+                    {
+                        cpu_config_name = comma + 1;
+                        *comma = 0;
+                    }
+
+                    cpu_model = cpu_model_name;
+
+                    atexit(mips_avp_clean_up);
+#else
                     cpu_model = optarg;
+#endif
                 }
                 break;
             case QEMU_OPTION_initrd:

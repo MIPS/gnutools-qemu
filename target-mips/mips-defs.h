@@ -1,6 +1,23 @@
 #if !defined (__QEMU_MIPS_DEFS_H__)
 #define __QEMU_MIPS_DEFS_H__
 
+/* Define to use SLTIU as stop for AVPs
+ *  - also see hw/mips_mipssim for another #define
+ */
+#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+
+/* Ignore MTC0/DMTC0 to non-decoded CP0 registers */
+#define MIPS_IGNORE_MTC0_TO_UNDEFINED
+
+/* Trace by single-stepping */
+#define MIPS_DEBUG_DISAS
+
+/* trace in current directory */
+#define LOGFILE_CURRENT_DIR
+//#define LOGFILE_WITH_PID
+
+#endif
+
 /* If we want to use host float regs... */
 //#define USE_HOST_FLOAT_REGS
 

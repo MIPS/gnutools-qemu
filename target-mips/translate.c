@@ -1469,6 +1469,16 @@ static void gen_slt_imm (CPUState *env, uint32_t opc, int rt, int rs, int16_t im
     const char *opn = "imm arith";
     TCGv t0;
 
+#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+    if (opc == OPC_SLTIU && rs == 0 && rt == 0 && (((uint16_t)imm == 0xabc2) | ((uint16_t)imm == 0xabc1))) {
+        if ((uint16_t)imm == 0xabc2)
+            gen_helper_avp_ok();
+        else
+            gen_helper_avp_fail();
+        return;
+    }
+#endif
+
     if (rt == 0) {
         /* If no destination, treat it as a NOP. */
         MIPS_DEBUG("NOP");
@@ -4351,7 +4361,12 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    reg+=0; // null
+#endif
 }
 
 #if defined(TARGET_MIPS64)
@@ -5518,7 +5533,12 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 
 die:
     LOG_DISAS("dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    reg+=0; // null
+#endif
 }
 #endif /* TARGET_MIPS64 */
 
@@ -12699,7 +12719,7 @@ static void mips_tcg_init(void)
 CPUMIPSState *cpu_mips_init (const char *cpu_model)
 {
     CPUMIPSState *env;
-    const mips_def_t *def;
+    mips_def_t *def;
 
     def = cpu_mips_find_by_name(cpu_model);
     if (!def)
@@ -12708,6 +12728,11 @@ CPUMIPSState *cpu_mips_init (const char *cpu_model)
     env->cpu_model = def;
     env->cpu_model_str = cpu_model;
 
+#ifndef CONFIG_USER_ONLY
+#ifdef MIPS_AVP
+    cpu_config(env, def, cpu_config_name);
+#endif
+#endif
     cpu_exec_init(env);
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
