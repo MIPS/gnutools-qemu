@@ -2,6 +2,7 @@
  *  MIPS emulation helpers for qemu.
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
+ *  Copyright (c) 2011 Reed Kotler/MIPS Technologies - DSP ASE
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -590,6 +591,9 @@ void do_interrupt (CPUState *env)
         goto set_EPC;
     case EXCP_THREAD:
         cause = 25;
+        goto set_EPC;
+    case EXCP_DSPDIS:
+        cause = 26;
         goto set_EPC;
     case EXCP_CACHE:
         cause = 30;
