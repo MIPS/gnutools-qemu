@@ -951,10 +951,25 @@ static void gen_rdwr_dspctrl(CPUState *env, DisasContext *ctx, int reg, int mask
 /* individual opcode processing */
 #include "mips_dsp_special3_opcodes_gen.h"
 #include "mips_major_dsp_special3_opcodes_gen.h"
+#include "micro_mips_gen.h"
 
 static void gen_BPOSGE32(CPUState * env, DisasContext *ctx) {
     int16_t offset16 = (ctx->opcode & 0xffff);
     int32_t offset = offset16 << 2;
+    int32 insn_bytes = 4;
+    target_ulong btgt = -1;
+    btgt = ctx->pc + insn_bytes + offset;
+
+    TCGv t0 = tcg_temp_new();
+    gen_helper_posge32(t0);
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t0, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
+    ctx->btarget = btgt;
+}
+
+static void gen_mBPOSGE32(CPUState * env, DisasContext *ctx) {
+    int16_t offset16 = (ctx->opcode & 0xffff);
+    int32_t offset = offset16 << 1;
     int32 insn_bytes = 4;
     target_ulong btgt = -1;
     btgt = ctx->pc + insn_bytes + offset;
@@ -9562,6 +9577,8 @@ enum {
     MOVZ = 0x1,
     LWXS = 0x4,
 
+#include "mips_dsp_pool32a_opcodes.h"
+
     /* The following can be distinguished by their lower 6 bits. */
     INS = 0x0c,
     EXT = 0x2c,
@@ -9660,11 +9677,13 @@ enum {
     SYSCALL = 0x8,
     SDBBP = 0xd,
 
+#include "mips_dsp_pool32axf_opcodes.h"
+
     /* bits 15..12 for 0x35 */
     MFHI32 = 0x0,
     MFLO32 = 0x1,
     MTHI32 = 0x2,
-    MTLO32 = 0x3,
+    MTLO32 = 0x3
 };
 
 /* POOL32B encoding of minor opcode field (bits 15..12) */
@@ -10274,6 +10293,55 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
         }
         break;
 #endif
+    case 0x2a:
+    	switch(minor & 3) {
+            case MADD_ACC:
+                mips32_op = OPC_MADD;
+                goto do_muldiv_acc;
+            case MADDU_ACC:
+                mips32_op = OPC_MADDU;
+                goto do_muldiv_acc;
+            case MSUB_ACC:
+                mips32_op = OPC_MSUB;
+                goto do_muldiv_acc;
+            case MSUBU_ACC:
+                mips32_op = OPC_MSUBU;
+            do_muldiv_acc:
+            {
+                int ac = (ctx->opcode >> 14) & 3;
+
+                check_insn(env, ctx, ISA_MIPS32);
+                check_dsp(env, ctx, 1);
+                gen_muldiv(env, ctx, mips32_op, rs, rt, ac);
+               break;
+            }
+    	}
+    	break;
+    case 0x32:
+    	switch (minor & 3) {
+        case MULSA_W_PH:
+            gen_mMULSA_W_PH(env, ctx);
+            break;
+        case MULSAQ_S_W_PH:
+            gen_mMULSAQ_S_W_PH(env, ctx);
+            break;
+        case MULT_ACC:
+            mips32_op = OPC_MULT;
+            goto do_muldiv_acc2;
+        case MULTU_ACC:
+            mips32_op = OPC_MULTU;
+            goto do_muldiv_acc2;
+        do_muldiv_acc2:
+            {
+                int ac = (ctx->opcode >> 14) & 3;
+
+                check_insn(env, ctx, ISA_MIPS32);
+                check_dsp(env, ctx, 1);
+                gen_muldiv(env, ctx, mips32_op, rs, rt, ac);
+               break;
+            }
+    	}
+   	break;
     case 0x2c:
         switch (minor) {
         case SEB:
@@ -10467,6 +10535,63 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
             break;
         case MTLO32:
             gen_HILO(ctx, OPC_MTLO, rs, 0);
+            break;
+        default:
+            goto pool32axf_invalid;
+        }
+        break;
+    case 0x01:
+        switch (minor & 3) {
+        case MFHI_ACC:
+            mips32_op = OPC_MFHI;
+            goto do_mfthilo_ac;
+        case MFLO_ACC:
+            mips32_op = OPC_MFLO;
+            goto do_mfthilo_ac;
+        case MTHI_ACC:
+            mips32_op = OPC_MTHI;
+            goto do_mfthilo_ac;
+        case MTLO_ACC:
+            mips32_op = OPC_MTLO;
+        do_mfthilo_ac:
+            {
+                int ac = (minor & 0xc) >> 2;
+                check_dsp(env, ctx, 1);
+                gen_HILO(ctx, mips32_op, rs, ac);
+            }
+            break;
+        default:
+            goto pool32axf_invalid;
+        }
+        break;
+#include  "mips_dsp_pool32axf_1_case.h"
+#include  "mips_dsp_pool32axf_2_case.h"
+#include  "mips_dsp_pool32axf_4_case.h"
+#include  "mips_dsp_pool32axf_7_case.h"
+
+    case 0x19:
+        switch (minor & 3) {
+        case 0: /* RDDSP */
+            {
+                int mask = (ctx->opcode >> 14) & 0x7f;
+
+                check_dsp(env, ctx, 1);
+                gen_rdwr_dspctrl(env, ctx, rt, mask, 0);
+            }
+            break;
+        case 1: /* WRDSP */
+            {
+                int mask = (ctx->opcode >> 14) & 0x7f;
+
+                check_dsp(env, ctx, 1);
+                gen_rdwr_dspctrl(env, ctx, rt, mask, 1);
+            }
+            break;
+        case 2: /* EXTP */
+            gen_mEXTP(env, ctx);
+            break;
+        case 3: /* EXTPDP */
+            gen_mEXTPDP(env, ctx);
             break;
         default:
             goto pool32axf_invalid;
@@ -10886,6 +11011,7 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
         case 0x07:
             generate_exception(ctx, EXCP_BREAK);
             break;
+#include "mips_dsp_pool32a_case.h"
         default:
         pool32a_invalid:
                 MIPS_INVAL("pool32a");
@@ -11306,9 +11432,12 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
                                 (ctx->opcode >> 18) & 0x7, imm << 1);
             *is_branch = 1;
             break;
-        case BPOSGE64:
         case BPOSGE32:
-            /* MIPS DSP: not implemented */
+        	check_dsp(env, ctx, 1);
+        	gen_mBPOSGE32(env, ctx);
+        	break;
+        case BPOSGE64:
+            /* MIPS DSP 64: not implemented */
             /* Fall through */
         default:
             MIPS_INVAL("pool32i");
