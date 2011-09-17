@@ -124,6 +124,7 @@ static void main_cpu_reset(void *opaque)
     }
 }
 
+#ifndef MIPS_AVP
 static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
 {
     DeviceState *dev;
@@ -139,6 +140,7 @@ static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
                                 base,
                                 sysbus_mmio_get_region(s, 0));
 }
+#endif
 
 static void
 mips_mipssim_init (ram_addr_t ram_size,
