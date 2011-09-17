@@ -3765,7 +3765,12 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 }
 
 static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -4936,7 +4941,12 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 
 die:
     LOG_DISAS("dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 }
 
 static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
