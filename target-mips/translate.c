@@ -1420,7 +1420,8 @@ static void gen_arith_imm (CPUState *env, DisasContext *ctx, uint32_t opc,
 }
 
 /* Logic with immediate operand */
-static void gen_logic_imm (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int rs, int16_t imm)
+static void gen_logic_imm(CPUState *env, DisasContext *ctx, uint32_t opc,
+    int rt, int rs, int16_t imm)
 {
     target_ulong uimm;
     const char *opn = "imm logic";
@@ -1463,7 +1464,8 @@ static void gen_logic_imm (CPUState *env, DisasContext *ctx, uint32_t opc, int r
 }
 
 /* Set on less than with immediate operand */
-static void gen_slt_imm (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int rs, int16_t imm)
+static void gen_slt_imm(CPUState *env, DisasContext *ctx, uint32_t opc,
+    int rt, int rs, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* Sign extend to 32/64 bits */
     const char *opn = "imm arith";
@@ -1764,7 +1766,8 @@ static void gen_arith (CPUState *env, DisasContext *ctx, uint32_t opc,
 }
 
 /* Conditional move */
-static void gen_cond_move (CPUState *env, DisasContext *ctx, uint32_t opc, int rd, int rs, int rt)
+static void gen_cond_move(CPUState *env, DisasContext *ctx, uint32_t opc,
+    int rd, int rs, int rt)
 {
     const char *opn = "cond move";
     int l1;
@@ -1802,7 +1805,8 @@ static void gen_cond_move (CPUState *env, DisasContext *ctx, uint32_t opc, int r
 }
 
 /* Logic */
-static void gen_logic (CPUState *env, DisasContext *ctx, uint32_t opc, int rd, int rs, int rt)
+static void gen_logic(CPUState *env, DisasContext *ctx, uint32_t opc, int rd,
+    int rs, int rt)
 {
     const char *opn = "logic";
 
@@ -1863,7 +1867,8 @@ static void gen_logic (CPUState *env, DisasContext *ctx, uint32_t opc, int rd, i
 }
 
 /* Set on lower than */
-static void gen_slt (CPUState *env, DisasContext *ctx, uint32_t opc, int rd, int rs, int rt)
+static void gen_slt(CPUState *env, DisasContext *ctx, uint32_t opc, int rd,
+    int rs, int rt)
 {
     const char *opn = "slt";
     TCGv t0, t1;
