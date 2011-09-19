@@ -789,7 +789,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t* def, const char* filename)
         CHECK_SET_CONFIG(CP0_Config1, uint32_t);
         CHECK_SET_CONFIG(CP0_Config2, uint32_t);
         CHECK_SET_CONFIG(CP0_Config3, uint32_t);
-//        CHECK_SET_CONFIG(CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config4, uint32_t);
         CHECK_SET_CONFIG(CP0_Config6, uint32_t);
         CHECK_SET_CONFIG(CP0_Config7, uint32_t);
         CHECK_SET_CONFIG(CP0_LLAddr_rw_bitmask, target_ulong);
