@@ -3681,7 +3681,11 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config3));
             rn = "Config3";
             break;
-        /* 4,5 are reserved */
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
+            rn = "Config4";
+            break;
+        /* 5 is reserved */
         /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
@@ -4263,7 +4267,11 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             /* ignored, read only */
             rn = "Config3";
             break;
-        /* 4,5 are reserved */
+        case 4:
+            /* ignored, read only */
+            rn = "Config4";
+            break;
+        /* 5 is reserved */
         /* 6,7 are implementation dependent */
         case 6:
             /* ignored */
@@ -4862,6 +4870,10 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config3));
             rn = "Config3";
             break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
+            rn = "Config4";
+            break;
        /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
@@ -5452,6 +5464,10 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 3:
             /* ignored */
             rn = "Config3";
+            break;
+        case 4:
+            /* ignored */
+            rn = "Config4";
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -13110,6 +13126,7 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_Config1 = env->cpu_model->CP0_Config1;
     env->CP0_Config2 = env->cpu_model->CP0_Config2;
     env->CP0_Config3 = env->cpu_model->CP0_Config3;
+    env->CP0_Config4 = env->cpu_model->CP0_Config4;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
     env->CP0_LLAddr_rw_bitmask = env->cpu_model->CP0_LLAddr_rw_bitmask

@@ -49,6 +49,10 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
+/* No kernel scratch regs, no mmu extensions */
+#define MIPS_CONFIG4                                              \
+((0 << CP0C4_KScrExist) | (0 << CP0C4_MMUExtDef))
+
 /* MMU types, the first four entries have the same layout as the
    CP0C0_MT field.  */
 enum mips_mmu_types {
@@ -68,6 +72,7 @@ struct mips_def_t {
     int32_t CP0_Config1;
     int32_t CP0_Config2;
     int32_t CP0_Config3;
+    int32_t CP0_Config4;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     target_ulong CP0_LLAddr_rw_bitmask;
@@ -108,6 +113,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -130,6 +136,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -150,6 +157,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -170,6 +178,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -191,6 +200,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt),
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -212,6 +222,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -331,6 +342,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt),
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -353,6 +365,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt),
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -426,6 +439,7 @@ static mips_def_t mips_defs[] =
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VInt) | (1 << CP0C3_MT) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
@@ -512,6 +526,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -533,6 +548,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -559,6 +575,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
@@ -586,6 +603,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA),
+        .CP0_Config4 = MIPS_CONFIG4,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
@@ -677,7 +695,30 @@ static void fixed_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 
 static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
-    env->tlb->nb_tlb = 1 + ((def->CP0_Config1 >> CP0C1_MMU) & 63);
+    int mmu_size_minus_one = (def->CP0_Config1 >> CP0C1_MMU) & 63;
+
+    if (((def->CP0_Config0 >> CP0C0_M) & 1) &&
+        ((def->CP0_Config1 >> CP0C1_M) & 1) &&
+        ((def->CP0_Config2 >> CP0C2_M) & 1) &&
+        ((def->CP0_Config3 >> CP0C3_M) & 1))
+    {
+        switch ((def->CP0_Config4 >> CP0C4_MMUExtDef) & 3) { /*Config4.MMUExtDef*/
+            case 0: /* no mmu extensions */
+                break;
+            case 1: /* mmu size extension */
+                mmu_size_minus_one |= (def->CP0_Config4 & 0xff) << 6;
+                break;
+            case 2: /* FTLB */
+                cpu_abort(env, "FTLB support not addded to qemu yet, fix me\n");
+                break;
+            default:
+                cpu_abort(env, "This MMUExtDef value not supported\n");
+                break;
+        }
+    }
+
+    env->tlb->nb_tlb = 1 + mmu_size_minus_one;
+
     env->tlb->map_address = &r4k_map_address;
     env->tlb->helper_tlbwi = r4k_helper_tlbwi;
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
