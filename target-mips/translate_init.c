@@ -18,6 +18,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef CONFIG_USER_ONLY
+#include "sysemu.h"
+#endif
+
 /* CPU / CPU family specific config register values. */
 
 /* Have config1, uncached coherency */
@@ -92,7 +96,7 @@ struct mips_def_t {
 
 /*****************************************************************************/
 /* MIPS CPU definitions */
-static const mips_def_t mips_defs[] =
+static mips_def_t mips_defs[] =
 {
     {
         .name = "4Kc",
@@ -219,6 +223,104 @@ static const mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_FMT,
     },
     {
+        .name = "M14Kc",
+        .CP0_PRid = 0x00019c00,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
+                    (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (15 << CP0C1_MMU) |
+                       (0 << CP0C1_IS) | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
+                       (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
+                       (0 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
+                       (0 << CP0C3_RXI) | (0 << CP0C3_VInt),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1278FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "M14K",
+        .CP0_PRid = 0x00019b00,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
+                       (MMU_TYPE_FMT << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 |
+                       (0 << CP0C1_IS) | (0 << CP0C1_IL) | (0 << CP0C1_IA) |
+                       (0 << CP0C1_DS) | (0 << CP0C1_DL) | (0 << CP0C1_DA) |
+                       (1 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
+                       (0 << CP0C3_RXI) | (0 << CP0C3_VInt),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1258FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS,
+        .mmu_type = MMU_TYPE_FMT,
+    },
+    {
+        .name = "M14KEc",
+        .CP0_PRid = 0x00019e00,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
+                    (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (15 << CP0C1_MMU) |
+                       (0 << CP0C1_IS) | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
+                       (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
+                       (0 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
+                       (0 << CP0C3_RXI) | (0 << CP0C3_VInt) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1378FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS | ASE_DSP | ASE_DSPR2,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "M14KE",
+        .CP0_PRid = 0x00019d00,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
+                       (MMU_TYPE_FMT << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 |
+                       (0 << CP0C1_IS) | (0 << CP0C1_IL) | (0 << CP0C1_IA) |
+                       (0 << CP0C1_DS) | (0 << CP0C1_DL) | (0 << CP0C1_DA) |
+                       (1 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
+                       (0 << CP0C3_RXI) | (0 << CP0C3_VInt) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1358FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS | ASE_DSP | ASE_DSPR2,
+        .mmu_type = MMU_TYPE_FMT,
+    },
+    {
         .name = "24Kc",
         .CP0_PRid = 0x00019300,
         .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
@@ -322,13 +424,14 @@ static const mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VInt) | (1 << CP0C3_MT),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VInt) | (1 << CP0C3_MT) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
         /* No DSP implemented. */
-        .CP0_Status_rw_bitmask = 0x3678FF1F,
+        .CP0_Status_rw_bitmask = 0x3778FF1F,
         /* No DSP implemented. */
         .CP0_TCStatus_rw_bitmask = (0 << CP0TCSt_TCU3) | (0 << CP0TCSt_TCU2) |
                     (1 << CP0TCSt_TCU1) | (1 << CP0TCSt_TCU0) |
@@ -356,7 +459,8 @@ static const mips_def_t mips_defs[] =
                     (0x3fe << CP0SRSC4_SRS14) | (0x3fe << CP0SRSC4_SRS13),
         .SEGBITS = 32,
         .PABITS = 32,
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_MT,
+        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 |
+                      ASE_MT,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
@@ -536,7 +640,7 @@ static const mips_def_t mips_defs[] =
 #endif
 };
 
-static const mips_def_t *cpu_mips_find_by_name (const char *name)
+static mips_def_t *cpu_mips_find_by_name (const char *name)
 {
     int i;
 
@@ -602,6 +706,78 @@ static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
             cpu_abort(env, "MMU type not supported\n");
     }
 }
+
+#ifdef MIPS_AVP
+
+#define CHECK_SET_CONFIG(NAME, TYPE) \
+    if (!strcmp(name, #NAME )) { \
+        def->NAME = (def->NAME & (~(TYPE)mask)) | (TYPE)value; \
+        continue; \
+    }
+
+static void cpu_config(CPUMIPSState *env, mips_def_t* def, const char* filename)
+{
+    FILE* fp = NULL;
+    int res = 0;
+    uint32_t value, mask;
+    char line[LINE_MAX];
+    char name[LINE_MAX];
+    
+    if (!filename)
+        return;
+
+    if (!(fp = fopen(filename, "r")))
+        cpu_abort(env,"Cannot open config file '%s'\n",filename);
+
+    while (fgets(line, LINE_MAX, fp) != NULL) {
+        if (line[0] == '#' || line[0] == '\n') {
+            continue;
+        }
+      
+        res = sscanf(line, "%s %u %u", name, &value, &mask);
+
+        if (res != 3) {
+            cpu_abort(env,"Bad line in configfile %s: %s\n", filename, line);
+        }
+
+        printf("INFO: overriding config: name=%s value=0x%x mask=0x%x\n",
+               name,value,mask);
+
+        CHECK_SET_CONFIG(CP0_PRid, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config0, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config1, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config2, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config3, uint32_t);
+//        CHECK_SET_CONFIG(CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config6, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config7, uint32_t);
+        CHECK_SET_CONFIG(CP0_LLAddr_rw_bitmask, target_ulong);
+        CHECK_SET_CONFIG(CP0_LLAddr_shift, int);
+        CHECK_SET_CONFIG(SYNCI_Step, uint32_t);
+        CHECK_SET_CONFIG(CCRes, uint32_t);
+        CHECK_SET_CONFIG(CP0_Status_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_TCStatus_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSCtl, uint32_t);
+        CHECK_SET_CONFIG(CP1_fcr0, uint32_t);
+        CHECK_SET_CONFIG(SEGBITS, uint32_t);
+        CHECK_SET_CONFIG(PABITS, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf0_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf0, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf1_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf1, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf2_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf2, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf3_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf3, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf4_rw_bitmask, uint32_t);
+        CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
+        CHECK_SET_CONFIG(insn_flags, int);
+
+        cpu_abort(env,"Unknown override option %s\n",name);
+    }
+}
+#endif
+
 #endif /* CONFIG_USER_ONLY */
 
 static void fpu_init (CPUMIPSState *env, const mips_def_t *def)

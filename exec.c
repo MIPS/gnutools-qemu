@@ -1598,6 +1598,16 @@ void cpu_single_step(CPUState *env, int enabled)
 /* enable or disable low levels log */
 void cpu_set_log(int log_flags)
 {
+#ifdef LOGFILE_WITH_PID
+    char otherfilename[128];
+    sprintf(otherfilename,"/tmp/qemu%d.log",getpid());
+    logfilename = otherfilename;
+#endif
+#ifdef LOGFILE_CURRENT_DIR
+    char otherfilename[128];
+    sprintf(otherfilename,"qemu.log");
+    logfilename = otherfilename;
+#endif
     loglevel = log_flags;
     if (loglevel && !logfile) {
         logfile = fopen(logfilename, log_append ? "a" : "w");

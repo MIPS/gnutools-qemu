@@ -50,6 +50,7 @@
 #include "loader.h"
 #include "fw_cfg.h"
 
+#include <limits.h>
 #include <zlib.h>
 
 static int roms_loaded;
@@ -240,6 +241,87 @@ static void *load_at(int fd, int offset, int size)
         return NULL;
     }
     return ptr;
+}
+
+/*
+ * MIPS 'hex' loader
+ *
+ * This is a simple ascii raw image format
+ *  eg:
+ *
+ * # Endian Little
+ * 3c000 41565053
+ * 3c001 20000090
+ * 3c002 00000000
+ * ...
+ *
+ * Lines starting with '#' are comments. All other lines contain two hex
+ * numbers, the first is the PA/4, the second is the data to be stored at that
+ * PA.
+ *
+ */
+int load_mips_hex(const char *filename, int big_endian)
+{
+    FILE *fd;
+    char *line = NULL;
+    size_t line_length = 0;
+    int addr, size;
+    uint32_t data;
+#if defined(WORDS_BIGENDIAN)
+    const int host_big_endian = 1;
+#else
+    const int host_big_endian = 0;
+#endif
+
+    /* open the file */
+    fd = fopen(filename, "r");
+    if (fd == NULL) {
+        perror(filename);
+        return -1;
+    }
+
+    line = malloc(LINE_MAX);
+
+    if (line == NULL) {
+        fprintf(stderr, "Error: %s line buffer allocation failed\n", __func__);
+        return -1;
+    }
+
+    size = 0;
+    while ( !feof(fd) ) {
+        /* read a line */
+        if ( getline(&line, &line_length, fd) == -1 ) {
+            if (feof(fd)) {
+                break;
+            }
+            fprintf(stderr, "Error: %s getline failed\n", __func__);
+            free(line);
+            return -1;
+        }
+
+        /* ignore comments (lines starting with '#') */
+        if (line[0] == '#') continue;
+
+        /* extract two hex values from the line */
+        if ( sscanf(line,"%x %" SCNx32,&addr,&data) != 2) {
+            fprintf(stderr, "Error: %s sscanf failed on line %s", __func__, line);
+            free(line);
+            return -1;
+        }
+
+        if (host_big_endian ? !big_endian : big_endian) {
+            bswap32s(&data);
+        }
+
+        /* put the data into the physical memory */
+        cpu_physical_memory_write_rom(addr<<2, (uint8_t*) &data, 4);
+
+        size += 4;
+    }
+    
+    free(line);
+
+    return size;
 }
 
 #ifdef ELF_CLASS

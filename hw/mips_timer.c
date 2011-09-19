@@ -23,6 +23,7 @@
 #include "hw.h"
 #include "mips_cpudevs.h"
 #include "qemu-timer.h"
+#include "qemu-log.h"
 
 #define TIMER_FREQ	100 * 1000 * 1000
 
@@ -124,7 +125,7 @@ static void mips_timer_cb (void *opaque)
     CPUState *env;
 
     env = opaque;
-#if 0
+#if 0 || defined(MIPS_AVP)
     qemu_log("%s\n", __func__);
 #endif
 
