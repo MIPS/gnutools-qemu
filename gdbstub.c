@@ -2395,7 +2395,7 @@ void gdb_set_stop_cpu(CPUState *env)
 }
 
 #ifndef CONFIG_USER_ONLY
-static void gdb_vm_state_change(void *opaque, int running, int reason)
+static void gdb_vm_state_change(void *opaque, int running, RunState state)
 {
     GDBState *s = gdbserver_state;
     CPUState *env = s->c_cpu;
@@ -2406,8 +2406,8 @@ static void gdb_vm_state_change(void *opaque, int running, int reason)
     if (running || s->state == RS_INACTIVE || s->state == RS_SYSCALL) {
         return;
     }
-    switch (reason) {
-    case VMSTOP_DEBUG:
+    switch (state) {
+    case RSTATE_DEBUG:
         if (env->watchpoint_hit) {
             switch (env->watchpoint_hit->flags & BP_MEM_ACCESS) {
             case BP_MEM_READ:
@@ -2430,25 +2430,25 @@ static void gdb_vm_state_change(void *opaque, int running, int reason)
         tb_flush(env);
         ret = GDB_SIGNAL_TRAP;
         break;
-    case VMSTOP_USER:
+    case RSTATE_PAUSED:
         ret = GDB_SIGNAL_INT;
         break;
-    case VMSTOP_SHUTDOWN:
+    case RSTATE_SHUTDOWN:
         ret = GDB_SIGNAL_QUIT;
         break;
-    case VMSTOP_DISKFULL:
+    case RSTATE_IO_ERROR:
         ret = GDB_SIGNAL_IO;
         break;
-    case VMSTOP_WATCHDOG:
+    case RSTATE_WATCHDOG:
         ret = GDB_SIGNAL_ALRM;
         break;
-    case VMSTOP_PANIC:
+    case RSTATE_PANICKED:
         ret = GDB_SIGNAL_ABRT;
         break;
-    case VMSTOP_SAVEVM:
-    case VMSTOP_LOADVM:
+    case RSTATE_SAVEVM:
+    case RSTATE_RESTORE:
         return;
-    case VMSTOP_MIGRATE:
+    case RSTATE_PRE_MIGRATE:
         ret = GDB_SIGNAL_XCPU;
         break;
     default:
@@ -2485,7 +2485,7 @@ void gdb_do_syscall(gdb_syscall_complete_cb cb, const char *fmt, ...)
     gdb_current_syscall_cb = cb;
     s->state = RS_SYSCALL;
 #ifndef CONFIG_USER_ONLY
-    vm_stop(VMSTOP_DEBUG);
+    vm_stop(RSTATE_DEBUG);
 #endif
     s->state = RS_IDLE;
     va_start(va, fmt);
@@ -2556,10 +2556,10 @@ static void gdb_read_byte(GDBState *s, int ch)
         if (ch != '$')
             return;
     }
-    if (vm_running) {
+    if (runstate_is_running()) {
         /* when the CPU is running, we cannot do anything except stop
            it when receiving a char */
-        vm_stop(VMSTOP_USER);
+        vm_stop(RSTATE_PAUSED);
     } else
 #endif
     {
@@ -2821,7 +2821,7 @@ static void gdb_chr_event(void *opaque, int event)
 {
     switch (event) {
     case CHR_EVENT_OPENED:
-        vm_stop(VMSTOP_USER);
+        vm_stop(RSTATE_PAUSED);
         gdb_has_xml = 0;
         break;
     default:
@@ -2861,8 +2861,8 @@ static int gdb_monitor_write(CharDriverState *chr, const uint8_t *buf, int len)
 #ifndef _WIN32
 static void gdb_sigterm_handler(int signal)
 {
-    if (vm_running) {
-        vm_stop(VMSTOP_USER);
+    if (runstate_is_running()) {
+        vm_stop(RSTATE_PAUSED);
     }
 }
 #endif
