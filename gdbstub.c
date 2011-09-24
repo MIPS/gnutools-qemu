@@ -1071,17 +1071,28 @@ static int cpu_gdb_read_register(CPUState *env, uint8_t *mem_buf, int n)
     case 37: GET_REGL(env->active_tc.PC | !!(env->hflags & MIPS_HFLAG_M16));
     case 72: GET_REGL(0); /* fp */
     case 89: GET_REGL((int32_t)env->CP0_PRid);
-    case 618: GET_REGL(env->active_tc.ACX[0]);
-    case 619: GET_REGL(env->active_tc.HI[1]);
-    case 620: GET_REGL(env->active_tc.LO[1]);
-    case 621: GET_REGL(env->active_tc.ACX[1]);
-    case 622: GET_REGL(env->active_tc.HI[2]);
-    case 623: GET_REGL(env->active_tc.LO[2]);
-    case 624: GET_REGL(env->active_tc.ACX[2]);
-    case 625: GET_REGL(env->active_tc.HI[3]);
-    case 626: GET_REGL(env->active_tc.LO[3]);
-    case 627: GET_REGL(env->active_tc.ACX[3]);
-    case 628: GET_REGL(env->active_tc.DSPControl);
+    case 618:
+        GET_REGL(env->active_tc.ACX[0]);
+    case 619:
+        GET_REGL(env->active_tc.HI[1]);
+    case 620:
+        GET_REGL(env->active_tc.LO[1]);
+    case 621:
+        GET_REGL(env->active_tc.ACX[1]);
+    case 622:
+        GET_REGL(env->active_tc.HI[2]);
+    case 623:
+        GET_REGL(env->active_tc.LO[2]);
+    case 624:
+        GET_REGL(env->active_tc.ACX[2]);
+    case 625:
+        GET_REGL(env->active_tc.HI[3]);
+    case 626:
+        GET_REGL(env->active_tc.LO[3]);
+    case 627:
+        GET_REGL(env->active_tc.ACX[3]);
+    case 628:
+        GET_REGL(env->active_tc.DSPControl);
     }
     if (n >= 73 && n <= 88) {
 	/* 16 embedded regs.  */
@@ -1145,17 +1156,39 @@ static int cpu_gdb_write_register(CPUState *env, uint8_t *mem_buf, int n)
         }
         break;
     case 72: /* fp, ignored */ break;
-    case 618: env->active_tc.ACX[0] = tmp; break;
-    case 619: env->active_tc.HI[1] = tmp; break;
-    case 620: env->active_tc.LO[1] = tmp; break;
-    case 621: env->active_tc.ACX[1] = tmp; break;
-    case 622: env->active_tc.HI[2] = tmp; break;
-    case 623: env->active_tc.LO[2] = tmp; break;
-    case 624: env->active_tc.ACX[2] = tmp; break;
-    case 625: env->active_tc.HI[3] = tmp; break;
-    case 626: env->active_tc.LO[3] = tmp; break;
-    case 627: env->active_tc.ACX[3] = tmp; break;
-    case 628: env->active_tc.DSPControl = tmp; break;
+    case 618:
+        env->active_tc.ACX[0] = tmp;
+        break;
+    case 619:
+        env->active_tc.HI[1] = tmp;
+        break;
+    case 620:
+        env->active_tc.LO[1] = tmp;
+        break;
+    case 621:
+        env->active_tc.ACX[1] = tmp;
+        break;
+    case 622:
+        env->active_tc.HI[2] = tmp;
+        break;
+    case 623:
+        env->active_tc.LO[2] = tmp;
+        break;
+    case 624:
+        env->active_tc.ACX[2] = tmp;
+        break;
+    case 625:
+        env->active_tc.HI[3] = tmp;
+        break;
+    case 626:
+        env->active_tc.LO[3] = tmp;
+        break;
+    case 627:
+        env->active_tc.ACX[3] = tmp;
+        break;
+    case 628:
+        env->active_tc.DSPControl = tmp;
+        break;
     default: 
 	if (n > 89)
 	    return 0;
