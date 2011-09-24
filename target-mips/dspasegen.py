@@ -51,7 +51,7 @@ major_opc_f = open('mips_major_dsp_special3_opcodes.h', 'w');
 for key in sorted(special3_opcodes.keys()):
     major_special3_opcodes[key] = to_int_from_octal_pair (major_special3_opcodes[key]);
     key_c_name = opcode_enum(make_legal_c(key)) + '_major';
-    major_opc_f.write('   ' + key_c_name + ' = ' + hex(major_special3_opcodes[key]) + '| OPC_SPECIAL3,\n')
+    major_opc_f.write('   ' + key_c_name + ' = ' + hex(major_special3_opcodes[key]) + ' | OPC_SPECIAL3,\n')
 
 major_opc_f.close();
 
