@@ -716,7 +716,7 @@ static inline uint8_t dsp_roundRightShift1SubU8(uint8_t a_not_wide_enough,
             (func(s1.temp8[DSP_QUAD_HIMID], s2.temp8[DSP_QUAD_HIMID]) << 2) |\
             (func(s1.temp8[DSP_QUAD_LOMID], s2.temp8[DSP_QUAD_LOMID]) << 1) |\
             func(s1.temp8[DSP_QUAD_LO], s2.temp8[DSP_QUAD_LO]);\
-        return foo;
+        return foo;\
     } while (0)
 
 #define do_dsp8_binary_cc_res(func)\
@@ -728,19 +728,19 @@ static inline uint8_t dsp_roundRightShift1SubU8(uint8_t a_not_wide_enough,
 #define do_dsp8_unary_helper(func, action)\
 target_ulong helper_##func(target_ulong arg1)\
 {\
-    do_dsp8_unary(action)\
+    do_dsp8_unary(action);\
 }
 
 #define do_dsp8_binary_helper(func, action)\
 target_ulong helper_##func(target_ulong arg1, target_ulong arg2)\
 {\
-    do_dsp8_binary(action)\
+    do_dsp8_binary(action);\
 }
 
 #define do_dsp8_binary_cc_helper(func, action)\
 void helper_##func(target_ulong arg1, target_ulong arg2)\
 {\
-    do_dsp8_binary_cc(action)\
+    do_dsp8_binary_cc(action);\
 }
 
 #define do_dsp8_binary_cc_resonly_helper(func, action)\
@@ -752,7 +752,7 @@ target_ulong helper_##func(target_ulong arg1, target_ulong arg2)\
 #define do_dsp8_binary_cc_res_helper(func, action)\
 target_ulong helper_##func(target_ulong arg1, target_ulong arg2)\
 {\
-    do_dsp8_binary_cc_res(action)\
+    do_dsp8_binary_cc_res(action);\
 }
 
 do_dsp8_unary_helper(absq_s_qb, dsp_abs8)
@@ -775,29 +775,37 @@ do_dsp8_binary_helper(subu_qb, dsp_subU8)
 do_dsp8_binary_helper(subu_s_qb, dsp_satSubU8)
 
 #define do_dsp16_unary(func) \
-    union target_split s, t; \
-    s.temp = arg1; \
-    t.temp16[DSP_PAIR_HI] = func(s.temp16[DSP_PAIR_HI]); \
-    t.temp16[DSP_PAIR_LO] = func(s.temp16[DSP_PAIR_LO]); \
-    return t.temp;
+    do {\
+        union target_split s, t; \
+        s.temp = arg1; \
+        t.temp16[DSP_PAIR_HI] = func(s.temp16[DSP_PAIR_HI]); \
+        t.temp16[DSP_PAIR_LO] = func(s.temp16[DSP_PAIR_LO]); \
+        return t.temp;\
+    } while (0)
 
 #define do_dsp16_binary(func) \
-    union target_split s1, s2, t; \
-    s1.temp = arg1; \
-    s2.temp = arg2; \
-    t.temp16[DSP_PAIR_HI] = func(s1.temp16[DSP_PAIR_HI], \
-                                 s2.temp16[DSP_PAIR_HI]); \
-    t.temp16[DSP_PAIR_LO] = func(s1.temp16[DSP_PAIR_LO], \
-                                 s2.temp16[DSP_PAIR_LO]); \
-    return t.temp;
+    do {\
+        union target_split s1, s2, t;\
+        s1.temp = arg1;\
+        s2.temp = arg2;\
+        t.temp16[DSP_PAIR_HI] = func(s1.temp16[DSP_PAIR_HI],\
+            s2.temp16[DSP_PAIR_HI]);\
+        t.temp16[DSP_PAIR_LO] = func(s1.temp16[DSP_PAIR_LO],\
+            s2.temp16[DSP_PAIR_LO]);\
+        return t.temp;\
+    } while (0)
 
 #define do_dsp16_binary_cc(func) \
-    union target_split s1, s2; \
-    s1.temp = arg1; \
-    s2.temp = arg2; \
-    set_DSPCONTROL_25(func(s1.temp16[DSP_PAIR_HI], s2.temp16[DSP_PAIR_HI])); \
-    set_DSPCONTROL_24(func(s1.temp16[DSP_PAIR_LO], s2.temp16[DSP_PAIR_LO])); \
-    return;
+    do {\
+        union target_split s1, s2;\
+        s1.temp = arg1;\
+        s2.temp = arg2;\
+        set_DSPCONTROL_25(func(s1.temp16[DSP_PAIR_HI],\
+            s2.temp16[DSP_PAIR_HI]));\
+        set_DSPCONTROL_24(func(s1.temp16[DSP_PAIR_LO],\
+            s2.temp16[DSP_PAIR_LO]));\
+        return;\
+    } while (0)
 
 static inline uint16_t dsp_abs16(uint16_t x)
 {
@@ -1119,19 +1127,19 @@ static inline int16_t dsp_satMultiplyQ15Q15(int16_t a_not_wide_enough,
 #define do_dsp16_unary_helper(func, action) \
 target_ulong helper_##func(target_ulong arg1) \
 { \
-    do_dsp16_unary(action) \
+    do_dsp16_unary(action);\
 }
 
 #define do_dsp16_binary_helper(func, action) \
 target_ulong helper_##func(target_ulong arg1, target_ulong arg2) \
 { \
-    do_dsp16_binary(action) \
+    do_dsp16_binary(action);\
 }
 
 #define do_dsp16_binary_cc_helper(func, action) \
 void helper_##func(target_ulong arg1, target_ulong arg2) \
 { \
-    do_dsp16_binary_cc(action) \
+    do_dsp16_binary_cc(action);\
 }
 
 do_dsp16_unary_helper(absq_s_ph, dsp_abs16)
