@@ -593,39 +593,41 @@ static inline void gen_store_gpr (TCGv t, int reg)
         tcg_gen_mov_tl(cpu_gpr[reg], t);
 }
 
-static inline void gen_load_HI (TCGv t, int ac)
+static inline void gen_load_HI(TCGv t, int ac)
 {
     tcg_gen_mov_tl(t, cpu_HI[ac]);
 }
 
-static inline void gen_store_HI (TCGv t, int ac)
+static inline void gen_store_HI(TCGv t, int ac)
 {
     tcg_gen_mov_tl(cpu_HI[ac], t);
 }
 
-static inline void gen_load_LO (TCGv t, int ac)
+static inline void gen_load_LO(TCGv t, int ac)
 {
     tcg_gen_mov_tl(t, cpu_LO[ac]);
 }
 
-static inline void gen_store_LO (TCGv t, int ac)
+static inline void gen_store_LO(TCGv t, int ac)
 {
     tcg_gen_mov_tl(cpu_LO[ac], t);
 }
 
 /* load HI/LO */
-static inline void gen_load_HI_LO (TCGv_i64 t, int ac) {
+static inline void gen_load_HI_LO(TCGv_i64 t, int ac)
+{
     if (ac >= MIPS_DSP_ACC) {
-        printf("bad ac \n");
+        printf("bad ac\n");
         exit(127);
     }
     tcg_gen_concat_tl_i64(t, cpu_LO[ac], cpu_HI[ac]);
 }
 
 /* store HI/LO */
-static inline void gen_store_HI_LO (TCGv_i64 t, int ac) {
+static inline void gen_store_HI_LO(TCGv_i64 t, int ac)
+{
     if (ac >= MIPS_DSP_ACC) {
-        printf("bad ac \n");
+        printf("bad ac\n");
         exit(127);
     }
     TCGv_i64 t0 = tcg_temp_new_i64();
@@ -904,14 +906,17 @@ static inline void check_dsp(CPUState *env, DisasContext *ctx, int rev)
 {
     check_insn(env, ctx, ASE_DSP);
 
-    if (rev > 1)
+    if (rev > 1) {
         check_insn(env, ctx, ASE_DSPR2);
+    }
 
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSP)))
+    if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSP))) {
         generate_exception(ctx, EXCP_DSPDIS);
+    }
 }
 
-static void gen_rdwr_dspctrl(CPUState *env, DisasContext *ctx, int reg, int mask, int write)
+static void gen_rdwr_dspctrl(CPUState *env, DisasContext *ctx, int reg,
+    int mask, int write)
 {
     const char *opn = "dspctrl";
 
@@ -921,12 +926,29 @@ static void gen_rdwr_dspctrl(CPUState *env, DisasContext *ctx, int reg, int mask
 
     check_dsp(env, ctx, 1);
 
-    if (mask & 0x01) dspctrl_mask |= DSPCtlPosMsk;
-    if (mask & 0x02) dspctrl_mask |= DSPCtlScountMsk;
-    if (mask & 0x04) dspctrl_mask |= DSPCtlCMsk;
-    if (mask & 0x08) dspctrl_mask |= DSPCtlOuflagMsk;
-    if (mask & 0x10) dspctrl_mask |= DSPCtlCcondMsk;
-    if (mask & 0x20) dspctrl_mask |= DSPCtlEFIMsk;
+    if (mask & 0x01) {
+        dspctrl_mask |= DSPCtlPosMsk;
+    }
+
+    if (mask & 0x02) {
+        dspctrl_mask |= DSPCtlScountMsk;
+    }
+
+    if (mask & 0x04) {
+        dspctrl_mask |= DSPCtlCMsk;
+    }
+
+    if (mask & 0x08) {
+        dspctrl_mask |= DSPCtlOuflagMsk;
+    }
+
+    if (mask & 0x10) {
+        dspctrl_mask |= DSPCtlCcondMsk;
+    }
+
+    if (mask & 0x20) {
+        dspctrl_mask |= DSPCtlEFIMsk;
+    }
 
     if (write) {
         opn = "wrdsp";
@@ -953,7 +975,8 @@ static void gen_rdwr_dspctrl(CPUState *env, DisasContext *ctx, int reg, int mask
 #include "mips_major_dsp_special3_opcodes_gen.h"
 #include "micro_mips_gen.h"
 
-static void gen_BPOSGE32(CPUState * env, DisasContext *ctx) {
+static void gen_BPOSGE32(CPUState *env, DisasContext *ctx)
+{
     int16_t offset16 = (ctx->opcode & 0xffff);
     int32_t offset = offset16 << 2;
     int32 insn_bytes = 4;
@@ -2110,7 +2133,7 @@ static void gen_shift (CPUState *env, DisasContext *ctx, uint32_t opc,
 }
 
 /* Arithmetic on HI/LO registers */
-static void gen_HILO (DisasContext *ctx, uint32_t opc, int reg, int ac)
+static void gen_HILO(DisasContext *ctx, uint32_t opc, int reg, int ac)
 {
     const char *opn = "hilo";
 
@@ -2151,8 +2174,8 @@ static void gen_HILO (DisasContext *ctx, uint32_t opc, int reg, int ac)
     }
 }
 
-static void gen_muldiv (CPUState *env, DisasContext *ctx, uint32_t opc,
-                        int rs, int rt, int ac)
+static void gen_muldiv(CPUState *env, DisasContext *ctx, uint32_t opc,
+    int rs, int rt, int ac)
 {
     const char *opn = "mul/div";
     TCGv t0, t1;
@@ -12056,8 +12079,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
                 int ac = 0;
 
                 if (unlikely(env->insn_flags & ASE_DSP)) {
-                    switch (op)
-                    {
+                    switch (op) {
                     case OPC_DIV:
                     case OPC_DIVU:
                         break;
@@ -12339,7 +12361,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
                 gen_ADDUH_QB_major(env, ctx);
                 break;
             }
-            // Fall through
+            /* Fall through */
         case OPC_DIV_G_2E ... OPC_DIVU_G_2E:
         case OPC_MULTU_G_2E:
         case OPC_MOD_G_2E ... OPC_MODU_G_2E:
