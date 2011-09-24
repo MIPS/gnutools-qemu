@@ -501,12 +501,6 @@ typedef union target_split split_32;
 #define BIT8_MAX 0x7F
 #define BIT8_MIN 0x80
 
-#define DSP8_BINARY_HEADER(name) \
-    static inline uint8_t name(uint8_t a_not_wide_enough, \
-                               uint8_t b_not_wide_enough) { \
-    uint16_t result; \
-    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
-
 static inline uint8_t dsp_abs8(uint8_t x)
 {
     if (x == BIT8_MIN) {
@@ -526,7 +520,12 @@ static inline uint16_t multiplyU8U8(uint8_t a, uint8_t b)
     return (uint16_t)a * (uint16_t)b;
 }
 
-DSP8_BINARY_HEADER(dsp_addU8)
+static inline uint8_t dsp_addU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a + b;
 
     if (result & BIT16_8) {
@@ -536,7 +535,12 @@ DSP8_BINARY_HEADER(dsp_addU8)
     return BIT8_TRIM(result);
 }
 
-DSP8_BINARY_HEADER(dsp_satAddU8)
+static inline uint8_t dsp_satAddU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a + b;
 
     if (result & BIT16_8) {
@@ -547,33 +551,63 @@ DSP8_BINARY_HEADER(dsp_satAddU8)
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_rightShift1AddU8)
+static inline uint8_t dsp_rightShift1AddU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a + b;
     return result >> 1;
 }
 
-DSP8_BINARY_HEADER(dsp_roundRightShift1AddU8)
+static inline uint8_t dsp_roundRightShift1AddU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a + b;
     result++;
     return result >> 1;
 }
 
-DSP8_BINARY_HEADER(dsp_compareUnsignedBytesEq)
+static inline uint8_t dsp_compareUnsignedBytesEq(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a == b;
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_compareUnsignedBytesLt)
+static inline uint8_t dsp_compareUnsignedBytesLt(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a < b;
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_compareUnsignedBytesLe)
+static inline uint8_t dsp_compareUnsignedBytesLe(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a <= b;
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_subU8)
+static inline uint8_t dsp_subU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a - b;
 
     if (result & BIT16_8) {
@@ -583,7 +617,12 @@ DSP8_BINARY_HEADER(dsp_subU8)
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_satSubU8)
+static inline uint8_t dsp_satSubU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a - b;
 
     if (result & BIT16_8) {
@@ -594,12 +633,22 @@ DSP8_BINARY_HEADER(dsp_satSubU8)
     return result;
 }
 
-DSP8_BINARY_HEADER(dsp_rightShift1SubU8)
+static inline uint8_t dsp_rightShift1SubU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a - b;
     return result >> 1;
 }
 
-DSP8_BINARY_HEADER(dsp_roundRightShift1SubU8)
+static inline uint8_t dsp_roundRightShift1SubU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
     result = a - b;
     result++;
     return result >> 1;
