@@ -12,9 +12,9 @@ mips_major_dsp_special3_opcodes_gen.h
 mips_major_dsp_special3_opcodes.h
 
 To copy these to qemu I used:
-bash ./update_qem.sh  
+bash ./update_qem.sh
 
-But this shell script needs to be modified depending on where youre qemu 
+But this shell script needs to be modified depending on where youre qemu
 enlistment is.
 
 
