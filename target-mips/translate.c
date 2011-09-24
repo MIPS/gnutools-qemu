@@ -990,7 +990,8 @@ static void gen_BPOSGE32(CPUState *env, DisasContext *ctx)
     ctx->btarget = btgt;
 }
 
-static void gen_mBPOSGE32(CPUState * env, DisasContext *ctx) {
+static void gen_mBPOSGE32(CPUState *env, DisasContext *ctx)
+{
     int16_t offset16 = (ctx->opcode & 0xffff);
     int32_t offset = offset16 << 1;
     int32 insn_bytes = 4;
@@ -10386,31 +10387,31 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
         break;
 #endif
     case 0x2a:
-    	switch(minor & 3) {
-            case MADD_ACC:
-                mips32_op = OPC_MADD;
-                goto do_muldiv_acc;
-            case MADDU_ACC:
-                mips32_op = OPC_MADDU;
-                goto do_muldiv_acc;
-            case MSUB_ACC:
-                mips32_op = OPC_MSUB;
-                goto do_muldiv_acc;
-            case MSUBU_ACC:
-                mips32_op = OPC_MSUBU;
-            do_muldiv_acc:
+        switch (minor & 3) {
+        case MADD_ACC:
+            mips32_op = OPC_MADD;
+            goto do_muldiv_acc;
+        case MADDU_ACC:
+            mips32_op = OPC_MADDU;
+            goto do_muldiv_acc;
+        case MSUB_ACC:
+            mips32_op = OPC_MSUB;
+            goto do_muldiv_acc;
+        case MSUBU_ACC:
+            mips32_op = OPC_MSUBU;
+do_muldiv_acc:
             {
                 int ac = (ctx->opcode >> 14) & 3;
 
                 check_insn(env, ctx, ISA_MIPS32);
                 check_dsp(env, ctx, 1);
                 gen_muldiv(env, ctx, mips32_op, rs, rt, ac);
-               break;
+                break;
             }
-    	}
-    	break;
+        }
+        break;
     case 0x32:
-    	switch (minor & 3) {
+        switch (minor & 3) {
         case MULSA_W_PH:
             gen_mMULSA_W_PH(env, ctx);
             break;
@@ -10423,17 +10424,17 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
         case MULTU_ACC:
             mips32_op = OPC_MULTU;
             goto do_muldiv_acc2;
-        do_muldiv_acc2:
+do_muldiv_acc2:
             {
                 int ac = (ctx->opcode >> 14) & 3;
 
                 check_insn(env, ctx, ISA_MIPS32);
                 check_dsp(env, ctx, 1);
                 gen_muldiv(env, ctx, mips32_op, rs, rt, ac);
-               break;
+                break;
             }
-    	}
-   	break;
+        }
+        break;
     case 0x2c:
         switch (minor) {
         case SEB:
@@ -10649,7 +10650,7 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
             goto do_mfthilo_ac;
         case MTLO_ACC:
             mips32_op = OPC_MTLO;
-        do_mfthilo_ac:
+do_mfthilo_ac:
             {
                 int ac = (minor & 0xc) >> 2;
                 check_dsp(env, ctx, 1);
@@ -11530,9 +11531,9 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
             *is_branch = 1;
             break;
         case BPOSGE32:
-        	check_dsp(env, ctx, 1);
-        	gen_mBPOSGE32(env, ctx);
-        	break;
+            check_dsp(env, ctx, 1);
+            gen_mBPOSGE32(env, ctx);
+            break;
         case BPOSGE64:
             /* MIPS DSP 64: not implemented */
             /* Fall through */
