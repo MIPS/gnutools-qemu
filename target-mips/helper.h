@@ -322,6 +322,10 @@ DEF_HELPER_1(mtc0_taglo, void, tl)
 DEF_HELPER_1(mtc0_datalo, void, tl)
 DEF_HELPER_1(mtc0_taghi, void, tl)
 DEF_HELPER_1(mtc0_datahi, void, tl)
+DEF_HELPER_1(mtc0_userlocal, void, tl)
+DEF_HELPER_1(mtc0_segctl0, void, tl)
+DEF_HELPER_1(mtc0_segctl1, void, tl)
+DEF_HELPER_1(mtc0_segctl2, void, tl)
 
 /* MIPS MT functions */
 DEF_HELPER_1(mftgpr, tl, i32);
@@ -464,6 +468,7 @@ DEF_HELPER_0(rdhwr_cpunum, tl)
 DEF_HELPER_0(rdhwr_synci_step, tl)
 DEF_HELPER_0(rdhwr_cc, tl)
 DEF_HELPER_0(rdhwr_ccres, tl)
+DEF_HELPER_0(rdhwr_ul, tl)
 DEF_HELPER_1(pmon, void, int)
 DEF_HELPER_0(wait, void)
 

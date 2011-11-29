@@ -55,6 +55,14 @@ struct CPUMIPSTLBContext {
         } r4k;
     } mmu;
 };
+
+typedef struct CPUMIPSSegmentConfig CPUMIPSSegmentConfig;
+struct CPUMIPSSegmentConfig {
+    target_ulong addr;
+    target_ulong size;
+    uint16_t cfg;
+    uint16_t pad0;
+};
 #endif
 
 typedef union fpr_t fpr_t;
@@ -357,8 +365,11 @@ struct CPUMIPSState {
 #define CP0C0_M    31
 #define CP0C0_K23  28
 #define CP0C0_KU   25
-#define CP0C0_MDU  20
-#define CP0C0_MM   17
+#define CP0C0_ISP  24
+#define CP0C0_DSP  23
+#define CP0C0_UDI  22
+#define CP0C0_SB   21
+#define CP0C0_MM   18
 #define CP0C0_BM   16
 #define CP0C0_BE   15
 #define CP0C0_AT   13
@@ -388,35 +399,67 @@ struct CPUMIPSState {
 #define CP0C2_TS   24
 #define CP0C2_TL   20
 #define CP0C2_TA   16
+#define CP0C2_SU_I 13 /* Impresa */
+#define CP0C2_L2B  12 /* Impresa */
 #define CP0C2_SU   12
 #define CP0C2_SS   8
 #define CP0C2_SL   4
 #define CP0C2_SA   0
     int32_t CP0_Config3;
-#define CP0C3_M    31
-#define CP0C3_CMGCR 29
-#define CP0C3_EICW 21
-#define CP0C3_MMAR 18
-#define CP0C3_MCU  17
-#define CP0C3_ISA_ON_EXC 16
-#define CP0C3_ISA  14
-#define CP0C3_ULRI 13
-#define CP0C3_RXI  12
-#define CP0C3_DSP2P 11
-#define CP0C3_DSPP 10
-#define CP0C3_LPA  7
-#define CP0C3_VEIC 6
-#define CP0C3_VInt 5
-#define CP0C3_SP   4
-#define CP0C3_MT   2
-#define CP0C3_SM   1
-#define CP0C3_TL   0
+#define CP0C3_M      31
+#define CP0C3_BPG    30
+#define CP0C3_CMGCR  29
+#define CP0C3_MSA    28
+#define CP0C3_BP     27
+#define CP0C3_BI     26
+#define CP0C3_SC     25
+#define CP0C3_PW     24
+#define CP0C3_VZ     23
+#define CP0C3_IPLW   21
+#define CP0C3_EICW   21
+#define CP0C3_MMAR   18
+#define CP0C3_MCU    17
+#define CP0C3_ISA_OE 16
+#define CP0C3_ISA    14
+#define CP0C3_ULRI   13
+#define CP0C3_RXI    12
+#define CP0C3_DSP2P  11
+#define CP0C3_DSPP   10
+#define CP0C3_CTXTC   9
+#define CP0C3_ITL     8
+#define CP0C3_LPA     7
+#define CP0C3_VEIC    6
+#define CP0C3_VInt    5
+#define CP0C3_SP      4
+#define CP0C3_CDMM    3
+#define CP0C3_MT      2
+#define CP0C3_SM      1
+#define CP0C3_TL      0
     int32_t CP0_Config4;
-#define CP0C4_KScrExist 16
-#define CP0C4_MMUExtDef 14
-#define CP0C4_MMUSizeExt 0
+#define CP0C4_M           31
+#define CP0C4_IE          29
+#define CP0C4_AE          28
+#define CP0C4_VTLBSizeExt 24
+#define CP0C4_KScrExist   16
+#define CP0C4_MMUExtDef   14
+#define CP0C4_FTLBPageSize 8
+#define CP0C4_FTLBWays     4
+#define CP0C4_FTLBSets     0
+#define CP0C4_MMUSizeExt   0
+    int32_t CP0_Config5;
+#define CP0C5_M         31
+#define CP0C5_K         30
+#define CP0C5_CV        29
+#define CP0C5_EVA       28
     int32_t CP0_Config6;
+#define CP0C6_FTLBEn    15
+#define CP0C6_SPCD      14
+#define CP0C6_JRCP       1
+#define CP0C6_JRCD       0
     int32_t CP0_Config7;
+#define CP0C7_WII       31
+#define CP0C7_AR        16
+#define CP0C7_RPS        2
     /* XXX: Maybe make LLAddr per-TC? */
     target_ulong lladdr;
     target_ulong llval;
@@ -453,6 +496,26 @@ struct CPUMIPSState {
     int32_t CP0_DataLo;
     int32_t CP0_TagHi;
     int32_t CP0_DataHi;
+    int32_t CP0_UserLocal;
+    /* Segmentation control registers. */
+    int32_t CP0_SegCtl0;
+    int32_t CP0_SegCtl1;
+    int32_t CP0_SegCtl2;
+#define CP0SegCtl_CFG_H    16
+#define CP0SegCtl_CFG_L     0
+    /* Segmentation configuration fields. */
+#define CP0SegCFG_PA        9
+#define CP0SegCFG_AM        4
+#define CP0SegCFG_EU        3
+#define CP0SegCFG_C         0
+    /* Segmentation configuration access control modes. */
+#define CP0SegCFG_AM_UUSK   6
+#define CP0SegCFG_AM_USK    5
+#define CP0SegCFG_AM_MUSUK  4
+#define CP0SegCFG_AM_MUSK   3
+#define CP0SegCFG_AM_MSK    2
+#define CP0SegCFG_AM_MK     1
+#define CP0SegCFG_AM_UK     0
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
     /* We waste some space so we can handle shadow registers like TCs. */
@@ -517,6 +580,7 @@ struct CPUMIPSState {
     CPUMIPSMVPContext *mvp;
 #if !defined(CONFIG_USER_ONLY)
     CPUMIPSTLBContext *tlb;
+    CPUMIPSSegmentConfig *seg;
 #endif
 
     const mips_def_t *cpu_model;

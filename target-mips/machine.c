@@ -125,6 +125,7 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_Config1);
     qemu_put_sbe32s(f, &env->CP0_Config2);
     qemu_put_sbe32s(f, &env->CP0_Config3);
+    qemu_put_sbe32s(f, &env->CP0_Config5);
     qemu_put_sbe32s(f, &env->CP0_Config6);
     qemu_put_sbe32s(f, &env->CP0_Config7);
     qemu_put_betls(f, &env->lladdr);
@@ -141,6 +142,10 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_DataLo);
     qemu_put_sbe32s(f, &env->CP0_TagHi);
     qemu_put_sbe32s(f, &env->CP0_DataHi);
+    qemu_put_sbe32s(f, &env->CP0_SegCtl0);
+    qemu_put_sbe32s(f, &env->CP0_SegCtl1);
+    qemu_put_sbe32s(f, &env->CP0_SegCtl2);
+    qemu_put_sbe32s(f, &env->CP0_UserLocal);
     qemu_put_betls(f, &env->CP0_ErrorEPC);
     qemu_put_sbe32s(f, &env->CP0_DESAVE);
 
@@ -277,6 +282,7 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_Config1);
     qemu_get_sbe32s(f, &env->CP0_Config2);
     qemu_get_sbe32s(f, &env->CP0_Config3);
+    qemu_get_sbe32s(f, &env->CP0_Config5);
     qemu_get_sbe32s(f, &env->CP0_Config6);
     qemu_get_sbe32s(f, &env->CP0_Config7);
     qemu_get_betls(f, &env->lladdr);
@@ -293,6 +299,10 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_DataLo);
     qemu_get_sbe32s(f, &env->CP0_TagHi);
     qemu_get_sbe32s(f, &env->CP0_DataHi);
+    qemu_get_sbe32s(f, &env->CP0_SegCtl0);
+    qemu_get_sbe32s(f, &env->CP0_SegCtl1);
+    qemu_get_sbe32s(f, &env->CP0_SegCtl2);
+    qemu_get_sbe32s(f, &env->CP0_UserLocal);
     qemu_get_betls(f, &env->CP0_ErrorEPC);
     qemu_get_sbe32s(f, &env->CP0_DESAVE);
 

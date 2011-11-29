@@ -4165,7 +4165,10 @@ void helper_mtc0_entrylo0 (target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    if (env->CP0_PRid != 0x0001a200)
+        env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    else
+        env->CP0_EntryLo0 = arg1 & 0x03FFFFFF;
 }
 
 void helper_mtc0_tcstatus (target_ulong arg1)
@@ -4329,7 +4332,10 @@ void helper_mtc0_entrylo1 (target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    if (env->CP0_PRid != 0x0001a200)
+        env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    else
+        env->CP0_EntryLo1 = arg1 & 0x03FFFFFF;
 }
 
 void helper_mtc0_context (target_ulong arg1)
@@ -4383,7 +4389,7 @@ void helper_mtc0_srsconf4 (target_ulong arg1)
 
 void helper_mtc0_hwrena (target_ulong arg1)
 {
-    env->CP0_HWREna = arg1 & 0x0000000F;
+    env->CP0_HWREna = arg1 & 0x2000000F;
 }
 
 void helper_mtc0_count (target_ulong arg1)
@@ -4553,7 +4559,8 @@ target_ulong helper_mftc0_configx(target_ulong idx)
     case 1: return other->CP0_Config1;
     case 2: return other->CP0_Config2;
     case 3: return other->CP0_Config3;
-    /* 4 and 5 are reserved.  */
+    case 4: return other->CP0_Config4;
+    case 5: return other->CP0_Config5;
     case 6: return other->CP0_Config6;
     case 7: return other->CP0_Config7;
     default:
@@ -4652,6 +4659,32 @@ void helper_mtc0_taghi (target_ulong arg1)
 void helper_mtc0_datahi (target_ulong arg1)
 {
     env->CP0_DataHi = arg1; /* XXX */
+}
+
+void helper_mtc0_userlocal (target_ulong arg1)
+{
+    env->CP0_UserLocal = arg1; /* XXX */
+}
+
+void helper_mtc0_segctl0 (target_ulong arg1)
+{
+    env->CP0_SegCtl0 = arg1; /* XXX */
+    env->seg[0].cfg = (uint16_t)(env->CP0_SegCtl0 & 0xffff);
+    env->seg[1].cfg = (uint16_t)(env->CP0_SegCtl0 >> CP0SegCtl_CFG_H);
+}
+
+void helper_mtc0_segctl1 (target_ulong arg1)
+{
+    env->CP0_SegCtl1 = arg1; /* XXX */
+    env->seg[2].cfg = (uint16_t)(env->CP0_SegCtl1 & 0xffff);
+    env->seg[3].cfg = (uint16_t)(env->CP0_SegCtl1 >> CP0SegCtl_CFG_H);
+}
+
+void helper_mtc0_segctl2 (target_ulong arg1)
+{
+    env->CP0_SegCtl2 = arg1; /* XXX */
+    env->seg[4].cfg = (uint16_t)(env->CP0_SegCtl2 & 0xffff);
+    env->seg[5].cfg = (uint16_t)(env->CP0_SegCtl2 >> CP0SegCtl_CFG_H);
 }
 
 /* MIPS MT functions */
@@ -5122,6 +5155,17 @@ target_ulong helper_rdhwr_ccres(void)
     if ((env->hflags & MIPS_HFLAG_CP0) ||
         (env->CP0_HWREna & (1 << 3)))
         return env->CCRes;
+    else
+        helper_raise_exception(EXCP_RI);
+
+    return 0;
+}
+
+target_ulong helper_rdhwr_ul(void)
+{
+    if ((env->hflags & MIPS_HFLAG_CP0) ||
+        (env->CP0_HWREna & (1 << 29)))
+        return env->CP0_UserLocal;
     else
         helper_raise_exception(EXCP_RI);
 

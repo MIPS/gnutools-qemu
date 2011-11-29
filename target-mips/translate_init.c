@@ -49,9 +49,31 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
-/* No kernel scratch regs, no mmu extensions */
+/* No kernel scratch regs, no MMU extensions, no TLBINV */
 #define MIPS_CONFIG4                                              \
-((0 << CP0C4_KScrExist) | (0 << CP0C4_MMUExtDef))
+((0 << CP0C4_KScrExist) | (0 << CP0C4_MMUExtDef) |                \
+ (0 << CP0C4_FTLBPageSize) | (0 << CP0C4_FTLBWays) |              \
+ (0 << CP0C4_FTLBSets))
+
+/* Enable cache coherency for segments, use KSEG1 for a
+   cache error exception, Enhanced Virtual Addressing is
+   implemented */
+#define MIPS_CONFIG5                                              \
+((1 << CP0C5_M) |                                                 \
+ (0 << CP0C5_K) | (0 << CP0C5_CV) | (1 << CP0C5_EVA))
+
+/* Have JR target address prediction, JR cache implemented,
+   performance counter operational enabled in sleep state,
+   FTLB is disabled */
+#define MIPS_CONFIG6                                              \
+((0 << CP0C6_FTLBEn) | (0 << CP0C6_SPCD) |                        \
+ (1 << CP0C6_JRCP) | (0 << CP0C6_JRCD))
+
+/* Return address branch prediction enabled, no cache aliases,
+   wait forever with interrupts enabled (no Wait IE Ignore) */
+#define MIPS_CONFIG7                                              \
+((0 << CP0C7_WII) | (1 << CP0C7_AR) | (0 << CP0C7_RPS))
+/* Impresa should have WII set, but QEMU cannot support it. */
 
 /* MMU types, the first four entries have the same layout as the
    CP0C0_MT field.  */
@@ -73,6 +95,7 @@ struct mips_def_t {
     int32_t CP0_Config2;
     int32_t CP0_Config3;
     int32_t CP0_Config4;
+    int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     target_ulong CP0_LLAddr_rw_bitmask;
@@ -95,6 +118,10 @@ struct mips_def_t {
     int32_t CP0_SRSConf3;
     int32_t CP0_SRSConf4_rw_bitmask;
     int32_t CP0_SRSConf4;
+    int32_t CP0_SegCtl0;
+    int32_t CP0_SegCtl1;
+    int32_t CP0_SegCtl2;
+    int32_t CP0_UserLocal;
     int insn_flags;
     enum mips_mmu_types mmu_type;
 };
@@ -244,7 +271,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
-                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_OE) |
                        (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
                        (0 << CP0C3_RXI) | (0 << CP0C3_VInt),
         .CP0_LLAddr_rw_bitmask = 0,
@@ -268,7 +295,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
-                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_OE) |
                        (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
                        (0 << CP0C3_RXI) | (0 << CP0C3_VInt),
         .CP0_LLAddr_rw_bitmask = 0,
@@ -292,7 +319,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
-                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_OE) |
                        (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
                        (0 << CP0C3_RXI) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
@@ -317,7 +344,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_EICW) | (0 << CP0C3_MMAR) |
-                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (0 << CP0C3_MCU) | (0 << CP0C3_ISA_OE) |
                        (2 << CP0C3_ISA) | (0 << CP0C3_ULRI) |
                        (0 << CP0C3_RXI) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
@@ -476,6 +503,62 @@ static mips_def_t mips_defs[] =
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 |
                       ASE_MT,
         .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "99Kf",
+        .CP0_PRid = 0x0001a200,
+        .CP0_Config0 = MIPS_CONFIG0 | (1 << CP0C0_AR) | (1 << CP0C0_MM) |
+                       (MMU_TYPE_R4000 << CP0C0_MT) | (2 << CP0C0_K0),
+        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (0x3f << CP0C1_MMU) |
+                       (3 << CP0C1_IS) | (4 << CP0C1_IL) | (3 << CP0C1_IA) |
+                       (3 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
+                       (1 << CP0C1_PC) | (1 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2 |
+                       (2 << CP0C2_SS) | (4 << CP0C2_SL) | (3 << CP0C2_SA),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_M) | (1 << CP0C3_CMGCR) |
+                       (1 << CP0C3_SC) | (1 << CP0C3_ULRI) | (1 << CP0C3_RXI) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
+                       (1 << CP0C3_CTXTC) | (1 << CP0C3_VInt) |
+                       (1 << CP0C3_CDMM) | (1 << CP0C3_TL),
+        .CP0_Config4 = MIPS_CONFIG4 | (1 << CP0C4_M) | (2 << CP0C4_IE) |
+                       (2 << CP0C4_MMUExtDef) | (1 << CP0C4_FTLBPageSize) |
+                       (2 << CP0C4_FTLBWays) | (7 << CP0C4_FTLBSets),
+        .CP0_Config5 = MIPS_CONFIG5,
+        .CP0_Config6 = MIPS_CONFIG6,
+        .CP0_Config7 = MIPS_CONFIG7,
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 0,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        /* DSP implemented, MT not implemented. */
+        .CP0_Status_rw_bitmask = 0x3148FF1F,
+        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0x95 << FCR0_PRID),
+        /* No shadow registers implemented. */
+        .CP0_SRSCtl = 0,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
+        .mmu_type = MMU_TYPE_R4000,
+        /* Segment control registers. */
+        .CP0_SegCtl0 = (((CP0SegCFG_AM_MK << CP0SegCFG_AM) |
+                (0 << CP0SegCFG_PA) | (0 << CP0SegCFG_C) | (0 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_L) |
+                       (((CP0SegCFG_AM_MSK << CP0SegCFG_AM) |
+                (0 << CP0SegCFG_PA) | (0 << CP0SegCFG_C) | (0 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_H),
+        .CP0_SegCtl1 = (((CP0SegCFG_AM_UK << CP0SegCFG_AM) |
+                (0 << CP0SegCFG_PA) | (2 << CP0SegCFG_C) | (0 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_L) |
+                       (((CP0SegCFG_AM_UK << CP0SegCFG_AM) |
+                (0 << CP0SegCFG_PA) | (3 << CP0SegCFG_C) | (0 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_H),
+        .CP0_SegCtl2 = (((CP0SegCFG_AM_MUSK << CP0SegCFG_AM) |
+                (2 << CP0SegCFG_PA) | (0 << CP0SegCFG_C) | (1 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_L) |
+                       (((CP0SegCFG_AM_MUSK << CP0SegCFG_AM) |
+                (0 << CP0SegCFG_PA) | (0 << CP0SegCFG_C) | (1 << CP0SegCFG_EU))
+                   << CP0SegCtl_CFG_H),
     },
 #if defined(TARGET_MIPS64)
     {
@@ -708,8 +791,15 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
             case 1: /* mmu size extension */
                 mmu_size_minus_one |= (def->CP0_Config4 & 0xff) << 6;
                 break;
-            case 2: /* FTLB */
-                cpu_abort(env, "FTLB support not addded to qemu yet, fix me\n");
+            case 2: /* reserved/FTLB */
+                if (def->CP0_PRid != 0x0001a200)
+                    cpu_abort(env, "FTLB not supported in qemu yet, fix me\n");
+                else
+	            mmu_size_minus_one = (((def->CP0_Config4 >> (CP0C4_FTLBWays - 1)) & 0xf) * (((def->CP0_Config4 & 0xf) + 1) << 4) - 1);
+                break;
+            case 3: /* VTLB extension */
+                if (def->CP0_PRid == 0x0001a200)
+                    cpu_abort(env, "VTLB Extension not supported in qemu yet, fix me\n");
                 break;
             default:
                 cpu_abort(env, "This MMUExtDef value not supported\n");
@@ -724,6 +814,27 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->tlb->helper_tlbp = r4k_helper_tlbp;
     env->tlb->helper_tlbr = r4k_helper_tlbr;
+
+    /* Impresa */
+    env->seg = g_malloc0(sizeof(CPUMIPSSegmentConfig) * 6);
+
+    env->seg[0].addr = 0xe0000000;
+    env->seg[0].size = 0x20000000;
+
+    env->seg[1].addr = 0xc0000000;
+    env->seg[1].size = 0x20000000;
+
+    env->seg[2].addr = 0xa0000000;
+    env->seg[2].size = 0x20000000;
+
+    env->seg[3].addr = 0x80000000;
+    env->seg[3].size = 0x20000000;
+
+    env->seg[4].addr = 0x40000000;
+    env->seg[4].size = 0x40000000;
+
+    env->seg[5].addr = 0x00000000;
+    env->seg[5].size = 0x40000000;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
@@ -790,6 +901,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t* def, const char* filename)
         CHECK_SET_CONFIG(CP0_Config2, uint32_t);
         CHECK_SET_CONFIG(CP0_Config3, uint32_t);
         CHECK_SET_CONFIG(CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(CP0_Config5, uint32_t);
         CHECK_SET_CONFIG(CP0_Config6, uint32_t);
         CHECK_SET_CONFIG(CP0_Config7, uint32_t);
         CHECK_SET_CONFIG(CP0_LLAddr_rw_bitmask, target_ulong);
@@ -812,6 +924,10 @@ static void cpu_config(CPUMIPSState *env, mips_def_t* def, const char* filename)
         CHECK_SET_CONFIG(CP0_SRSConf3, uint32_t);
         CHECK_SET_CONFIG(CP0_SRSConf4_rw_bitmask, uint32_t);
         CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
+        CHECK_SET_CONFIG(CP0_SegCtl0, uint32_t);
+        CHECK_SET_CONFIG(CP0_SegCtl1, uint32_t);
+        CHECK_SET_CONFIG(CP0_SegCtl2, uint32_t);
+        CHECK_SET_CONFIG(CP0_UserLocal, uint32_t);
         CHECK_SET_CONFIG(insn_flags, int);
 
         cpu_abort(env,"Unknown override option %s\n",name);

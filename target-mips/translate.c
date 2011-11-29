@@ -323,6 +323,16 @@ enum {
     OPC_MODU_G_2E   = 0x23 | OPC_SPECIAL3,
     OPC_DMOD_G_2E   = 0x26 | OPC_SPECIAL3,
     OPC_DMODU_G_2E  = 0x27 | OPC_SPECIAL3,
+
+    /* Impresa */
+    OPC_LBE      = 0x2c | OPC_SPECIAL3,
+    OPC_LBUE     = 0x28 | OPC_SPECIAL3,
+    OPC_LHE      = 0x2d | OPC_SPECIAL3,
+    OPC_LHUE     = 0x29 | OPC_SPECIAL3,
+    OPC_LWE      = 0x2e | OPC_SPECIAL3,
+    OPC_SBE      = 0x1c | OPC_SPECIAL3,
+    OPC_SHE      = 0x1d | OPC_SPECIAL3,
+    OPC_SWE      = 0x1f | OPC_SPECIAL3,
 };
 
 /* BSHFL opcodes */
@@ -577,6 +587,14 @@ do {                                                                          \
     MIPS_DEBUG("Invalid %s %03x %03x %03x", op, ctx->opcode >> 26,            \
                ctx->opcode & 0x3F, ((ctx->opcode >> 16) & 0x1F));             \
 } while (0)
+
+/* Signed immediate */
+#define SIMM(op, start, width)                                          \
+    ((int32_t)(((op >> start) & ((~0U) >> (32-width)))                 \
+               << (32-width))                                           \
+     >> (32-width))
+/* Zero-extended immediate */
+#define ZIMM(op, start, width) ((op >> start) & ((~0U) >> (32-width)))
 
 /* General purpose registers moves. */
 static inline void gen_load_gpr (TCGv t, int reg)
@@ -1309,6 +1327,36 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_store_gpr(t0, rt);
         opn = "ll";
         break;
+    case OPC_LWE:
+        save_cpu_state(ctx, 0);
+        op_ld_lw(t0, t0, ctx);
+        gen_store_gpr(t0, rt);
+        opn = "lwe";
+        break;
+    case OPC_LHE:
+        save_cpu_state(ctx, 0);
+        op_ld_lh(t0, t0, ctx);
+        gen_store_gpr(t0, rt);
+        opn = "lhe";
+        break;
+    case OPC_LHUE:
+        save_cpu_state(ctx, 0);
+        op_ld_lhu(t0, t0, ctx);
+        gen_store_gpr(t0, rt);
+        opn = "lhue";
+        break;
+    case OPC_LBE:
+        save_cpu_state(ctx, 0);
+        op_ld_lb(t0, t0, ctx);
+        gen_store_gpr(t0, rt);
+        opn = "lbe";
+        break;
+    case OPC_LBUE:
+        save_cpu_state(ctx, 0);
+        op_ld_lbu(t0, t0, ctx);
+        gen_store_gpr(t0, rt);
+        opn = "lbue";
+        break;
     }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
@@ -1368,6 +1416,21 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         gen_helper_2i(swr, t1, t0, ctx->mem_idx);
         opn = "swr";
+        break;
+    case OPC_SWE:
+        save_cpu_state(ctx, 0);
+        op_st_sw(t1, t0, ctx);
+        opn = "swe";
+        break;
+    case OPC_SHE:
+        save_cpu_state(ctx, 0);
+        op_st_sh(t1, t0, ctx);
+        opn = "she";
+        break;
+    case OPC_SBE:
+        save_cpu_state(ctx, 0);
+        op_st_sb(t1, t0, ctx);
+        opn = "sbe";
         break;
     }
     (void)opn; /* avoid a compiler warning */
@@ -3508,6 +3571,10 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 //            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
 //            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_UserLocal));
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -3522,6 +3589,18 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageGrain));
             rn = "PageGrain";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl0));
+            rn = "SegCtl0";
+            break;
+        case 3:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl1));
+            rn = "SegCtl1";
+            break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl2));
+            rn = "SegCtl2";
             break;
         default:
             goto die;
@@ -3709,8 +3788,11 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
             rn = "Config4";
             break;
-        /* 5 is reserved */
-        /* 6,7 are implementation dependent */
+        /* 5,6,7 are implementation dependent. */
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config5));
+            rn = "Config5";
+            break;
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
             rn = "Config6";
@@ -4097,6 +4179,11 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 //            gen_helper_mtc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
 //            break;
+        case 2:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_userlocal(arg);
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -4111,6 +4198,21 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_pagegrain(arg);
             rn = "PageGrain";
+            break;
+        case 2:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl0(arg);
+            rn = "SegCtl0";
+            break;
+        case 3:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl1(arg);
+            rn = "SegCtl1";
+            break;
+        case 4:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl2(arg);
+            rn = "SegCtl2";
             break;
         default:
             goto die;
@@ -4295,8 +4397,11 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             /* ignored, read only */
             rn = "Config4";
             break;
-        /* 5 is reserved */
-        /* 6,7 are implementation dependent */
+        /* 5,6,7 are implementation dependent. */
+        case 5:
+            /* Impresa */
+            rn = "Config5";
+            break;
         case 6:
             /* ignored */
             rn = "Config6";
@@ -4700,6 +4805,10 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 //            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
 //            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_UserLocal));
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -4714,6 +4823,18 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageGrain));
             rn = "PageGrain";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl0));
+            rn = "SegCtl0";
+            break;
+        case 3:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl1));
+            rn = "SegCtl1";
+            break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_SegCtl2));
+            rn = "SegCtl2";
             break;
         default:
             goto die;
@@ -4898,7 +5019,11 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
             rn = "Config4";
             break;
-       /* 6,7 are implementation dependent */
+       /* 5,6,7 are implementation dependent. */
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config5));
+            rn = "Config5";
+            break;
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
             rn = "Config6";
@@ -5281,6 +5406,11 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 //           gen_helper_mtc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
 //           break;
+        case 2:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_userlocal(arg);
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -5295,6 +5425,21 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_pagegrain(arg);
             rn = "PageGrain";
+            break;
+        case 2:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl0(arg);
+            rn = "SegCtl0";
+            break;
+        case 3:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl1(arg);
+            rn = "SegCtl1";
+            break;
+        case 4:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtc0_segctl2(arg);
+            rn = "SegCtl2";
             break;
         default:
             goto die;
@@ -8371,8 +8516,10 @@ gen_rdhwr (CPUState *env, DisasContext *ctx, int rt, int rd)
         gen_store_gpr(t0, rt);
         break;
 #else
-        /* XXX: Some CPUs implement this in hardware.
-           Not supported yet. */
+        save_cpu_state(ctx, 1);
+        gen_helper_rdhwr_ul(t0);
+        gen_store_gpr(t0, rt);
+        break;
 #endif
     default:            /* Invalid */
         MIPS_INVAL("rdhwr");
@@ -10003,14 +10150,6 @@ static int mmreg2 (int r)
 #define uMIPS_RS1(op) ((op >> 1) & 0x7)
 #define uMIPS_RD5(op) ((op >> 5) & 0x1f)
 #define uMIPS_RS5(op) (op & 0x1f)
-
-/* Signed immediate */
-#define SIMM(op, start, width)                                          \
-    ((int32_t)(((op >> start) & ((~0U) >> (32-width)))                 \
-               << (32-width))                                           \
-     >> (32-width))
-/* Zero-extended immediate */
-#define ZIMM(op, start, width) ((op >> start) & ((~0U) >> (32-width)))
 
 static void gen_addiur1sp (CPUState *env, DisasContext *ctx)
 {
@@ -12082,6 +12221,36 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
     rd = (ctx->opcode >> 11) & 0x1f;
     sa = (ctx->opcode >> 6) & 0x1f;
     imm = (int16_t)ctx->opcode;
+if (op == OPC_SPECIAL3) {
+int sjhop = ((ctx->opcode & 0x3f) | OPC_SPECIAL3);
+switch(sjhop) {
+case OPC_LBE:
+printf("%s:%d: OPC_LBE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_LBUE:
+printf("%s:%d: OPC_LBUE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_LHE:
+printf("%s:%d: OPC_LHE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_LHUE:
+printf("%s:%d: OPC_LHUE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_LWE:
+printf("%s:%d: OPC_LWE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_SBE:
+printf("%s:%d: OPC_SBE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_SHE:
+printf("%s:%d: OPC_SHE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+case OPC_SWE:
+printf("%s:%d: OPC_SWE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
+break;
+}
+}
+
     switch (op) {
     case OPC_SPECIAL:
         op1 = MASK_SPECIAL(ctx->opcode);
@@ -12431,6 +12600,20 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
                 tcg_temp_free(t0);
             }
             break;
+#if !defined(TARGET_MIPS64)
+        case OPC_LBE:
+        case OPC_LBUE:
+        case OPC_LHE:
+        case OPC_LHUE:
+        case OPC_LWE:
+            gen_ld(env, ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
+            break;
+        case OPC_SBE:
+        case OPC_SHE:
+        case OPC_SWE:
+            gen_st(ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
+            break;
+#endif
         case OPC_MULT_G_2E ... OPC_ADDUH_QB_major:
             if (!(env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F))) {
                 gen_ADDUH_QB_major(env, ctx);
@@ -13150,6 +13333,7 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_Config2 = env->cpu_model->CP0_Config2;
     env->CP0_Config3 = env->cpu_model->CP0_Config3;
     env->CP0_Config4 = env->cpu_model->CP0_Config4;
+    env->CP0_Config5 = env->cpu_model->CP0_Config5;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
     env->CP0_LLAddr_rw_bitmask = env->cpu_model->CP0_LLAddr_rw_bitmask
@@ -13180,7 +13364,21 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_SRSConf3 = env->cpu_model->CP0_SRSConf3;
     env->CP0_SRSConf4_rw_bitmask = env->cpu_model->CP0_SRSConf4_rw_bitmask;
     env->CP0_SRSConf4 = env->cpu_model->CP0_SRSConf4;
+    env->CP0_SegCtl0 = env->cpu_model->CP0_SegCtl0;
+    env->CP0_SegCtl1 = env->cpu_model->CP0_SegCtl1;
+    env->CP0_SegCtl2 = env->cpu_model->CP0_SegCtl2;
+    env->CP0_UserLocal = env->cpu_model->CP0_UserLocal;
     env->insn_flags = env->cpu_model->insn_flags;
+
+    /* Impresa */
+    if (env->CP0_PRid == 0x00001a20) {
+        env->seg[0].cfg = (uint16_t)(env->CP0_SegCtl0 & 0xffff);
+        env->seg[1].cfg = (uint16_t)(env->CP0_SegCtl0 >> CP0SegCtl_CFG_H);
+        env->seg[2].cfg = (uint16_t)(env->CP0_SegCtl1 & 0xffff);
+        env->seg[3].cfg = (uint16_t)(env->CP0_SegCtl1 >> CP0SegCtl_CFG_H);
+        env->seg[4].cfg = (uint16_t)(env->CP0_SegCtl2 & 0xffff);
+        env->seg[5].cfg = (uint16_t)(env->CP0_SegCtl2 >> CP0SegCtl_CFG_H);
+    }
 
 #if defined(CONFIG_USER_ONLY)
     env->hflags = MIPS_HFLAG_UM;

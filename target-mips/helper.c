@@ -3,6 +3,7 @@
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
  *  Copyright (c) 2011 Reed Kotler/MIPS Technologies - DSP ASE
+ *  Copyright (c) 2012 Steven J. Hill/MIPS Technologies - Impresa
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -100,6 +101,35 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
+static inline int get_segment_mode (CPUState *env, target_ulong address)
+{
+    int user_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM;
+    int supervisor_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM;
+    int kernel_mode = !user_mode && !supervisor_mode;
+    int mode = -1;
+    int i;
+
+    for(i = 5; i > -1; i--) {
+        if (address < (env->seg[i].addr + env->seg[i].size)) {
+           switch (((env->seg[i].cfg >> CP0SegCFG_AM) & 0x7)) {
+           case CP0SegCFG_AM_UK:
+           case CP0SegCFG_AM_MK:
+               if (!kernel_mode)
+                   break;
+           case CP0SegCFG_AM_MSK:
+           case CP0SegCFG_AM_USK:
+               if (user_mode)
+                   break;
+           default:
+               mode = ((env->seg[i].cfg >> CP0SegCFG_AM) & 0x7);
+               break;
+           }
+           break;
+        }
+    }
+    return mode;
+}
+
 static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
@@ -118,7 +148,44 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 #if 0
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
+if (env->CP0_PRid == 0x0001a200) {
+    int access_mode = get_segment_mode(env, address);
 
+    if (access_mode == -1)
+        return ret;
+
+    /* The < 0x7fffffff is a temporary hack. */
+    if (user_mode || (address <= (int32_t)0x7FFFFFFFUL)) {
+        if (env->CP0_Status & (1 << CP0St_ERL)) {
+            *physical = address & 0xFFFFFFFF;
+            *prot = PAGE_READ | PAGE_WRITE;
+        } else {
+            ret = env->tlb->map_address(env, physical, prot, address,
+                                        rw, access_type);
+        }
+    } else if (supervisor_mode) {
+            ret = env->tlb->map_address(env, physical, prot, address,
+                                        rw, access_type);
+    } else if (kernel_mode) {
+        if ((access_mode > CP0SegCFG_AM_UK) &&
+                (access_mode < CP0SegCFG_AM_MUSUK)) {
+            ret = env->tlb->map_address(env, physical, prot, address,
+                                        rw, access_type);
+        } else {
+            int i;
+            for(i = 0; i < 5; i++) {
+                if (address >= env->seg[i].addr) {
+                    *physical = address - (int32_t)env->seg[i].addr;
+                    *prot = PAGE_READ | PAGE_WRITE;
+                    break;
+                }
+            }
+        }
+    } else {
+        /* Should never be reached. */
+        return ret;
+    }
+} else {
     if (address <= (int32_t)0x7FFFFFFFUL) {
         /* useg */
         if (env->CP0_Status & (1 << CP0St_ERL)) {
@@ -198,6 +265,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
             address, rw, access_type, *physical, *prot, ret);
 #endif
 
+}
     return ret;
 }
 #endif
@@ -391,7 +459,7 @@ static void set_hflags_for_handler (CPUState *env)
     /* ...except that microMIPS lets you choose.  */
     if (env->insn_flags & ASE_MICROMIPS) {
         env->hflags |= (!!(env->CP0_Config3
-                           & (1 << CP0C3_ISA_ON_EXC))
+                           & (1 << CP0C3_ISA_OE))
                         << MIPS_HFLAG_M16_SHIFT);
     }
 }
