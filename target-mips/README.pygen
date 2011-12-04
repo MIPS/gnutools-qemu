@@ -1,0 +1,19 @@
+These scripts build include files for QEMU.
+Currently they are just used for the dsp ase.
+
+To build the header files:
+python ./dspasegen.py
+
+This creates the following header files:
+mips_dsp_special3_opcodes_gen.h
+mips_dsp_special3_opcodes.h
+mips_major_dsp_special3_opcodes_case.h
+mips_major_dsp_special3_opcodes_gen.h
+mips_major_dsp_special3_opcodes.h
+
+
+The script files are:
+dspasegen.py is the main generator script
+dspase.py describes the instruction packing
+dspasei.py describes the code the simulate each instruction
+dspaseutil.py is a set of utility functions used by other scripts
