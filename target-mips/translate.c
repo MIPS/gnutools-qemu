@@ -12769,10 +12769,10 @@ static void mips_tcg_init(void)
 
 #include "translate_init.c"
 
-CPUMIPSState *cpu_mips_init (const char *cpu_model)
+CPUMIPSState *cpu_mips_init(const char *cpu_model)
 {
     CPUMIPSState *env;
-    const mips_def_t *def;
+    mips_def_t *def;
 
     def = cpu_mips_find_by_name(cpu_model);
     if (!def)
@@ -12781,6 +12781,11 @@ CPUMIPSState *cpu_mips_init (const char *cpu_model)
     env->cpu_model = def;
     env->cpu_model_str = cpu_model;
 
+#ifndef CONFIG_USER_ONLY
+#ifdef MIPS_AVP
+    cpu_config(env, def, cpu_config_name);
+#endif
+#endif
     cpu_exec_init(env);
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
