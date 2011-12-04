@@ -366,7 +366,15 @@ struct CPUMIPSState {
 #define CP0C2_SA   0
     int32_t CP0_Config3;
 #define CP0C3_M    31
+#define CP0C3_CMGCR 29
+#define CP0C3_EICW 21
+#define CP0C3_MMAR 18
+#define CP0C3_MCU  17
 #define CP0C3_ISA_ON_EXC 16
+#define CP0C3_ISA  14
+#define CP0C3_ULRI 13
+#define CP0C3_RXI  12
+#define CP0C3_DSP2P 11
 #define CP0C3_DSPP 10
 #define CP0C3_LPA  7
 #define CP0C3_VEIC 6
