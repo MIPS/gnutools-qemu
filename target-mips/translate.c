@@ -6007,6 +6007,8 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
 {
     const char *opn = "ldst";
 
+    check_cp0_enabled(ctx);
+
     switch (opc) {
     case OPC_MFC0:
         if (rt == 0) {
@@ -10198,6 +10200,7 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
 #ifndef CONFIG_USER_ONLY
     case MFC0:
     case MFC0 + 32:
+        check_cp0_enabled(ctx);
         if (rt == 0) {
             /* Treat as NOP. */
             break;
@@ -10209,6 +10212,7 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
         {
             TCGv t0 = tcg_temp_new();
 
+            check_cp0_enabled(ctx);
             gen_load_gpr(t0, rt);
             gen_mtc0(env, ctx, t0, rs, (ctx->opcode >> 11) & 0x7);
             tcg_temp_free(t0);
@@ -10303,10 +10307,12 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
         switch (minor) {
         case RDPGPR:
             check_insn(env, ctx, ISA_MIPS32R2);
+            check_cp0_enabled(ctx);
             gen_load_srsgpr(rt, rs);
             break;
         case WRPGPR:
             check_insn(env, ctx, ISA_MIPS32R2);
+            check_cp0_enabled(ctx);
             gen_store_srsgpr(rt, rs);
             break;
         default:
@@ -10349,6 +10355,7 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
             {
                 TCGv t0 = tcg_temp_new();
 
+                check_cp0_enabled(ctx);
                 save_cpu_state(ctx, 1);
                 gen_helper_di(t0);
                 gen_store_gpr(t0, rs);
@@ -10361,6 +10368,7 @@ static void gen_pool32axf (CPUState *env, DisasContext *ctx, int rt, int rs,
             {
                 TCGv t0 = tcg_temp_new();
 
+                check_cp0_enabled(ctx);
                 save_cpu_state(ctx, 1);
                 gen_helper_ei(t0);
                 gen_store_gpr(t0, rs);
@@ -10838,6 +10846,7 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
         minor = (ctx->opcode >> 12) & 0xf;
         switch (minor) {
         case CACHE:
+            check_cp0_enabled(ctx);
             /* Treat as no-op. */
             break;
         case LWC2:
@@ -12289,6 +12298,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
          break;
     case OPC_CACHE:
         check_insn(env, ctx, ISA_MIPS3 | ISA_MIPS32);
+        check_cp0_enabled(ctx);
         /* Treat as NOP. */
         break;
     case OPC_PREF:
