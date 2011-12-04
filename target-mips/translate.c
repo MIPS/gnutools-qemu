@@ -1471,6 +1471,18 @@ static void gen_slt_imm(CPUState *env, DisasContext *ctx, uint32_t opc,
     const char *opn = "imm arith";
     TCGv t0;
 
+#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+    if (opc == OPC_SLTIU && rs == 0 && rt == 0) {
+        if ((uint16_t)imm == 0xabc2) {
+            gen_helper_avp_ok();
+            return;
+        } else if ((uint16_t)imm == 0xabc1) {
+            gen_helper_avp_fail();
+            return;
+        }
+    }
+#endif
+
     if (rt == 0) {
         /* If no destination, treat it as a NOP. */
         MIPS_DEBUG("NOP");
@@ -3760,7 +3772,12 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 }
 
 static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -4356,7 +4373,12 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    reg += 0; /* null */
+#endif
 }
 
 #if defined(TARGET_MIPS64)
@@ -4926,7 +4948,12 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 
 die:
     LOG_DISAS("dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 }
 
 static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -5523,7 +5550,12 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
 
 die:
     LOG_DISAS("dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
+#else
+    reg += 0; /* null */
+#endif
 }
 #endif /* TARGET_MIPS64 */
 

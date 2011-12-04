@@ -30,6 +30,22 @@
 
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUState *env, int flush_global);
+
+#ifdef MIPS_AVP
+#include "sysemu.h"
+
+void helper_avp_ok(void)
+{
+    puts("ok");
+    qemu_system_shutdown_request();
+}
+
+void helper_avp_fail(void)
+{
+    puts("fail");
+    qemu_system_shutdown_request();
+}
+#endif
 #endif
 
 static inline void compute_hflags(CPUState *env)

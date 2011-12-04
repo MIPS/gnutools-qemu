@@ -50,6 +50,115 @@ typedef struct ResetData {
     uint64_t vector;
 } ResetData;
 
+/* For AVPS:
+ *  Use -kernel to load first ELF file (as usual)
+ *  Use -initrd to load second MIPS 'hex' file (normally a binary image)
+ *  Leave the starting point as the reset vector
+ */
+static long load_mips_hex(const char *filename)
+{
+#ifdef TARGET_WORDS_BIGENDIAN
+    const int big_endian = 1;
+#else
+    const int big_endian = 0;
+#endif
+
+#if defined(WORDS_BIGENDIAN)
+    const int host_big_endian = 1;
+#else
+    const int host_big_endian = 0;
+#endif
+
+    const char *hex_intro = "# Endian";
+    const size_t hex_intro_len = strlen(hex_intro);
+
+    FILE *fd = NULL;
+    char *line = NULL;
+    size_t line_length = 0;
+    long size = -1;
+    uint32_t addr, data;
+
+    line = malloc(LINE_MAX);
+
+    if (line == NULL) {
+        fprintf(stderr, "qemu: %s line buffer allocation failed\n", __func__);
+        goto done;
+    }
+
+    /* open the file */
+    fd = fopen(filename, "r");
+    if (!fd) {
+        fprintf(stderr, "qemu: could not open mips hex file '%s'\n", filename);
+        goto done;
+    }
+
+    line_length = fread(line, sizeof(char), hex_intro_len, fd);
+
+    if (line_length == -1) {
+        goto done;
+    }
+
+    line[hex_intro_len] = 0;
+
+    if (strstr(line, "# Endian") != line) {
+        goto done;
+    }
+
+    fseek(fd, 0, SEEK_SET);
+
+    size = 0;
+
+    do {
+        /* read a line */
+        ssize_t num_read = getline(&line, &line_length, fd);
+
+        if (num_read == -1) {
+            if (feof(fd)) {
+                break;
+            }
+
+            fprintf(stderr, "qemu: %s getline failed for '%s'\n", __func__,
+                filename);
+
+            size = -1;
+            goto done;
+        }
+
+        /* ignore comments (lines starting with '#') */
+        if (line[0] == '#') {
+            continue;
+        }
+
+        /* extract two hex values from the line */
+        if (sscanf(line, "%" SCNx32 " %" SCNx32, &addr, &data) != 2) {
+            fprintf(stderr, "qemu: %s sscanf failed reading '%s' line '%s'\n",
+                __func__, filename, line);
+            size = -1;
+            goto done;
+        }
+
+        if (host_big_endian ? !big_endian : big_endian) {
+            bswap32s(&data);
+        }
+
+        /* put the data into the physical memory */
+        cpu_physical_memory_write_rom(addr << 2, (uint8_t *)&data, 4);
+
+        size += 4;
+    } while (!feof(fd));
+
+done:
+    if (fd) {
+        fclose(fd);
+    }
+
+    if (line) {
+        free(line);
+    }
+
+    return size;
+}
+
 static int64_t load_kernel(void)
 {
     int64_t entry, kernel_high;
@@ -81,19 +190,28 @@ static int64_t load_kernel(void)
     initrd_size = 0;
     initrd_offset = 0;
     if (loaderparams.initrd_filename) {
-        initrd_size = get_image_size (loaderparams.initrd_filename);
-        if (initrd_size > 0) {
-            initrd_offset = (kernel_high + ~TARGET_PAGE_MASK) & TARGET_PAGE_MASK;
-            if (initrd_offset + initrd_size > loaderparams.ram_size) {
-                fprintf(stderr,
+#ifdef MIPS_AVP
+        initrd_size = load_mips_hex(loaderparams.initrd_filename);
+#else
+        initrd_size = -1;
+#endif
+
+        if (initrd_size == -1) {
+            initrd_size = get_image_size(loaderparams.initrd_filename);
+            if (initrd_size > 0) {
+                initrd_offset = (kernel_high + ~TARGET_PAGE_MASK) &
+                    TARGET_PAGE_MASK;
+                if (initrd_offset + initrd_size > loaderparams.ram_size) {
+                    fprintf(stderr,
                         "qemu: memory too small for initial ram disk '%s'\n",
                         loaderparams.initrd_filename);
-                exit(1);
+                    exit(1);
+                }
+                initrd_size = load_image_targphys(loaderparams.initrd_filename,
+                    initrd_offset, loaderparams.ram_size - initrd_offset);
             }
-            initrd_size = load_image_targphys(loaderparams.initrd_filename,
-                initrd_offset, loaderparams.ram_size - initrd_offset);
         }
-        if (initrd_size == (target_ulong) -1) {
+        if (initrd_size == -1) {
             fprintf(stderr, "qemu: could not load initial ram disk '%s'\n",
                     loaderparams.initrd_filename);
             exit(1);
@@ -114,6 +232,7 @@ static void main_cpu_reset(void *opaque)
     }
 }
 
+#ifndef MIPS_AVP
 static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
 {
     DeviceState *dev;
@@ -129,6 +248,7 @@ static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
                                 base,
                                 sysbus_mmio_get_region(s, 0));
 }
+#endif
 
 static void
 mips_mipssim_init (ram_addr_t ram_size,
@@ -143,6 +263,14 @@ mips_mipssim_init (ram_addr_t ram_size,
     CPUState *env;
     ResetData *reset_info;
     int bios_size;
+
+#ifdef MIPS_AVP
+#ifdef TARGET_WORDS_BIGENDIAN
+    const int big_endian = 1;
+#else
+    const int big_endian = 0;
+#endif
+#endif
 
     /* Init CPUs. */
     if (cpu_model == NULL) {
@@ -204,6 +332,7 @@ mips_mipssim_init (ram_addr_t ram_size,
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
 
+#ifndef MIPS_AVP
     /* Register 64 KB of ISA IO space at 0x1fd00000. */
     isa_mmio_init(0x1fd00000, 0x00010000);
 
@@ -215,6 +344,16 @@ mips_mipssim_init (ram_addr_t ram_size,
     if (nd_table[0].vlan)
         /* MIPSnet uses the MIPS CPU INT0, which is interrupt 2. */
         mipsnet_init(0x4200, env->irq[2], &nd_table[0]);
+#else
+    if (serial_hds[0]) {
+        /* MIPSsim has a single 16450 at 0x1fff_f000, aka 0xbfff_f000 */
+        target_phys_addr_t serial_addr = 0x20000000;
+        serial_addr -= ((target_phys_addr_t)1 << TARGET_PAGE_BITS);
+
+        serial_mm_init(address_space_mem, serial_addr, 3, env->irq[4],
+            115200, serial_hds[0], big_endian);
+    }
+#endif
 }
 
 static QEMUMachine mips_mipssim_machine = {
