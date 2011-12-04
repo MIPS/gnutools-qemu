@@ -10109,7 +10109,7 @@ static void gen_ldst_pair (DisasContext *ctx, uint32_t opc, int rd,
     const char *opn = "ldst_pair";
     TCGv t0, t1;
 
-    if (ctx->hflags & MIPS_HFLAG_BMASK || rd == 31 || rd == base) {
+    if (ctx->hflags & MIPS_HFLAG_BMASK || rd == 31) {
         generate_exception(ctx, EXCP_RI);
         return;
     }
@@ -10121,6 +10121,10 @@ static void gen_ldst_pair (DisasContext *ctx, uint32_t opc, int rd,
 
     switch (opc) {
     case LWP:
+        if (rd == base) {
+            generate_exception(ctx, EXCP_RI);
+            return;
+        }
         save_cpu_state(ctx, 0);
         op_ld_lw(t1, t0, ctx);
         gen_store_gpr(t1, rd);
@@ -10142,6 +10146,10 @@ static void gen_ldst_pair (DisasContext *ctx, uint32_t opc, int rd,
         break;
 #ifdef TARGET_MIPS64
     case LDP:
+        if (rd == base) {
+            generate_exception(ctx, EXCP_RI);
+            return;
+        }
         save_cpu_state(ctx, 0);
         op_ld_ld(t1, t0, ctx);
         gen_store_gpr(t1, rd);
