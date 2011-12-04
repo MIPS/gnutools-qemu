@@ -15942,7 +15942,7 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
 {
     MIPSCPU *cpu;
     CPUMIPSState *env;
-    const mips_def_t *def;
+    mips_def_t *def;
 
     def = cpu_mips_find_by_name(cpu_model);
     if (!def)
@@ -15951,6 +15951,11 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
+#ifndef CONFIG_USER_ONLY
+#ifdef MIPS_AVP
+    cpu_config(env, def, cpu_config_name);
+#endif
+#endif
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
 #endif
