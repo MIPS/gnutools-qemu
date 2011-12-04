@@ -142,6 +142,22 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
 
+#if defined(HOST_WORDS_BIGENDIAN)
+#define DSP_QUAD_HI     0
+#define DSP_QUAD_HIMID  1
+#define DSP_QUAD_LOMID  2
+#define DSP_QUAD_LO     3
+#define DSP_PAIR_HI     0
+#define DSP_PAIR_LO     1
+#else
+#define DSP_QUAD_HI     3
+#define DSP_QUAD_HIMID  2
+#define DSP_QUAD_LOMID  1
+#define DSP_QUAD_LO     0
+#define DSP_PAIR_HI     1
+#define DSP_PAIR_LO     0
+#endif
+
 typedef struct TCState TCState;
 struct TCState {
     target_ulong gpr[32];
@@ -150,6 +166,18 @@ struct TCState {
     target_ulong LO[MIPS_DSP_ACC];
     target_ulong ACX[MIPS_DSP_ACC];
     target_ulong DSPControl;
+#define DSPCtlPos       0
+#define DSPCtlPosMsk    (0x3f <<  0)
+#define DSPCtlScount    7
+#define DSPCtlScountMsk (0x3f <<  7)
+#define DSPCtlC         13
+#define DSPCtlCMsk      (0x01 << 13)
+#define DSPCtlEFI       14
+#define DSPCtlEFIMsk    (0x01 << 14)
+#define DSPCtlOuflag    16
+#define DSPCtlOuflagMsk (0xff << 16)
+#define DSPCtlCcond     24
+#define DSPCtlCcondMsk  (0x0f << 24)
     int32_t CP0_TCStatus;
 #define CP0TCSt_TCU3	31
 #define CP0TCSt_TCU2	30
@@ -433,7 +461,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x007FF
+#define MIPS_HFLAG_TMASK  0x00FFF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -455,21 +483,22 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_UX     0x00200 /* 64-bit user mode                   */
 #define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
 #define MIPS_HFLAG_M16_SHIFT 10
+#define MIPS_HFLAG_DSP    0x00800
     /* If translation is interrupted between the branch instruction and
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
      * this from three bits to two.  */
-#define MIPS_HFLAG_BMASK_BASE  0x03800
-#define MIPS_HFLAG_B      0x00800 /* Unconditional branch               */
-#define MIPS_HFLAG_BC     0x01000 /* Conditional branch                 */
-#define MIPS_HFLAG_BL     0x01800 /* Likely branch                      */
-#define MIPS_HFLAG_BR     0x02000 /* branch to register (can't link TB) */
+#define MIPS_HFLAG_BMASK_BASE  0x07000
+#define MIPS_HFLAG_B      0x01000 /* Unconditional branch               */
+#define MIPS_HFLAG_BC     0x02000 /* Conditional branch                 */
+#define MIPS_HFLAG_BL     0x03000 /* Likely branch                      */
+#define MIPS_HFLAG_BR     0x04000 /* branch to register (can't link TB) */
     /* Extra flags about the current pending branch.  */
-#define MIPS_HFLAG_BMASK_EXT 0x3C000
-#define MIPS_HFLAG_B16    0x04000 /* branch instruction was 16 bits     */
-#define MIPS_HFLAG_BDS16  0x08000 /* branch requires 16-bit delay slot  */
-#define MIPS_HFLAG_BDS32  0x10000 /* branch requires 32-bit delay slot  */
-#define MIPS_HFLAG_BX     0x20000 /* branch exchanges execution mode    */
+#define MIPS_HFLAG_BMASK_EXT 0x78000
+#define MIPS_HFLAG_B16    0x08000 /* branch instruction was 16 bits     */
+#define MIPS_HFLAG_BDS16  0x10000 /* branch requires 16-bit delay slot  */
+#define MIPS_HFLAG_BDS32  0x20000 /* branch requires 32-bit delay slot  */
+#define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
@@ -627,6 +656,7 @@ enum {
     EXCP_MDMX,
     EXCP_C2E,
     EXCP_CACHE, /* 32 */
+    EXCP_DSPDIS,
 
     EXCP_LAST = EXCP_CACHE,
 };
