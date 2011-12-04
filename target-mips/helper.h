@@ -3,6 +3,11 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 
+#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+DEF_HELPER_0(avp_ok, void)
+DEF_HELPER_0(avp_fail, void)
+#endif
+
 #ifdef TARGET_MIPS64
 DEF_HELPER_4(sdl, void, env, tl, tl, int)
 DEF_HELPER_4(sdr, void, env, tl, tl, int)

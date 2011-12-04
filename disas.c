@@ -300,7 +300,7 @@ void target_disas(FILE *out, CPUArchState *env, target_ulong code,
     for (pc = code; size > 0; pc += count, size -= count) {
 	fprintf(out, "0x" TARGET_FMT_lx ":  ", pc);
 	count = print_insn(pc, &s.info);
-#if 0
+#if 0 || (defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY))
         {
             int i;
             uint8_t b;
