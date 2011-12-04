@@ -64,6 +64,8 @@ struct mips_def_t {
     int32_t CP0_Config1;
     int32_t CP0_Config2;
     int32_t CP0_Config3;
+    int32_t CP0_Config4;
+    int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     target_ulong CP0_LLAddr_rw_bitmask;

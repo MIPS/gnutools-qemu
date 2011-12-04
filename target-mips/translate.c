@@ -4417,7 +4417,14 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config3));
             rn = "Config3";
             break;
-        /* 4,5 are reserved */
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config4));
+            rn = "Config4";
+            break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config5));
+            rn = "Config5";
+            break;
         /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config6));
@@ -4999,7 +5006,14 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* ignored, read only */
             rn = "Config3";
             break;
-        /* 4,5 are reserved */
+        case 4:
+            /* currently ignored */
+            rn = "Config4";
+            break;
+        case 5:
+            /* currently ignored */
+            rn = "Config5";
+            break;
         /* 6,7 are implementation dependent */
         case 6:
             /* ignored */
@@ -5598,6 +5612,14 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config3));
             rn = "Config3";
             break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config4));
+            rn = "Config4";
+            break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config5));
+            rn = "Config5";
+            break;
        /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config6));
@@ -6188,6 +6210,14 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             /* ignored */
             rn = "Config3";
+            break;
+        case 4:
+            /* currently ignored */
+            rn = "Config4";
+            break;
+        case 5:
+            /* currently ignored */
+            rn = "Config5";
             break;
         /* 6,7 are implementation dependent */
         default:
