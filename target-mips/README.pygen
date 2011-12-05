@@ -1,7 +1,7 @@
 These scripts build include files for QEMU.
 Currently they are just used for the dsp ase.
 
-To build the header files:
+To build the MIPS DSP ASE instruction header files:
 python ./dspasegen.py
 
 This creates the following header files:
@@ -11,9 +11,24 @@ mips_major_dsp_special3_opcodes_case.h
 mips_major_dsp_special3_opcodes_gen.h
 mips_major_dsp_special3_opcodes.h
 
+To build the microMIPS DSP ASE instruction header files:
+python ./dspasemgen.py
+
+This creates the following header files:
+micro_mips_gen.h
+mips_dsp_pool32a_case.h
+mips_dsp_pool32a_opcodes.h
+mips_dsp_pool32axf_1_case.h
+mips_dsp_pool32axf_2_case.h
+mips_dsp_pool32axf_4_case.h
+mips_dsp_pool32axf_7_case.h
+mips_dsp_pool32axf_opcodes.h
+
 
 The script files are:
-dspasegen.py is the main generator script
-dspase.py describes the instruction packing
+dspasegen.py is the MIPS DSP ASE main generator script
+dspasemgen.py is the microMIPS DSP ASE main generator script
+dspase.py describes the MIPS instruction packing
+dspasem.py describes the microMIPS instruction packing
 dspasei.py describes the code the simulate each instruction
 dspaseutil.py is a set of utility functions used by other scripts
