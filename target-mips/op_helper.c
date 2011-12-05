@@ -536,6 +536,17 @@ static inline uint16_t multiplyU8U8(uint8_t a, uint8_t b)
     return (uint16_t)a * (uint16_t)b;
 }
 
+/****************************************************
+ * DSP ASE R3 */
+
+static inline int16_t multiplyS8S8(uint8_t a, uint8_t b)
+{
+    return (int16_t)a * (int16_t)b;
+}
+
+/* DSP ASE R3
+ ***************************************************/
+
 static inline uint8_t dsp_addU8(uint8_t a_not_wide_enough,
     uint8_t b_not_wide_enough)
 {
@@ -670,6 +681,164 @@ static inline uint8_t dsp_roundRightShift1SubU8(uint8_t a_not_wide_enough,
     return result >> 1;
 }
 
+/****************************************************
+ * DSP ASE R3 */
+
+#define BIT16_7 ((uint16_t)1 << 7)
+
+#define DSP8_BINARY_HEADER_SIGNED(name) \
+    static inline uint8_t name(int8_t a_not_wide_enough, \
+                               int8_t b_not_wide_enough) { \
+    int16_t result; \
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+static inline uint8_t dsp_add8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a + b;
+
+    if ((result & BIT16_8) != (result & BIT16_7)) {
+        set_DSPCONTROL_20_ON;
+    }
+
+    return BIT8_TRIM(result);
+}
+
+static inline uint8_t dsp_satSAdd8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a + b;
+
+    if ((result & BIT16_8) != (result & BIT16_7)) {
+        set_DSPCONTROL_20_ON;
+        return (result & BIT16_8) ? BIT8_MIN : BIT8_MAX;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_absSub8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a - b;
+
+    if ((result & BIT16_8)) {
+        result = -result;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_absSubU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a - b;
+
+    if ((result & BIT16_8)) {
+        result = -result;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_sub8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a - b;
+
+    if ((result & BIT16_8) != (result & BIT16_7)) {
+        set_DSPCONTROL_20_ON;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_satSSub8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a - b;
+
+    if ((result & BIT16_8) != (result & BIT16_7)) {
+        set_DSPCONTROL_20_ON;
+        return (result & BIT16_8) ? BIT8_MIN : BIT8_MAX;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_satSSubU8(uint8_t a_not_wide_enough,
+    uint8_t b_not_wide_enough)
+{
+    uint16_t result;
+    uint8_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a - b;
+
+    if ((result & BIT16_8) != (result & BIT16_7)) {
+        set_DSPCONTROL_20_ON;
+        return (result & BIT16_8) ? BIT8_MIN : BIT8_MAX;
+    }
+
+    return result;
+}
+
+static inline uint8_t dsp_mul8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a * b;
+
+    if (result > (int16_t)0x007F) {
+        set_DSPCONTROL_21(1);
+    } else if (result < (int16_t)0xFF80) {
+        set_DSPCONTROL_21(1);
+    }
+
+    return (int8_t)result;
+}
+
+static inline uint8_t dsp_satSMul8(int8_t a_not_wide_enough,
+    int8_t b_not_wide_enough)
+{
+    int16_t result;
+    int16_t a = a_not_wide_enough, b = b_not_wide_enough;
+
+    result = a * b;
+
+    if (result > (int16_t)0x007F) {
+        result = (int16_t)0x007F;
+        set_DSPCONTROL_21(1);
+    } else if (result < (int16_t)0xFF80) {
+        result = (int16_t)0xFF80;
+        set_DSPCONTROL_21(1);
+    }
+
+    return (int8_t)result;
+}
+
+/* DSP ASE R3
+ ***************************************************/
+
 #define do_dsp8_unary(func)\
     union target_split s, t;\
     s.temp = arg1;\
@@ -773,6 +942,26 @@ do_dsp8_binary_helper(subuh_qb, dsp_rightShift1SubU8)
 do_dsp8_binary_helper(subuh_r_qb, dsp_roundRightShift1SubU8)
 do_dsp8_binary_helper(subu_qb, dsp_subU8)
 do_dsp8_binary_helper(subu_s_qb, dsp_satSubU8)
+
+/****************************************************
+ * DSP ASE R3 */
+
+do_dsp8_binary_helper(add_qb, dsp_add8)
+do_dsp8_binary_helper(add_s_qb, dsp_satSAdd8)
+
+do_dsp8_binary_helper(asub_qb, dsp_absSub8)
+do_dsp8_binary_helper(asubu_qb, dsp_absSubU8)
+
+do_dsp8_binary_helper(sub_qb, dsp_sub8)
+do_dsp8_binary_helper(sub_s_qb, dsp_satSSub8)
+
+do_dsp8_binary_helper(mul_qb, dsp_mul8)
+do_dsp8_binary_helper(mul_s_qb, dsp_satSMul8)
+
+do_dsp8_binary_helper(subus_s_qb, dsp_satSSubU8)
+
+/* DSP ASE R3
+ ***************************************************/
 
 #define do_dsp16_unary(func) \
     do {\
@@ -1801,6 +1990,120 @@ uint64_t helper_dpsqx_s_w_ph(uint32_t acc, uint64_t acc_value,
     return result;
 }
 
+/****************************************************
+ * DSP ASE R3 */
+
+uint64_t helper_dpa_h_qb(uint64_t acc_value, target_ulong arg1,
+    target_ulong arg2)
+{
+    union target_split a1, a2;
+    uint64_t result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    uint16_t tempD =
+        multiplyS8S8(a1.temp8[DSP_QUAD_HI], a2.temp8[DSP_QUAD_HI]);
+
+    uint16_t tempC =
+        multiplyS8S8(a1.temp8[DSP_QUAD_HIMID], a2.temp8[DSP_QUAD_HIMID]);
+
+    uint16_t tempB =
+        multiplyS8S8(a1.temp8[DSP_QUAD_LOMID], a2.temp8[DSP_QUAD_LOMID]);
+
+    uint16_t tempA =
+        multiplyS8S8(a1.temp8[DSP_QUAD_LO], a2.temp8[DSP_QUAD_LO]);
+
+    uint64_t dotp = tempA + tempB + tempC + tempD;
+    result = acc_value + dotp;
+
+    return result;
+}
+
+uint64_t helper_dpau_h_qb(uint64_t acc_value, target_ulong arg1,
+    target_ulong arg2)
+{
+    union target_split a1, a2;
+    uint64_t result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    uint16_t tempD =
+        multiplyU8U8(a1.temp8[DSP_QUAD_HI], a2.temp8[DSP_QUAD_HI]);
+
+    uint16_t tempC =
+        multiplyU8U8(a1.temp8[DSP_QUAD_HIMID], a2.temp8[DSP_QUAD_HIMID]);
+
+    uint16_t tempB =
+        multiplyU8U8(a1.temp8[DSP_QUAD_LOMID], a2.temp8[DSP_QUAD_LOMID]);
+
+    uint16_t tempA =
+        multiplyU8U8(a1.temp8[DSP_QUAD_LO], a2.temp8[DSP_QUAD_LO]);
+
+    uint64_t dotp = tempA + tempB + tempC + tempD;
+    result = acc_value + dotp;
+
+    return result;
+}
+
+uint64_t helper_dps_h_qb(uint64_t acc_value, target_ulong arg1,
+    target_ulong arg2)
+{
+    union target_split a1, a2;
+    uint64_t result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    uint16_t tempD =
+        multiplyS8S8(a1.temp8[DSP_QUAD_HI], a2.temp8[DSP_QUAD_HI]);
+
+    uint16_t tempC =
+        multiplyS8S8(a1.temp8[DSP_QUAD_HIMID], a2.temp8[DSP_QUAD_HIMID]);
+
+    uint16_t tempB =
+        multiplyS8S8(a1.temp8[DSP_QUAD_LOMID], a2.temp8[DSP_QUAD_LOMID]);
+
+    uint16_t tempA =
+        multiplyS8S8(a1.temp8[DSP_QUAD_LO], a2.temp8[DSP_QUAD_LO]);
+
+    uint64_t dotp = tempA + tempB + tempC + tempD;
+    result = acc_value - dotp;
+
+    return result;
+}
+
+uint64_t helper_dpsu_h_qb(uint64_t acc_value, target_ulong arg1,
+    target_ulong arg2)
+{
+    union target_split a1, a2;
+    uint64_t result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    uint16_t tempD =
+        multiplyU8U8(a1.temp8[DSP_QUAD_HI], a2.temp8[DSP_QUAD_HI]);
+
+    uint16_t tempC =
+        multiplyU8U8(a1.temp8[DSP_QUAD_HIMID], a2.temp8[DSP_QUAD_HIMID]);
+
+    uint16_t tempB =
+        multiplyU8U8(a1.temp8[DSP_QUAD_LOMID], a2.temp8[DSP_QUAD_LOMID]);
+
+    uint16_t tempA =
+        multiplyU8U8(a1.temp8[DSP_QUAD_LO], a2.temp8[DSP_QUAD_LO]);
+
+    uint64_t dotp = tempA + tempB + tempC + tempD;
+    result = acc_value - dotp;
+
+    return result;
+}
+
+/* DSP ASE R3
+ ***************************************************/
+
 /* not really a size, size + 1 bits are extracted */
 static inline target_ulong dsp_extp(uint64_t acc_value, uint32_t size,
     uint32_t do_dp)
@@ -2588,6 +2891,72 @@ target_ulong helper_precrqu_s_qb_ph(target_ulong arg1, target_ulong arg2)
 
     return result.temp;
 }
+
+/****************************************************
+ * DSP ASE R3 */
+
+target_ulong helper_ilvev_qb(target_ulong arg1, target_ulong arg2)
+{
+    union target_split a1, a2, result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    result.temp8[DSP_QUAD_HI] = a1.temp8[DSP_QUAD_HIMID];
+    result.temp8[DSP_QUAD_HIMID] = a2.temp8[DSP_QUAD_HIMID];
+    result.temp8[DSP_QUAD_LOMID] = a1.temp8[DSP_QUAD_LO];
+    result.temp8[DSP_QUAD_LO] = a2.temp8[DSP_QUAD_LO];
+
+    return result.temp;
+}
+
+target_ulong helper_ilvod_qb(target_ulong arg1, target_ulong arg2)
+{
+    union target_split a1, a2, result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    result.temp8[DSP_QUAD_HI] = a1.temp8[DSP_QUAD_HI];
+    result.temp8[DSP_QUAD_HIMID] = a2.temp8[DSP_QUAD_HI];
+    result.temp8[DSP_QUAD_LOMID] = a1.temp8[DSP_QUAD_LOMID];
+    result.temp8[DSP_QUAD_LO] = a2.temp8[DSP_QUAD_LOMID];
+
+    return result.temp;
+}
+
+target_ulong helper_ilvl_qb(target_ulong arg1, target_ulong arg2)
+{
+    union target_split a1, a2, result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    result.temp8[DSP_QUAD_HI] = a1.temp8[DSP_QUAD_HI];
+    result.temp8[DSP_QUAD_HIMID] = a2.temp8[DSP_QUAD_HI];
+    result.temp8[DSP_QUAD_LOMID] = a1.temp8[DSP_QUAD_HIMID];
+    result.temp8[DSP_QUAD_LO] = a2.temp8[DSP_QUAD_HIMID];
+
+    return result.temp;
+}
+
+target_ulong helper_ilvr_qb(target_ulong arg1, target_ulong arg2)
+{
+    union target_split a1, a2, result;
+
+    a1.temp = arg1;
+    a2.temp = arg2;
+
+    result.temp8[DSP_QUAD_HI] = a1.temp8[DSP_QUAD_LOMID];
+    result.temp8[DSP_QUAD_HIMID] = a2.temp8[DSP_QUAD_LOMID];
+    result.temp8[DSP_QUAD_LOMID] = a1.temp8[DSP_QUAD_LO];
+    result.temp8[DSP_QUAD_LO] = a2.temp8[DSP_QUAD_LO];
+
+    return result.temp;
+}
+
+/* DSP ASE R3
+ ***************************************************/
 
 target_ulong helper_prepend(target_ulong rs, target_ulong rt, uint32_t sa)
 {

@@ -217,6 +217,36 @@ DEF_HELPER_2(subu_s_ph, tl, tl, tl)
 DEF_HELPER_2(subu_s_qb, tl, tl, tl)
 DEF_HELPER_2(subuh_qb, tl, tl, tl)
 
+/****************************************************
+ * DSP ASE R3 */
+
+DEF_HELPER_2(add_qb, tl, tl, tl)
+DEF_HELPER_2(add_s_qb, tl, tl, tl)
+
+DEF_HELPER_2(asub_qb, tl, tl, tl)
+DEF_HELPER_2(asubu_qb, tl, tl, tl)
+
+DEF_HELPER_3(dpa_h_qb, i64, i64, tl, tl)
+DEF_HELPER_3(dpau_h_qb, i64, i64, tl, tl)
+DEF_HELPER_3(dps_h_qb, i64, i64, tl, tl)
+DEF_HELPER_3(dpsu_h_qb, i64, i64, tl, tl)
+
+DEF_HELPER_2(ilvev_qb, tl, tl, tl)
+DEF_HELPER_2(ilvod_qb, tl, tl, tl)
+
+DEF_HELPER_2(ilvl_qb, tl, tl, tl)
+DEF_HELPER_2(ilvr_qb, tl, tl, tl)
+
+DEF_HELPER_2(mul_qb, tl, tl, tl)
+DEF_HELPER_2(mul_s_qb, tl, tl, tl)
+
+DEF_HELPER_2(sub_qb, tl, tl, tl)
+DEF_HELPER_2(sub_s_qb, tl, tl, tl)
+DEF_HELPER_2(subus_s_qb, tl, tl, tl)
+
+/* DSP ASE R3
+ ***************************************************/
+
 #ifndef CONFIG_USER_ONLY
 /* CP0 helpers */
 DEF_HELPER_0(mfc0_mvpcontrol, tl)
