@@ -57,6 +57,41 @@ struct CPUMIPSTLBContext {
 };
 #endif
 
+typedef union wr_t wr_t;
+union wr_t {
+    int8_t  b[32];
+    int16_t h[16];
+    int32_t w[8];
+    int64_t d[4];
+};
+/* MSA Context */
+typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
+struct CPUMIPSMSAContext {
+    wr_t wr[32];
+
+    int32_t msair;
+#define MSAIR_REGISTER 0
+#define MSAIR_ZERO_BITS 0x0303ffff
+
+#define MSAIR_SHARED_REG  (1 << 16)
+#define MSAIR_WIDTH_256   (1 << 17)
+
+#define MSAIR_FLOAT_IMPL  (1 << 24)
+#define MSAIR_TINY_BEFORE (1 << 25)
+
+    int32_t msacsr;
+#define MSACSR_REGISTER 1
+#define MSACSR_ZERO_BITS 0x0167ffff
+
+#define MSACSR_ROUNDING_MODES        (3)
+#define MSACSR_FLUSH_OUTPUTS_TO_ZERO (1 << 24)
+#define MSACSR_FLUSH_INPUTS_TO_ZERO  (1 << 19)
+#define MSACSR_IEEE_754_2008         (1 << 18)
+
+
+    float_status fp_status;
+};
+
 typedef union fpr_t fpr_t;
 union fpr_t {
     float64  fd;   /* ieee double precision */
@@ -179,6 +214,7 @@ typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
     CPUMIPSFPUContext active_fpu;
+    CPUMIPSMSAContext active_msa;
 
     uint32_t current_tc;
     uint32_t current_fpu;
@@ -367,6 +403,7 @@ struct CPUMIPSState {
     int32_t CP0_Config3;
 #define CP0C3_M    31
 #define CP0C3_CMGCR 29
+#define CP0C3_MSA  28
 #define CP0C3_EICW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -426,6 +463,7 @@ struct CPUMIPSState {
     int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
+    int32_t CP0_MSAAccess;
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];
@@ -627,8 +665,10 @@ enum {
     EXCP_MDMX,
     EXCP_C2E,
     EXCP_CACHE, /* 32 */
+    EXCP_MSADIS,
+    EXCP_MSAFPE,
 
-    EXCP_LAST = EXCP_CACHE,
+    EXCP_LAST
 };
 /* Dummy exception for conditional stores.  */
 #define EXCP_SC 0x100

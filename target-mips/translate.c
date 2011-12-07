@@ -115,6 +115,8 @@ enum {
     OPC_SDC2     = (0x3E << 26),
     /* MDMX ASE specific */
     OPC_MDMX     = (0x1E << 26),
+    /* MSA ASE, same as MDMX */
+    OPC_MSA      = OPC_MDMX,
     /* Cache and prefetch */
     OPC_CACHE    = (0x2F << 26),
     OPC_PREF     = (0x33 << 26),
@@ -321,8 +323,11 @@ enum {
     OPC_DMODU_G_2E  = 0x27 | OPC_SPECIAL3,
 };
 
+/* MSA opcodes */
+#define MASK_MSA(op)    (MASK_OP_MAJOR(op) | (op & 0x3F))
+
 /* BSHFL opcodes */
-#define MASK_BSHFL(op)     MASK_SPECIAL3(op) | (op & (0x1F << 6))
+#define MASK_BSHFL(op)     (MASK_SPECIAL3(op) | (op & (0x1F << 6)))
 
 enum {
     OPC_WSBH     = (0x02 << 6) | OPC_BSHFL,
@@ -331,7 +336,7 @@ enum {
 };
 
 /* DBSHFL opcodes */
-#define MASK_DBSHFL(op)    MASK_SPECIAL3(op) | (op & (0x1F << 6))
+#define MASK_DBSHFL(op)    (MASK_SPECIAL3(op) | (op & (0x1F << 6)))
 
 enum {
     OPC_DSBH     = (0x02 << 6) | OPC_DBSHFL,
@@ -339,7 +344,7 @@ enum {
 };
 
 /* Coprocessor 0 (rs field) */
-#define MASK_CP0(op)       MASK_OP_MAJOR(op) | (op & (0x1F << 21))
+#define MASK_CP0(op)       (MASK_OP_MAJOR(op) | (op & (0x1F << 21)))
 
 enum {
     OPC_MFC0     = (0x00 << 21) | OPC_CP0,
@@ -357,7 +362,7 @@ enum {
 };
 
 /* MFMC0 opcodes */
-#define MASK_MFMC0(op)     MASK_CP0(op) | (op & 0xFFFF)
+#define MASK_MFMC0(op)     (MASK_CP0(op) | (op & 0xFFFF))
 
 enum {
     OPC_DMT      = 0x01 | (0 << 5) | (0x0F << 6) | (0x01 << 11) | OPC_MFMC0,
@@ -369,7 +374,7 @@ enum {
 };
 
 /* Coprocessor 0 (with rs == C0) */
-#define MASK_C0(op)        MASK_CP0(op) | (op & 0x3F)
+#define MASK_C0(op)        (MASK_CP0(op) | (op & 0x3F))
 
 enum {
     OPC_TLBR     = 0x01 | OPC_C0,
@@ -383,7 +388,7 @@ enum {
 };
 
 /* Coprocessor 1 (rs field) */
-#define MASK_CP1(op)       MASK_OP_MAJOR(op) | (op & (0x1F << 21))
+#define MASK_CP1(op)       (MASK_OP_MAJOR(op) | (op & (0x1F << 21)))
 
 /* Values for the fmt field in FP instructions */
 enum {
@@ -419,8 +424,8 @@ enum {
     OPC_PS_FMT   = (FMT_PS << 21) | OPC_CP1,
 };
 
-#define MASK_CP1_FUNC(op)       MASK_CP1(op) | (op & 0x3F)
-#define MASK_BC1(op)            MASK_CP1(op) | (op & (0x3 << 16))
+#define MASK_CP1_FUNC(op)       (MASK_CP1(op) | (op & 0x3F))
+#define MASK_BC1(op)            (MASK_CP1(op) | (op & (0x3 << 16)))
 
 enum {
     OPC_BC1F     = (0x00 << 16) | OPC_BC1,
@@ -439,7 +444,7 @@ enum {
     OPC_BC1TANY4     = (0x01 << 16) | OPC_BC1ANY4,
 };
 
-#define MASK_CP2(op)       MASK_OP_MAJOR(op) | (op & (0x1F << 21))
+#define MASK_CP2(op)       (MASK_OP_MAJOR(op) | (op & (0x1F << 21)))
 
 enum {
     OPC_MFC2    = (0x00 << 21) | OPC_CP2,
@@ -453,7 +458,7 @@ enum {
     OPC_BC2     = (0x08 << 21) | OPC_CP2,
 };
 
-#define MASK_CP3(op)       MASK_OP_MAJOR(op) | (op & 0x3F)
+#define MASK_CP3(op)       (MASK_OP_MAJOR(op) | (op & 0x3F))
 
 enum {
     OPC_LWXC1   = 0x00 | OPC_CP3,
@@ -487,6 +492,8 @@ static TCGv_i32 hflags;
 static TCGv_i32 fpu_fcr0, fpu_fcr31;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
+
+static TCGv cpu_wr[32];
 
 #include "gen-icount.h"
 
@@ -554,6 +561,13 @@ static const char *fregnames[] =
       "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
       "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
       "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31", };
+
+static const char *wregnames[] = {
+    "w0",  "w1",  "w2",  "w3",  "w4",  "w5",  "w6",  "w7",
+    "w8",  "w9",  "w10", "w11", "w12", "w13", "w14", "w15",
+    "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23",
+    "w24", "w25", "w26", "w27", "w28", "w29", "w30", "w31", };
+
 
 #ifdef MIPS_DEBUG_DISAS
 #define MIPS_DEBUG(fmt, ...)                         \
@@ -9846,10 +9860,11 @@ static int mmreg2 (int r)
 #define uMIPS_RS5(op) (op & 0x1f)
 
 /* Signed immediate */
-#define SIMM(op, start, width)                                          \
-    ((int32_t)(((op >> start) & ((~0U) >> (32-width)))                 \
-               << (32-width))                                           \
+#define SIMM(op, start, width)                          \
+    ((int32_t)(((op >> start) & ((~0U) >> (32-width)))  \
+               << (32-width))                           \
      >> (32-width))
+
 /* Zero-extended immediate */
 #define ZIMM(op, start, width) ((op >> start) & ((~0U) >> (32-width)))
 
@@ -11779,6 +11794,18 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
 #endif
 
+/* MIPS SIMD Architecture (MSA)  */
+
+static inline void check_msa(CPUState *env, DisasContext *ctx)
+{
+    check_insn(env, ctx, ASE_MSA);
+}
+
+#include "mips_msa_opcodes.h"
+#include "mips_msa_opcodes_gen.h"
+#include "mips_msa_opcodes_case.h"
+
+
 static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 {
     int32_t offset;
@@ -12456,9 +12483,11 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         gen_compute_branch(ctx, op, 4, rs, rt, offset);
         *is_branch = 1;
         break;
-    case OPC_MDMX:
-        check_insn(env, ctx, ASE_MDMX);
+    case OPC_MSA:
         /* MDMX: Not implemented. */
+        check_insn(env, ctx, ASE_MDMX | ASE_MSA);
+        gen_msa(env, ctx);
+        break;
     default:            /* Invalid */
         MIPS_INVAL("major opcode");
         generate_exception(ctx, EXCP_RI);
@@ -12777,6 +12806,11 @@ static void mips_tcg_init(void)
     fpu_fcr31 = tcg_global_mem_new_i32(TCG_AREG0,
                                        offsetof(CPUState, active_fpu.fcr31),
                                        "fcr31");
+    /* MSA */
+    for (i = 0; i < 32; i++)
+        cpu_wr[i] = tcg_global_mem_new(TCG_AREG0,
+                                       offsetof(CPUState, active_msa.wr[i]),
+                                       wregnames[i]);
 
     /* register helpers */
 #define GEN_HELPER 2
@@ -12950,3 +12984,4 @@ void restore_state_to_opc(CPUState *env, TranslationBlock *tb, int pc_pos)
     env->hflags &= ~MIPS_HFLAG_BMASK;
     env->hflags |= gen_opc_hflags[pc_pos];
 }
+

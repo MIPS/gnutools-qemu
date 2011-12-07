@@ -121,7 +121,7 @@ static void do_restore_state (void *pc_ptr)
 {
     TranslationBlock *tb;
     unsigned long pc = (unsigned long) pc_ptr;
-    
+
     tb = tb_find_pc (pc);
     if (tb) {
         cpu_restore_state(tb, env, pc);
@@ -3291,7 +3291,7 @@ FOP_COND_D(ule, float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status) 
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float64_unordered() is still called. */
 FOP_COND_D(sf,  (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status), 0))
-FOP_COND_D(ngle,float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status))
+FOP_COND_D(ngle, float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status))
 FOP_COND_D(seq, float64_eq(fdt0, fdt1, &env->active_fpu.fp_status))
 FOP_COND_D(ngl, float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)  || float64_eq(fdt0, fdt1, &env->active_fpu.fp_status))
 FOP_COND_D(lt,  float64_lt(fdt0, fdt1, &env->active_fpu.fp_status))
@@ -3338,7 +3338,7 @@ FOP_COND_S(ule, float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status) 
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float32_unordered() is still called. */
 FOP_COND_S(sf,  (float32_unordered(fst1, fst0, &env->active_fpu.fp_status), 0))
-FOP_COND_S(ngle,float32_unordered(fst1, fst0, &env->active_fpu.fp_status))
+FOP_COND_S(ngle, float32_unordered(fst1, fst0, &env->active_fpu.fp_status))
 FOP_COND_S(seq, float32_eq(fst0, fst1, &env->active_fpu.fp_status))
 FOP_COND_S(ngl, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)  || float32_eq(fst0, fst1, &env->active_fpu.fp_status))
 FOP_COND_S(lt,  float32_lt(fst0, fst1, &env->active_fpu.fp_status))
@@ -3411,7 +3411,7 @@ FOP_COND_PS(ule, float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)
  * but float32_unordered() is still called. */
 FOP_COND_PS(sf,  (float32_unordered(fst1, fst0, &env->active_fpu.fp_status), 0),
                  (float32_unordered(fsth1, fsth0, &env->active_fpu.fp_status), 0))
-FOP_COND_PS(ngle,float32_unordered(fst1, fst0, &env->active_fpu.fp_status),
+FOP_COND_PS(ngle, float32_unordered(fst1, fst0, &env->active_fpu.fp_status),
                  float32_unordered(fsth1, fsth0, &env->active_fpu.fp_status))
 FOP_COND_PS(seq, float32_eq(fst0, fst1, &env->active_fpu.fp_status),
                  float32_eq(fsth0, fsth1, &env->active_fpu.fp_status))
@@ -3425,3 +3425,2399 @@ FOP_COND_PS(le,  float32_le(fst0, fst1, &env->active_fpu.fp_status),
                  float32_le(fsth0, fsth1, &env->active_fpu.fp_status))
 FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    || float32_le(fst0, fst1, &env->active_fpu.fp_status),
                  float32_unordered(fsth1, fsth0, &env->active_fpu.fp_status)  || float32_le(fsth0, fsth1, &env->active_fpu.fp_status))
+
+
+
+/*
+ *  MSA
+ */
+
+
+/* Data format and vector length unpacking */
+#define WRLEN(wrlen_df) (wrlen_df >> 2)
+#define DF(wrlen_df) (wrlen_df & 0x03)
+
+#define DF_BYTE   0
+#define DF_HALF   1
+#define DF_WORD   2
+#define DF_DOUBLE 3
+
+#define DF_FLOAT_WORD   0
+#define DF_FLOAT_DOUBLE 1
+
+
+/* Data format min and max values */
+#define DF_BITS(df) (1 << ((df) + 3))
+
+#define DF_MAX_INT(df)  ((1LL << (DF_BITS(df) - 1)) - 1)
+#define M_MAX_INT(m)    ((1LL << ((m)         - 1)) - 1)
+
+#define DF_MIN_INT(df)  (-(1LL << (DF_BITS(df) - 1)))
+#define M_MIN_INT(m)    (-(1LL << ((m)         - 1)))
+
+#define DF_MAX_UINT(df) (-1ULL >> (64 - DF_BITS(df)))
+#define M_MAX_UINT(m)   (-1ULL >> (64 - (m)))
+
+/* Data format bit position and unsigned values */
+#define BIT_POSITION(x, df) ((uint64_t)(x) % DF_BITS(df))
+
+#define UNSIGNED(x, df) ((x) & DF_MAX_UINT(df))
+#define SIGNED(x, df)                                                   \
+    ((((int64_t)x) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)))
+
+/* Element-by-element access macros */
+#define  B(pwr, i) (((wr_t *)pwr)->b[i])
+#define BR(pwr, i) (((wr_t *)pwr)->b[i])
+#define BL(pwr, i) (((wr_t *)pwr)->b[i + wrlen/16])
+
+#define ALL_B_ELEMENTS(i)                       \
+    do {                                        \
+        uint32_t i;                             \
+        for (i = 0; i < wrlen / 8; i++)
+
+#define  H(pwr, i) (((wr_t *)pwr)->h[i])
+#define HR(pwr, i) (((wr_t *)pwr)->h[i])
+#define HL(pwr, i) (((wr_t *)pwr)->h[i + wrlen/32])
+
+#define ALL_H_ELEMENTS(i)                       \
+    do {                                        \
+        uint32_t i;                             \
+        for (i = 0; i < wrlen / 16; i++)
+
+#define  W(pwr, i) (((wr_t *)pwr)->w[i])
+#define WR(pwr, i) (((wr_t *)pwr)->w[i])
+#define WL(pwr, i) (((wr_t *)pwr)->w[i + wrlen/64])
+
+#define ALL_W_ELEMENTS(i)                       \
+    do {                                        \
+        uint32_t i;                             \
+        for (i = 0; i < wrlen / 32; i++)
+
+#define  D(pwr, i) (((wr_t *)pwr)->d[i])
+#define DR(pwr, i) (((wr_t *)pwr)->d[i])
+#define DL(pwr, i) (((wr_t *)pwr)->d[i + wrlen/128])
+
+#define ALL_D_ELEMENTS(i)                       \
+    do {                                        \
+        uint32_t i;                             \
+        for (i = 0; i < wrlen / 64; i++)
+
+#define Q(pwr, i) (((wr_t *)pwr)->q[i])
+#define ALL_Q_ELEMENTS(i)                       \
+    do {                                        \
+        uint32_t i;                             \
+        for (i = 0; i < wrlen / 128; i++)
+
+#define DONE_ALL_ELEMENTS                       \
+    } while (0)
+
+/*
+ *  ADD_A, ADDV, SUBV
+ */
+
+int64_t helper_add_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
+    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
+
+    return abs_arg1 + abs_arg2;
+}
+
+int64_t helper_addv_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 + arg2;
+}
+
+int64_t helper_subv_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 - arg2;
+}
+
+
+/*
+ *  ADDS_A, ADDS_S, ADDS_U, SUBS_S, SUBS_U, SUBSS_U
+ */
+
+int64_t helper_adds_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t max_int = (uint64_t)DF_MAX_INT(df);
+    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
+    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
+
+    if (abs_arg1 > max_int || abs_arg2 > max_int) {
+        return (int64_t)max_int;
+    } else {
+        return (abs_arg1 < max_int - abs_arg2) ? abs_arg1 + abs_arg2 : max_int;
+    }
+}
+
+int64_t helper_adds_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t max_int = DF_MAX_INT(df);
+    int64_t min_int = DF_MIN_INT(df);
+
+    if (arg1 < 0) {
+        return (min_int - arg1 < arg2) ? arg1 + arg2 : min_int;
+    } else {
+        return (arg2 < max_int - arg1) ? arg1 + arg2 : max_int;
+    }
+}
+
+uint64_t helper_adds_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+{
+    uint64_t max_uint = DF_MAX_UINT(df);
+
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return (u_arg1 < max_uint - u_arg2) ? u_arg1 + u_arg2 : max_uint;
+}
+
+int64_t helper_subs_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t max_int = DF_MAX_INT(df);
+    int64_t min_int = DF_MIN_INT(df);
+
+    if (arg2 > 0) {
+        return (min_int + arg2 < arg1) ? arg1 - arg2 : min_int;
+    } else {
+        return (arg1 < max_int + arg2) ? arg1 - arg2 : max_int;
+    }
+}
+
+
+int64_t helper_subs_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return (u_arg1 > u_arg2) ? u_arg1 - u_arg2 : 0;
+}
+
+
+int64_t helper_subss_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    int64_t max_int = DF_MAX_INT(df);
+    int64_t min_int = DF_MIN_INT(df);
+
+    if (u_arg1 > u_arg2) {
+        return u_arg1 - u_arg2 < (uint64_t)max_int ?
+            (int64_t)(u_arg1 - u_arg2) :
+            max_int;
+    } else {
+        return u_arg2 - u_arg1 < (uint64_t)(-min_int) ?
+            (int64_t)(u_arg1 - u_arg2) :
+            min_int;
+    }
+}
+
+
+
+/*
+ *  AND_V, ANDI_B, OR_V, ORBI_B, NOR_V, NORBI_B, XOR_V, XORI_B
+ */
+
+void helper_and_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        D(pwd, i) = D(pws, i) & D(pwt, i);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_andi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        B(pwd, i) = B(pws, i) & arg2;
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_or_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        D(pwd, i) = D(pws, i) | D(pwt, i);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_ori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        B(pwd, i) = B(pws, i) | arg2;
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_nor_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        D(pwd, i) = ~(D(pws, i) | D(pwt, i));
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_nori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        B(pwd, i) = ~(B(pws, i) | arg2);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_xor_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        D(pwd, i) = D(pws, i) ^ D(pwt, i);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_xori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        B(pwd, i) = B(pws, i) ^ arg2;
+    } DONE_ALL_ELEMENTS;
+}
+
+
+
+/*
+ *  ASUB_S, ASUB_U
+ */
+
+int64_t helper_asub_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    /* signed compare */
+    return (arg1 < arg2) ?
+        (uint64_t)(arg2 - arg1) : (uint64_t)(arg1 - arg2);
+}
+
+uint64_t helper_asub_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    /* unsigned compare */
+    return (u_arg1 < u_arg2) ?
+        (uint64_t)(u_arg2 - u_arg1) : (uint64_t)(u_arg1 - u_arg2);
+}
+
+
+/*
+ *  AVE_S, AVE_U
+ */
+
+int64_t helper_ave_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    /* signed shift */
+    return (arg1 >> 1) + (arg2 >> 1) + (arg1 & arg2 & 1);
+
+}
+
+uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    /* unsigned shift */
+    return (u_arg1 >> 1) + (u_arg2 >> 1) + (u_arg1 & u_arg2 & 1);
+}
+
+
+/*
+ *  BCLR, BSET
+ */
+
+int64_t helper_bclr_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    return UNSIGNED(arg1 & (~(1LL << b_arg2)), df);
+}
+
+int64_t helper_bclri_df(int64_t arg1, uint32_t arg2, uint32_t df)
+{
+    return helper_bclr_df(arg1, arg2, df);
+}
+
+int64_t helper_bset_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    return UNSIGNED(arg1 | (1LL << b_arg2), df);
+}
+
+int64_t helper_bseti_df(int64_t arg1, uint32_t arg2, uint32_t df)
+{
+    return helper_bset_df(arg1, arg2, df);
+}
+
+
+/*
+ *  BINSL, BINSR
+ */
+
+int64_t helper_binsl_df(int64_t dest,
+                        int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_dest = UNSIGNED(dest, df);
+
+    int32_t sh_d = BIT_POSITION(arg2, df) + 1;
+    int32_t sh_a = DF_BITS(df) - sh_d;
+
+    if (sh_d == DF_BITS(df)) {
+        return u_arg1;
+    } else {
+        return UNSIGNED(UNSIGNED(u_dest << sh_d, df) >> sh_d, df) |
+               UNSIGNED(UNSIGNED(u_arg1 >> sh_a, df) << sh_a, df);
+    }
+}
+
+int64_t helper_binsli_df(int64_t dest,
+                         int64_t arg1, uint32_t arg2, uint32_t df)
+{
+    return helper_binsl_df(dest, arg1, arg2, df);
+}
+
+int64_t helper_binsr_df(int64_t dest,
+                        int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_dest = UNSIGNED(dest, df);
+
+    int32_t sh_d = BIT_POSITION(arg2, df) + 1;
+    int32_t sh_a = DF_BITS(df) - sh_d;
+
+    if (sh_d == DF_BITS(df)) {
+        return u_arg1;
+    } else {
+        return UNSIGNED(UNSIGNED(u_dest >> sh_d, df) << sh_d, df) |
+               UNSIGNED(UNSIGNED(u_arg1 << sh_a, df) >> sh_a, df);
+    }
+}
+
+int64_t helper_binsri_df(int64_t dest,
+                        int64_t arg1, uint32_t arg2, uint32_t df)
+{
+    return helper_binsr_df(dest, arg1, arg2, df);
+}
+
+
+/*
+ *  BMNZ
+ */
+
+#define BIT_MOVE_IF_NOT_ZERO(dest, arg1, arg2, df) \
+            dest = UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
+
+void helper_bmnz_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        BIT_MOVE_IF_NOT_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_bmnzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        BIT_MOVE_IF_NOT_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
+    } DONE_ALL_ELEMENTS;
+}
+
+
+/*
+ *  BMZ
+ */
+
+#define BIT_MOVE_IF_ZERO(dest, arg1, arg2, df) \
+            dest = UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
+
+void helper_bmz_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        BIT_MOVE_IF_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_bmzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        BIT_MOVE_IF_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
+    } DONE_ALL_ELEMENTS;
+}
+
+
+/*
+ *  BSEL
+ */
+
+#define BIT_SELECT(dest, arg1, arg2, df) \
+            dest = UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
+
+void helper_bsel_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        BIT_SELECT(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
+    } DONE_ALL_ELEMENTS;
+}
+
+void helper_bseli_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+{
+    ALL_B_ELEMENTS(i) {
+        BIT_SELECT(B(pwd, i), B(pws, i), arg2, DF_BYTE);
+    } DONE_ALL_ELEMENTS;
+}
+
+
+/*
+ *  BNZ, BZ
+ */
+
+uint32_t helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+{
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_B_ELEMENTS(i) {
+            if (B(p_arg, i) == 0) {
+                return 0;
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_H_ELEMENTS(i) {
+            if (H(p_arg, i) == 0) {
+                return 0;
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_W_ELEMENTS(i) {
+            if (W(p_arg, i) == 0) {
+                return 0;
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_D_ELEMENTS(i) {
+            if (D(p_arg, i) == 0) {
+                return 0;
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    return 1;
+}
+
+uint32_t helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+{
+    return !helper_bnz_df(p_arg, df, wrlen);
+}
+
+uint32_t helper_bnz_v(void *p_arg, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        if (D(p_arg, i) != 0) {
+            return 1;
+        }
+    } DONE_ALL_ELEMENTS;
+
+    return 0;
+}
+
+uint32_t helper_bz_v(void *p_arg, uint32_t wrlen)
+{
+    return !helper_bnz_v(p_arg, wrlen);
+}
+
+
+/*
+ *  CEQ, CLE_S, CLE_U, CLT_S, CLT_U
+ */
+
+int64_t helper_ceq_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 == arg2 ? -1 : 0;
+}
+
+int64_t helper_cle_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 <= arg2 ? -1 : 0;
+}
+
+int64_t helper_cle_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 <= u_arg2 ? -1 : 0;
+}
+
+int64_t helper_clt_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 < arg2 ? -1 : 0;
+}
+
+int64_t helper_clt_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 < u_arg2 ? -1 : 0;
+}
+
+
+/*
+ *  DOTP_S, DOTP_U, DPADD_S, DPADD_U, DPSUB_S, DPSUB_U
+ */
+
+#define SIGNED_EVEN(a, df) \
+        ((((int64_t)(a)) << (64 - DF_BITS(df)/2)) >> (64 - DF_BITS(df)/2))
+#define UNSIGNED_EVEN(a, df) \
+        ((((uint64_t)(a)) << (64 - DF_BITS(df)/2)) >> (64 - DF_BITS(df)/2))
+
+#define SIGNED_ODD(a, df) \
+        ((((int64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
+#define UNSIGNED_ODD(a, df) \
+        ((((uint64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
+
+#define SIGNED_EXTRACT(e, o, a, df)             \
+    int64_t e = SIGNED_EVEN(a, df);             \
+    int64_t o = SIGNED_ODD(a, df);
+
+#define UNSIGNED_EXTRACT(e, o, a, df)           \
+    int64_t e = UNSIGNED_EVEN(a, df);           \
+    int64_t o = UNSIGNED_ODD(a, df);
+
+
+
+int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
+}
+
+int64_t helper_dotpi_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return (even_arg1 * arg2) + (odd_arg1 * arg2);
+}
+
+int64_t helper_dotp_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
+}
+
+int64_t helper_dotpi_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return (even_arg1 * arg2) + (odd_arg1 * arg2);
+}
+
+int64_t helper_dpadd_s_df(int64_t dest,
+                          int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
+}
+
+
+int64_t helper_dpaddi_s_df(int64_t dest,
+                           int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
+}
+
+int64_t helper_dpadd_u_df(int64_t dest,
+                          int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
+}
+
+int64_t helper_dpaddi_u_df(int64_t dest,
+                           int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
+}
+
+int64_t helper_dpsub_s_df(int64_t dest,
+                          int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
+}
+
+int64_t helper_dpsubi_s_df(int64_t dest,
+                           int64_t arg1, int64_t arg2, uint32_t df)
+{
+    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));
+}
+
+int64_t helper_dpsub_u_df(int64_t dest,
+                          int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
+}
+
+int64_t helper_dpsubi_u_df(int64_t dest,
+                           int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+
+    return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));
+}
+
+
+/*
+ *  ILVEV, ILVOD, ILVL, ILVR, PCKEV, PCKOD, VSHF
+ */
+
+#define WRLEN(wrlen_df) (wrlen_df >> 2)
+#define DF(wrlen_df) (wrlen_df & 0x03)
+
+void helper_ilvev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            B(pwd, 2*i)   = B(pwt, 2*i);
+            B(pwd, 2*i+1) = B(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            H(pwd, 2*i)   = H(pwt, 2*i);
+            H(pwd, 2*i+1) = H(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            W(pwd, 2*i)   = W(pwt, 2*i);
+            W(pwd, 2*i+1) = W(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            D(pwd, 2*i)   = D(pwt, 2*i);
+            D(pwd, 2*i+1) = D(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+
+void helper_ilvod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            B(pwd, 2*i)   = B(pwt, 2*i+1);
+            B(pwd, 2*i+1) = B(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            H(pwd, 2*i)   = H(pwt, 2*i+1);
+            H(pwd, 2*i+1) = H(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            W(pwd, 2*i)   = W(pwt, 2*i+1);
+            W(pwd, 2*i+1) = W(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            D(pwd, 2*i)   = D(pwt, 2*i+1);
+            D(pwd, 2*i+1) = D(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+
+void helper_ilvl_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            B(pwx, 2*i)   = BL(pwt, i);
+            B(pwx, 2*i+1) = BL(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            H(pwx, 2*i)   = HL(pwt, i);
+            H(pwx, 2*i+1) = HL(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            W(pwx, 2*i)   = WL(pwt, i);
+            W(pwx, 2*i+1) = WL(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            D(pwx, 2*i)   = DL(pwt, i);
+            D(pwx, 2*i+1) = DL(pws, i);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+void helper_ilvr_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            B(pwx, 2*i)   = BR(pwt, i);
+            B(pwx, 2*i+1) = BR(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            H(pwx, 2*i)   = HR(pwt, i);
+            H(pwx, 2*i+1) = HR(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            W(pwx, 2*i)   = WR(pwt, i);
+            W(pwx, 2*i+1) = WR(pws, i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            D(pwx, 2*i)   = DR(pwt, i);
+            D(pwx, 2*i+1) = DR(pws, i);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+void helper_pckev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            BR(pwx, i) = B(pwt, 2*i);
+            BL(pwx, i) = B(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            HR(pwx, i) = H(pwt, 2*i);
+            HL(pwx, i) = H(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            WR(pwx, i) = W(pwt, 2*i);
+            WL(pwx, i) = W(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            DR(pwx, i) = D(pwt, 2*i);
+            DL(pwx, i) = D(pws, 2*i);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+void helper_pckod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_H_ELEMENTS(i) {
+            BR(pwx, i) = B(pwt, 2*i+1);
+            BL(pwx, i) = B(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_W_ELEMENTS(i) {
+            HR(pwx, i) = H(pwt, 2*i+1);
+            HL(pwx, i) = H(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_D_ELEMENTS(i) {
+            WR(pwx, i) = W(pwt, 2*i+1);
+            WL(pwx, i) = W(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_Q_ELEMENTS(i) {
+            DR(pwx, i) = D(pwt, 2*i+1);
+            DL(pwx, i) = D(pws, 2*i+1);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+    uint32_t n = wrlen / DF_BITS(df);
+    uint32_t k;
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_B_ELEMENTS(i) {
+            k = (B(pwd, i) & 0x3f) % (2 * n);
+            B(pwx, i) =
+                (B(pwd, i) & 0xc0) ? 0 : k < n ? B(pwt, k) : B(pws, k - n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_H_ELEMENTS(i) {
+            k = (H(pwd, i) & 0x3f) % (2 * n);
+            H(pwx, i) =
+                (H(pwd, i) & 0xc0) ? 0 : k < n ? H(pwt, k) : H(pws, k - n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_W_ELEMENTS(i) {
+            k = (W(pwd, i) & 0x3f) % (2 * n);
+            W(pwx, i) =
+                (W(pwd, i) & 0xc0) ? 0 : k < n ? W(pwt, k) : W(pws, k - n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_D_ELEMENTS(i) {
+            k = (D(pwd, i) & 0x3f) % (2 * n);
+            D(pwx, i) =
+                (D(pwd, i) & 0xc0) ? 0 : k < n ? D(pwt, k) : D(pws, k - n);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+/*
+ *  SHF
+ */
+
+#define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
+
+void helper_shf_b(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+{
+    wr_t wx, *pwx = &wx;
+
+    ALL_B_ELEMENTS(i) {
+        B(pwx, i) = B(pws, SHF_POS(i, imm));
+    } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+void helper_shf_h(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+{
+    wr_t wx, *pwx = &wx;
+
+    ALL_H_ELEMENTS(i) {
+        H(pwx, i) = H(pws, SHF_POS(i, imm));
+    } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+{
+    wr_t wx, *pwx = &wx;
+
+    ALL_W_ELEMENTS(i) {
+        W(pwx, i) = W(pws, SHF_POS(i, imm));
+    } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+void helper_shf_d(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+{
+    wr_t wx, *pwx = &wx;
+
+    ALL_D_ELEMENTS(i) {
+        D(pwx, i) = D(pws, SHF_POS(i, imm));
+    } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+/*
+ *  MADDV, MSUBV
+ */
+
+int64_t helper_maddv_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return dest + arg1 * arg2;
+}
+
+int64_t helper_msubv_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return dest - arg1 * arg2;
+}
+
+
+/*
+ *  MAX, MIN
+ */
+
+int64_t helper_max_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
+    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
+
+    return abs_arg1 > abs_arg2 ? arg1 : arg2;
+}
+
+
+int64_t helper_max_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 > arg2 ? arg1 : arg2;
+}
+
+
+int64_t helper_max_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 > u_arg2 ? arg1 : arg2;
+}
+
+
+int64_t helper_min_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
+    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
+
+    return abs_arg1 < abs_arg2 ? arg1 : arg2;
+}
+
+
+int64_t helper_min_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 < arg2 ? arg1 : arg2;
+}
+
+
+int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 < u_arg2 ? arg1 : arg2;
+}
+
+
+/*
+ *  MOVE and MOVE_V
+ */
+
+void helper_move_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        ALL_B_ELEMENTS(i) {
+            B(pwx, i)   = B(pws, n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        ALL_H_ELEMENTS(i) {
+            H(pwx, i)   = H(pws, n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        ALL_W_ELEMENTS(i) {
+            W(pwx, i)   = W(pws, n);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        ALL_D_ELEMENTS(i) {
+            D(pwx, i)   = D(pws, n);
+        } DONE_ALL_ELEMENTS;
+       break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
+{
+    ALL_D_ELEMENTS(i) {
+        D(pwd, i) = D(pws, i);
+    } DONE_ALL_ELEMENTS;
+}
+
+
+/*
+ *  MULV
+ */
+int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 * arg2;
+}
+
+
+/*
+ *  NLZC, NLOC, and PCNT
+ */
+
+
+int64_t helper_nlzc_df(int64_t arg, uint32_t df)
+{
+    /* Reference: Hacker's Delight, Section 5.3 Counting Leading 0's */
+
+    uint64_t x, y;
+    int n, c;
+
+    x = UNSIGNED(arg, df);
+    n = DF_BITS(df);
+    c = DF_BITS(df) / 2;
+
+    do {
+        y = x >> c;
+        if (y != 0) {
+            n = n - c;
+            x = y;
+        }
+        c = c >> 1;
+    } while (c != 0);
+
+    return n - x;
+}
+
+int64_t helper_nloc_df(int64_t arg, uint32_t df)
+{
+    return helper_nlzc_df(UNSIGNED((~arg), df), df);
+}
+
+
+int64_t helper_pcnt_df(int64_t arg, uint32_t df)
+{
+    /* Reference: Hacker's Delight, Section 5.1 Counting 1-Bits */
+
+    uint64_t x;
+
+    x = UNSIGNED(arg, df);
+
+    x = (x & 0x5555555555555555ULL) + ((x >>  1) & 0x5555555555555555ULL);
+    x = (x & 0x3333333333333333ULL) + ((x >>  2) & 0x3333333333333333ULL);
+    x = (x & 0x0F0F0F0F0F0F0F0FULL) + ((x >>  4) & 0x0F0F0F0F0F0F0F0FULL);
+    x = (x & 0x00FF00FF00FF00FFULL) + ((x >>  8) & 0x00FF00FF00FF00FFULL);
+    x = (x & 0x0000FFFF0000FFFFULL) + ((x >> 16) & 0x0000FFFF0000FFFFULL);
+    x = (x & 0x00000000FFFFFFFFULL) + ((x >> 32));
+
+    return x;
+}
+
+
+/*
+ *  SAT
+ */
+
+int64_t helper_sat_u_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    uint64_t u_arg = UNSIGNED(arg, df);
+    return  u_arg < M_MAX_UINT(m+1) ? u_arg :
+                                      M_MAX_UINT(m+1);
+}
+
+
+int64_t helper_sat_s_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    return arg < M_MIN_INT(m+1) ? M_MIN_INT(m+1) :
+                                  arg > M_MAX_INT(m+1) ? M_MAX_INT(m+1) :
+                                                         arg;
+}
+
+
+/*
+ *  SHL, SRA, SRL
+ */
+
+int64_t helper_shl_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+    return arg1 << b_arg2;
+}
+
+
+int64_t helper_shli_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    return arg << m;
+}
+
+
+int64_t helper_sra_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+    return arg1 >> b_arg2;
+}
+
+
+int64_t helper_srai_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    return arg >> m;
+}
+
+
+int64_t helper_srl_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    return u_arg1 >> b_arg2;
+}
+
+
+int64_t helper_srli_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    uint64_t u_arg = UNSIGNED(arg, df);
+
+    return u_arg >> m;
+}
+
+
+/*
+ *  SLD
+ */
+
+void helper_sld_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    uint8_t v[64];
+    uint32_t i, k;
+
+
+#define CONCATENATE_AND_SLIDE(s, k)             \
+    do {                                        \
+        for (i = 0; i < s; i++) {               \
+            v[i]     = B(pws, s * k + i);       \
+            v[i + s] = B(pwd, s * k + i);       \
+        }                                       \
+        for (i = 0; i < s; i++) {               \
+            B(pwd, s * k + i) = v[i + n];       \
+        }                                       \
+    } while (0)
+
+
+    switch (df) {
+    case DF_BYTE:
+        /* byte data format */
+        CONCATENATE_AND_SLIDE(wrlen/8, 0);
+        break;
+
+    case DF_HALF:
+        /* half data format */
+        for (k = 0; k < 2; k++) {
+            CONCATENATE_AND_SLIDE(wrlen/16, k);
+        }
+        break;
+
+    case DF_WORD:
+        /* word data format */
+        for (k = 0; k < 4; k++) {
+            CONCATENATE_AND_SLIDE(wrlen/32, k);
+        }
+        break;
+
+    case DF_DOUBLE:
+        /* double data format */
+        for (k = 0; k < 8; k++) {
+            CONCATENATE_AND_SLIDE(wrlen/64, k);
+        }
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+
+/*
+ *  Fixed-point operations
+ */
+
+#define GET_SIGN(s, a)                          \
+    if (a < 0) {                                \
+        s = -s; a = -a;                         \
+    }
+
+#define SET_SIGN(s, a)                          \
+    if (s < 0) {                                \
+        a = -a;                                 \
+    }
+
+int64_t helper_mul_q_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_min  = DF_MIN_INT(df);
+    int64_t q_max  = DF_MAX_INT(df);
+
+    if (arg1 == q_min && arg2 == q_min) {
+        return q_max;
+    }
+
+    return (arg1 * arg2) >> (DF_BITS(df) - 1);
+}
+
+int64_t helper_mulr_q_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_min  = DF_MIN_INT(df);
+    int64_t q_max  = DF_MAX_INT(df);
+    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
+
+    if (arg1 == q_min && arg2 == q_min) {
+        return q_max;
+    }
+
+    return (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
+}
+
+int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_prod, q_ret;
+
+    int64_t q_max  = DF_MAX_INT(df);
+    int64_t q_min  = DF_MIN_INT(df);
+
+    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
+    q_ret = dest + q_prod;
+
+    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
+}
+
+
+int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_prod, q_ret;
+
+    int64_t q_max  = DF_MAX_INT(df);
+    int64_t q_min  = DF_MIN_INT(df);
+    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
+
+    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
+    q_ret = dest + q_prod;
+
+    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
+}
+
+
+int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_prod, q_ret;
+
+    int64_t q_max  = DF_MAX_INT(df);
+    int64_t q_min  = DF_MIN_INT(df);
+
+    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
+    q_ret = dest - q_prod;
+
+    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
+}
+
+
+int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int64_t q_prod, q_ret;
+
+    int64_t q_max  = DF_MAX_INT(df);
+    int64_t q_min  = DF_MIN_INT(df);
+    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
+
+    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
+    q_ret = dest - q_prod;
+
+    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
+}
+
+
+/* MSA helper */
+#include "mips_msa_helper_dummy.h"
+
+int64_t helper_load_wr_s64(int wreg, int df, int i)
+{
+    switch (df) {
+    case DF_BYTE: /* b */
+        return env->active_msa.wr[wreg].b[i];
+    case DF_HALF: /* h */
+        return env->active_msa.wr[wreg].h[i];
+    case DF_WORD: /* w */
+        return env->active_msa.wr[wreg].w[i];
+    case DF_DOUBLE: /* d */
+        return env->active_msa.wr[wreg].d[i];
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+uint64_t helper_load_wr_i64(int wreg, int df, int i)
+{
+    switch (df) {
+    case DF_BYTE: /* b */
+        return (uint8_t)env->active_msa.wr[wreg].b[i];
+    case DF_HALF: /* h */
+        return (uint16_t)env->active_msa.wr[wreg].h[i];
+    case DF_WORD: /* w */
+        return (uint32_t)env->active_msa.wr[wreg].w[i];
+    case DF_DOUBLE: /* d */
+        return (uint64_t)env->active_msa.wr[wreg].d[i];
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+void helper_store_wr(uint64_t val, int wreg, int df, int i)
+{
+    switch (df) {
+    case DF_BYTE: /* b */
+        env->active_msa.wr[wreg].b[i] = (uint8_t)val;
+        break;
+    case DF_HALF: /* h */
+        env->active_msa.wr[wreg].h[i] = (uint16_t)val;
+        break;
+    case DF_WORD: /* w */
+        env->active_msa.wr[wreg].w[i] = (uint32_t)val;
+        break;
+    case DF_DOUBLE: /* d */
+        env->active_msa.wr[wreg].d[i] = (uint64_t)val;
+        break;
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    return;
+}
+
+
+
+
+/*
+ *  MSA Floating-point operations
+ */
+
+
+#define FLOAT_QNAN16 0x7dff
+#define FLOAT_SNAN16 0x7fff
+
+#define FSTD2_QNAN16 0x7fff
+#define FSTD2_QNAN32 0x7fffffff
+#define FSTD2_QNAN64 0x7fffffffffffffffULL
+
+#define FSTD2_SNAN16 0x7dff
+#define FSTD2_SNAN32 0x7fbfffff
+#define FSTD2_SNAN64 0x7ff7ffffffffffffULL
+
+#define MSA_QNAN16                                                      \
+  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
+                                    FSTD2_QNAN16 : FLOAT_QNAN16)
+#define MSA_SNAN16                                                      \
+   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
+                                     FSTD2_SNAN16 : FLOAT_SNAN16)
+
+#define MSA_QNAN32                                                      \
+  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
+                                    FSTD2_QNAN32 : FLOAT_QNAN32)
+#define MSA_SNAN32                                                      \
+   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
+                                     FSTD2_SNAN32 : FLOAT_SNAN32)
+
+#define MSA_QNAN64                                                      \
+  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
+                                    FSTD2_QNAN64 : FLOAT_QNAN64)
+#define MSA_SNAN64                                                      \
+   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
+                                     FSTD2_SNAN64 : FLOAT_SNAN64)
+
+
+static inline void update_msacsr(void)
+{
+    int tmp =
+        ieee_ex_to_mips(
+            get_float_exception_flags(
+                &env->active_msa.fp_status));
+
+    SET_FP_CAUSE(env->active_msa.msacsr, tmp);
+
+    if (GET_FP_ENABLE(env->active_msa.msacsr) & tmp) {
+        helper_raise_exception(EXCP_MSAFPE);
+    } else {
+        UPDATE_FP_FLAGS(env->active_msa.msacsr, tmp);
+    }
+}
+
+
+#define MSA_FLOAT_UNOP_NO_QNAN(DEST, OP, ARG, BITS)                     \
+do {                                                                    \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG,                                \
+                                    &env->active_msa.fp_status);        \
+    update_msacsr();                                                    \
+} while (0)
+
+#define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
+do {                                                                    \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG,                                \
+                                    &env->active_msa.fp_status);        \
+    update_msacsr();                                                    \
+    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
+        DEST =   MSA_QNAN ##BITS;                                       \
+    }                                                                   \
+} while (0)
+
+#define MSA_FLOAT_BINOP(DEST, OP, ARG1, ARG2, BITS)                     \
+do {                                                                    \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
+                                    &env->active_msa.fp_status);        \
+    update_msacsr();                                                    \
+    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
+        DEST =   MSA_QNAN ##BITS;                                       \
+    }                                                                   \
+} while (0)
+
+#define MSA_FLOAT_MULADD(DEST, ARG1, ARG2, ARG3, NEGATE, BITS)          \
+do {                                                                    \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _muladd(ARG3, ARG1, ARG2, NEGATE,           \
+                                    &env->active_msa.fp_status);        \
+    update_msacsr();                                                    \
+    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
+        DEST =   MSA_QNAN ##BITS;                                       \
+    }                                                                   \
+} while (0)
+
+
+/*
+ *  FADD, FSUB, FMUL, FDIV
+ */
+
+int64_t helper_fadd_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, add, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, add, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_fsub_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, sub, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, sub, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_fmul_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, mul, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, mul, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_fdiv_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, div, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, div, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_frem_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, rem, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, rem, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+
+/*
+ *  FSQRT
+ */
+
+int64_t helper_fsqrt_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, sqrt, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, sqrt, arg, 64);
+    }
+
+    return dest;
+}
+
+
+/*
+ *  FEXP2, FLOG2
+ */
+
+int64_t helper_fexp2_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_BINOP(dest, scalbn, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_BINOP(dest, scalbn, arg1, arg2, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_flog2_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, log2, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, log2, arg, 64);
+    }
+
+    return dest;
+}
+
+
+/*
+ *  FMADD, FMSUB
+ */
+
+int64_t helper_fmadd_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+        if (df == DF_WORD) {
+            MSA_FLOAT_MULADD(dest, dest, arg1, arg2, 0, 32);
+        } else {
+            MSA_FLOAT_MULADD(dest, dest, arg1, arg2, 0, 64);
+        }
+    } else {
+        uint64_t prod;
+
+        if (df == DF_WORD) {
+            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 32);
+            MSA_FLOAT_BINOP(dest, add, dest, prod, 32);
+        } else {
+            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 64);
+            MSA_FLOAT_BINOP(dest, add, dest, prod, 64);
+        }
+    }
+
+    return dest;
+}
+
+int64_t helper_fmsub_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+        if (df == DF_WORD) {
+            MSA_FLOAT_MULADD(dest, dest, arg1, arg2,
+                             float_muladd_negate_product, 32);
+        } else {
+            MSA_FLOAT_MULADD(dest, dest, arg1, arg2,
+                             float_muladd_negate_product, 64);
+        }
+    } else {
+        uint64_t prod;
+
+        if (df == DF_WORD) {
+            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 32);
+            MSA_FLOAT_BINOP(dest, sub, dest, prod, 32);
+        } else {
+            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 64);
+            MSA_FLOAT_BINOP(dest, sub, dest, prod, 64);
+        }
+    }
+
+    return dest;
+}
+
+
+/*
+ *  FMAX, FMIN
+ */
+
+#define MSA_FLOAT_LE_SELECT(C_ARG1, C_ARG2,                     \
+                            ARG1, ARG2, T_VAL, F_VAL, BITS)     \
+    do {                                                        \
+        uint64_t t_cond, n_arg1;                                \
+        uint64_t f_cond, n_arg2;                                \
+                                                                \
+        MSA_FLOAT_BINOP(t_cond, le, C_ARG1, C_ARG2, BITS);      \
+        n_arg1 = float ## BITS ## _is_quiet_nan(ARG1);          \
+                                                                \
+        MSA_FLOAT_BINOP(f_cond, le, C_ARG2, C_ARG1, BITS);      \
+        n_arg2 = float ## BITS ## _is_quiet_nan(ARG2);          \
+                                                                \
+        return t_cond ? T_VAL : f_cond ? F_VAL :                \
+            !n_arg1 & n_arg2 ? ARG1 : n_arg1 & !n_arg2 ? ARG2 : \
+              MSA_QNAN ## BITS;                                 \
+    } while (0)
+
+
+int64_t helper_fmax_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_LE_SELECT(float32_abs(arg1), float32_abs(arg2),
+                            arg1, arg2, arg2, arg1, 32);
+    } else {
+        MSA_FLOAT_LE_SELECT(float64_abs(arg1), float64_abs(arg2),
+                            arg1, arg2, arg2, arg1, 64);
+    }
+}
+
+
+int64_t helper_fmax_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_LE_SELECT(arg1, arg2,
+                            arg1, arg2, arg2, arg1, 32);
+    } else {
+        MSA_FLOAT_LE_SELECT(arg1, arg2,
+                            arg1, arg2, arg2, arg1, 64);
+    }
+}
+
+
+int64_t helper_fmin_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_LE_SELECT(float32_abs(arg1), float32_abs(arg2),
+                            arg1, arg2, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_LE_SELECT(float64_abs(arg1), float64_abs(arg2),
+                            arg1, arg2, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fmin_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_LE_SELECT(arg1, arg2,
+                            arg1, arg2, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_LE_SELECT(arg1, arg2,
+                            arg1, arg2, arg1, arg2, 64);
+    }
+}
+
+#undef MSA_FLOAT_LE_SELECT
+
+
+/*
+ *  FCEQ, FCLE, FCLT, FCUN
+ */
+
+#define MSA_FLOAT_COND(OP, ARG1, ARG2, BITS)            \
+    do {                                                \
+        uint64_t cond;                                  \
+        MSA_FLOAT_BINOP(cond, OP, ARG1, ARG2, BITS);    \
+        return cond ? DF_MAX_UINT(df) : 0;              \
+    } while (0)
+
+
+#define MSA_FLOAT_CONDU(OP, ARG1, ARG2, BITS)           \
+    do {                                                \
+        uint64_t cond;                                  \
+        uint64_t uord;                                  \
+        MSA_FLOAT_BINOP(cond, OP, ARG1, ARG2, BITS);    \
+        uord = float ## BITS ## _is_quiet_nan(ARG1) ||  \
+               float ## BITS ## _is_quiet_nan(ARG2);    \
+        return (cond || uord) ? DF_MAX_UINT(df) : 0;    \
+    } while (0)
+
+#define MSA_FLOAT_UORD(ARG1, ARG2, BITS)                \
+    do {                                                \
+        uint64_t uord;                                  \
+        uord = float ## BITS ## _is_quiet_nan(ARG1) ||  \
+               float ## BITS ## _is_quiet_nan(ARG2);    \
+        return uord ? DF_MAX_UINT(df) : 0;              \
+    } while (0)
+
+
+int64_t helper_fceq_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_COND(eq, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_COND(eq, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fcequ_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_CONDU(eq, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_CONDU(eq, arg1, arg2, 64);
+    }
+}
+
+int64_t helper_fcle_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_COND(le, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_COND(le, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fcleu_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_CONDU(le, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_CONDU(le, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fclt_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_COND(lt, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_COND(lt, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fcltu_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_CONDU(lt, arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_CONDU(lt, arg1, arg2, 64);
+    }
+}
+
+
+int64_t helper_fcun_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_UORD(arg1, arg2, 32);
+    } else {
+        MSA_FLOAT_UORD(arg1, arg2, 64);
+    }
+}
+
+
+/*
+ *  FCLASS
+ */
+
+#define MSA_FLOAT_CLASS_SIGNALING_NAN      0x001
+#define MSA_FLOAT_CLASS_QUIET_NAN          0x002
+
+#define MSA_FLOAT_CLASS_NEGATIVE_INFINITY  0x004
+#define MSA_FLOAT_CLASS_NEGATIVE_NORMAL    0x008
+#define MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
+#define MSA_FLOAT_CLASS_NEGATIVE_ZERO      0x020
+
+#define MSA_FLOAT_CLASS_POSITIVE_INFINITY  0x040
+#define MSA_FLOAT_CLASS_POSITIVE_NORMAL    0x080
+#define MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
+#define MSA_FLOAT_CLASS_POSITIVE_ZERO      0x200
+
+
+#define MSA_FLOAT_CLASS(ARG, BITS)                                      \
+    do {                                                                \
+        int mask;                                                       \
+        int snan, qnan, inf, neg, zero, dnmz;                           \
+                                                                        \
+        snan = float ## BITS ## _is_signaling_nan(ARG);                 \
+        qnan = float ## BITS ## _is_quiet_nan(ARG);                     \
+        inf  = float ## BITS ## _is_infinity(ARG);                      \
+        neg  = float ## BITS ## _is_neg(ARG);                           \
+        zero = float ## BITS ## _is_zero(ARG);                          \
+        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);              \
+                                                                        \
+        mask = 0;                                                       \
+        if (snan) {                                                     \
+            mask |= MSA_FLOAT_CLASS_SIGNALING_NAN;                      \
+        }                                                               \
+        if (qnan) {                                                     \
+            mask |= MSA_FLOAT_CLASS_QUIET_NAN;                          \
+        }                                                               \
+                                                                        \
+        if (neg) {                                                      \
+            if (inf) {                                                  \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_INFINITY;              \
+            } else if (zero) {                                          \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_ZERO;                  \
+            } else if (dnmz) {                                          \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL;             \
+            }                                                           \
+            else {                                                      \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_NORMAL;                \
+            }                                                           \
+        } else {                                                        \
+            if (inf) {                                                  \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_INFINITY;              \
+            } else if (zero) {                                          \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_ZERO;                  \
+            } else if (dnmz) {                                          \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL;             \
+            } else {                                                    \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_NORMAL;                \
+            }                                                           \
+        }                                                               \
+                                                                        \
+        return mask;                                                    \
+    } while (0)
+
+int64_t helper_fclass_df(int64_t arg, uint32_t df)
+{
+    if (df == DF_WORD) {
+        MSA_FLOAT_CLASS(arg, 32);
+    } else {
+        MSA_FLOAT_CLASS(arg, 64);
+    }
+}
+
+
+/*
+ *  FEXDO, FEXUP
+ */
+
+#define float16_from_float32 float32_to_float16
+#define float32_from_float64 float64_to_float32
+
+#define float32_from_float16 float16_to_float32
+#define float64_from_float32 float32_to_float64
+
+void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    /* FIXME -- clarify the ieee flag meaning */
+    flag ieee = 1;
+
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(HL(pwx, i), from_float32, W(pws, i), ieee, 16);
+            MSA_FLOAT_BINOP(HR(pwx, i), from_float32, W(pwt, i), ieee, 16);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
+            MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    /* FIXME -- clarify the ieee flag meaning */
+    flag ieee = 1;
+
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+    wr_t wy, *pwy = &wy;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pwt, i), ieee, 32);
+            MSA_FLOAT_BINOP(W(pwy, i), from_float16, HR(pwt, i), ieee, 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pws, i), 64);
+            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WR(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(pws, &wy, wrlen);
+}
+
+
+/*
+ *  FFINT, FTINT, FRINT
+ */
+
+#define float32_from_int32 int32_to_float32
+#define float32_from_uint32 uint32_to_float32
+
+#define float64_from_int64 int64_to_float64
+#define float64_from_uint64 uint64_to_float64
+
+
+int64_t helper_ffint_s_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, from_int32, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, from_int64, arg, 64);
+    }
+
+    return dest;
+}
+
+
+int64_t helper_ffint_u_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, from_uint32, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, from_uint64, arg, 64);
+    }
+
+    return dest;
+}
+
+
+int64_t helper_ftint_s_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP_NO_QNAN(dest, to_int32, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP_NO_QNAN(dest, to_int64, arg, 64);
+    }
+
+    return dest;
+}
+
+
+int64_t helper_ftint_u_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, to_uint32, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, to_uint64, arg, 64);
+    }
+
+    return dest;
+}
+
+int64_t helper_frint_df(int64_t arg, uint32_t df)
+{
+    uint64_t dest;
+
+    if (df == DF_WORD) {
+        MSA_FLOAT_UNOP(dest, round_to_int, arg, 32);
+    } else {
+        MSA_FLOAT_UNOP(dest, round_to_int, arg, 64);
+    }
+
+    return dest;
+}
+
+
+/*
+ *  FFQ, FTQ
+ */
+
+static float32 float32_from_q16(int16 a STATUS_PARAM)
+{
+    float64 f_val;
+
+    /* conversion as integer and scaling */
+    f_val = int32_to_float32(a STATUS_VAR);
+    f_val = float32_scalbn(f_val, -16 STATUS_VAR);
+
+    return f_val;
+}
+
+static float64 float64_from_q32(int32 a STATUS_PARAM)
+{
+    float64 f_val;
+
+    /* conversion as integer and scaling */
+    f_val = int32_to_float64(a STATUS_VAR);
+    f_val = float64_scalbn(f_val, -32 STATUS_VAR);
+
+    return f_val;
+}
+
+static int16 float32_to_q16(float32 a STATUS_PARAM)
+{
+    int32 q_val;
+
+    /* saturation */
+    if (float32_le(0x3F800000, a STATUS_VAR)) { /* 1.0 <= a */
+        return 0x7fff; /* almost 1.0 fixed-point */
+    }
+
+    if (float32_lt(a, 0xBF800000 STATUS_VAR)) { /* a < -1.0 */
+        return 0x8000; /* -1.0 fixed_point */
+    }
+
+    /* scaling and conversion as integer */
+    q_val = float32_to_int32(a STATUS_VAR);
+
+    return (int16)q_val;
+}
+
+static int32 float64_to_q32(float64 a STATUS_PARAM)
+{
+    int32 q_val;
+
+    /* saturation */
+    if (float64_le(0x3FF0000000000000LL, a STATUS_VAR)) { /* 1.0 <= a */
+        return 0x7fff; /* almost 1.0 fixed-point */
+    }
+
+    if (float64_lt(a, 0xBFF0000000000000LL STATUS_VAR)) { /* a < -1.0 */
+        return 0x8000; /* -1.0 fixed_point */
+    }
+
+    /* scaling and conversion as integer */
+    q_val = float64_to_int32(a STATUS_VAR);
+
+    return q_val;
+}
+
+void helper_ffq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+    wr_t wy, *pwy = &wy;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pwt, i), 32);
+            MSA_FLOAT_UNOP(W(pwy, i), from_q16, HR(pwt, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
+            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WR(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(pws, &wy, wrlen);
+}
+
+
+void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_UNOP_NO_QNAN(HL(pwx, i), to_q16, W(pws, i), 32);
+            MSA_FLOAT_UNOP_NO_QNAN(HR(pwx, i), to_q16, W(pwt, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP_NO_QNAN(WL(pwx, i), to_q32, D(pws, i), 64);
+            MSA_FLOAT_UNOP_NO_QNAN(WR(pwx, i), to_q32, D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
+
+
+/*
+ *  MSA Control Register (MSACSR) instructions: CFCMSA, CTCMSA
+ */
+
+target_ulong helper_cfcmsa(uint32_t cs)
+{
+    switch (cs) {
+    case MSAIR_REGISTER:
+        return env->active_msa.msair & MSAIR_ZERO_BITS;
+
+    case MSACSR_REGISTER:
+        return env->active_msa.msacsr & MSACSR_ZERO_BITS;
+
+    default:
+        assert(0);
+    }
+}
+
+
+void helper_ctcmsa(target_ulong elm, uint32_t cd)
+{
+    assert(cd == MSACSR_REGISTER);
+
+    env->active_msa.msacsr = (int32_t)elm & MSACSR_ZERO_BITS;
+
+    printf("ctcmsa 0x%08x\n", env->active_msa.msacsr);
+
+    /* clear float_status exception flags */
+    set_float_exception_flags(0, &env->active_fpu.fp_status);
+
+    /* set float_status rounding mode */
+    set_float_rounding_mode(
+        ieee_rm[env->active_msa.msacsr & MSACSR_ROUNDING_MODES],
+        &env->active_fpu.fp_status);
+
+    /* set float_status flush modes */
+    set_flush_to_zero(
+        (env->active_msa.msacsr & MSACSR_FLUSH_OUTPUTS_TO_ZERO) != 0,
+        &env->active_fpu.fp_status);
+    set_flush_inputs_to_zero(
+        (env->active_msa.msacsr & MSACSR_FLUSH_INPUTS_TO_ZERO) != 0,
+        &env->active_fpu.fp_status);
+
+    /* check exception */
+    if ((GET_FP_ENABLE(env->active_msa.msacsr) | 0x20)
+        & GET_FP_CAUSE(env->active_msa.msacsr)) {
+        helper_raise_exception(EXCP_MSAFPE);
+    }
+}

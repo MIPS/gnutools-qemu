@@ -681,6 +681,34 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }
+
+    /* re-derive some instruction flags from cp0 config regs */
+    if (def->CP0_Config1 & (1 << CP0C1_CA)) {
+        def->insn_flags |= ASE_MIPS16;
+    } else {
+        def->insn_flags &= ~ASE_MIPS16;
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_DSPP)) {
+        def->insn_flags |= ASE_DSP;
+        def->CP0_Status_rw_bitmask |= (1 << CP0St_MX);
+    } else {
+        def->insn_flags &= ~ASE_DSP;
+        def->CP0_Status_rw_bitmask &= ~(1 << CP0St_MX);
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_DSP2P)) {
+        def->insn_flags |= ASE_DSPR2;
+    } else {
+        def->insn_flags &= ~ASE_DSPR2;
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_MSA)) {
+        def->insn_flags |= ASE_MSA;
+    } else {
+        def->insn_flags &= ~ASE_MSA;
+    }
+
 }
 #endif /* MIPS_AVP */
 #endif /* CONFIG_USER_ONLY */
