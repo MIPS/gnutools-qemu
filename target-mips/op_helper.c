@@ -5189,53 +5189,90 @@ int64_t helper_flog2_df(int64_t arg, uint32_t df)
  *  FMADD, FMSUB
  */
 
-int64_t helper_fmadd_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
-        if (df == DF_WORD) {
-            MSA_FLOAT_MULADD(dest, dest, arg1, arg2, 0, 32);
-        } else {
-            MSA_FLOAT_MULADD(dest, dest, arg1, arg2, 0, 64);
-        }
-    } else {
-        uint64_t prod;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-        if (df == DF_WORD) {
-            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 32);
-            MSA_FLOAT_BINOP(dest, add, dest, prod, 32);
-        } else {
-            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 64);
-            MSA_FLOAT_BINOP(dest, add, dest, prod, 64);
-        }
+    wr_t wx, *pwx = &wx;
+    uint64_t prod;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+                MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
+                                 W(pws, i), W(pwt, i), 0, 32);
+            } else {
+                MSA_FLOAT_BINOP(prod, mul, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_BINOP(W(pwx, i), add, W(pwd, i), prod, 32);
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+                MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
+                                 D(pws, i), D(pwt, i), 0, 64);
+            } else {
+                MSA_FLOAT_BINOP(prod, mul, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_BINOP(D(pwx, i), add, D(pwd, i), prod, 64);
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, &wx, wrlen);
 }
 
-int64_t helper_fmsub_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
-        if (df == DF_WORD) {
-            MSA_FLOAT_MULADD(dest, dest, arg1, arg2,
-                             float_muladd_negate_product, 32);
-        } else {
-            MSA_FLOAT_MULADD(dest, dest, arg1, arg2,
-                             float_muladd_negate_product, 64);
-        }
-    } else {
-        uint64_t prod;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-        if (df == DF_WORD) {
-            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 32);
-            MSA_FLOAT_BINOP(dest, sub, dest, prod, 32);
-        } else {
-            MSA_FLOAT_BINOP(prod, mul, arg1, arg2, 64);
-            MSA_FLOAT_BINOP(dest, sub, dest, prod, 64);
-        }
+    wr_t wx, *pwx = &wx;
+    uint64_t prod;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+                MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
+                                 W(pws, i), W(pwt, i), 
+                                 float_muladd_negate_product, 32);
+            } else {
+                MSA_FLOAT_BINOP(prod, mul, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_BINOP(W(pwx, i), sub, W(pwd, i), prod, 32);
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+                MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
+                                 D(pws, i), D(pwt, i), 
+                                 float_muladd_negate_product, 64);
+            } else {
+                MSA_FLOAT_BINOP(prod, mul, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_BINOP(D(pwx, i), sub, D(pwd, i), prod, 64);
+            }
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, &wx, wrlen);
 }
+
 
 
 /*
@@ -5816,7 +5853,7 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         &env->active_fpu.fp_status);
 
     /* check exception */
-    if ((GET_FP_ENABLE(env->active_msa.msacsr) | 0x20)
+    if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
         & GET_FP_CAUSE(env->active_msa.msacsr)) {
         helper_raise_exception(EXCP_MSAFPE);
     }
