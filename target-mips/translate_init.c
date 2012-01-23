@@ -723,6 +723,7 @@ static void fpu_init (CPUMIPSState *env, const mips_def_t *def)
     memcpy(&env->active_fpu, &env->fpus[0], sizeof(env->active_fpu));
 }
 
+
 static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 {
     env->mvp = g_malloc0(sizeof(CPUMIPSMVPContext));
@@ -748,4 +749,41 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
     env->mvp->CP0_MVPConf1 = (1 << CP0MVPC1_CIM) | (1 << CP0MVPC1_CIF) |
                              (0x0 << CP0MVPC1_PCX) | (0x0 << CP0MVPC1_PCP2) |
                              (0x1 << CP0MVPC1_PCP1);
+}
+
+static void msa_reset(CPUMIPSState *env)
+{
+    /* MSA access enabled */
+    env->CP0_MSAAccess = (1 << CP0_MSACCESS_EA);
+
+    /* MSA implementation:
+       - 128-bit vector registers (W bit is 0)
+       - floating-point suppor (F bit is 1)
+       - vector registers not shared (S bit is 0) */
+    env->active_msa.msair  = (1 << MSAIR_F);
+
+    /* MSA CSR:
+       - flush to zero subnormal subnormal results off (FS bit is 0)
+       - non-signaling floating point exception mode off (NX bit is 0)
+       - flush to zero subnormal input values off (IS bit is 0)
+       - IEEE 754-2008 mode on (E2 bit is 1)
+       - Cause, Enables, and Flags are all 0
+       - round to nearest / ties to even (RM bits are 0) */
+    env->active_msa.msacsr = (1 << MSACSR_E2);
+
+
+    /* tininess detected after rounding.*/
+    set_float_detect_tininess(float_tininess_after_rounding,
+                              &env->active_msa.fp_status);
+
+    /* clear float_status exception flags */
+    set_float_exception_flags(0, &env->active_msa.fp_status);
+
+    /* set float_status rounding mode */
+    set_float_rounding_mode(float_round_nearest_even,
+                            &env->active_msa.fp_status);
+
+    /* set float_status flush modes */
+    set_flush_to_zero(0, &env->active_msa.fp_status);
+    set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
 }

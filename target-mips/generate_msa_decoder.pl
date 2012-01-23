@@ -449,16 +449,10 @@ C_END
             my $is_fixed = $name =~ /_Q/;
             if ($is_floating) {
                 $declare_str .= <<C_END;
+    check_msa_fp(env, ctx);
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
-
-    /* FIXME propagate MSAIR T flag -- should happen only when MSA is
-             instantiated / first used */
-    env->active_msa.fp_status.float_detect_tininess = 
-        (env->active_msa.msair & MSAIR_TINY_BEFORE) ? 
-        float_tininess_before_rounding : float_tininess_after_rounding;
-
 C_END
             } elsif ($is_fixed) {
                 $declare_str .= <<C_END;
@@ -533,8 +527,10 @@ C_END
         my $dtype = get_arg_type($inst,'wd');
 
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wt, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -545,7 +541,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -571,8 +567,10 @@ C_END
     elsif ( $func_type eq 'df_wt_ws_wd_wd' ) {
         # same as df_wt_ws_wd but wd used as input too
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wt, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -583,7 +581,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -617,8 +615,10 @@ C_END
         my $immtype = get_arg_type($inst,$imm);
 
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -628,7 +628,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -659,8 +659,10 @@ C_END
         my $immtype = get_arg_type($inst,$imm);
 
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -670,7 +672,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -695,12 +697,14 @@ C_END
     elsif ($func_type eq 'df_wt_ws_wd_p') {
 
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wt, ws, wd);
+
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_helper_$helper_name(tpwd, tpws, tpwt, twrlen_df);
@@ -717,12 +721,14 @@ C_END
     elsif ($func_type eq 'wt_ws_wd') {
 
         $func_body .= <<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wt, ws, wd);
+
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     gen_helper_$helper_name(tpwd, tpws, tpwt, twrlen);
@@ -740,11 +746,13 @@ C_END
         my $imm = 'i8';
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 t$imm = tcg_const_i32($imm); // FIXME
 
@@ -761,8 +769,10 @@ C_END
     elsif ($func_type eq 'dfm_ws_wd') {
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
     TCGv_i64 twd = tcg_const_i64(wd);
@@ -772,7 +782,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -796,8 +806,10 @@ C_END
     elsif ($func_type eq 'dfm_ws_wd_wd') {
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
     TCGv_i64 twd = tcg_const_i64(wd);
@@ -807,7 +819,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -835,8 +847,10 @@ C_END
         my $dtype = get_arg_type($inst,'wd');
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -845,7 +859,7 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
 
     for (i = 0; i < wrlen/df_bits; i++) {
@@ -867,15 +881,17 @@ C_END
     }
     elsif ($func_type eq 'df_s10_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
-    
+
     gen_helper_$helper_name(tpwd, tdf, ts10, twrlen);
 
     tcg_temp_free_i32(tdf);
@@ -889,13 +905,15 @@ C_END
     elsif ($func_type eq 'df_s10_wd_branch') {
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     assert(0); /* fix me, need to return branch/true/false, and branch */
@@ -915,13 +933,15 @@ C_END
     elsif ($func_type eq 's10_wd_branch') {
 
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_i32 tdf  = tcg_const_i32(0); /* where is df? */
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     assert(0); /* fix me, need to return branch/true/false, and branch */
@@ -940,14 +960,16 @@ C_END
     }
     elsif ($func_type eq 's10_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
-    
+
     gen_helper_$helper_name(tpwd, ts10, twrlen);
 
     tcg_temp_free_i32(ts10);
@@ -959,16 +981,18 @@ C_END
     }
     elsif ($func_type eq 'dfn_ws_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
- 
+
     gen_helper_$helper_name(tpwd, tpws, tn, twrlen_df);
 
     tcg_temp_free_i64(tpwd);
@@ -981,14 +1005,16 @@ C_END
     }
     elsif ($func_type eq 'ws_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
- 
+
     gen_helper_$helper_name(tpwd, tpws, twrlen);
 
     tcg_temp_free_i64(tpwd);
@@ -999,12 +1025,14 @@ C_END
     }
     elsif ($func_type eq 's5_rs_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 ts5 = tcg_const_i32(s5);
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
     TCGv trs = tcg_temp_new();
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
 
     gen_load_gpr(trs, rs);
@@ -1020,12 +1048,14 @@ C_END
     }
     elsif ($func_type eq 'rt_rs_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
 
     gen_load_gpr(trt, rt);
@@ -1043,7 +1073,7 @@ C_END
     }
     elsif ($func_type eq 'dfn_ws_rd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -1064,13 +1094,15 @@ C_END
     }
     elsif ($func_type eq 'df_rs_wd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tdf = tcg_const_i32(df);
     int i;
-    int wrlen = (env->active_msa.msair & MSAIR_WIDTH_256) ? 256 : 128;
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
     int df_bits = 8 * (1 << df);
     TCGv_i32 ti;
 
@@ -1090,7 +1122,7 @@ C_END
     }
     elsif ($func_type eq 'rs_cd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcd = tcg_const_i32(cd);
@@ -1107,7 +1139,7 @@ C_END
     }
     elsif ($func_type eq 'cs_rd') {
         $func_body .=<<"C_END";
-    check_msa(env, ctx);
+
 $declare_str
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcs = tcg_const_i32(cs);
@@ -1184,10 +1216,10 @@ sub get_func_type {
 
         'FMADD.df' => 'df_wt_ws_wd_p',
         'FMSUB.df' => 'df_wt_ws_wd_p',
-        'FEXUP.df' => 'df_wt_ws_wd_p',        
-        'FEXDO.df' => 'df_wt_ws_wd_p',        
-        'FFQ.df'   => 'df_wt_ws_wd_p',        
-        'FTQ.df'   => 'df_wt_ws_wd_p',        
+        'FEXUP.df' => 'df_wt_ws_wd_p',
+        'FEXDO.df' => 'df_wt_ws_wd_p',
+        'FFQ.df'   => 'df_wt_ws_wd_p',
+        'FTQ.df'   => 'df_wt_ws_wd_p',
 
         'MADDV.df' => 'df_wt_ws_wd_wd',
         'MSUBV.df' => 'df_wt_ws_wd_wd',

@@ -11796,10 +11796,24 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
 /* MIPS SIMD Architecture (MSA)  */
 
-static inline void check_msa(CPUState *env, DisasContext *ctx)
+static inline void check_msa_fp(CPUState *env, DisasContext *ctx)
 {
-    check_insn(env, ctx, ASE_MSA);
+    if (unlikely(!(env->active_msa.msair & (1 << MSAIR_F)))) {
+        generate_exception(ctx, EXCP_RI);
+    }
 }
+
+static inline void check_msa_access(CPUState *env, DisasContext *ctx,
+                                    int wt, int ws, int wd)
+{
+    int mask = (1 << (wt / 4)) | (1 << (ws / 4)) | (1 << (wd / 4));
+
+    if (unlikely(!(env->CP0_MSAAccess & (1 << CP0_MSACCESS_EA)) &&
+                 !(env->CP0_MSAAccess & (mask << CP0_MSACCESS_ES)))) {
+        generate_exception(ctx, EXCP_MSADIS);
+    }
+}
+
 
 #include "mips_msa_opcodes.h"
 #include "mips_msa_opcodes_gen.h"
@@ -12847,6 +12861,7 @@ CPUMIPSState *cpu_mips_init(const char *cpu_model)
     mips_tcg_init();
     cpu_reset(env);
     qemu_init_vcpu(env);
+
     return env;
 }
 
@@ -12976,6 +12991,9 @@ void cpu_reset (CPUMIPSState *env)
     }
 #endif
     env->exception_index = EXCP_NONE;
+
+    /* MSA */
+    msa_reset(env);
 }
 
 void restore_state_to_opc(CPUState *env, TranslationBlock *tb, int pc_pos)

@@ -71,23 +71,23 @@ struct CPUMIPSMSAContext {
 
     int32_t msair;
 #define MSAIR_REGISTER 0
-#define MSAIR_ZERO_BITS 0x0303ffff
+#define MSAIR_ZERO_BITS 0x0103ffff
 
-#define MSAIR_SHARED_REG  (1 << 16)
-#define MSAIR_WIDTH_256   (1 << 17)
-
-#define MSAIR_FLOAT_IMPL  (1 << 24)
-#define MSAIR_TINY_BEFORE (1 << 25)
+#define MSAIR_S   16
+#define MSAIR_W   17
+#define MSAIR_F   24
 
     int32_t msacsr;
 #define MSACSR_REGISTER 1
-#define MSACSR_ZERO_BITS 0x0167ffff
+#define MSACSR_ZERO_BITS 0x011fffff
 
-#define MSACSR_ROUNDING_MODES        (3)
-#define MSACSR_FLUSH_OUTPUTS_TO_ZERO (1 << 24)
-#define MSACSR_FLUSH_INPUTS_TO_ZERO  (1 << 19)
-#define MSACSR_IEEE_754_2008         (1 << 18)
+#define MSACSR_RM  3
 
+#define MSACSR_E2 18
+#define MSACSR_IS 19
+#define MSACSR_NX 20
+
+#define MSACSR_FS 24
 
     float_status fp_status;
 };
@@ -463,7 +463,11 @@ struct CPUMIPSState {
     int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
+
     int32_t CP0_MSAAccess;
+#define CP0_MSACCESS_EA  0
+#define CP0_MSACCESS_ES  8
+
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];

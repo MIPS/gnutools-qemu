@@ -4986,33 +4986,25 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
 #define FSTD2_SNAN64 0x7ff7ffffffffffffULL
 
 #define MSA_QNAN16                                                      \
-  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
-                                    FSTD2_QNAN16 : FLOAT_QNAN16)
+  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN16 : FLOAT_QNAN16)
 #define MSA_SNAN16                                                      \
-   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
-                                     FSTD2_SNAN16 : FLOAT_SNAN16)
+   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN16 : FLOAT_SNAN16)
 
 #define MSA_QNAN32                                                      \
-  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
-                                    FSTD2_QNAN32 : FLOAT_QNAN32)
+  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN32 : FLOAT_QNAN32)
 #define MSA_SNAN32                                                      \
-   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
-                                     FSTD2_SNAN32 : FLOAT_SNAN32)
+   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN32 : FLOAT_SNAN32)
 
 #define MSA_QNAN64                                                      \
-  (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                      \
-                                    FSTD2_QNAN64 : FLOAT_QNAN64)
+  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN64 : FLOAT_QNAN64)
 #define MSA_SNAN64                                                      \
-   (env->active_msa.msacsr & MSACSR_IEEE_754_2008 ?                     \
-                                     FSTD2_SNAN64 : FLOAT_SNAN64)
+   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN64 : FLOAT_SNAN64)
 
 
 static inline void update_msacsr(void)
 {
-    int tmp =
-        ieee_ex_to_mips(
-            get_float_exception_flags(
-                &env->active_msa.fp_status));
+    int tmp = ieee_ex_to_mips(
+        get_float_exception_flags(&env->active_msa.fp_status));
 
     SET_FP_CAUSE(env->active_msa.msacsr, tmp);
 
@@ -5022,7 +5014,6 @@ static inline void update_msacsr(void)
         UPDATE_FP_FLAGS(env->active_msa.msacsr, tmp);
     }
 }
-
 
 #define MSA_FLOAT_UNOP_NO_QNAN(DEST, OP, ARG, BITS)                     \
 do {                                                                    \
@@ -5200,7 +5191,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+            if (env->active_msa.msacsr & MSACSR_E2) {
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                                  W(pws, i), W(pwt, i), 0, 32);
             } else {
@@ -5212,7 +5203,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+            if (env->active_msa.msacsr & MSACSR_E2) {
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
                                  D(pws, i), D(pwt, i), 0, 64);
             } else {
@@ -5241,7 +5232,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+            if (env->active_msa.msacsr & MSACSR_E2) {
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                                  W(pws, i), W(pwt, i), 
                                  float_muladd_negate_product, 32);
@@ -5254,7 +5245,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_IEEE_754_2008) {
+            if (env->active_msa.msacsr & MSACSR_E2) {
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
                                  D(pws, i), D(pwt, i), 
                                  float_muladd_negate_product, 64);
@@ -5561,6 +5552,8 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
+    /* exception signaling */
+
     helper_move_v(pwd, &wx, wrlen);
 }
 
@@ -5834,23 +5827,18 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
 
     env->active_msa.msacsr = (int32_t)elm & MSACSR_ZERO_BITS;
 
-    printf("ctcmsa 0x%08x\n", env->active_msa.msacsr);
-
-    /* clear float_status exception flags */
-    set_float_exception_flags(0, &env->active_fpu.fp_status);
-
     /* set float_status rounding mode */
     set_float_rounding_mode(
-        ieee_rm[env->active_msa.msacsr & MSACSR_ROUNDING_MODES],
-        &env->active_fpu.fp_status);
+        ieee_rm[env->active_msa.msacsr & MSACSR_RM],
+        &env->active_msa.fp_status);
 
     /* set float_status flush modes */
     set_flush_to_zero(
-        (env->active_msa.msacsr & MSACSR_FLUSH_OUTPUTS_TO_ZERO) != 0,
-        &env->active_fpu.fp_status);
+        (env->active_msa.msacsr & MSACSR_FS) != 0,
+        &env->active_msa.fp_status);
     set_flush_inputs_to_zero(
-        (env->active_msa.msacsr & MSACSR_FLUSH_INPUTS_TO_ZERO) != 0,
-        &env->active_fpu.fp_status);
+        (env->active_msa.msacsr & MSACSR_IS) != 0,
+        &env->active_msa.fp_status);
 
     /* check exception */
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
