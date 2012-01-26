@@ -5001,58 +5001,78 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
    (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN64 : FLOAT_SNAN64)
 
 
-static inline void update_msacsr(void)
+static int update_msacsr(void)
 {
-    int tmp = ieee_ex_to_mips(
-        get_float_exception_flags(&env->active_msa.fp_status));
+    int ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    int cause = ieee_ex_to_mips(ieee_ex);
+    int enable = GET_FP_ENABLE(env->active_msa.msacsr) & FP_UNIMPLEMENTED;
+    int ex_cause;
 
-    SET_FP_CAUSE(env->active_msa.msacsr, tmp);
+    if ((!env->active_msa.msacsr & (1 << MSACSR_E2))
+        && (ieee_ex == float_flag_input_denormal ||
+            ieee_ex == float_flag_output_denormal)) {
+        cause |= FP_UNIMPLEMENTED;
+    }
 
-    if (GET_FP_ENABLE(env->active_msa.msacsr) & tmp) {
-        helper_raise_exception(EXCP_MSAFPE);
+    UPDATE_FP_FLAGS(env->active_msa.msacsr, cause & (~enable));
+
+    ex_cause = cause & enable;
+    if ((env->active_msa.msacsr & (1 << MSACSR_NX)) && ex_cause) {
+        return ex_cause;
     } else {
-        UPDATE_FP_FLAGS(env->active_msa.msacsr, tmp);
+        SET_FP_CAUSE(env->active_msa.msacsr, cause);
+        if (ex_cause) {
+            helper_raise_exception(EXCP_MSAFPE);
+        }
+        return 0;
     }
 }
 
 #define MSA_FLOAT_UNOP_NO_QNAN(DEST, OP, ARG, BITS)                     \
 do {                                                                    \
+    int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    update_msacsr();                                                    \
+    nx_cause = update_msacsr();                                         \
+    if (nx_cause) {                                                     \
+        DEST = MSA_SNAN ##BITS | nx_cause;                              \
+    }                                                                   \
 } while (0)
 
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
 do {                                                                    \
+    int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    update_msacsr();                                                    \
-    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
-        DEST =   MSA_QNAN ##BITS;                                       \
+    nx_cause = update_msacsr();                                         \
+    if (nx_cause) {                                                     \
+        DEST = MSA_SNAN ##BITS | nx_cause;                              \
     }                                                                   \
 } while (0)
 
 #define MSA_FLOAT_BINOP(DEST, OP, ARG1, ARG2, BITS)                     \
 do {                                                                    \
+    int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    update_msacsr();                                                    \
-    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
-        DEST =   MSA_QNAN ##BITS;                                       \
+    nx_cause = update_msacsr();                                         \
+    if (nx_cause) {                                                     \
+        DEST = MSA_SNAN ##BITS | nx_cause;                              \
     }                                                                   \
 } while (0)
 
 #define MSA_FLOAT_MULADD(DEST, ARG1, ARG2, ARG3, NEGATE, BITS)          \
 do {                                                                    \
+    int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG3, ARG1, ARG2, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    update_msacsr();                                                    \
-    if (GET_FP_CAUSE(env->active_msa.msacsr)) {                         \
-        DEST =   MSA_QNAN ##BITS;                                       \
+    nx_cause = update_msacsr();                                         \
+    if (nx_cause) {                                                     \
+        DEST = MSA_SNAN ##BITS | nx_cause;                              \
     }                                                                   \
 } while (0)
 
@@ -5061,87 +5081,179 @@ do {                                                                    \
  *  FADD, FSUB, FMUL, FDIV
  */
 
-int64_t helper_fadd_df(int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, add, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, add, arg1, arg2, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), add, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), add, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
-int64_t helper_fsub_df(int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, sub, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, sub, arg1, arg2, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), sub, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), sub, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
-int64_t helper_fmul_df(int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, mul, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, mul, arg1, arg2, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
-int64_t helper_fdiv_df(int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, div, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, div, arg1, arg2, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), div, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), div, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
-int64_t helper_frem_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t dest;
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, rem, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, rem, arg1, arg2, 64);
+void helper_frem_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), rem, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), rem, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
+
 
 
 /*
  *  FSQRT
  */
 
-int64_t helper_fsqrt_df(int64_t arg, uint32_t df)
+void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_UNOP(dest, sqrt, arg, 32);
-    } else {
-        MSA_FLOAT_UNOP(dest, sqrt, arg, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
 
@@ -5149,30 +5261,60 @@ int64_t helper_fsqrt_df(int64_t arg, uint32_t df)
  *  FEXP2, FLOG2
  */
 
-int64_t helper_fexp2_df(int64_t arg1, int64_t arg2, uint32_t df)
+void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_BINOP(dest, scalbn, arg1, arg2, 32);
-    } else {
-        MSA_FLOAT_BINOP(dest, scalbn, arg1, arg2, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i), W(pwt, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i), D(pwt, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
-int64_t helper_flog2_df(int64_t arg, uint32_t df)
+void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
 {
-    uint64_t dest;
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
 
-    if (df == DF_WORD) {
-        MSA_FLOAT_UNOP(dest, log2, arg, 32);
-    } else {
-        MSA_FLOAT_UNOP(dest, log2, arg, 64);
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(W(pwx, i), log2, W(pws, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i) {
+            MSA_FLOAT_UNOP(D(pwx, i), log2, D(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 
-    return dest;
+    helper_move_v(pwd, pwx, wrlen);
 }
 
 

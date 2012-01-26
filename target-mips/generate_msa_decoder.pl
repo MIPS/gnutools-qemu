@@ -269,6 +269,15 @@ void $helper_name(void * pwd, void * pws, void * pwt, uint32_t wrlen_df)
 
 C_END
     }
+    elsif ($func_type eq 'df_ws_wd_p') {
+        $helper_body = <<"C_END";
+void $helper_name(void * pwd, void * pws, uint32_t wrlen_df)
+{
+    printf("%s()\\n", __func__);
+}
+
+C_END
+    }
     elsif ($func_type eq 'i8_ws_wd') {
         $helper_body = <<"C_END";
 void $helper_name(void * pwd, void * pws, uint32_t imm, uint32_t wrlen)
@@ -716,6 +725,28 @@ $declare_str
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, ptr, i32)";
+
+    }
+    elsif ($func_type eq 'df_ws_wd_p') {
+
+        $func_body .= <<"C_END";
+
+$declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    int wrlen = (env->active_msa.msair & (1 << MSAIR_W)) ? 256 : 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_helper_$helper_name(tpwd, tpws, twrlen_df);
+
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
+C_END
+
+        $def = "DEF_HELPER_3($helper_name, void, ptr, ptr, i32)";
 
     }
     elsif ($func_type eq 'wt_ws_wd') {
@@ -1213,6 +1244,18 @@ sub get_func_type {
         'ILVR.df' => 'df_wt_ws_wd_p',
         'PCKEV.df' => 'df_wt_ws_wd_p',
         'PCKOD.df' => 'df_wt_ws_wd_p',
+
+        'FADD.df' => 'df_wt_ws_wd_p',
+        'FSUB.df' => 'df_wt_ws_wd_p',
+        'FMUL.df' => 'df_wt_ws_wd_p',
+        'FDIV.df' => 'df_wt_ws_wd_p',
+        'FREM.df' => 'df_wt_ws_wd_p',
+        'FEXP2.df' => 'df_wt_ws_wd_p',
+
+        'FSQRT.df' => 'df_ws_wd_p',
+        'FLOG2.df' => 'df_ws_wd_p',
+
+
 
         'FMADD.df' => 'df_wt_ws_wd_p',
         'FMSUB.df' => 'df_wt_ws_wd_p',
