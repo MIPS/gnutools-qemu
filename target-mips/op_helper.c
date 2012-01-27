@@ -4985,20 +4985,21 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
 #define FSTD2_SNAN32 0x7fbfffff
 #define FSTD2_SNAN64 0x7ff7ffffffffffffULL
 
-#define MSA_QNAN16                                                      \
-  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN16 : FLOAT_QNAN16)
-#define MSA_SNAN16                                                      \
-   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN16 : FLOAT_SNAN16)
+#define MSA_QNAN16 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_QNAN16 : FLOAT_QNAN16)
+#define MSA_SNAN16 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_SNAN16 : FLOAT_SNAN16)
 
-#define MSA_QNAN32                                                      \
-  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN32 : FLOAT_QNAN32)
-#define MSA_SNAN32                                                      \
-   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN32 : FLOAT_SNAN32)
+#define MSA_QNAN32 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_QNAN32 : FLOAT_QNAN32)
+#define MSA_SNAN32 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_SNAN32 : FLOAT_SNAN32)
 
-#define MSA_QNAN64                                                      \
-  (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_QNAN64 : FLOAT_QNAN64)
-#define MSA_SNAN64                                                      \
-   (env->active_msa.msacsr & MSACSR_E2 ? FSTD2_SNAN64 : FLOAT_SNAN64)
+#define MSA_QNAN64 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_QNAN64 : FLOAT_QNAN64)
+#define MSA_SNAN64 (env->active_msa.msacsr & MSACSR_E2_BIT      \
+                              ? FSTD2_SNAN64 : FLOAT_SNAN64)
+
 
 
 static int update_msacsr(void)
@@ -5008,16 +5009,19 @@ static int update_msacsr(void)
     int enable = GET_FP_ENABLE(env->active_msa.msacsr) & FP_UNIMPLEMENTED;
     int ex_cause;
 
-    if ((!env->active_msa.msacsr & (1 << MSACSR_E2))
-        && (ieee_ex == float_flag_input_denormal ||
-            ieee_ex == float_flag_output_denormal)) {
-        cause |= FP_UNIMPLEMENTED;
+    if (ieee_ex == float_flag_input_denormal ||
+        ieee_ex == float_flag_output_denormal) {
+        if (!(env->active_msa.msacsr & MSACSR_E2_BIT)) {
+            cause |= FP_UNIMPLEMENTED;
+        }
+        
+        /* TODO cause |= FP_INEXACT; */
     }
 
     UPDATE_FP_FLAGS(env->active_msa.msacsr, cause & (~enable));
 
     ex_cause = cause & enable;
-    if ((env->active_msa.msacsr & (1 << MSACSR_NX)) && ex_cause) {
+    if ((env->active_msa.msacsr & MSACSR_NX_BIT) && ex_cause) {
         return ex_cause;
     } else {
         SET_FP_CAUSE(env->active_msa.msacsr, cause);
@@ -5333,7 +5337,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_E2) {
+            if (env->active_msa.msacsr & MSACSR_E2_BIT) {
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                                  W(pws, i), W(pwt, i), 0, 32);
             } else {
@@ -5345,7 +5349,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_E2) {
+            if (env->active_msa.msacsr & MSACSR_E2_BIT) {
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
                                  D(pws, i), D(pwt, i), 0, 64);
             } else {
@@ -5374,7 +5378,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_E2) {
+            if (env->active_msa.msacsr & MSACSR_E2_BIT) {
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                                  W(pws, i), W(pwt, i), 
                                  float_muladd_negate_product, 32);
@@ -5387,7 +5391,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (env->active_msa.msacsr & MSACSR_E2) {
+            if (env->active_msa.msacsr & MSACSR_E2_BIT) {
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
                                  D(pws, i), D(pwt, i), 
                                  float_muladd_negate_product, 64);
@@ -5971,15 +5975,15 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
 
     /* set float_status rounding mode */
     set_float_rounding_mode(
-        ieee_rm[env->active_msa.msacsr & MSACSR_RM],
+        ieee_rm[(env->active_msa.msacsr & MSAIR_RM_MASK) >> MSAIR_RM_POS],
         &env->active_msa.fp_status);
 
     /* set float_status flush modes */
     set_flush_to_zero(
-        (env->active_msa.msacsr & MSACSR_FS) != 0,
+        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0,
         &env->active_msa.fp_status);
     set_flush_inputs_to_zero(
-        (env->active_msa.msacsr & MSACSR_IS) != 0,
+        (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
         &env->active_msa.fp_status);
 
     /* check exception */

@@ -11798,7 +11798,7 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
 static inline void check_msa_fp(CPUState *env, DisasContext *ctx)
 {
-    if (unlikely(!(env->active_msa.msair & (1 << MSAIR_F)))) {
+    if (unlikely(!(env->active_msa.msair & MSAIR_F_BIT))) {
         generate_exception(ctx, EXCP_RI);
     }
 }
@@ -11806,10 +11806,12 @@ static inline void check_msa_fp(CPUState *env, DisasContext *ctx)
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
-    int mask = (1 << (wt / 4)) | (1 << (ws / 4)) | (1 << (wd / 4));
+    int mask = ((1 << (wt / 4)) | 
+                (1 << (ws / 4)) | 
+                (1 << (wd / 4))) << CP0_MSAACCESS_ES_POS;
 
-    if (unlikely(!(env->CP0_MSAAccess & (1 << CP0_MSACCESS_EA)) &&
-                 !(env->CP0_MSAAccess & (mask << CP0_MSACCESS_ES)))) {
+    if (unlikely(!(env->CP0_MSAAccess & CP0_MSAACCESS_EA_BIT)) &&
+                 !(env->CP0_MSAAccess & mask)) {
         generate_exception(ctx, EXCP_MSADIS);
     }
 }

@@ -73,21 +73,33 @@ struct CPUMIPSMSAContext {
 #define MSAIR_REGISTER 0
 #define MSAIR_ZERO_BITS 0x0103ffff
 
-#define MSAIR_S   16
-#define MSAIR_W   17
-#define MSAIR_F   24
+#define MSAIR_S_POS   16
+#define MSAIR_S_BIT   (1 << MSAIR_S_POS)
+
+#define MSAIR_W_POS   17
+#define MSAIR_W_BIT   (1 << MSAIR_W_POS)
+
+#define MSAIR_F_POS   24
+#define MSAIR_F_BIT   (1 << MSAIR_F_POS)
 
     int32_t msacsr;
 #define MSACSR_REGISTER 1
 #define MSACSR_ZERO_BITS 0x011fffff
 
-#define MSACSR_RM  3
+#define MSAIR_RM_POS   0
+#define MSAIR_RM_MASK  (0x3 << MSAIR_RM_POS)
 
-#define MSACSR_E2 18
-#define MSACSR_IS 19
-#define MSACSR_NX 20
+#define MSACSR_E2_POS 18
+#define MSACSR_E2_BIT (1 << MSACSR_E2_POS)
 
-#define MSACSR_FS 24
+#define MSACSR_IS_POS 19
+#define MSACSR_IS_BIT (1 << MSACSR_IS_POS)
+
+#define MSACSR_NX_POS 20
+#define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
+
+#define MSACSR_FS_POS 24
+#define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
 
     float_status fp_status;
 };
@@ -465,8 +477,11 @@ struct CPUMIPSState {
     int32_t CP0_DESAVE;
 
     int32_t CP0_MSAAccess;
-#define CP0_MSACCESS_EA  0
-#define CP0_MSACCESS_ES  8
+#define CP0_MSAACCESS_EA_POS  0
+#define CP0_MSAACCESS_EA_BIT  (1 << CP0_MSAACCESS_EA_POS)
+
+#define CP0_MSAACCESS_ES_POS  8
+#define CP0_MSAACCESS_ES_MASK (0xff << CP0_MSAACCESS_ES_POS)
 
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];

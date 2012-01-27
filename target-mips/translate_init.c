@@ -754,13 +754,13 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 static void msa_reset(CPUMIPSState *env)
 {
     /* MSA access enabled */
-    env->CP0_MSAAccess = (1 << CP0_MSACCESS_EA);
+    env->CP0_MSAAccess = CP0_MSAACCESS_EA_BIT;
 
     /* MSA implementation:
        - 128-bit vector registers (W bit is 0)
        - floating-point suppor (F bit is 1)
        - vector registers not shared (S bit is 0) */
-    env->active_msa.msair  = (1 << MSAIR_F);
+    env->active_msa.msair  = MSAIR_F_BIT;
 
     /* MSA CSR:
        - flush to zero subnormal subnormal results off (FS bit is 0)
@@ -769,7 +769,7 @@ static void msa_reset(CPUMIPSState *env)
        - IEEE 754-2008 mode on (E2 bit is 1)
        - Cause, Enables, and Flags are all 0
        - round to nearest / ties to even (RM bits are 0) */
-    env->active_msa.msacsr = (1 << MSACSR_E2);
+    env->active_msa.msacsr = MSACSR_E2_BIT;
 
 
     /* tininess detected after rounding.*/
