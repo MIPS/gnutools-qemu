@@ -84,22 +84,28 @@ struct CPUMIPSMSAContext {
 
     int32_t msacsr;
 #define MSACSR_REGISTER 1
-#define MSACSR_ZERO_BITS 0x011fffff
+#define MSACSR_ZERO_BITS 0x031fffff
 
 #define MSAIR_RM_POS   0
 #define MSAIR_RM_MASK  (0x3 << MSAIR_RM_POS)
 
-#define MSACSR_E2_POS 18
-#define MSACSR_E2_BIT (1 << MSACSR_E2_POS)
+#define MSACSR_NAN2008_POS 18
+#define MSACSR_NAN2008_BIT (1 << MSACSR_NAN2008_POS)
 
-#define MSACSR_IS_POS 19
-#define MSACSR_IS_BIT (1 << MSACSR_IS_POS)
+#define MSACSR_ABS2008_POS 19
+#define MSACSR_ABS2008_BIT (1 << MSACSR_ABS2008_POS)
 
-#define MSACSR_NX_POS 20
-#define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
+#define MSACSR_MAC2008_POS 20
+#define MSACSR_MAC2008_BIT (1 << MSACSR_MAC2008_POS)
 
 #define MSACSR_FS_POS 24
 #define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
+
+#define MSACSR_IS_POS 25
+#define MSACSR_IS_BIT (1 << MSACSR_IS_POS)
+
+#define MSACSR_NX_POS 26
+#define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
 
     float_status fp_status;
 };

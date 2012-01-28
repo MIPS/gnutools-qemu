@@ -1252,6 +1252,12 @@ sub get_func_type {
         'FREM.df' => 'df_wt_ws_wd_p',
         'FEXP2.df' => 'df_wt_ws_wd_p',
 
+        'FMAX.df' => 'df_wt_ws_wd_p',
+        'FMAX_A.df' => 'df_wt_ws_wd_p',
+        'FMIN.df' => 'df_wt_ws_wd_p',
+        'FMIN_A.df' => 'df_wt_ws_wd_p',
+
+
         'FSQRT.df' => 'df_ws_wd_p',
         'FLOG2.df' => 'df_ws_wd_p',
 

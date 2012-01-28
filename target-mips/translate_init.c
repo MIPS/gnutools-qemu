@@ -766,11 +766,10 @@ static void msa_reset(CPUMIPSState *env)
        - flush to zero subnormal subnormal results off (FS bit is 0)
        - non-signaling floating point exception mode off (NX bit is 0)
        - flush to zero subnormal input values off (IS bit is 0)
-       - IEEE 754-2008 mode on (E2 bit is 1)
+       - IEEE 754-2008 modes on (NAN2008, ABS2008, and MAC2008 bits are 0)
        - Cause, Enables, and Flags are all 0
        - round to nearest / ties to even (RM bits are 0) */
-    env->active_msa.msacsr = MSACSR_E2_BIT;
-
+    env->active_msa.msacsr = 0;
 
     /* tininess detected after rounding.*/
     set_float_detect_tininess(float_tininess_after_rounding,
