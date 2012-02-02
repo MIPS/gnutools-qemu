@@ -1257,14 +1257,27 @@ sub get_func_type {
         'FMIN.df' => 'df_wt_ws_wd_p',
         'FMIN_A.df' => 'df_wt_ws_wd_p',
 
+        'FCEQ.df' => 'df_wt_ws_wd_p',
+        'FCEQU.df' => 'df_wt_ws_wd_p',
+        'FCLE.df' => 'df_wt_ws_wd_p',
+        'FCLEU.df' => 'df_wt_ws_wd_p',
+        'FCLT.df' => 'df_wt_ws_wd_p',
+        'FCLTU.df' => 'df_wt_ws_wd_p',
+        'FCUN.df' => 'df_wt_ws_wd_p',
 
         'FSQRT.df' => 'df_ws_wd_p',
         'FLOG2.df' => 'df_ws_wd_p',
 
-
+        'FFINT_S.df' => 'df_ws_wd_p',
+        'FFINT_U.df' => 'df_ws_wd_p',
+        'FTINT_S.df' => 'df_ws_wd_p',
+        'FTINT_U.df' => 'df_ws_wd_p',
+        'FRINT.df' => 'df_ws_wd_p',
 
         'FMADD.df' => 'df_wt_ws_wd_p',
         'FMSUB.df' => 'df_wt_ws_wd_p',
+
+
         'FEXUP.df' => 'df_wt_ws_wd_p',
         'FEXDO.df' => 'df_wt_ws_wd_p',
         'FFQ.df'   => 'df_wt_ws_wd_p',
