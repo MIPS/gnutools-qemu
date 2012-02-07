@@ -3722,7 +3722,7 @@ uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
 
 
 /*
- *  BCLR, BSET
+ *  BCLR, BNEG, BSET
  */
 
 int64_t helper_bclr_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -3735,6 +3735,18 @@ int64_t helper_bclr_df(int64_t arg1, int64_t arg2, uint32_t df)
 int64_t helper_bclri_df(int64_t arg1, uint32_t arg2, uint32_t df)
 {
     return helper_bclr_df(arg1, arg2, df);
+}
+
+int64_t helper_bneg_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    return UNSIGNED(arg1 ^ (~(1LL << b_arg2)), df);
+}
+
+int64_t helper_bnegi_df(int64_t arg1, uint32_t arg2, uint32_t df)
+{
+    return helper_bneg_df(arg1, arg2, df);
 }
 
 int64_t helper_bset_df(int64_t arg1, int64_t arg2, uint32_t df)

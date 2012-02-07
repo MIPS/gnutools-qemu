@@ -425,6 +425,12 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_BSETI_df:
             gen_bseti_df(env, ctx);
             return;
+        case OPC_BNEG_df:
+            gen_bneg_df(env, ctx);
+            return;
+        case OPC_BNEGI_df:
+            gen_bnegi_df(env, ctx);
+            return;
         case OPC_CEQ_df:
             gen_ceq_df(env, ctx);
             return;
