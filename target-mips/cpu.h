@@ -509,7 +509,8 @@ struct CPUMIPSState {
 #define CP0SegCFG_EU        3
 #define CP0SegCFG_C         0
     /* Segmentation configuration access control modes. */
-#define CP0SegCFG_AM_UUSK   6
+#define CP0SegCFG_AM_UUSK   7
+#define CP0SegCFG_AM_UNDEF  6
 #define CP0SegCFG_AM_USK    5
 #define CP0SegCFG_AM_MUSUK  4
 #define CP0SegCFG_AM_MUSK   3
