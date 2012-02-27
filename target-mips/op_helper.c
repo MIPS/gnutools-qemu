@@ -4993,6 +4993,18 @@ static int update_msacsr(void)
     int enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
     int ex_cause;
 
+#if 0
+    if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
+    if (ieee_ex & float_flag_invalid) printf("invalid ");
+    if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
+    if (ieee_ex & float_flag_overflow) printf("overflow ");
+    if (ieee_ex & float_flag_underflow) printf("underflow ");
+    if (ieee_ex & float_flag_inexact) printf("inexact ");
+    if (ieee_ex & float_flag_input_denormal) printf("input_denormal ");
+    if (ieee_ex & float_flag_output_denormal) printf("output_denormal ");
+    if (ieee_ex) printf("\n");
+#endif
+
     if (ieee_ex == float_flag_input_denormal ||
         ieee_ex == float_flag_output_denormal) {
         if (!(env->active_msa.msacsr & MSACSR_MAC2008_BIT)) {
@@ -5008,7 +5020,9 @@ static int update_msacsr(void)
     if ((env->active_msa.msacsr & MSACSR_NX_BIT) && ex_cause) {
         return ex_cause;
     } else {
-        SET_FP_CAUSE(env->active_msa.msacsr, cause);
+        int old_cause = GET_FP_CAUSE(env->active_msa.msacsr);
+        SET_FP_CAUSE(env->active_msa.msacsr, cause | old_cause);
+
         if (ex_cause) {
             helper_raise_exception(EXCP_MSAFPE);
         }
