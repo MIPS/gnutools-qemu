@@ -3473,7 +3473,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
 #define ALL_B_ELEMENTS(i)                       \
     do {                                        \
         uint32_t i;                             \
-        for (i = 0; i < wrlen / 8; i++)
+        for (i = wrlen / 8; i--;)
 
 #define  H(pwr, i) (((wr_t *)pwr)->h[i])
 #define HR(pwr, i) (((wr_t *)pwr)->h[i])
@@ -3482,7 +3482,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
 #define ALL_H_ELEMENTS(i)                       \
     do {                                        \
         uint32_t i;                             \
-        for (i = 0; i < wrlen / 16; i++)
+        for (i = wrlen / 16; i--;)
 
 #define  W(pwr, i) (((wr_t *)pwr)->w[i])
 #define WR(pwr, i) (((wr_t *)pwr)->w[i])
@@ -3491,7 +3491,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
 #define ALL_W_ELEMENTS(i)                       \
     do {                                        \
         uint32_t i;                             \
-        for (i = 0; i < wrlen / 32; i++)
+        for (i = wrlen / 32; i--;)
 
 #define  D(pwr, i) (((wr_t *)pwr)->d[i])
 #define DR(pwr, i) (((wr_t *)pwr)->d[i])
@@ -3500,13 +3500,13 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
 #define ALL_D_ELEMENTS(i)                       \
     do {                                        \
         uint32_t i;                             \
-        for (i = 0; i < wrlen / 64; i++)
+        for (i = wrlen / 64; i--;)
 
 #define Q(pwr, i) (((wr_t *)pwr)->q[i])
 #define ALL_Q_ELEMENTS(i)                       \
     do {                                        \
         uint32_t i;                             \
-        for (i = 0; i < wrlen / 128; i++)
+        for (i = wrlen / 128; i--;)
 
 #define DONE_ALL_ELEMENTS                       \
     } while (0)
@@ -6252,8 +6252,8 @@ void helper_ffq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
-            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WR(pwt, i), 64);
+            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pwt, i), 64);
+            MSA_FLOAT_UNOP(D(pwy, i), from_q32, WR(pwt, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
