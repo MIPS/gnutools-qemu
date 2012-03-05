@@ -4124,36 +4124,38 @@ void helper_ilvev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
+    wr_t wx, *pwx = &wx;
+
     switch (df) {
     case DF_BYTE:
         /* byte data format */
         ALL_H_ELEMENTS(i) {
-            B(pwd, 2*i)   = B(pwt, 2*i);
-            B(pwd, 2*i+1) = B(pws, 2*i);
+            B(pwx, 2*i)   = B(pwt, 2*i);
+            B(pwx, 2*i+1) = B(pws, 2*i);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_HALF:
         /* half data format */
         ALL_W_ELEMENTS(i) {
-            H(pwd, 2*i)   = H(pwt, 2*i);
-            H(pwd, 2*i+1) = H(pws, 2*i);
+            H(pwx, 2*i)   = H(pwt, 2*i);
+            H(pwx, 2*i+1) = H(pws, 2*i);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_WORD:
         /* word data format */
         ALL_D_ELEMENTS(i) {
-            W(pwd, 2*i)   = W(pwt, 2*i);
-            W(pwd, 2*i+1) = W(pws, 2*i);
+            W(pwx, 2*i)   = W(pwt, 2*i);
+            W(pwx, 2*i+1) = W(pws, 2*i);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         /* double data format */
         ALL_Q_ELEMENTS(i) {
-            D(pwd, 2*i)   = D(pwt, 2*i);
-            D(pwd, 2*i+1) = D(pws, 2*i);
+            D(pwx, 2*i)   = D(pwt, 2*i);
+            D(pwx, 2*i+1) = D(pws, 2*i);
         } DONE_ALL_ELEMENTS;
        break;
 
@@ -4161,6 +4163,8 @@ void helper_ilvev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 
@@ -4169,36 +4173,38 @@ void helper_ilvod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
+    wr_t wx, *pwx = &wx;
+
     switch (df) {
     case DF_BYTE:
         /* byte data format */
         ALL_H_ELEMENTS(i) {
-            B(pwd, 2*i)   = B(pwt, 2*i+1);
-            B(pwd, 2*i+1) = B(pws, 2*i+1);
+            B(pwx, 2*i)   = B(pwt, 2*i+1);
+            B(pwx, 2*i+1) = B(pws, 2*i+1);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_HALF:
         /* half data format */
         ALL_W_ELEMENTS(i) {
-            H(pwd, 2*i)   = H(pwt, 2*i+1);
-            H(pwd, 2*i+1) = H(pws, 2*i+1);
+            H(pwx, 2*i)   = H(pwt, 2*i+1);
+            H(pwx, 2*i+1) = H(pws, 2*i+1);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_WORD:
         /* word data format */
         ALL_D_ELEMENTS(i) {
-            W(pwd, 2*i)   = W(pwt, 2*i+1);
-            W(pwd, 2*i+1) = W(pws, 2*i+1);
+            W(pwx, 2*i)   = W(pwt, 2*i+1);
+            W(pwx, 2*i+1) = W(pws, 2*i+1);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         /* double data format */
         ALL_Q_ELEMENTS(i) {
-            D(pwd, 2*i)   = D(pwt, 2*i+1);
-            D(pwd, 2*i+1) = D(pws, 2*i+1);
+            D(pwx, 2*i)   = D(pwt, 2*i+1);
+            D(pwx, 2*i+1) = D(pws, 2*i+1);
         } DONE_ALL_ELEMENTS;
        break;
 
@@ -4206,6 +4212,8 @@ void helper_ilvod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 
