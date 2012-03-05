@@ -1329,30 +1329,35 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LWE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_ld_lw(t0, t0, ctx);
         gen_store_gpr(t0, rt);
         opn = "lwe";
         break;
     case OPC_LHE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_ld_lh(t0, t0, ctx);
         gen_store_gpr(t0, rt);
         opn = "lhe";
         break;
     case OPC_LHUE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_ld_lhu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
         opn = "lhue";
         break;
     case OPC_LBE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_ld_lb(t0, t0, ctx);
         gen_store_gpr(t0, rt);
         opn = "lbe";
         break;
     case OPC_LBUE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_ld_lbu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
         opn = "lbue";
@@ -1419,16 +1424,19 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         break;
     case OPC_SWE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_st_sw(t1, t0, ctx);
         opn = "swe";
         break;
     case OPC_SHE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_st_sh(t1, t0, ctx);
         opn = "she";
         break;
     case OPC_SBE:
         save_cpu_state(ctx, 0);
+        ctx->hflags |= MIPS_HFLAG_EVA;
         op_st_sb(t1, t0, ctx);
         opn = "sbe";
         break;
@@ -12221,35 +12229,6 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
     rd = (ctx->opcode >> 11) & 0x1f;
     sa = (ctx->opcode >> 6) & 0x1f;
     imm = (int16_t)ctx->opcode;
-if (op == OPC_SPECIAL3) {
-int sjhop = ((ctx->opcode & 0x3f) | OPC_SPECIAL3);
-switch(sjhop) {
-case OPC_LBE:
-printf("%s:%d: OPC_LBE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_LBUE:
-printf("%s:%d: OPC_LBUE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_LHE:
-printf("%s:%d: OPC_LHE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_LHUE:
-printf("%s:%d: OPC_LHUE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_LWE:
-printf("%s:%d: OPC_LWE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_SBE:
-printf("%s:%d: OPC_SBE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_SHE:
-printf("%s:%d: OPC_SHE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-case OPC_SWE:
-printf("%s:%d: OPC_SWE  op=%08x rs=%d rt=%d rd=%d sa=%d imm=%d\n",__FUNCTION__,__LINE__,op,rs,rt,rd,sa,imm);
-break;
-}
-}
 
     switch (op) {
     case OPC_SPECIAL:
@@ -12606,12 +12585,20 @@ break;
         case OPC_LHE:
         case OPC_LHUE:
         case OPC_LWE:
-            gen_ld(env, ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
+            if(((ctx->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM) ||
+               ((ctx->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM))
+                generate_exception_err(ctx, EXCP_CpU, 0);
+            else
+                gen_ld(env, ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
             break;
         case OPC_SBE:
         case OPC_SHE:
         case OPC_SWE:
-            gen_st(ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
+            if(((ctx->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM) ||
+               ((ctx->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM))
+                generate_exception_err(ctx, EXCP_CpU, 0);
+            else
+                gen_st(ctx, op1, rt, rs, SIMM(ctx->opcode, 7, 9));
             break;
 #endif
         case OPC_MULT_G_2E ... OPC_ADDUH_QB_major:

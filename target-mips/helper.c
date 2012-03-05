@@ -101,6 +101,20 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
+static inline int get_segment_access_mode (CPUState *env, target_ulong address)
+{
+    int i;
+    int mode = -1;
+
+    for(i = 5; i > -1; i--) {
+        if (address < (env->seg[i].addr + env->seg[i].size)) {
+            mode = ((env->seg[i].cfg >> CP0SegCFG_AM) & 0x7);
+            break;
+        }
+    }
+    return mode;
+}
+
 static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
@@ -115,88 +129,113 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
     int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
 #endif
     int ret = TLBRET_MATCH;
-    int access_mode = CP0SegCFG_AM_UNDEF;
-    int i;
 
 #if 0
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
-if (env->CP0_PRid == 0x0001a200) {
-    for(i = 5; i > -1; i--) {
-        if (address < (env->seg[i].addr + env->seg[i].size)) {
-           switch(access_mode = ((env->seg[i].cfg >> CP0SegCFG_AM) & 0x7)) {
-           case CP0SegCFG_AM_UK:
-           case CP0SegCFG_AM_MK:
-               if (!kernel_mode) {
-                   ret = TLBRET_BADADDR;
-                   break;
-               }
-           case CP0SegCFG_AM_MSK:
-           case CP0SegCFG_AM_USK:
-               if (user_mode) {
-                   ret = TLBRET_BADADDR;
-                   break;
-               }
-           default:
-               break;
-           }
-           break;
+    if (env->CP0_PRid == 0x0001a200) {
+        int eva = env->hflags & MIPS_HFLAG_EVA;
+        int am = get_segment_access_mode(env, address);
+        int i;
+
+        if (eva) {
+            if (kernel_mode) {
+                switch (am) {
+                case CP0SegCFG_AM_MUSK:
+                case CP0SegCFG_AM_MUSUK:
+                    ret = env->tlb->map_address(env, physical, prot, address,
+                                                rw, access_type);
+                    break;
+                case CP0SegCFG_AM_UUSK:
+                    for(i = 0; i < 5; i++) {
+                        if (address >= env->seg[i].addr) {
+                            *physical = address - (int32_t)env->seg[i].addr;
+                            *prot = PAGE_READ | PAGE_WRITE;
+                            break;
+                        }
+                    }
+                    break;
+                default:
+                    ret = TLBRET_BADADDR;
+                    break;
+                }
+            } else {
+               /* CP0 unusable exception should have been thrown before this. */
+               ret = TLBRET_BADADDR;
+            }
+
+            return ret;
         }
+
+        if (user_mode) {
+            switch (am) {
+            case CP0SegCFG_AM_MUSK:
+            case CP0SegCFG_AM_MUSUK:
+                ret = env->tlb->map_address(env, physical, prot, address,
+                                            rw, access_type);
+                break;
+            case CP0SegCFG_AM_UUSK:
+                for(i = 0; i < 5; i++) {
+                    if (address >= env->seg[i].addr) {
+                        *physical = address - (int32_t)env->seg[i].addr;
+                        *prot = PAGE_READ | PAGE_WRITE;
+                        break;
+                    }
+                }
+                break;
+            default:
+                ret = TLBRET_BADADDR;
+                break;
+            }
+        } else if (kernel_mode) {
+            switch (am) {
+            case CP0SegCFG_AM_UK:
+/* Uncomment this once kernel and user space changes are finished. */
+//            case CP0SegCFG_AM_MUSUK:
+            case CP0SegCFG_AM_USK:
+            case CP0SegCFG_AM_UUSK:
+                for(i = 0; i < 5; i++) {
+                    if (address >= env->seg[i].addr) {
+                        *physical = address - (int32_t)env->seg[i].addr;
+                        *prot = PAGE_READ | PAGE_WRITE;
+                        break;
+                    }
+                }
+                break;
+            default:
+                ret = env->tlb->map_address(env, physical, prot, address,
+                                            rw, access_type);
+                break;
+            }
+        } else if (supervisor_mode) {
+            switch (am) {
+            case CP0SegCFG_AM_MSK:
+            case CP0SegCFG_AM_MUSK:
+            case CP0SegCFG_AM_MUSUK:
+                ret = env->tlb->map_address(env, physical, prot, address,
+                                            rw, access_type);
+                break;
+            case CP0SegCFG_AM_USK:
+            case CP0SegCFG_AM_UUSK:
+                for(i = 0; i < 5; i++) {
+                    if (address >= env->seg[i].addr) {
+                        *physical = address - (int32_t)env->seg[i].addr;
+                        *prot = PAGE_READ | PAGE_WRITE;
+                        break;
+                    }
+                }
+                break;
+            default:
+                ret = TLBRET_BADADDR;
+                break;
+            }
+        } else {
+            ret = TLBRET_BADADDR;
+        }
+
+        return ret;
     }
 
-    if ((access_mode == CP0SegCFG_AM_UNDEF) || (ret == TLBRET_BADADDR))
-        return ret;
-
-    /* The < 0x7fffffff is a temporary hack. */
-    if (user_mode || (address <= (int32_t)0x7FFFFFFFUL)) {
-        if (env->CP0_Status & (1 << CP0St_ERL)) {
-            *physical = address & 0xFFFFFFFF;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else if (access_mode != CP0SegCFG_AM_UUSK) {
-            ret = env->tlb->map_address(env, physical, prot, address,
-                                        rw, access_type);
-        } else {
-            for(i = 0; i < 5; i++) {
-                if (address >= env->seg[i].addr) {
-                    *physical = address - (int32_t)env->seg[i].addr;
-                    *prot = PAGE_READ | PAGE_WRITE;
-                    break;
-                }
-            }
-        }
-    } else if (supervisor_mode) {
-        if ((access_mode > CP0SegCFG_AM_MK) &&
-                (access_mode < CP0SegCFG_AM_USK)) {
-            ret = env->tlb->map_address(env, physical, prot, address,
-                                        rw, access_type);
-        } else {
-            for(i = 0; i < 5; i++) {
-                if (address >= env->seg[i].addr) {
-                    *physical = address - (int32_t)env->seg[i].addr;
-                    *prot = PAGE_READ | PAGE_WRITE;
-                    break;
-                }
-            }
-        }
-    } else if (kernel_mode) {
-        if ((access_mode > CP0SegCFG_AM_UK) &&
-                (access_mode < CP0SegCFG_AM_MUSUK)) {
-            ret = env->tlb->map_address(env, physical, prot, address,
-                                        rw, access_type);
-        } else {
-            for(i = 0; i < 5; i++) {
-                if (address >= env->seg[i].addr) {
-                    *physical = address - (int32_t)env->seg[i].addr;
-                    *prot = PAGE_READ | PAGE_WRITE;
-                    break;
-                }
-            }
-        }
-    } else {
-        /* Should never be reached. */
-        return ret;
-    }
-} else {
     if (address <= (int32_t)0x7FFFFFFFUL) {
         /* useg */
         if (env->CP0_Status & (1 << CP0St_ERL)) {
@@ -276,7 +315,6 @@ if (env->CP0_PRid == 0x0001a200) {
             address, rw, access_type, *physical, *prot, ret);
 #endif
 
-}
     return ret;
 }
 #endif

@@ -509,8 +509,7 @@ struct CPUMIPSState {
 #define CP0SegCFG_EU        3
 #define CP0SegCFG_C         0
     /* Segmentation configuration access control modes. */
-#define CP0SegCFG_AM_UUSK   7
-#define CP0SegCFG_AM_UNDEF  6
+#define CP0SegCFG_AM_UUSK   6
 #define CP0SegCFG_AM_USK    5
 #define CP0SegCFG_AM_MUSUK  4
 #define CP0SegCFG_AM_MUSK   3
@@ -565,6 +564,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_BDS32  0x20000 /* branch requires 32-bit delay slot  */
 #define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
+#define MIPS_HFLAG_EVA    0x80000 /* EVA memory access instruction      */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
