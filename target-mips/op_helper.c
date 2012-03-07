@@ -5106,7 +5106,7 @@ do {                                                                    \
     }                                                                   \
 } while (0)
 
-#define IS_NUMBER_AND_QNAN(ARG1, ARG2, BITS)    \
+#define NUMBER_QNAN_PAIR(ARG1, ARG2, BITS)    \
   !float ## BITS ## _is_any_nan(ARG1)           \
   && float ## BITS ## _is_quiet_nan(ARG2)
 
@@ -5459,10 +5459,10 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             uint32_t as = float32_abs(W(pws, i));
             uint32_t at = float32_abs(W(pwt, i));
 
-            if (IS_NUMBER_AND_QNAN(as, at, 32)) {
+            if (NUMBER_QNAN_PAIR(as, at, 32)) {
                 W(pwx, i) = as;
             }
-            else if (IS_NUMBER_AND_QNAN(at, as, 32)) {
+            else if (NUMBER_QNAN_PAIR(at, as, 32)) {
                 W(pwx, i) = at;
             }
             else {
@@ -5476,10 +5476,10 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             uint64_t as = float64_abs(D(pws, i));
             uint64_t at = float64_abs(D(pwt, i));
 
-            if (IS_NUMBER_AND_QNAN(as, at, 64)) {
+            if (NUMBER_QNAN_PAIR(as, at, 64)) {
                 D(pwx, i) = as;
             }
-            else if (IS_NUMBER_AND_QNAN(at, as, 64)) {
+            else if (NUMBER_QNAN_PAIR(at, as, 64)) {
                 D(pwx, i) = at;
             }
             else {
@@ -5507,10 +5507,10 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (IS_NUMBER_AND_QNAN(W(pws, i), W(pwt, i), 32)) {
+            if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
                 W(pwx, i) = W(pws, i);
             }
-            else if (IS_NUMBER_AND_QNAN(W(pwt, i), W(pws, i), 32)) {
+            else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
                 W(pwx, i) = W(pwt, i);
             }
             else {
@@ -5521,10 +5521,10 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (IS_NUMBER_AND_QNAN(D(pws, i), D(pwt, i), 64)) {
+            if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
                 D(pwx, i) = D(pws, i);
             }
-            else if (IS_NUMBER_AND_QNAN(D(pwt, i), D(pws, i), 64)) {
+            else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
                 D(pwx, i) = D(pwt, i);
             }
             else {
@@ -5555,10 +5555,10 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             uint32_t as = float32_abs(W(pws, i));
             uint32_t at = float32_abs(W(pwt, i));
 
-            if (IS_NUMBER_AND_QNAN(as, at, 32)) {
+            if (NUMBER_QNAN_PAIR(as, at, 32)) {
                 W(pwx, i) = as;
             }
-            else if (IS_NUMBER_AND_QNAN(at, as, 32)) {
+            else if (NUMBER_QNAN_PAIR(at, as, 32)) {
                 W(pwx, i) = at;
             }
             else {
@@ -5572,10 +5572,10 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             uint64_t as = float64_abs(D(pws, i));
             uint64_t at = float64_abs(D(pwt, i));
 
-            if (IS_NUMBER_AND_QNAN(as, at, 64)) {
+            if (NUMBER_QNAN_PAIR(as, at, 64)) {
                 D(pwx, i) = as;
             }
-            else if (IS_NUMBER_AND_QNAN(at, as, 64)) {
+            else if (NUMBER_QNAN_PAIR(at, as, 64)) {
                 D(pwx, i) = at;
             }
             else {
@@ -5603,10 +5603,10 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            if (IS_NUMBER_AND_QNAN(W(pws, i), W(pwt, i), 32)) {
+            if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
                 W(pwx, i) = W(pws, i);
             }
-            else if (IS_NUMBER_AND_QNAN(W(pwt, i), W(pws, i), 32)) {
+            else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
                 W(pwx, i) = W(pwt, i);
             }
             else {
@@ -5617,10 +5617,10 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            if (IS_NUMBER_AND_QNAN(D(pws, i), D(pwt, i), 64)) {
+            if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
                 D(pwx, i) = D(pws, i);
             }
-            else if (IS_NUMBER_AND_QNAN(D(pwt, i), D(pws, i), 64)) {
+            else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
                 D(pwx, i) = D(pwt, i);
             }
             else {
