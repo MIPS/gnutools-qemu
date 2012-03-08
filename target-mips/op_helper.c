@@ -5977,7 +5977,6 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
-
     wr_t wx, *pwx = &wx;
 
     switch (df) {
@@ -6349,6 +6348,9 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     set_flush_inputs_to_zero(
         (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
         &env->active_msa.fp_status);
+
+    /* set float_status nan mode */
+    set_default_nan_mode(1, &env->active_msa.fp_status);
 
     /* check exception */
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
