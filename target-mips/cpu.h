@@ -71,7 +71,6 @@ struct CPUMIPSMSAContext {
 
     int32_t msair;
 #define MSAIR_REGISTER 0
-#define MSAIR_ZERO_BITS 0x0103ffff
 
 #define MSAIR_S_POS   16
 #define MSAIR_S_BIT   (1 << MSAIR_S_POS)
@@ -82,12 +81,21 @@ struct CPUMIPSMSAContext {
 #define MSAIR_F_POS   24
 #define MSAIR_F_BIT   (1 << MSAIR_F_POS)
 
+#define MSAIR_BITS                              \
+    (MSAIR_S_BIT |                              \
+     MSAIR_W_BIT |                              \
+     MSAIR_F_BIT)
+
+
     int32_t msacsr;
 #define MSACSR_REGISTER 1
-#define MSACSR_ZERO_BITS 0x031fffff
 
-#define MSAIR_RM_POS   0
-#define MSAIR_RM_MASK  (0x3 << MSAIR_RM_POS)
+#define MSACSR_RM_POS   0
+#define MSACSR_RM_MASK  (0x3 << MSACSR_RM_POS)
+
+#define MSACSR_CAUSE_ENABLE_FLAGS_POS 2
+#define MSACSR_CAUSE_ENABLE_FLAGS_MASK \
+    (0xffff << MSACSR_CAUSE_ENABLE_FLAGS_POS)
 
 #define MSACSR_NAN2008_POS 19
 #define MSACSR_NAN2008_BIT (1 << MSACSR_NAN2008_POS)
@@ -106,6 +114,17 @@ struct CPUMIPSMSAContext {
 
 #define MSACSR_NX_POS 26
 #define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
+
+
+#define MSACSR_BITS                             \
+    (MSACSR_RM_MASK |                           \
+     MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
+     MSACSR_NAN2008_BIT |                       \
+     MSACSR_MAC2008_BIT |                       \
+     MSACSR_CS_BIT |                            \
+     MSACSR_FS_BIT |                            \
+     MSACSR_IS_BIT |                            \
+     MSACSR_NX_BIT)
 
     float_status fp_status;
 };

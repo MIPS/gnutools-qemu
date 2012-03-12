@@ -764,7 +764,7 @@ static void msa_reset(CPUMIPSState *env)
 
     /* MSA CSR:
        - non-signaling floating point exception mode off (NX bit is 0)
-       - signaling qNaN compare is ofd (CS bit is 0)
+       - non-signaling qNaN compare (CS bit is 0)
        - flush to zero subnormal subnormal results off (FS bit is 0)
        - flush to zero subnormal input values off (IS bit is 0)
        - IEEE 754-2008 modes on (NAN2008 and MAC2008 bits are 0)
@@ -786,4 +786,7 @@ static void msa_reset(CPUMIPSState *env)
     /* set float_status flush modes */
     set_flush_to_zero(0, &env->active_msa.fp_status);
     set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
+
+    /* clear float_status nan mode */
+    set_default_nan_mode(0, &env->active_msa.fp_status);
 }

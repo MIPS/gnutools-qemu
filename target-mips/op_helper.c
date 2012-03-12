@@ -3445,6 +3445,34 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
 #define DF_FLOAT_WORD   0
 #define DF_FLOAT_DOUBLE 1
 
+static void msa_check_index(uint32_t df, uint32_t n, uint32_t wrlen) {
+    switch (df) {
+    case DF_BYTE: /* b */
+        if (n > wrlen / 8 - 1) {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
+    case DF_HALF: /* h */
+        if (n > wrlen / 16 - 1) {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
+    case DF_WORD: /* w */
+        if (n > wrlen / 32 - 1) {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
+    case DF_DOUBLE: /* d */
+        if (n > wrlen / 64 - 1) {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
 
 /* Data format min and max values */
 #define DF_BITS(df) (1 << ((df) + 3))
@@ -4596,46 +4624,28 @@ void helper_move_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        if ( n >= wrlen/8) {
-            helper_raise_exception(EXCP_RI);
-        }
+    msa_check_index(df, n, wrlen);
 
+    switch (df) {
+    case DF_BYTE: 
         ALL_B_ELEMENTS(i) {
             B(pwx, i)   = B(pws, n);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_HALF:
-        /* half data format */
-        if ( n >= wrlen/16) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         ALL_H_ELEMENTS(i) {
             H(pwx, i)   = H(pws, n);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_WORD:
-        /* word data format */
-        if ( n >= wrlen/32) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         ALL_W_ELEMENTS(i) {
             W(pwx, i)   = W(pws, n);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
-        /* double data format */
-        if ( n >= wrlen/64) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         ALL_D_ELEMENTS(i) {
             D(pwx, i)   = D(pws, n);
         } DONE_ALL_ELEMENTS;
@@ -4810,45 +4820,26 @@ void helper_sld_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
         }                                       \
     } while (0)
 
+    msa_check_index(df, n, wrlen);
 
     switch (df) {
     case DF_BYTE:
-        /* byte data format */
-        if ( n >= wrlen/8) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         CONCATENATE_AND_SLIDE(wrlen/8, 0);
         break;
 
     case DF_HALF:
-        /* half data format */
-        if ( n >= wrlen/16) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         for (k = 0; k < 2; k++) {
             CONCATENATE_AND_SLIDE(wrlen/16, k);
         }
         break;
 
     case DF_WORD:
-        /* word data format */
-        if ( n >= wrlen/32) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         for (k = 0; k < 4; k++) {
             CONCATENATE_AND_SLIDE(wrlen/32, k);
         }
         break;
 
     case DF_DOUBLE:
-        /* double data format */
-        if ( n >= wrlen/64) {
-            helper_raise_exception(EXCP_RI);
-        }
-
         for (k = 0; k < 8; k++) {
             CONCATENATE_AND_SLIDE(wrlen/64, k);
         }
@@ -4963,6 +4954,9 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 
 int64_t helper_load_wr_s64(int wreg, int df, int i)
 {
+    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+
     switch (df) {
     case DF_BYTE: /* b */
         return env->active_msa.wr[wreg].b[i];
@@ -4980,6 +4974,9 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
 
 uint64_t helper_load_wr_i64(int wreg, int df, int i)
 {
+    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+
     switch (df) {
     case DF_BYTE: /* b */
         return (uint8_t)env->active_msa.wr[wreg].b[i];
@@ -4997,6 +4994,9 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
 
 void helper_store_wr(uint64_t val, int wreg, int df, int i)
 {
+    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+
     switch (df) {
     case DF_BYTE: /* b */
         env->active_msa.wr[wreg].b[i] = (uint8_t)val;
@@ -5033,7 +5033,7 @@ static int update_msacsr(void)
     int enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
     int ex_cause;
 
-#if 0
+#if 1
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
     if (ieee_ex & float_flag_invalid) printf("invalid ");
     if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
@@ -5334,6 +5334,9 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), log2, W(pws, i), 32);
+
+            printf("flog2 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5811,7 +5814,7 @@ void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_COND(W(pwx, i), lt, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
+        } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
@@ -5979,6 +5982,9 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
     wr_t wx, *pwx = &wx;
 
+    /* set float_status nan mode */
+    set_default_nan_mode(1, &env->active_msa.fp_status);
+
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
@@ -5998,7 +6004,10 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(pwd, &wx, wrlen);    
+
+    /* clear float_status nan mode */
+    set_default_nan_mode(0, &env->active_msa.fp_status);
 }
 
 
@@ -6023,8 +6032,8 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pws, i), 64);
-            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WR(pwt, i), 64);
+            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pwt, i), 64);
+            MSA_FLOAT_UNOP(D(pwy, i), from_float32, WR(pwt, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6313,10 +6322,17 @@ target_ulong helper_cfcmsa(uint32_t cs)
 {
     switch (cs) {
     case MSAIR_REGISTER:
-        return env->active_msa.msair & MSAIR_ZERO_BITS;
+        return env->active_msa.msair & MSAIR_BITS;
 
     case MSACSR_REGISTER:
-        return env->active_msa.msacsr & MSACSR_ZERO_BITS;
+#if 1
+        printf("cfcmsa 08%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
+               env->active_msa.msacsr & MSACSR_BITS,
+               GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
+               GET_FP_ENABLE(env->active_msa.msacsr & MSACSR_BITS),
+               GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
+#endif
+        return env->active_msa.msacsr & MSACSR_BITS;
 
     default:
         assert(0);
@@ -6334,11 +6350,11 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
        for MIPS is the MIPS scalar FPU encoding. */
     assert((elm &  MSACSR_NAN2008_BIT) == 0);
 
-    env->active_msa.msacsr = (int32_t)elm & MSACSR_ZERO_BITS;
+    env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
 
     /* set float_status rounding mode */
     set_float_rounding_mode(
-        ieee_rm[(env->active_msa.msacsr & MSAIR_RM_MASK) >> MSAIR_RM_POS],
+        ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
         &env->active_msa.fp_status);
 
     /* set float_status flush modes */
@@ -6349,12 +6365,12 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
         &env->active_msa.fp_status);
 
-    /* set float_status nan mode */
-    set_default_nan_mode(1, &env->active_msa.fp_status);
-
     /* check exception */
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
         & GET_FP_CAUSE(env->active_msa.msacsr)) {
         helper_raise_exception(EXCP_MSAFPE);
     }
+
+    /* should be set by the SRVP */
+    //env->active_msa.msacsr |= MSACSR_CS_BIT;
 }
