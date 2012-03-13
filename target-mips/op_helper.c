@@ -5078,7 +5078,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ##_default_nan & nx_cause;                 \
+        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
     }                                                                   \
 } while (0)
 
@@ -5090,7 +5090,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ##_default_nan & nx_cause;                 \
+        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
     }                                                                   \
 } while (0)
 
@@ -5102,11 +5102,11 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ##_default_nan & nx_cause;                 \
+        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
     }                                                                   \
 } while (0)
 
-#define NUMBER_QNAN_PAIR(ARG1, ARG2, BITS)    \
+#define NUMBER_QNAN_PAIR(ARG1, ARG2, BITS)      \
   !float ## BITS ## _is_any_nan(ARG1)           \
   && float ## BITS ## _is_quiet_nan(ARG2)
 
@@ -5334,9 +5334,6 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), log2, W(pws, i), 32);
-
-            printf("flog2 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5659,7 +5656,7 @@ do {                                                                    \
     }                                                                   \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ##_default_nan & nx_cause;                 \
+        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
     } else {                                                            \
         DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
     }                                                                   \
@@ -5683,7 +5680,7 @@ do {                                                                    \
     }                                                                   \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ##_default_nan & nx_cause;                 \
+        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
     } else {                                                            \
         DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
     }                                                                   \
@@ -5870,6 +5867,10 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_COND(W(pwx, i), unordered, W(pws, i), W(pwt, i), 32);
+
+            printf("0x%08x <-- 0x%08x UN 0x%08x\n", 
+                   W(pwx, i), W(pws, i), W(pwt, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -6326,7 +6327,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
 
     case MSACSR_REGISTER:
 #if 1
-        printf("cfcmsa 08%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
+        printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
                env->active_msa.msacsr & MSACSR_BITS,
                GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
                GET_FP_ENABLE(env->active_msa.msacsr & MSACSR_BITS),

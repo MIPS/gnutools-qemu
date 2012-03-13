@@ -2481,7 +2481,7 @@ float32 float32_log2( float32 a STATUS_PARAM )
     }
     if ( aSign ) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return float32_default_nan;
+        if ( aExp != 0xFF ) return float32_default_nan;
     }
     if ( aExp == 0xFF ) {
         if ( aSig ) return propagateFloat32NaN( a, float32_zero STATUS_VAR );
@@ -3067,7 +3067,7 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
         mask = 0x00001fff;
     }
     if (aSig & mask) {
-        float_raise( float_flag_underflow STATUS_VAR );
+        float_raise( float_flag_underflow | float_flag_inexact STATUS_VAR );
         roundingMode = STATUS(float_rounding_mode);
         switch (roundingMode) {
         case float_round_nearest_even:

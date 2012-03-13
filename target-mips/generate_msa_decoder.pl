@@ -1103,6 +1103,9 @@ C_END
        $def = "DEF_HELPER_4($helper_name, void, ptr, tl, tl, i32)";
     }
     elsif ($func_type eq 'dfn_ws_rd') {
+
+        my $stype = get_arg_type($inst,'ws');
+
         $func_body .=<<"C_END";
 
 $declare_str
@@ -1111,8 +1114,7 @@ $declare_str
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_s64(telm, tws, tdf, tn);
-    // TODO sign<->unsign
+    gen_helper_load_wr_$stype(telm, tws, tdf, tn);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -1330,6 +1332,8 @@ sub get_arg_type {
         'ASUBI_U.df/wd',
         'ASUBI_U.df/ws',
         'ASUBI_U.df/u5',
+
+        'MVTG_U.df/ws',
     ) if !%is_unsigned;
 
     my $arg_type_of = $is_unsigned{"$name/$arg"} ? 'i64' : 's64';

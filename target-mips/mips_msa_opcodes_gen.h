@@ -4780,7 +4780,6 @@ static void gen_mvtg_s_df(CPUState *env, DisasContext *ctx) {
     TCGv_i32 tn = tcg_const_i32(n);
 
     gen_helper_load_wr_s64(telm, tws, tdf, tn);
-    // TODO sign<->unsign
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -4868,8 +4867,7 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_s64(telm, tws, tdf, tn);
-    // TODO sign<->unsign
+    gen_helper_load_wr_i64(telm, tws, tdf, tn);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
