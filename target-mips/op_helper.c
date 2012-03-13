@@ -5867,10 +5867,6 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_COND(W(pwx, i), unordered, W(pws, i), W(pwt, i), 32);
-
-            printf("0x%08x <-- 0x%08x UN 0x%08x\n", 
-                   W(pwx, i), W(pws, i), W(pwt, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 
