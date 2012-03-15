@@ -6093,6 +6093,9 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     wr_t wx, *pwx = &wx;
     wr_t wy, *pwy = &wy;
 
+    /* set float_status nan mode */
+    set_default_nan_mode(1, &env->active_msa.fp_status);
+
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
@@ -6115,6 +6118,9 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     helper_move_v(pwd, &wx, wrlen);
     helper_move_v(pws, &wy, wrlen);
+
+    /* clear float_status nan mode */
+    set_default_nan_mode(0, &env->active_msa.fp_status);
 }
 
 
@@ -6169,12 +6175,19 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), from_uint32, W(pws, i), 32);
+
+
+            printf("ffint_u.w: 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), from_uint64, D(pws, i), 64);
+
+            printf("ffint_u.d: 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
+
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6230,6 +6243,9 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), to_uint32, W(pws, i), 32);
             DEFAULT_NAN_IF_INVALID(W(pwx, i), 32);
+
+            printf("ftint_u.w: 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
+
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6237,6 +6253,9 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
             DEFAULT_NAN_IF_INVALID(D(pwx, i), 64);
+
+            printf("ftint_u.d: 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
+
         } DONE_ALL_ELEMENTS;
         break;
 
