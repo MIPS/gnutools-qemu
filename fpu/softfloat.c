@@ -563,6 +563,11 @@ static float64
     int8 shiftCount;
 
     shiftCount = countLeadingZeros64( zSig ) - 1;
+
+    if (shiftCount < 0) {
+        shiftCount = 0;
+    }
+
     return roundAndPackFloat64( zSign, zExp - shiftCount, zSig<<shiftCount STATUS_VAR);
 
 }
