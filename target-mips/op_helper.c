@@ -5046,9 +5046,6 @@ static int update_msacsr(void)
 
     if (ieee_ex == float_flag_input_denormal ||
         ieee_ex == float_flag_output_denormal) {
-        if (!(env->active_msa.msacsr & MSACSR_MAC2008_BIT)) {
-            cause |= FP_UNIMPLEMENTED;
-        }
         
         /* TODO cause |= FP_INEXACT; */
     }
@@ -5098,7 +5095,7 @@ do {                                                                    \
 do {                                                                    \
     int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _muladd(ARG3, ARG1, ARG2, NEGATE,           \
+    DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
