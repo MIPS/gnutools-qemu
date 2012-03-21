@@ -5069,12 +5069,6 @@ static int update_msacsr(void)
     }
 }
 
-#define DEFAULT_NAN_IF_INVALID(DEST, BITS)                      \
-if (get_float_exception_flags(&env->active_msa.fp_status) &     \
-    float_flag_invalid) {                                       \
-    DEST = float ## BITS ##_default_nan;                        \
-}
-
 
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
 do {                                                                    \
@@ -5084,7 +5078,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
+        DEST = (DEST ^ 0x1f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5096,7 +5090,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
+        DEST = (DEST ^ 0x1f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5108,7 +5102,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
+        DEST = (DEST ^ 0x1f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5452,6 +5446,40 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  *  FMAX, FMIN
  */
 
+
+#define FMAXMIN_A(F, G, BITS)                                   \
+    uint## BITS ##_t as = float## BITS ##_abs(W(pws, i));       \
+    uint## BITS ##_t at = float## BITS ##_abs(W(pwt, i));       \
+                                                                \
+    uint## BITS ##_t xs, xt, xd;                                \
+    MSA_FLOAT_BINOP(xs, F, W(pws, i), W(pwt, i), BITS);         \
+    MSA_FLOAT_BINOP(xt, G, W(pws, i), W(pwt, i), BITS);         \
+                                                                \
+    if (NUMBER_QNAN_PAIR(as, at, BITS)) {                       \
+        W(pwx, i) = W(pws, i);                                  \
+    }                                                           \
+    else if (NUMBER_QNAN_PAIR(at, as, BITS)) {                  \
+        W(pwx, i) = W(pwt, i);                                  \
+    }                                                           \
+    else if (as == at) {                                        \
+        W(pwx, i) =  xs;                                        \
+    }                                                           \
+    else {                                                      \
+        MSA_FLOAT_BINOP(xd, F, as, at, BITS);                   \
+                                                                \
+        if (xd == float## BITS ##_abs(xs)) {                    \
+            W(pwx, i) = xs;                                     \
+        }                                                       \
+        else if (xd == float## BITS ##_abs(xt)) {               \
+            W(pwx, i) = xt;                                     \
+        }                                                       \
+        else {                                                  \
+            /* shouldn't get here */                            \
+            assert(0);                                          \
+        }                                                       \
+    }
+
+
 void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
@@ -5462,69 +5490,13 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            uint32_t as = float32_abs(W(pws, i));
-            uint32_t at = float32_abs(W(pwt, i));
-
-            if (NUMBER_QNAN_PAIR(as, at, 32)) {
-                W(pwx, i) = W(pws, i);
-            }
-            else if (NUMBER_QNAN_PAIR(at, as, 32)) {
-                W(pwx, i) = W(pwt, i);
-            }
-            else {
-                uint32_t xs, xt, xd;
-
-                MSA_FLOAT_BINOP(xs, min, W(pws, i), W(pwt, i), 32);
-                MSA_FLOAT_BINOP(xt, max, W(pws, i), W(pwt, i), 32);
-
-                MSA_FLOAT_BINOP(xd, max, as, at, 32);
-
-                // xd is either abs(xs) or abs(xt)
-                if (xd == float32_abs(xs)) {
-                    W(pwx, i) = xs;
-                }
-                else if (xd == float32_abs(xt)) {
-                    W(pwx, i) = xt;
-                }
-                else {
-                    /* shouldn't get here */
-                    assert(0);
-                }
-            }
+            FMAXMIN_A(max, min, 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            uint64_t as = float64_abs(D(pws, i));
-            uint64_t at = float64_abs(D(pwt, i));
-
-            if (NUMBER_QNAN_PAIR(as, at, 64)) {
-                D(pwx, i) = D(pws, i);
-            }
-            else if (NUMBER_QNAN_PAIR(at, as, 64)) {
-                D(pwx, i) = D(pwt, i);
-            }
-            else {
-                uint64_t xs, xt, xd;
-
-                MSA_FLOAT_BINOP(xs, min, D(pws, i), D(pwt, i), 64);
-                MSA_FLOAT_BINOP(xt, max, D(pws, i), D(pwt, i), 64);
-
-                MSA_FLOAT_BINOP(xd, max, as, at, 64);
-
-                // xd is either abs(xs) or abs(xt)
-                if (xd == float64_abs(xs)) {
-                    D(pwx, i) = xs;
-                }
-                else if (xd == float64_abs(xt)) {
-                    D(pwx, i) = xt;
-                }
-                else {
-                    /* shouldn't get here */
-                    assert(0);
-                }
-            }
+           FMAXMIN_A(max, min, 64);
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5592,69 +5564,13 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            uint32_t as = float32_abs(W(pws, i));
-            uint32_t at = float32_abs(W(pwt, i));
-
-            if (NUMBER_QNAN_PAIR(as, at, 32)) {
-                W(pwx, i) = W(pws, i);
-            }
-            else if (NUMBER_QNAN_PAIR(at, as, 32)) {
-                W(pwx, i) = W(pwt, i);
-            }
-            else {
-                uint32_t xs, xt, xd;
-
-                MSA_FLOAT_BINOP(xs, min, W(pws, i), W(pwt, i), 32);
-                MSA_FLOAT_BINOP(xt, max, W(pws, i), W(pwt, i), 32);
-
-                MSA_FLOAT_BINOP(xd, min, as, at, 32);
-
-                // xd is either abs(xs) or abs(xt)
-                if (xd == float32_abs(xs)) {
-                    W(pwx, i) = xs;
-                }
-                else if (xd == float32_abs(xt)) {
-                    W(pwx, i) = xt;
-                }
-                else {
-                    /* shouldn't get here */
-                    assert(0);
-                }
-            }
+            FMAXMIN_A(min, max, 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            uint64_t as = float64_abs(D(pws, i));
-            uint64_t at = float64_abs(D(pwt, i));
-
-            if (NUMBER_QNAN_PAIR(as, at, 64)) {
-                D(pwx, i) = D(pws, i);
-            }
-            else if (NUMBER_QNAN_PAIR(at, as, 64)) {
-                D(pwx, i) = D(pwt, i);
-            }
-            else {
-                uint64_t xs, xt, xd;
-
-                MSA_FLOAT_BINOP(xs, min, D(pws, i), D(pwt, i), 64);
-                MSA_FLOAT_BINOP(xt, max, D(pws, i), D(pwt, i), 64);
-
-                MSA_FLOAT_BINOP(xd, min, as, at, 64);
-
-                // xd is either abs(xs) or abs(xt)
-                if (xd == float64_abs(xs)) {
-                    D(pwx, i) = xs;
-                }
-                else if (xd == float64_abs(xt)) {
-                    D(pwx, i) = xt;
-                }
-                else {
-                    /* shouldn't get here */
-                    assert(0);
-                }
-            }
+            FMAXMIN_A(min, max, 64);
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5730,7 +5646,7 @@ do {                                                                    \
     }                                                                   \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
+        DEST = nx_cause;                                                \
     } else {                                                            \
         DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
     }                                                                   \
@@ -5754,8 +5670,8 @@ do {                                                                    \
     }                                                                   \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (float ## BITS ##_default_nan ^ 0x1f) | nx_cause;        \
-    } else {                                                            \
+        DEST = nx_cause;                                                \
+   } else {                                                             \
         DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
     }                                                                   \
 } while (0)
@@ -6046,21 +5962,23 @@ int64_t helper_fclass_df(int64_t arg, uint32_t df)
 
 void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    /* FIXME -- clarify the ieee flag meaning */
-    flag ieee = 1;
-
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
     wr_t wx, *pwx = &wx;
 
-    /* set float_status nan mode */
-    set_default_nan_mode(1, &env->active_msa.fp_status);
-
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
+            /* Half precision floats come in two formats: standard
+               IEEE and "ARM" format.  The latter gains extra exponent
+               range by omitting the NaN/Inf encodings.  */
+            flag ieee = 1;
+            
             MSA_FLOAT_BINOP(HL(pwx, i), from_float32, W(pws, i), ieee, 16);
             MSA_FLOAT_BINOP(HR(pwx, i), from_float32, W(pwt, i), ieee, 16);
+
+            HL(pwx, i) = float16_maybe_silence_nan(HL(pwx, i));
+            HR(pwx, i) = float16_maybe_silence_nan(HR(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6068,6 +5986,9 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
             MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
+        
+            WL(pwx, i) = float32_maybe_silence_nan(WL(pwx, i));
+            WR(pwx, i) = float32_maybe_silence_nan(WR(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6076,31 +5997,30 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
     helper_move_v(pwd, &wx, wrlen);    
-
-    /* clear float_status nan mode */
-    set_default_nan_mode(0, &env->active_msa.fp_status);
 }
 
 
 void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    /* FIXME -- clarify the ieee flag meaning */
-    flag ieee = 1;
-
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
     wr_t wy, *pwy = &wy;
 
-    /* set float_status nan mode */
-    set_default_nan_mode(1, &env->active_msa.fp_status);
-
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
+            /* Half precision floats come in two formats: standard
+               IEEE and "ARM" format.  The latter gains extra exponent
+               range by omitting the NaN/Inf encodings.  */
+            flag ieee = 1;
+            
             MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pwt, i), ieee, 32);
             MSA_FLOAT_BINOP(W(pwy, i), from_float16, HR(pwt, i), ieee, 32);
+
+            W(pwx, i) = float32_maybe_silence_nan(W(pwx, i));
+            W(pwy, i) = float32_maybe_silence_nan(W(pwy, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6108,6 +6028,9 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pwt, i), 64);
             MSA_FLOAT_UNOP(D(pwy, i), from_float32, WR(pwt, i), 64);
+
+            D(pwx, i) = float64_maybe_silence_nan(D(pwx, i));
+            D(pwy, i) = float64_maybe_silence_nan(D(pwy, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6118,9 +6041,6 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     helper_move_v(pwd, &wx, wrlen);
     helper_move_v(pws, &wy, wrlen);
-
-    /* clear float_status nan mode */
-    set_default_nan_mode(0, &env->active_msa.fp_status);
 }
 
 
@@ -6175,19 +6095,12 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), from_uint32, W(pws, i), 32);
-
-
-            printf("ffint_u.w: 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), from_uint64, D(pws, i), 64);
-
-            printf("ffint_u.d: 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
-
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6211,14 +6124,12 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), to_int32, W(pws, i), 32);
-            DEFAULT_NAN_IF_INVALID(W(pwx, i), 32);
-         } DONE_ALL_ELEMENTS;
+          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
-            DEFAULT_NAN_IF_INVALID(D(pwx, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6242,20 +6153,12 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
             MSA_FLOAT_UNOP(W(pwx, i), to_uint32, W(pws, i), 32);
-            DEFAULT_NAN_IF_INVALID(W(pwx, i), 32);
-
-            printf("ftint_u.w: 0x%08x <- 0x%08x\n", W(pwx, i), W(pws, i));
-
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
-            DEFAULT_NAN_IF_INVALID(D(pwx, i), 64);
-
-            printf("ftint_u.d: 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
-
         } DONE_ALL_ELEMENTS;
         break;
 

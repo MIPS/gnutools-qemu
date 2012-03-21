@@ -138,7 +138,11 @@ int float16_is_quiet_nan(float16 a_)
 #if SNAN_BIT_IS_ONE
     return (((a >> 9) & 0x3F) == 0x3E) && (a & 0x1FF);
 #else
+#  if defined(TARGET_MIPS)
+    return ((a & ~0x8000) >= 0x7e00);
+#  else
     return ((a & ~0x8000) >= 0x7c80);
+#  endif
 #endif
 }
 
@@ -151,7 +155,11 @@ int float16_is_signaling_nan(float16 a_)
 {
     uint16_t a = float16_val(a_);
 #if SNAN_BIT_IS_ONE
+#  if defined(TARGET_MIPS)
+    return ((a & ~0x8000) >= 0x7e00);
+#  else
     return ((a & ~0x8000) >= 0x7c80);
+#  endif
 #else
     return (((a >> 9) & 0x3F) == 0x3E) && (a & 0x1FF);
 #endif
