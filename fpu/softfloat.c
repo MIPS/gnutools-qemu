@@ -6520,27 +6520,66 @@ uint16 float64_to_uint16_round_to_zero( float64 a STATUS_PARAM )
     return res;
 }
 
-/* FIXME: This looks broken.  */
 uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 {
-    int64_t v;
+    float64 one, two32, two64;
 
-    v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-    v += float64_val(a);
-    v = float64_to_int64(make_float64(v) STATUS_VAR);
+    one = int32_to_float64 (1 STATUS_VAR);
+    two32 = float64_scalbn(one, 32 STATUS_VAR);
+    two64 = float64_scalbn(one, 64 STATUS_VAR);
 
-    return v - INT64_MIN;
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
+    if (float64_le_quiet (two64, a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
+
+    if (float64_le_quiet (two32, a STATUS_VAR)) {
+        int64_t v;
+
+        v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
+        v += float64_val(a);
+        v = float64_to_int64(make_float64(v) STATUS_VAR);
+        
+        return v - INT64_MIN;
+    } else {
+        return float64_to_int64(a STATUS_VAR);
+    }
 }
 
 uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
 {
-    int64_t v;
+    float64 one, two32, two64;
 
-    v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-    v += float64_val(a);
-    v = float64_to_int64_round_to_zero(make_float64(v) STATUS_VAR);
+    one = int32_to_float64 (1 STATUS_VAR);
+    two32 = float64_scalbn(one, 32 STATUS_VAR);
+    two64 = float64_scalbn(one, 64 STATUS_VAR);
 
-    return v - INT64_MIN;
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
+    if (float64_le_quiet (two64, a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
+
+    if (float64_le_quiet (two32, a STATUS_VAR)) {
+        int64_t v;
+
+        v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
+        v += float64_val(a);
+        v = float64_to_int64_round_to_zero(make_float64(v) STATUS_VAR);
+
+        return v - INT64_MIN;
+    } else {
+        return float64_to_int64_round_to_zero(a STATUS_VAR);
+    }
 }
 
 #define COMPARE(s, nan_exp)                                                  \
