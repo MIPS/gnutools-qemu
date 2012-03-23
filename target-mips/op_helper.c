@@ -5444,36 +5444,36 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  */
 
 
-#define FMAXMIN_A(F, G, BITS)                                   \
-    uint## BITS ##_t as = float## BITS ##_abs(W(pws, i));       \
-    uint## BITS ##_t at = float## BITS ##_abs(W(pwt, i));       \
-                                                                \
-    uint## BITS ##_t xs, xt, xd;                                \
-    MSA_FLOAT_BINOP(xs, F, W(pws, i), W(pwt, i), BITS);         \
-    MSA_FLOAT_BINOP(xt, G, W(pws, i), W(pwt, i), BITS);         \
-                                                                \
-    if (NUMBER_QNAN_PAIR(as, at, BITS)) {                       \
-        W(pwx, i) = W(pws, i);                                  \
-    }                                                           \
-    else if (NUMBER_QNAN_PAIR(at, as, BITS)) {                  \
-        W(pwx, i) = W(pwt, i);                                  \
-    }                                                           \
-    else if (as == at) {                                        \
-        W(pwx, i) =  xs;                                        \
-    }                                                           \
-    else {                                                      \
-        MSA_FLOAT_BINOP(xd, F, as, at, BITS);                   \
-                                                                \
-        if (xd == float## BITS ##_abs(xs)) {                    \
-            W(pwx, i) = xs;                                     \
-        }                                                       \
-        else if (xd == float## BITS ##_abs(xt)) {               \
-            W(pwx, i) = xt;                                     \
-        }                                                       \
-        else {                                                  \
-            /* shouldn't get here */                            \
-            assert(0);                                          \
-        }                                                       \
+#define FMAXMIN_A(F, G, X, S, T, BITS)                  \
+    uint## BITS ##_t as = float## BITS ##_abs(S);       \
+    uint## BITS ##_t at = float## BITS ##_abs(T);       \
+                                                        \
+    uint## BITS ##_t xs, xt, xd;                        \
+    MSA_FLOAT_BINOP(xs, F, S, T, BITS);                 \
+    MSA_FLOAT_BINOP(xt, G, S, T, BITS);                 \
+                                                        \
+    if (NUMBER_QNAN_PAIR(as, at, BITS)) {               \
+        X = S;                                          \
+    }                                                   \
+    else if (NUMBER_QNAN_PAIR(at, as, BITS)) {          \
+        X = T;                                          \
+    }                                                   \
+    else if (as == at) {                                \
+        X =  xs;                                        \
+    }                                                   \
+    else {                                              \
+        MSA_FLOAT_BINOP(xd, F, as, at, BITS);           \
+                                                        \
+        if (xd == float## BITS ##_abs(xs)) {            \
+            X = xs;                                     \
+        }                                               \
+        else if (xd == float## BITS ##_abs(xt)) {       \
+            X = xt;                                     \
+        }                                               \
+        else {                                          \
+            /* shouldn't get here */                    \
+            assert(0);                                  \
+        }                                               \
     }
 
 
@@ -5487,13 +5487,13 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            FMAXMIN_A(max, min, 32);
+            FMAXMIN_A(max, min, W(pwx, i), W(pws, i), W(pwt, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-           FMAXMIN_A(max, min, 64);
+           FMAXMIN_A(max, min, D(pwx, i), D(pws, i), D(pwt, i), 64);
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5561,13 +5561,13 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            FMAXMIN_A(min, max, 32);
+            FMAXMIN_A(min, max, W(pwx, i), W(pws, i), W(pwt, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            FMAXMIN_A(min, max, 64);
+            FMAXMIN_A(min, max, D(pwx, i), D(pws, i), D(pwt, i), 64);
          } DONE_ALL_ELEMENTS;
         break;
 
