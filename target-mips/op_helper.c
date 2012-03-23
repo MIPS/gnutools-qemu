@@ -6127,9 +6127,6 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
-
-            printf("ftint_u.s 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
-
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6159,9 +6156,6 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
-
-            printf("ftint_u.d 0x%016lx <- 0x%016lx\n", D(pwx, i), D(pws, i));
-
         } DONE_ALL_ELEMENTS;
         break;
 
