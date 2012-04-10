@@ -3104,7 +3104,16 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
     if (ieee) {
         if (aExp > 15) {
             float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-            return packFloat16(aSign, 0x1f, 0);
+
+            roundingMode = STATUS(float_rounding_mode);
+            if (roundingMode == float_round_nearest_even ||
+                (roundingMode == float_round_up && aSign == 0) ||
+                (roundingMode == float_round_down && aSign == 1)) {
+                return packFloat16(aSign, 0x1f, 0);     /* infinity */
+            }
+            else {
+                return packFloat16(aSign, 0x1e, 0x3ff); /* largest value */
+            }
         }
     } else {
         if (aExp > 16) {
