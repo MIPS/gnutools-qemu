@@ -4627,7 +4627,7 @@ void helper_move_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
     msa_check_index(df, n, wrlen);
 
     switch (df) {
-    case DF_BYTE: 
+    case DF_BYTE:
         ALL_B_ELEMENTS(i) {
             B(pwx, i)   = B(pws, n);
         } DONE_ALL_ELEMENTS;
@@ -5046,7 +5046,7 @@ static int update_msacsr(void)
 
     if (ieee_ex == float_flag_input_denormal ||
         ieee_ex == float_flag_output_denormal) {
-        
+
         /* TODO cause |= FP_INEXACT; */
     }
 
@@ -5302,7 +5302,7 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i), 
+            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i),
                             W(pwt, i) >  0x200 ?  0x200 :
                             W(pwt, i) < -0x200 ? -0x200 : W(pwt, i),
                             32);
@@ -5311,7 +5311,7 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i), 
+            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i),
                             D(pwt, i) >  0x1000 ?  0x1000 :
                             D(pwt, i) < -0x1000 ? -0x1000 : D(pwt, i),
                             64);
@@ -5413,7 +5413,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_W_ELEMENTS(i) {
             if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
-                                 W(pws, i), W(pwt, i), 
+                                 W(pws, i), W(pwt, i),
                                  float_muladd_negate_product, 32);
             } else {
                 MSA_FLOAT_BINOP(prod, mul, W(pws, i), W(pwt, i), 32);
@@ -5426,7 +5426,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
-                                 D(pws, i), D(pwt, i), 
+                                 D(pws, i), D(pwt, i),
                                  float_muladd_negate_product, 64);
             } else {
                 MSA_FLOAT_BINOP(prod, mul, D(pws, i), D(pwt, i), 64);
@@ -5976,7 +5976,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                IEEE and "ARM" format.  The latter gains extra exponent
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
-            
+
             MSA_FLOAT_BINOP(HL(pwx, i), from_float32, W(pws, i), ieee, 16);
             MSA_FLOAT_BINOP(HR(pwx, i), from_float32, W(pwt, i), ieee, 16);
 
@@ -5989,7 +5989,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
             MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
-        
+
             WL(pwx, i) = float32_maybe_silence_nan(WL(pwx, i));
             WR(pwx, i) = float32_maybe_silence_nan(WR(pwx, i));
         } DONE_ALL_ELEMENTS;
@@ -5999,7 +5999,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-    helper_move_v(pwd, &wx, wrlen);    
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 
@@ -6018,7 +6018,7 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                IEEE and "ARM" format.  The latter gains extra exponent
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
-            
+
             MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pwt, i), ieee, 32);
             MSA_FLOAT_BINOP(W(pwy, i), from_float16, HR(pwt, i), ieee, 32);
 
@@ -6126,13 +6126,28 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(W(pwx, i), to_int32, W(pws, i), 32);
-          } DONE_ALL_ELEMENTS;
+            if (env->active_msa.fp_status.float_rounding_mode
+                                       == float_round_to_zero) {
+                MSA_FLOAT_UNOP(W(pwx, i),
+                               to_int32_round_to_zero, W(pws, i), 32);
+            }
+            else {
+                MSA_FLOAT_UNOP(W(pwx, i),
+                               to_int32, W(pws, i), 32);
+            }
+        } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
+            if (env->active_msa.fp_status.float_rounding_mode
+                                       == float_round_to_zero) {
+                MSA_FLOAT_UNOP(D(pwx, i),
+                               to_int64_round_to_zero, D(pws, i), 64);
+            }
+            else {
+                MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
+            }
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6155,13 +6170,29 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(W(pwx, i), to_uint32, W(pws, i), 32);
+             if (env->active_msa.fp_status.float_rounding_mode
+                                        == float_round_to_zero) {
+                 MSA_FLOAT_UNOP(W(pwx, i),
+                                to_uint32_round_to_zero, W(pws, i), 32);
+             }
+             else {
+                 MSA_FLOAT_UNOP(W(pwx, i),
+                                to_uint32, W(pws, i), 32);
+             }
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
+            if (env->active_msa.fp_status.float_rounding_mode
+                                       == float_round_to_zero) {
+                MSA_FLOAT_UNOP(D(pwx, i),
+                               to_uint64_round_to_zero, D(pws, i), 64);
+            }
+            else {
+                MSA_FLOAT_UNOP(D(pwx, i),
+                               to_uint64, D(pws, i), 64);
+            }
         } DONE_ALL_ELEMENTS;
         break;
 
