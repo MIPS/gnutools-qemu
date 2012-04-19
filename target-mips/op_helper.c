@@ -5302,13 +5302,19 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i) {
-            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i), W(pwt, i), 32);
+            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i), 
+                            W(pwt, i) >  0x200 ?  0x200 :
+                            W(pwt, i) < -0x200 ? -0x200 : W(pwt, i),
+                            32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i) {
-            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i), D(pwt, i), 64);
+            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i), 
+                            D(pwt, i) >  0x1000 ?  0x1000 :
+                            D(pwt, i) < -0x1000 ? -0x1000 : D(pwt, i),
+                            64);
         } DONE_ALL_ELEMENTS;
         break;
 

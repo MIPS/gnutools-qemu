@@ -2480,8 +2480,11 @@ float32 float32_log2( float32 a STATUS_PARAM )
     aExp = extractFloat32Exp( a );
     aSign = extractFloat32Sign( a );
 
-    if ( aExp == 0 ) {
-        if ( aSig == 0 ) return packFloat32( 1, 0xFF, 0 );
+    if ( aExp == 0 && !aSign ) {
+        if ( aSig == 0 ) {
+            float_raise( float_flag_divbyzero STATUS_VAR);
+            return packFloat32( 1, 0xFF, 0 );
+        }
         normalizeFloat32Subnormal( aSig, &aExp, &aSig );
     }
     if ( aSign ) {
@@ -3973,8 +3976,11 @@ float64 float64_log2( float64 a STATUS_PARAM )
     aExp = extractFloat64Exp( a );
     aSign = extractFloat64Sign( a );
 
-    if ( aExp == 0 ) {
-        if ( aSig == 0 ) return packFloat64( 1, 0x7FF, 0 );
+    if ( aExp == 0 && !aSign ) {
+        if ( aSig == 0 ) {
+            float_raise( float_flag_divbyzero STATUS_VAR);
+            return packFloat64( 1, 0x7FF, 0 );
+        }
         normalizeFloat64Subnormal( aSig, &aExp, &aSig );
     }
     if ( aSign ) {
