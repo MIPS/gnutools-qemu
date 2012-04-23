@@ -541,7 +541,15 @@ static float64 roundAndPackFloat64( flag zSign, int16 zExp, uint64_t zSig STATUS
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
-    zSig = ( zSig + roundIncrement )>>10;
+    if (roundIncrement > LIT64( 0xffffffffffffffff ) - zSig) {
+        /* Overflows on 64-bit arithmetic */
+        zSig = ( zSig >> 10 ) + ( roundIncrement >> 10 ) +
+            ( ( ( zSig & 0x3ff ) + ( roundIncrement & 0x3ff ) ) >> 10 );
+        zExp -= 1;
+    }
+    else {
+        zSig = ( zSig + roundIncrement )>>10;
+    }
     zSig &= ~ ( ( ( roundBits ^ 0x200 ) == 0 ) & roundNearestEven );
     if ( zSig == 0 ) zExp = 0;
     return packFloat64( zSign, zExp, zSig );
