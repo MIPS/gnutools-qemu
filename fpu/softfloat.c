@@ -6593,13 +6593,12 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
     }
 
     if (float64_le_quiet (two32, a STATUS_VAR)) {
-        int64_t v;
+        uint64_t v;
 
-        v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-        v += float64_val(a);
-        v = float64_to_int64(make_float64(v) STATUS_VAR);
-        
-        return v - INT64_MIN;
+        a = float64_scalbn(a, -1 STATUS_VAR);
+        v = float64_to_int64(a STATUS_VAR);
+
+        return v << 1;
     } else {
         return float64_to_int64(a STATUS_VAR);
     }
@@ -6624,13 +6623,12 @@ uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
     }
 
     if (float64_le_quiet (two32, a STATUS_VAR)) {
-        int64_t v;
+        uint64_t v;
 
-        v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-        v += float64_val(a);
-        v = float64_to_int64_round_to_zero(make_float64(v) STATUS_VAR);
+        a = float64_scalbn(a, -1 STATUS_VAR);
+        v = float64_to_int64_round_to_zero(a STATUS_VAR);
 
-        return v - INT64_MIN;
+        return v << 1;
     } else {
         return float64_to_int64_round_to_zero(a STATUS_VAR);
     }
