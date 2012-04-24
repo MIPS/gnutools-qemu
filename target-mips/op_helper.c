@@ -6239,7 +6239,7 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
 
 static float32 float32_from_q16(int16 a STATUS_PARAM)
 {
-    float64 f_val;
+    float32 f_val;
 
     /* conversion as integer and scaling */
     f_val = int32_to_float32(a STATUS_VAR);
@@ -6263,6 +6263,16 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 {
     int16 q_val;
 
+    if (float32_lt_quiet(a, int32_to_float32 (-1 STATUS_VAR) STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0x8000;
+    }
+
+    if (float32_le_quiet(int32_to_float32 (1 STATUS_VAR), a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0x7fff;
+    }
+
     /* scaling and conversion as integer */
     a = float32_scalbn(a, 15 STATUS_VAR);
     q_val = float32_to_int16_round_to_zero(a STATUS_VAR);
@@ -6273,6 +6283,16 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 static int32 float64_to_q32(float64 a STATUS_PARAM)
 {
     int32 q_val;
+
+    if (float64_lt_quiet(a, int32_to_float64 (-1 STATUS_VAR) STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0x80000000;
+    }
+
+    if (float64_le_quiet(int32_to_float64 (1 STATUS_VAR), a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0x7fffffff;
+    }
 
     /* scaling and conversion as integer */
     a = float64_scalbn(a, 31 STATUS_VAR);
