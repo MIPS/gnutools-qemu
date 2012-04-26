@@ -6578,6 +6578,11 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 {
     float64 one, two32, two64;
 
+    if (float64_is_any_nan(a)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
+
     one = int32_to_float64 (1 STATUS_VAR);
     two32 = float64_scalbn(one, 32 STATUS_VAR);
     two64 = float64_scalbn(one, 64 STATUS_VAR);
@@ -6607,6 +6612,11 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
 {
     float64 one, two32, two64;
+
+    if (float64_is_any_nan(a)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
 
     one = int32_to_float64 (1 STATUS_VAR);
     two32 = float64_scalbn(one, 32 STATUS_VAR);
