@@ -545,7 +545,6 @@ static float64 roundAndPackFloat64( flag zSign, int16 zExp, uint64_t zSig STATUS
         /* Overflows on 64-bit arithmetic */
         zSig = ( zSig >> 10 ) + ( roundIncrement >> 10 ) +
             ( ( ( zSig & 0x3ff ) + ( roundIncrement & 0x3ff ) ) >> 10 );
-        zExp -= 1;
     }
     else {
         zSig = ( zSig + roundIncrement )>>10;
@@ -1286,8 +1285,21 @@ float64 int64_to_float64( int64 a STATUS_PARAM )
 
 float64 uint64_to_float64( uint64 a STATUS_PARAM )
 {
+
     if ( a == 0 ) return float64_zero;
-    return normalizeRoundAndPackFloat64( 0, 0x43C, a STATUS_VAR );
+
+    if ( a & LIT64( 0x8000000000000000 ) ) {
+        float64 v, one, two64;
+
+        one = int32_to_float64 (1 STATUS_VAR);
+        two64 = float64_scalbn(one, 64 STATUS_VAR);
+        v = int64_to_float64((int64_t)a STATUS_VAR);
+
+        return float64_add(v, two64 STATUS_VAR);
+    }
+    else {
+        return normalizeRoundAndPackFloat64( 0, 0x43C, a STATUS_VAR );
+    }
 
 }
 
