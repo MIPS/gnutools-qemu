@@ -5027,10 +5027,23 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
 
 static int update_msacsr(void)
 {
-    int ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-    int cause = ieee_ex_to_mips(ieee_ex);
-    int enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
+    int ieee_ex;
+    int cause;
+    int enable;
     int ex_cause;
+
+    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+
+    if (ieee_ex == float_flag_input_denormal ||
+        ieee_ex == float_flag_output_denormal) {
+
+        /* TODO cause |= FP_INEXACT; */
+    }
+
+    /* Clear underflow if reported in the context of overflow */
+    if ((ieee_ex & float_flag_overflow) && (ieee_ex & float_flag_underflow)) {
+        ieee_ex ^=  float_flag_underflow;
+    }
 
 #if 1
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
@@ -5044,12 +5057,8 @@ static int update_msacsr(void)
     if (ieee_ex) printf("\n");
 #endif
 
-    if (ieee_ex == float_flag_input_denormal ||
-        ieee_ex == float_flag_output_denormal) {
-
-        /* TODO cause |= FP_INEXACT; */
-    }
-
+    cause = ieee_ex_to_mips(ieee_ex);
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
     UPDATE_FP_FLAGS(env->active_msa.msacsr, cause & (~enable));
 
     ex_cause = cause & enable;
@@ -5999,6 +6008,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
+
     helper_move_v(pwd, &wx, wrlen);
 }
 
