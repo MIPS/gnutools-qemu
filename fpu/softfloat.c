@@ -2500,7 +2500,7 @@ float32 float32_log2( float32 a STATUS_PARAM )
     aExp = extractFloat32Exp( a );
     aSign = extractFloat32Sign( a );
 
-    if ( aExp == 0 && !aSign ) {
+    if ( aExp == 0 ) {
         if ( aSig == 0 ) {
             float_raise( float_flag_divbyzero STATUS_VAR);
             return packFloat32( 1, 0xFF, 0 );
@@ -3996,7 +3996,7 @@ float64 float64_log2( float64 a STATUS_PARAM )
     aExp = extractFloat64Exp( a );
     aSign = extractFloat64Sign( a );
 
-    if ( aExp == 0 && !aSign ) {
+    if ( aExp == 0 ) {
         if ( aSig == 0 ) {
             float_raise( float_flag_divbyzero STATUS_VAR);
             return packFloat64( 1, 0x7FF, 0 );
@@ -4005,7 +4005,7 @@ float64 float64_log2( float64 a STATUS_PARAM )
     }
     if ( aSign ) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return float64_default_nan;
+        if ( aExp != 0x7FF ) return float64_default_nan;
     }
     if ( aExp == 0x7FF ) {
         if ( aSig ) return propagateFloat64NaN( a, float64_zero STATUS_VAR );
