@@ -1289,13 +1289,16 @@ float64 uint64_to_float64( uint64 a STATUS_PARAM )
     if ( a == 0 ) return float64_zero;
 
     if ( a & LIT64( 0x8000000000000000 ) ) {
-        float64 v, one, two64;
+        /* propagate last digit for rounding */
+        if ( a & 1 ) {
+            a = ( ( a >> 2 ) << 1 ) | 1;
+        }
+        else {
+            a = ( ( a >> 2 ) << 1 );
+        }
 
-        one = int32_to_float64 (1 STATUS_VAR);
-        two64 = float64_scalbn(one, 64 STATUS_VAR);
-        v = int64_to_float64((int64_t)a STATUS_VAR);
-
-        return float64_add(v, two64 STATUS_VAR);
+        return float64_scalbn(int64_to_float64((int64_t)a STATUS_VAR), 
+                              1 STATUS_VAR);
     }
     else {
         return normalizeRoundAndPackFloat64( 0, 0x43C, a STATUS_VAR );
