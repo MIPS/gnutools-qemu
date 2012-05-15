@@ -72,20 +72,6 @@ struct CPUMIPSMSAContext {
     int32_t msair;
 #define MSAIR_REGISTER 0
 
-#define MSAIR_S_POS   16
-#define MSAIR_S_BIT   (1 << MSAIR_S_POS)
-
-#define MSAIR_W_POS   17
-#define MSAIR_W_BIT   (1 << MSAIR_W_POS)
-
-#define MSAIR_F_POS   24
-#define MSAIR_F_BIT   (1 << MSAIR_F_POS)
-
-#define MSAIR_BITS                              \
-    (MSAIR_S_BIT |                              \
-     MSAIR_W_BIT |                              \
-     MSAIR_F_BIT)
-
 
     int32_t msacsr;
 #define MSACSR_REGISTER 1
@@ -502,11 +488,8 @@ struct CPUMIPSState {
     int32_t CP0_DESAVE;
 
     int32_t CP0_MSAAccess;
-#define CP0_MSAACCESS_EA_POS  0
-#define CP0_MSAACCESS_EA_BIT  (1 << CP0_MSAACCESS_EA_POS)
-
-#define CP0_MSAACCESS_ES_POS  8
-#define CP0_MSAACCESS_ES_MASK (0xff << CP0_MSAACCESS_ES_POS)
+    int32_t CP0_MSASave;
+    int32_t CP0_MSARequest;
 
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];

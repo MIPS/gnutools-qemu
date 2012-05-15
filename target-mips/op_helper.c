@@ -4954,7 +4954,7 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 
 int64_t helper_load_wr_s64(int wreg, int df, int i)
 {
-    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    int wrlen = 128;
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -4974,7 +4974,7 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
 
 uint64_t helper_load_wr_i64(int wreg, int df, int i)
 {
-    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    int wrlen = 128;
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -4994,7 +4994,7 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
 
 void helper_store_wr(uint64_t val, int wreg, int df, int i)
 {
-    int wrlen = (env->active_msa.msair & MSAIR_W_BIT) ? 256 : 128;
+    int wrlen = 128;
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -6383,7 +6383,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
 {
     switch (cs) {
     case MSAIR_REGISTER:
-        return env->active_msa.msair & MSAIR_BITS;
+        return env->active_msa.msair;
 
     case MSACSR_REGISTER:
 #if 1

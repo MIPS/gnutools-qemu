@@ -3458,6 +3458,20 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             tcg_gen_ext32s_tl(arg, arg);
             rn = "EntryHi";
             break;
+
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSAAccess));
+            rn = "MSAAccess";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSASave));
+            rn = "MSASave";
+            break;
+        case 7:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSARequest));
+            rn = "MSArequest";
+            break;
+
         default:
             goto die;
         }
@@ -4033,6 +4047,20 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mtc0_entryhi(arg);
             rn = "EntryHi";
             break;
+
+        case 5:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSAAccess));
+            rn = "MSAAccess";
+            break;
+        case 6:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSASave));
+            rn = "MSASave";
+            break;
+        case 7:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSARequest));
+            rn = "MSARequest";
+            break;
+
         default:
             goto die;
         }
@@ -11796,22 +11824,15 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
 /* MIPS SIMD Architecture (MSA)  */
 
-static inline void check_msa_fp(CPUState *env, DisasContext *ctx)
-{
-    if (unlikely(!(env->active_msa.msair & MSAIR_F_BIT))) {
-        generate_exception(ctx, EXCP_RI);
-    }
-}
-
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
-    int mask = ((1 << (wt / 4)) | 
-                (1 << (ws / 4)) | 
-                (1 << (wd / 4))) << CP0_MSAACCESS_ES_POS;
+    int mask;
 
-    if (unlikely(!(env->CP0_MSAAccess & CP0_MSAACCESS_EA_BIT)) &&
-                 !(env->CP0_MSAAccess & mask)) {
+    env->CP0_MSARequest |= (1 << wt) | (1 << ws) | (1 << wd);
+    mask = (env->CP0_MSARequest & ~env->CP0_MSAAccess) | env->CP0_MSASave;
+
+    if (unlikely(mask)) {
         generate_exception(ctx, EXCP_MSADIS);
     }
 }

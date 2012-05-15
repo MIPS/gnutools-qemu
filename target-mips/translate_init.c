@@ -754,13 +754,9 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 static void msa_reset(CPUMIPSState *env)
 {
     /* MSA access enabled */
-    env->CP0_MSAAccess = CP0_MSAACCESS_EA_BIT;
-
-    /* MSA implementation:
-       - 128-bit vector registers (W bit is 0)
-       - floating-point suppor (F bit is 1)
-       - vector registers not shared (S bit is 0) */
-    env->active_msa.msair  = MSAIR_F_BIT;
+    env->CP0_MSAAccess  = 0xffffffff;
+    env->CP0_MSASave    = 0;
+    env->CP0_MSARequest = 0;
 
     /* MSA CSR:
        - non-signaling floating point exception mode off (NX bit is 0)
