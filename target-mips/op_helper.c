@@ -5905,50 +5905,47 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 #define MSA_FLOAT_CLASS_POSITIVE_ZERO      0x200
 
 
-#define MSA_FLOAT_CLASS(ARG, BITS)                                      \
-    do {                                                                \
-        int mask;                                                       \
-        int snan, qnan, inf, neg, zero, dnmz;                           \
-                                                                        \
-        snan = float ## BITS ## _is_signaling_nan(ARG);                 \
-        qnan = float ## BITS ## _is_quiet_nan(ARG);                     \
-        inf  = float ## BITS ## _is_infinity(ARG);                      \
-        neg  = float ## BITS ## _is_neg(ARG);                           \
-        zero = float ## BITS ## _is_zero(ARG);                          \
-        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);              \
-                                                                        \
-        mask = 0;                                                       \
-        if (snan) {                                                     \
-            mask |= MSA_FLOAT_CLASS_SIGNALING_NAN;                      \
-        }                                                               \
-        if (qnan) {                                                     \
-            mask |= MSA_FLOAT_CLASS_QUIET_NAN;                          \
-        }                                                               \
-                                                                        \
-        if (neg) {                                                      \
-            if (inf) {                                                  \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_INFINITY;              \
-            } else if (zero) {                                          \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_ZERO;                  \
-            } else if (dnmz) {                                          \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL;             \
-            }                                                           \
-            else {                                                      \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_NORMAL;                \
-            }                                                           \
-        } else {                                                        \
-            if (inf) {                                                  \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_INFINITY;              \
-            } else if (zero) {                                          \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_ZERO;                  \
-            } else if (dnmz) {                                          \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL;             \
-            } else {                                                    \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_NORMAL;                \
-            }                                                           \
-        }                                                               \
-                                                                        \
-        return mask;                                                    \
+#define MSA_FLOAT_CLASS(ARG, BITS)                              \
+    do {                                                        \
+        int mask;                                               \
+        int snan, qnan, inf, neg, zero, dnmz;                   \
+                                                                \
+        snan = float ## BITS ## _is_signaling_nan(ARG);         \
+        qnan = float ## BITS ## _is_quiet_nan(ARG);             \
+        inf  = float ## BITS ## _is_infinity(ARG);              \
+        neg  = float ## BITS ## _is_neg(ARG);                   \
+        zero = float ## BITS ## _is_zero(ARG);                  \
+        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);      \
+                                                                \
+        mask = 0;                                               \
+        if (snan) {                                             \
+            mask |= MSA_FLOAT_CLASS_SIGNALING_NAN;}             \
+        else if (qnan) {                                        \
+            mask |= MSA_FLOAT_CLASS_QUIET_NAN;                  \
+        } else if (neg) {                                       \
+            if (inf) {                                          \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_INFINITY;      \
+            } else if (zero) {                                  \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_ZERO;          \
+            } else if (dnmz) {                                  \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL;     \
+            }                                                   \
+            else {                                              \
+                mask |= MSA_FLOAT_CLASS_NEGATIVE_NORMAL;        \
+            }                                                   \
+        } else {                                                \
+            if (inf) {                                          \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_INFINITY;      \
+            } else if (zero) {                                  \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_ZERO;          \
+            } else if (dnmz) {                                  \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL;     \
+            } else {                                            \
+                mask |= MSA_FLOAT_CLASS_POSITIVE_NORMAL;        \
+            }                                                   \
+        }                                                       \
+                                                                \
+        return mask;                                            \
     } while (0)
 
 

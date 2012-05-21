@@ -48,9 +48,6 @@ my %helper_type_of;
 sub def_helper {
     my ($func_name,$decl,$func_type) = @_;
 
-#if ($func_name =~ /maddv/) {
-#    print "huang $func_name\n";
-#}
     die "ERROR: no helper def for $func_name, $func_type" if !defined $decl;
 
     my $existing = $helper_def_of{$func_name};
@@ -198,6 +195,15 @@ sub get_helper_dummy {
     my $func_type = $helper_type_of{$func_name};
 
     my $helper_body = "/* FIXME Unknown $func_type ($func_name) */";
+
+    my $is_ld_v  = $func_name =~ /ld_v/;
+    my $is_ldx_v = $func_name =~ /ldx_v/;
+    my $is_st_v  = $func_name =~ /st_v/;
+    my $is_stx_v = $func_name =~ /stx_v/;
+
+    if ($is_ld_v || $is_ldx_v || $is_st_v || $is_stx_v) {
+        return "/* $func_name doesn't require helper function. */";
+    }
 
     if ( $func_type eq 'df_wt_ws_wd' ) {
         $helper_body = <<"C_END";
@@ -438,13 +444,18 @@ sub get_func_body {
         my $shift = $min;
         my $mask = sprintf("0x%x", (1 << (1 + $max-$min)) - 1 );
 
-        my $is_signed = $fieldname eq 's5';
+        my $is_signed = $fieldname =~ /s5|s10/;
 
         if ($is_signed) {
             $declare_str .= <<C_END;
-            int64_t $fieldname = (ctx->opcode >> $shift) & $mask /* $fieldname \[$max:$min\] */;
-            $fieldname = ($fieldname << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t $fieldname = (ctx->opcode >> $shift) & $mask /* $fieldname \[$max:$min\] */;
 C_END
+
+            if ($fieldname eq 's5') {
+                $declare_str .= <<C_END;
+    $fieldname = ($fieldname << 59) >> 59; /* sign extend s5 to 64 bits*/
+C_END
+            }
         }
         else {
             $declare_str .= <<C_END;
@@ -458,6 +469,7 @@ C_END
             my $is_fixed = $name =~ /_Q/;
             if ($is_floating) {
                 $declare_str .= <<C_END;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -528,7 +540,152 @@ C_END
 
     my $def;
 
-    if ( $func_type eq 'df_wt_ws_wd' ) {
+    my $is_ld_v  = $codename =~ /ld_v/;
+    my $is_ldx_v = $codename =~ /ldx_v/;
+    my $is_st_v  = $codename =~ /st_v/;
+    my $is_stx_v = $codename =~ /stx_v/;
+
+    if ($is_ld_v) {
+        $func_body .= <<"C_END";
+$declare_str
+    TCGv_i32 twd = tcg_const_i32(wd);
+    int wrlen = 128;
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+    int16_t offset = s5 * (wrlen/8);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv taddr = tcg_temp_new();
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
+        tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
+        gen_helper_store_wr(td, twd, tdf, ti);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+C_END
+        $def = ''; # no helper required
+    } elsif ($is_ldx_v) {
+        $func_body .= <<"C_END";
+$declare_str
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv_i32 twd = tcg_const_i32(wd);
+    int wrlen = 128;
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    TCGv taddr = tcg_temp_new();
+    gen_op_addr_add(ctx, taddr, trs, trt);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv telemoff  = tcg_temp_new(); /* element offset */
+    TCGv telemaddr = tcg_temp_new(); /* element addr */
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        tcg_gen_movi_tl(telemoff, i*df_bits/8);
+        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
+        tcg_gen_qemu_ld32s(td, telemaddr, ctx->mem_idx);
+        gen_helper_store_wr(td, twd, tdf, ti);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free(trt);
+    tcg_temp_free(trs);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(telemoff);
+    tcg_temp_free(telemaddr);
+C_END
+        $def = ''; # no helper required
+    } elsif ($is_st_v) {
+        $func_body .= <<"C_END";
+$declare_str
+    TCGv_i32 twd = tcg_const_i32(wd);
+    int wrlen = 128;
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+    int16_t offset = s5 * (wrlen/8);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv taddr = tcg_temp_new();
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
+        tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+C_END
+        $def = ''; # no helper required
+    } elsif ($is_stx_v) {
+        $func_body .= <<"C_END";
+$declare_str
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv_i32 twd = tcg_const_i32(wd);
+    int wrlen = 128;
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    TCGv taddr = tcg_temp_new();
+    gen_op_addr_add(ctx, taddr, trs, trt);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv telemoff  = tcg_temp_new(); /* element offset */
+    TCGv telemaddr = tcg_temp_new(); /* element addr */
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        tcg_gen_movi_tl(telemoff, i*df_bits/8);
+        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
+        tcg_gen_qemu_st32(td, telemaddr, ctx->mem_idx);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free(trt);
+    tcg_temp_free(trs);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(telemoff);
+    tcg_temp_free(telemaddr);
+C_END
+        $def = ''; # no helper required
+    } elsif ( $func_type eq 'df_wt_ws_wd' ) {
 
         my $stype = get_arg_type($inst,'ws');
         my $ttype = get_arg_type($inst,'wt');
@@ -946,12 +1103,19 @@ $declare_str
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
 
-    gen_helper_$helper_name(tdf, tpwd, tdf, twrlen);
+    gen_helper_$helper_name(tbcond, tpwd, tdf, twrlen);
 
-    /* reuse tdf as branch condition? */
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
@@ -963,24 +1127,26 @@ C_END
     elsif ($func_type eq 's10_wd_branch') {
 
         $func_body .=<<"C_END";
-
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
-
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_i32 tdf  = tcg_const_i32(0); /* where is df? */
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  =
+tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
+    gen_helper_$helper_name(tbcond, tpwd, twrlen);
 
-    gen_helper_$helper_name(tdf, tpwd, twrlen);
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
-    /* reuse tdf as branch condition? */
-
-    tcg_temp_free_i32(tdf);
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);

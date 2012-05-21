@@ -991,8 +991,8 @@ static void gen_maxi_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -1229,8 +1229,8 @@ static void gen_mini_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -1388,8 +1388,8 @@ static void gen_avei_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -1659,8 +1659,8 @@ static void gen_mulvi_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -1901,8 +1901,8 @@ static void gen_dotpi_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -3853,8 +3853,8 @@ static void gen_ceqi_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -3933,8 +3933,8 @@ static void gen_clti_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -4013,8 +4013,8 @@ static void gen_clei_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s5_ws_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
@@ -4210,7 +4210,7 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s10_wd_branch */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
     check_msa_access(env, ctx, wd, wd, wd);
@@ -4222,12 +4222,19 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
 
-    gen_helper_bnz_df(tdf, tpwd, tdf, twrlen);
+    gen_helper_bnz_df(tbcond, tpwd, tdf, twrlen);
 
-    /* reuse tdf as branch condition? */
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
@@ -4238,7 +4245,7 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s10_wd_branch */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
     check_msa_access(env, ctx, wd, wd, wd);
@@ -4250,12 +4257,19 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
 
-    gen_helper_bz_df(tdf, tpwd, tdf, twrlen);
+    gen_helper_bz_df(tbcond, tpwd, tdf, twrlen);
 
-    /* reuse tdf as branch condition? */
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
@@ -4264,26 +4278,28 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
 
 static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s10_wd_branch */
-
-    uint8_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_i32 tdf  = tcg_const_i32(0); /* where is df? */
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  =
+tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
+    gen_helper_bnz_v(tbcond, tpwd, twrlen);
 
-    gen_helper_bnz_v(tdf, tpwd, twrlen);
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
-    /* reuse tdf as branch condition? */
-
-    tcg_temp_free_i32(tdf);
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
@@ -4291,26 +4307,28 @@ static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
 
 static void gen_bz_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s10_wd_branch */
-
-    uint8_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_i32 tdf  = tcg_const_i32(0); /* where is df? */
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  =
+tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
     int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
-    assert(0); /* fix me, need to return branch/true/false, and branch */
+    TCGv tbcond = tcg_temp_new();
+    gen_helper_bz_v(tbcond, tpwd, twrlen);
 
-    gen_helper_bz_v(tdf, tpwd, twrlen);
+    int64_t offset = (s10 << 54) >> 52;
+    ctx->btarget = ctx->pc + offset;
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
+    gen_set_label(l1);
+    gen_goto_tb(ctx, 0, ctx->btarget);
 
-    /* reuse tdf as branch condition? */
-
-    tcg_temp_free_i32(tdf);
+    tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
@@ -4879,34 +4897,42 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
 
 static void gen_ld_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s5_rs_wd */
-
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
-    TCGv_i32 ts5 = tcg_const_i32(s5);
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    TCGv trs = tcg_temp_new();
+    TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+    int16_t offset = s5 * (wrlen/8);
 
-    gen_load_gpr(trs, rs);
-    gen_helper_ld_v(tpwd, ts5, trs, twrlen);
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv taddr = tcg_temp_new();
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    tcg_temp_free_i32(ts5);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free(trs);
-    tcg_temp_free_i32(twrlen);
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
+        tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
+        gen_helper_store_wr(td, twd, tdf, ti);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
 }
 
 static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_s10_wd */
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
     check_msa_access(env, ctx, wd, wd, wd);
@@ -4928,85 +4954,130 @@ static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
 
 static void gen_ldx_v(CPUState *env, DisasContext *ctx) {
     /* func_type = rt_rs_wd */
-
     uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
 
     gen_load_gpr(trt, rt);
     gen_load_gpr(trs, rs);
-    gen_helper_ldx_v(tpwd, trt, trs, twrlen);
+    TCGv taddr = tcg_temp_new();
+    gen_op_addr_add(ctx, taddr, trs, trt);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv telemoff  = tcg_temp_new(); /* element offset */
+    TCGv telemaddr = tcg_temp_new(); /* element addr */
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        tcg_gen_movi_tl(telemoff, i*df_bits/8);
+        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
+        tcg_gen_qemu_ld32s(td, telemaddr, ctx->mem_idx);
+        gen_helper_store_wr(td, twd, tdf, ti);
+        tcg_temp_free_i32(ti);
+    }
 
     tcg_temp_free(trt);
     tcg_temp_free(trs);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
-
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(telemoff);
+    tcg_temp_free(telemaddr);
 }
 
 static void gen_st_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s5_rs_wd */
-
-            int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-            s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
-    TCGv_i32 ts5 = tcg_const_i32(s5);
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    TCGv trs = tcg_temp_new();
+    TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
+    int16_t offset = s5 * (wrlen/8);
 
-    gen_load_gpr(trs, rs);
-    gen_helper_st_v(tpwd, ts5, trs, twrlen);
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv taddr = tcg_temp_new();
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    tcg_temp_free_i32(ts5);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free(trs);
-    tcg_temp_free_i32(twrlen);
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
+        tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
+        tcg_temp_free_i32(ti);
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
 }
 
 static void gen_stx_v(CPUState *env, DisasContext *ctx) {
     /* func_type = rt_rs_wd */
-
     uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
-
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
+    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
+    uint8_t df = 2; /* faked 'w' format */
+    int df_bits = 8 * (1 << df);
 
     gen_load_gpr(trt, rt);
     gen_load_gpr(trs, rs);
-    gen_helper_stx_v(tpwd, trt, trs, twrlen);
+    TCGv taddr = tcg_temp_new();
+    gen_op_addr_add(ctx, taddr, trs, trt);
+
+    int i;
+    TCGv td = tcg_temp_new();
+    TCGv telemoff  = tcg_temp_new(); /* element offset */
+    TCGv telemaddr = tcg_temp_new(); /* element addr */
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    for (i = 0; i < wrlen/df_bits; i++) {
+        TCGv_i32 ti = tcg_const_i32(i);
+        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        tcg_gen_movi_tl(telemoff, i*df_bits/8);
+        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
+        tcg_gen_qemu_st32(td, telemaddr, ctx->mem_idx);
+        tcg_temp_free_i32(ti);
+    }
 
     tcg_temp_free(trt);
     tcg_temp_free(trs);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
-
+    tcg_temp_free_i32(twd);
+    tcg_temp_free(td);
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(telemoff);
+    tcg_temp_free(telemaddr);
 }
 
 static void gen_fadd_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5035,6 +5106,7 @@ static void gen_fsub_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5061,6 +5133,7 @@ static void gen_fmul_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5089,6 +5162,7 @@ static void gen_fdiv_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5115,6 +5189,7 @@ static void gen_frem_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5143,6 +5218,7 @@ static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5166,6 +5242,7 @@ static void gen_fmadd_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5194,6 +5271,7 @@ static void gen_fmsub_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5221,6 +5299,7 @@ static void gen_frint_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5245,6 +5324,7 @@ static void gen_flog2_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5268,6 +5348,7 @@ static void gen_fexp2_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5296,6 +5377,7 @@ static void gen_fmax_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5322,6 +5404,7 @@ static void gen_fmax_a_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5350,6 +5433,7 @@ static void gen_fmin_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5376,6 +5460,7 @@ static void gen_fmin_a_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5404,6 +5489,7 @@ static void gen_fceq_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5430,6 +5516,7 @@ static void gen_fclt_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5458,6 +5545,7 @@ static void gen_fcle_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5484,6 +5572,7 @@ static void gen_fcun_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5512,6 +5601,7 @@ static void gen_fcequ_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5538,6 +5628,7 @@ static void gen_fcltu_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5566,6 +5657,7 @@ static void gen_fcleu_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5592,6 +5684,7 @@ static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_ws_wd */
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5631,6 +5724,7 @@ static void gen_ftint_s_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5654,6 +5748,7 @@ static void gen_ffint_s_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5679,6 +5774,7 @@ static void gen_ftint_u_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5703,6 +5799,7 @@ static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -5726,6 +5823,7 @@ static void gen_ftq_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
@@ -5754,6 +5852,7 @@ static void gen_ffq_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5781,6 +5880,7 @@ static void gen_fexdo_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
 
+
     /* adjust df value for floating-point instruction */
     df = df + 2;
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
@@ -5807,6 +5907,7 @@ static void gen_fexup_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
     uint8_t df = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+
 
     /* adjust df value for floating-point instruction */
     df = df + 2;
