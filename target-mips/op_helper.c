@@ -3477,14 +3477,14 @@ static void msa_check_index(uint32_t df, uint32_t n, uint32_t wrlen) {
 /* Data format min and max values */
 #define DF_BITS(df) (1 << ((df) + 3))
 
-#define DF_MAX_INT(df)  ((1LL << (DF_BITS(df) - 1)) - 1)
-#define M_MAX_INT(m)    ((1LL << ((m)         - 1)) - 1)
+#define DF_MAX_INT(df)  (int64_t)((1LL << (DF_BITS(df) - 1)) - 1)
+#define M_MAX_INT(m)    (int64_t)((1LL << ((m)         - 1)) - 1)
 
-#define DF_MIN_INT(df)  (-(1LL << (DF_BITS(df) - 1)))
-#define M_MIN_INT(m)    (-(1LL << ((m)         - 1)))
+#define DF_MIN_INT(df)  (int64_t)(-(1LL << (DF_BITS(df) - 1)))
+#define M_MIN_INT(m)    (int64_t)(-(1LL << ((m)         - 1)))
 
-#define DF_MAX_UINT(df) (-1ULL >> (64 - DF_BITS(df)))
-#define M_MAX_UINT(m)   (-1ULL >> (64 - (m)))
+#define DF_MAX_UINT(df) (uint64_t)(-1ULL >> (64 - DF_BITS(df)))
+#define M_MAX_UINT(m)   (uint64_t)(-1ULL >> (64 - (m)))
 
 /* Data format bit position and unsigned values */
 #define BIT_POSITION(x, df) ((uint64_t)(x) % DF_BITS(df))
