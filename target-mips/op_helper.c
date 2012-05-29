@@ -3769,7 +3769,7 @@ int64_t helper_bneg_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
 
-    return UNSIGNED(arg1 ^ (~(1LL << b_arg2)), df);
+    return UNSIGNED(arg1 ^ (1LL << b_arg2), df);
 }
 
 int64_t helper_bnegi_df(int64_t arg1, uint32_t arg2, uint32_t df)
