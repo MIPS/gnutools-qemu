@@ -5374,7 +5374,6 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    uint64_t prod;
 
     switch (df) {
     case DF_WORD:
@@ -5383,8 +5382,11 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                 MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                                  W(pws, i), W(pwt, i), 0, 32);
             } else {
-                MSA_FLOAT_BINOP(prod, mul, W(pws, i), W(pwt, i), 32);
-                MSA_FLOAT_BINOP(W(pwx, i), add, W(pwd, i), prod, 32);
+                MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+
+                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                    MSA_FLOAT_BINOP(W(pwx, i), add, W(pwd, i), W(pwx, i), 32);
+                }
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -5395,8 +5397,11 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                 MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
                                  D(pws, i), D(pwt, i), 0, 64);
             } else {
-                MSA_FLOAT_BINOP(prod, mul, D(pws, i), D(pwt, i), 64);
-                MSA_FLOAT_BINOP(D(pwx, i), add, D(pwd, i), prod, 64);
+                MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
+
+                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                    MSA_FLOAT_BINOP(D(pwx, i), add, D(pwd, i), D(pwx, i), 64);
+                }
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -5406,7 +5411,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(pwd, pwx, wrlen);
 }
 
 void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
@@ -5415,7 +5420,6 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    uint64_t prod;
 
     switch (df) {
     case DF_WORD:
@@ -5425,8 +5429,11 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                                  W(pws, i), W(pwt, i),
                                  float_muladd_negate_product, 32);
             } else {
-                MSA_FLOAT_BINOP(prod, mul, W(pws, i), W(pwt, i), 32);
-                MSA_FLOAT_BINOP(W(pwx, i), sub, W(pwd, i), prod, 32);
+                MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+
+                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                    MSA_FLOAT_BINOP(W(pwx, i), sub, W(pwd, i), W(pwx, i), 32);
+                }
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -5438,8 +5445,11 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                                  D(pws, i), D(pwt, i),
                                  float_muladd_negate_product, 64);
             } else {
-                MSA_FLOAT_BINOP(prod, mul, D(pws, i), D(pwt, i), 64);
-                MSA_FLOAT_BINOP(D(pwx, i), sub, D(pwd, i), prod, 64);
+                MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
+
+                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                    MSA_FLOAT_BINOP(D(pwx, i), sub, D(pwd, i), D(pwx, i), 64);
+                }
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -5449,7 +5459,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(pwd, pwx, wrlen);
 }
 
 
@@ -5995,7 +6005,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i) {
             MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
             MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
-
+            
             WL(pwx, i) = float32_maybe_silence_nan(WL(pwx, i));
             WR(pwx, i) = float32_maybe_silence_nan(WR(pwx, i));
         } DONE_ALL_ELEMENTS;
