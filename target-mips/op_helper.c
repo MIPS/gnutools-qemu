@@ -5084,7 +5084,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (DEST ^ 0x1f) | nx_cause;                                \
+        DEST = (DEST ^ 0x3f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5096,7 +5096,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (DEST ^ 0x1f) | nx_cause;                                \
+        DEST = (DEST ^ 0x3f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5108,7 +5108,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = (DEST ^ 0x1f) | nx_cause;                                \
+        DEST = (DEST ^ 0x3f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5384,7 +5384,8 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             } else {
                 MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
 
-                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                if (!(get_float_exception_flags(&env->active_msa.fp_status)
+                      & float_flag_invalid)) {
                     MSA_FLOAT_BINOP(W(pwx, i), add, W(pwd, i), W(pwx, i), 32);
                 }
             }
@@ -5399,7 +5400,8 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             } else {
                 MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
 
-                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                if (!(get_float_exception_flags(&env->active_msa.fp_status)
+                      & float_flag_invalid)) {
                     MSA_FLOAT_BINOP(D(pwx, i), add, D(pwd, i), D(pwx, i), 64);
                 }
             }
@@ -5431,7 +5433,8 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             } else {
                 MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
 
-                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                if (!(get_float_exception_flags(&env->active_msa.fp_status)
+                      & float_flag_invalid)) {
                     MSA_FLOAT_BINOP(W(pwx, i), sub, W(pwd, i), W(pwx, i), 32);
                 }
             }
@@ -5447,7 +5450,8 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
             } else {
                 MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
 
-                if (!get_float_exception_flags(&env->active_msa.fp_status)) {
+                if (!(get_float_exception_flags(&env->active_msa.fp_status)
+                      & float_flag_invalid)) {
                     MSA_FLOAT_BINOP(D(pwx, i), sub, D(pwd, i), D(pwx, i), 64);
                 }
             }
@@ -5666,11 +5670,10 @@ do {                                                                    \
         cond = float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,           \
                                         &env->active_msa.fp_status);    \
     }                                                                   \
+    DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = nx_cause;                                                \
-    } else {                                                            \
-        DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
+        DEST = (DEST ^ 0x3f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
@@ -5690,11 +5693,10 @@ do {                                                                    \
         cond |= float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,          \
                                         &env->active_msa.fp_status);    \
     }                                                                   \
+    DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = nx_cause;                                                \
-   } else {                                                             \
-        DEST = cond ? M_MAX_UINT(BITS) : 0;                             \
+        DEST = (DEST ^ 0x3f) | nx_cause;                                \
     }                                                                   \
 } while (0)
 
