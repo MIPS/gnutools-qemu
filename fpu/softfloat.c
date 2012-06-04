@@ -1289,8 +1289,8 @@ float64 uint64_to_float64( uint64 a STATUS_PARAM )
     if ( a == 0 ) return float64_zero;
 
     if ( a & LIT64( 0x8000000000000000 ) ) {
-        /* propagate last digit for rounding */
-        if ( a & 1 ) {
+        /* propagate last 2 digits for rounding */
+        if ( a & 3 ) {
             a = ( ( a >> 2 ) << 1 ) | 1;
         }
         else {
