@@ -485,7 +485,7 @@ C_END
         if ($fieldname eq 'dfn') {
             $declare_str .= <<C_END;
 
-    uint32_t df, n;
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
 
     if ((dfn & 0x20) == 0x00) {         /* byte data format */
         n = dfn & 0x1f;
@@ -499,8 +499,17 @@ C_END
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
 C_END
@@ -508,7 +517,7 @@ C_END
         elsif ($fieldname eq 'dfm') {
             $declare_str .= <<C_END;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -523,7 +532,7 @@ C_END
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
 C_END

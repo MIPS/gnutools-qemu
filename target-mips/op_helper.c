@@ -4073,6 +4073,9 @@ int64_t helper_dotpi_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 int64_t helper_dpadd_s_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
@@ -4083,6 +4086,9 @@ int64_t helper_dpadd_s_df(int64_t dest,
 int64_t helper_dpaddi_s_df(int64_t dest,
                            int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
 
     return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
@@ -4091,6 +4097,9 @@ int64_t helper_dpaddi_s_df(int64_t dest,
 int64_t helper_dpadd_u_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
@@ -4100,6 +4109,9 @@ int64_t helper_dpadd_u_df(int64_t dest,
 int64_t helper_dpaddi_u_df(int64_t dest,
                            int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
 
     return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
@@ -4108,6 +4120,9 @@ int64_t helper_dpaddi_u_df(int64_t dest,
 int64_t helper_dpsub_s_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
@@ -4117,6 +4132,9 @@ int64_t helper_dpsub_s_df(int64_t dest,
 int64_t helper_dpsubi_s_df(int64_t dest,
                            int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
 
     return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));
@@ -4125,6 +4143,9 @@ int64_t helper_dpsubi_s_df(int64_t dest,
 int64_t helper_dpsub_u_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
@@ -4134,6 +4155,9 @@ int64_t helper_dpsub_u_df(int64_t dest,
 int64_t helper_dpsubi_u_df(int64_t dest,
                            int64_t arg1, int64_t arg2, uint32_t df)
 {
+    if (df == DF_BYTE)
+        helper_raise_exception(EXCP_RI);
+
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
 
     return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));

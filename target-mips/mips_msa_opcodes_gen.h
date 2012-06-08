@@ -1507,7 +1507,7 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -1522,7 +1522,7 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -1563,7 +1563,7 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -1578,7 +1578,7 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -2831,7 +2831,7 @@ static void gen_shli_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -2846,7 +2846,7 @@ static void gen_shli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -2928,7 +2928,7 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -2943,7 +2943,7 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3025,7 +3025,7 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3040,7 +3040,7 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3228,7 +3228,7 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3243,7 +3243,7 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3327,7 +3327,7 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3342,7 +3342,7 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3425,7 +3425,7 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3440,7 +3440,7 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3522,7 +3522,7 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3537,7 +3537,7 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3619,7 +3619,7 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
 
-    uint32_t df, m;
+    uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
         m = dfm & 0x3f;
@@ -3634,7 +3634,7 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -4339,7 +4339,7 @@ static void gen_sld_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
 
-    uint32_t df, n;
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
 
     if ((dfn & 0x20) == 0x00) {         /* byte data format */
         n = dfn & 0x1f;
@@ -4353,8 +4353,17 @@ static void gen_sld_df(CPUState *env, DisasContext *ctx) {
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -4710,7 +4719,7 @@ static void gen_move_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
 
-    uint32_t df, n;
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
 
     if ((dfn & 0x20) == 0x00) {         /* byte data format */
         n = dfn & 0x1f;
@@ -4724,8 +4733,17 @@ static void gen_move_df(CPUState *env, DisasContext *ctx) {
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -4771,7 +4789,7 @@ static void gen_mvtg_s_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
 
-    uint32_t df, n;
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
 
     if ((dfn & 0x20) == 0x00) {         /* byte data format */
         n = dfn & 0x1f;
@@ -4785,8 +4803,17 @@ static void gen_mvtg_s_df(CPUState *env, DisasContext *ctx) {
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -4859,7 +4886,7 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
 
-    uint32_t df, n;
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
 
     if ((dfn & 0x20) == 0x00) {         /* byte data format */
         n = dfn & 0x1f;
@@ -4873,8 +4900,17 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
     } else {                            /* should not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
