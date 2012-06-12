@@ -4112,6 +4112,46 @@ print_insn_args (const char *d,
 				     (l >> OP_SH_UDI4) & OP_MASK_UDI4);
 	      break;
 
+	    case '5': /* 5-bit signed immediate in bit 16 */
+	      delta = ((l >> OP_SH_RT) & OP_MASK_RT);
+	      if (delta & 0x10) /* test sign bit */
+		delta |= ~OP_MASK_RT;
+	      (*info->fprintf_func) (info->stream, "%d", delta);
+	      break;
+
+	    case '6':
+	      (*info->fprintf_func) (info->stream, "0x%lx",
+				     (l >> OP_SH_2BIT) & OP_MASK_2BIT);
+	      break;
+
+	    case '7':
+	      (*info->fprintf_func) (info->stream, "0x%lx",
+				     (l >> OP_SH_3BIT) & OP_MASK_3BIT);
+	      break;
+
+	    case '8':
+	      (*info->fprintf_func) (info->stream, "0x%lx",
+				     (l >> OP_SH_4BIT) & OP_MASK_4BIT);
+	      break;
+
+	    case '9':
+	      (*info->fprintf_func) (info->stream, "0x%lx",
+				     (l >> OP_SH_5BIT) & OP_MASK_5BIT);
+	      break;
+
+	    case ':':
+	      (*info->fprintf_func) (info->stream, "0x%lx",
+				     (l >> OP_SH_1BIT) & OP_MASK_1BIT);
+	      break;
+
+	    case '!': /* 10-bit pc-relative target in bit 11 */
+	      delta = ((l >> OP_SH_10BIT) & OP_MASK_10BIT);
+	      if (delta & 0x200) /* test sign bit */
+		delta |= ~OP_MASK_10BIT;
+	      info->target = (delta << 2) + pc;
+	      (*info->print_address_func) (info->target, info);
+	      break;
+	      
 	    case 'C':
 	    case 'H':
 	      msbd = (l >> OP_SH_EXTMSBD) & OP_MASK_EXTMSBD;
