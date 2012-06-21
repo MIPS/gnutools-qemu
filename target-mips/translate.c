@@ -11827,10 +11827,11 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
-    int mask;
+    int mask, curr_request;
 
-    env->CP0_MSARequest |= (1 << wt) | (1 << ws) | (1 << wd);
-    mask = (env->CP0_MSARequest & ~env->CP0_MSAAccess) | env->CP0_MSASave;
+    curr_request = (1 << wt) | (1 << ws) | (1 << wd);
+    env->CP0_MSARequest |= curr_request;
+    mask = (curr_request & ~env->CP0_MSAAccess) || (curr_request & env->CP0_MSASave);
 
     if (unlikely(mask)) {
         generate_exception(ctx, EXCP_MSADIS);

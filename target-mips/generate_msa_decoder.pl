@@ -201,7 +201,9 @@ sub get_helper_dummy {
     my $is_st_v  = $func_name =~ /st_v/;
     my $is_stx_v = $func_name =~ /stx_v/;
 
-    if ($is_ld_v || $is_ldx_v || $is_st_v || $is_stx_v) {
+    my $is_mvtg = $func_name =~ /mvtg/;
+
+    if ($is_ld_v || $is_ldx_v || $is_st_v || $is_stx_v || $is_mvtg) {
         return "/* $func_name doesn't require helper function. */";
     }
 
@@ -370,6 +372,33 @@ void $helper_name(void * pwd, void * pws, uint32_t n, uint32_t wrlen_df)
 
 C_END
     }
+    elsif ($func_type eq 'dfn_rs_wd') {
+        $helper_body = <<"C_END";
+void $helper_name(void * pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
+{
+    printf("%s()\\n", __func__);
+}
+
+C_END
+    }
+    elsif ($func_type eq 'df_rt_ws_wd') {
+        $helper_body = <<"C_END";
+void $helper_name(void * pwd, void * pws, uint32_t rt, uint32_t wrlen_df)
+{
+    printf("%s()\\n", __func__);
+}
+
+C_END
+    }
+    elsif ($func_type eq 'df_rt_rs_wd') {
+        $helper_body = <<"C_END";
+void $helper_name(void * pwd, uint32_t rs, uint32_t rt, uint32_t wrlen_df)
+{
+    printf("%s()\\n", __func__);
+}
+
+C_END
+    }
     elsif ($func_type eq 'ws_wd') {
         $helper_body = <<"C_END";
 void $helper_name(void * pwd, void * pws, uint32_t wrlen)
@@ -399,7 +428,16 @@ C_END
     }
     elsif ($func_type eq 'dfn_ws_rd') {
     }
+    elsif ($func_type eq 'df_rt_ws_rd') {
+    }
     elsif ($func_type eq 'df_rs_wd') {
+        $helper_body = <<"C_END";
+void $helper_name(void * pwd, uint32_t rs, uint32_t wrlen_df)
+{
+    printf("%s()\\n", __func__);
+}
+
+C_END
     }
     elsif ($func_type eq 'rs_cd') {
         $helper_body = <<"C_END";
@@ -1208,6 +1246,80 @@ C_END
 
       $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, i32, i32)";
     }
+    elsif ($func_type eq 'dfn_rs_wd') {
+        $func_body .=<<"C_END";
+
+$declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    TCGv_i32 tn  = tcg_const_i32(n);
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trs, rs);
+    gen_helper_$helper_name(tpwd, trs, tn, twrlen_df);
+
+    tcg_temp_free(trs);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(tn);
+    tcg_temp_free_i32(twrlen_df);
+C_END
+
+      $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
+    }
+    elsif ($func_type eq 'df_rt_rs_wd') {
+        $func_body .=<<"C_END";
+
+$declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    gen_helper_$helper_name(tpwd, trs, trt, twrlen_df);
+
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
+C_END
+
+      $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
+    }
+    elsif ($func_type eq 'df_rt_ws_wd') {
+        $func_body .=<<"C_END";
+
+$declare_str
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv trt = tcg_temp_new();
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trt, rt);
+    gen_helper_$helper_name(tpwd, tpws, trt, twrlen_df);
+
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free(trt);
+    tcg_temp_free_i32(twrlen_df);
+C_END
+
+      $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, i32, i32)";
+    }
     elsif ($func_type eq 'ws_wd') {
         $func_body .=<<"C_END";
 
@@ -1283,6 +1395,8 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
+    check_msa_access(env, ctx, ws, ws, ws);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -1299,33 +1413,55 @@ $declare_str
 C_END
         $def = ''; # no helper required
     }
+    elsif ($func_type eq 'df_rt_ws_rd') {
+
+        my $stype = get_arg_type($inst,'ws');
+
+        $func_body .=<<"C_END";
+
+$declare_str
+    check_msa_access(env, ctx, ws, ws, ws);
+
+    TCGv telm = tcg_temp_new();
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv trt = tcg_temp_new();
+
+    gen_load_gpr(trt, rt);
+    gen_helper_load_wr_$stype(telm, tws, tdf, trt);
+    gen_store_gpr(telm, rd);
+
+    tcg_temp_free(telm);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(trt);
+
+C_END
+        $def = ''; # no helper required
+    }
     elsif ($func_type eq 'df_rs_wd') {
         $func_body .=<<"C_END";
 
 $declare_str
     check_msa_access(env, ctx, wd, wd, wd);
 
-    TCGv telm = tcg_temp_new();
-    TCGv_i32 twd = tcg_const_i32(wd);
-    TCGv_i32 tdf = tcg_const_i32(df);
-    int i;
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
     int wrlen = 128;
-    int df_bits = 8 * (1 << df);
-    TCGv_i32 ti;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
-    gen_load_gpr(telm, rs);
-    // TODO sign<->unsign
-    for (i = 0; i < wrlen/df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_store_wr(telm, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+    gen_load_gpr(trs, rs);
+    gen_helper_$helper_name(tpwd, trs, twrlen_df);
 
-    tcg_temp_free(telm);
-    tcg_temp_free_i32(twd);
-    tcg_temp_free_i32(tdf);
+    tcg_temp_free(trs);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
 C_END
-        $def = ''; # no heper required
+
+        $def = "DEF_HELPER_3($helper_name, void, ptr, i32, i32)";
+
+
     }
     elsif ($func_type eq 'rs_cd') {
         $func_body .=<<"C_END";
@@ -7219,47 +7355,6 @@ sub read_instructions {
           {
             'opcode' => [
                           [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7920000f',
-            'name' => 'PCKEV.Q',
-            'match_mm' => '0xc9200019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
                             '22',
                             '21',
                             'df'
@@ -7307,47 +7402,6 @@ sub read_instructions {
             'match_mm' => '0xc9800023',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7940000f',
-            'name' => 'PCKOD.Q',
-            'match_mm' => '0xc9400019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
           },
           {
             'opcode' => [
@@ -7550,6 +7604,210 @@ sub read_instructions {
             'match' => '0x7b800015',
             'name' => 'ILVOD.df',
             'match_mm' => '0xcb800023',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000016',
+            'name' => 'MOVER.df',
+            'match_mm' => '0xc8000026',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78800016',
+            'name' => 'MVTGR_S.df',
+            'match_mm' => '0xc8800026',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x79000016',
+            'name' => 'MVTGR_U.df',
+            'match_mm' => '0xc9000026',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79800016',
+            'name' => 'SLDR.df',
+            'match_mm' => '0xc9800026',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -7809,6 +8067,98 @@ sub read_instructions {
             'match_mm' => '0xc8c0002b',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900001a',
+            'name' => 'MVFGE.df',
+            'match_mm' => '0xc900002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000016',
+            'name' => 'MVFGER.df',
+            'match_mm' => '0xca000026',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
           },
           {
             'opcode' => [

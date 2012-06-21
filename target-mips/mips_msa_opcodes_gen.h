@@ -4527,29 +4527,6 @@ static void gen_pckev_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twrlen_df);
 }
 
-static void gen_pckev_q(CPUState *env, DisasContext *ctx) {
-    /* func_type = wt_ws_wd */
-
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, wt, ws, wd);
-
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
-
-    gen_helper_pckev_q(tpwd, tpws, tpwt, twrlen);
-
-    tcg_temp_free_i64(tpwt);
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
-}
-
 static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_wt_ws_wd_p */
 
@@ -4572,29 +4549,6 @@ static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
-}
-
-static void gen_pckod_q(CPUState *env, DisasContext *ctx) {
-    /* func_type = wt_ws_wd */
-
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, wt, ws, wd);
-
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
-
-    gen_helper_pckod_q(tpwd, tpws, tpwt, twrlen);
-
-    tcg_temp_free_i64(tpwt);
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
 }
 
 static void gen_ilvl_df(CPUState *env, DisasContext *ctx) {
@@ -4690,6 +4644,110 @@ static void gen_ilvod_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwt);
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
+}
+
+static void gen_mover_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_rt_ws_wd */
+
+    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv trt = tcg_temp_new();
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trt, rt);
+    gen_helper_mover_df(tpwd, tpws, trt, twrlen_df);
+
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free(trt);
+    tcg_temp_free_i32(twrlen_df);
+}
+
+static void gen_mvtgr_s_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_rt_ws_rd */
+
+    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, ws);
+
+    TCGv telm = tcg_temp_new();
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv trt = tcg_temp_new();
+
+    gen_load_gpr(trt, rt);
+    gen_helper_load_wr_s64(telm, tws, tdf, trt);
+    gen_store_gpr(telm, rd);
+
+    tcg_temp_free(telm);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(trt);
+
+}
+
+static void gen_mvtgr_u_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_rt_ws_rd */
+
+    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, ws);
+
+    TCGv telm = tcg_temp_new();
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv trt = tcg_temp_new();
+
+    gen_load_gpr(trt, rt);
+    gen_helper_load_wr_s64(telm, tws, tdf, trt);
+    gen_store_gpr(telm, rd);
+
+    tcg_temp_free(telm);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tdf);
+    tcg_temp_free(trt);
+
+}
+
+static void gen_sldr_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_rt_ws_wd */
+
+    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv trt = tcg_temp_new();
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trt, rt);
+    gen_helper_sldr_df(tpwd, tpws, trt, twrlen_df);
+
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free(trt);
     tcg_temp_free_i32(twrlen_df);
 }
 
@@ -4819,6 +4877,8 @@ static void gen_mvtg_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
+    check_msa_access(env, ctx, ws, ws, ws);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -4860,25 +4920,18 @@ static void gen_mvfg_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wd, wd, wd);
 
-    TCGv telm = tcg_temp_new();
-    TCGv_i32 twd = tcg_const_i32(wd);
-    TCGv_i32 tdf = tcg_const_i32(df);
-    int i;
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
     int wrlen = 128;
-    int df_bits = 8 * (1 << df);
-    TCGv_i32 ti;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
-    gen_load_gpr(telm, rs);
-    // TODO sign<->unsign
-    for (i = 0; i < wrlen/df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_store_wr(telm, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+    gen_load_gpr(trs, rs);
+    gen_helper_mvfg_df(tpwd, trs, twrlen_df);
 
-    tcg_temp_free(telm);
-    tcg_temp_free_i32(twd);
-    tcg_temp_free_i32(tdf);
+    tcg_temp_free(trs);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
 }
 
 static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
@@ -4916,6 +4969,8 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
+    check_msa_access(env, ctx, ws, ws, ws);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -4929,6 +4984,87 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
 
+}
+
+static void gen_mvfge_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = dfn_rs_wd */
+
+    uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
+
+    uint32_t df = 0, n = 0;  /* may be used uninitialized */
+
+    if ((dfn & 0x20) == 0x00) {         /* byte data format */
+        n = dfn & 0x1f;
+        df = 0;
+    } else if ((dfn & 0x30) == 0x20) {  /* half data format */
+        n = dfn & 0x0f;
+        df = 1;
+    } else if ((dfn & 0x38) == 0x30) {  /* word data format */
+        n = dfn & 0x07;
+        df = 2;
+    } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
+        n = dfn & 0x3;
+        df = 3;
+    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
+        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+
+        if (bits_25_22 == 0) { /* SLD */
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        n = dfn & 0x1;
+        df = 4;
+    } else {                            /* should not get here */
+        generate_exception(ctx, EXCP_RI);
+    }
+
+    uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, wd, wd);
+
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    TCGv_i32 tn  = tcg_const_i32(n);
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trs, rs);
+    gen_helper_mvfge_df(tpwd, trs, tn, twrlen_df);
+
+    tcg_temp_free(trs);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(tn);
+    tcg_temp_free_i32(twrlen_df);
+}
+
+static void gen_mvfger_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_rt_rs_wd */
+
+    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, wd, wd);
+
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+
+    int wrlen = 128;
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    gen_helper_mvfger_df(tpwd, trs, trt, twrlen_df);
+
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
 }
 
 static void gen_ld_v(CPUState *env, DisasContext *ctx) {
