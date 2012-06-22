@@ -5171,6 +5171,12 @@ static void check_msafpe(void)
 
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
         & GET_FP_CAUSE(env->active_msa.msacsr)) {
+
+        printf("Ena %d, Fla %d, Exc %d\n",
+               GET_FP_ENABLE(env->active_msa.msacsr), 
+               GET_FP_FLAGS(env->active_msa.msacsr), 
+               GET_FP_CAUSE(env->active_msa.msacsr));
+
         helper_raise_exception(EXCP_MSAFPE);
     }
 }
@@ -5365,6 +5371,9 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             MSA_FLOAT_BINOP(W(pwx, i), div, W(pws, i), W(pwt, i), 32);
+
+            printf("%d 0x%08x 0x%08x\n", i, W(pwd, i), W(pwx, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
