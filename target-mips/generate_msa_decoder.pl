@@ -1428,7 +1428,7 @@ $declare_str
     TCGv trt = tcg_temp_new();
 
     gen_load_gpr(trt, rt);
-    gen_helper_load_wr_$stype(telm, tws, tdf, trt);
+    gen_helper_load_wr_modulo_$stype(telm, tws, tdf, trt);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -1644,6 +1644,7 @@ sub get_arg_type {
         'ASUBI_U.df/u5',
 
         'MVTG_U.df/ws',
+        'MVTGR_U.df/ws',
     ) if !%is_unsigned;
 
     my $arg_type_of = $is_unsigned{"$name/$arg"} ? 'i64' : 's64';

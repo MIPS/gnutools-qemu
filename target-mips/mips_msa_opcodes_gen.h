@@ -4689,7 +4689,7 @@ static void gen_mvtgr_s_df(CPUState *env, DisasContext *ctx) {
     TCGv trt = tcg_temp_new();
 
     gen_load_gpr(trt, rt);
-    gen_helper_load_wr_s64(telm, tws, tdf, trt);
+    gen_helper_load_wr_modulo_s64(telm, tws, tdf, trt);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -4715,7 +4715,7 @@ static void gen_mvtgr_u_df(CPUState *env, DisasContext *ctx) {
     TCGv trt = tcg_temp_new();
 
     gen_load_gpr(trt, rt);
-    gen_helper_load_wr_s64(telm, tws, tdf, trt);
+    gen_helper_load_wr_modulo_i64(telm, tws, tdf, trt);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);

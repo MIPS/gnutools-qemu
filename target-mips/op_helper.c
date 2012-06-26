@@ -4765,6 +4765,7 @@ void helper_mvfge_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
     switch (df) {
     case DF_BYTE:
         B(pwd, n)   = (int8_t)rs;
+        break;
  
     case DF_HALF:
         H(pwd, n)   = (int16_t)rs;
@@ -4947,6 +4948,7 @@ void helper_sld_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
     uint32_t i, k;
 
 
+
 #define CONCATENATE_AND_SLIDE(s, k)             \
     do {                                        \
         for (i = 0; i < s; i++) {               \
@@ -5110,6 +5112,14 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
     }
 }
 
+int64_t helper_load_wr_modulo_s64(int wreg, int df, int i)
+{
+    int wrlen = 128;
+    uint32_t n = i % DF_ELEMENTS(df, wrlen);
+
+    return helper_load_wr_s64(wreg, df, n);
+}
+
 uint64_t helper_load_wr_i64(int wreg, int df, int i)
 {
     int wrlen = 128;
@@ -5128,6 +5138,14 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
         /* shouldn't get here */
       assert(0);
     }
+}
+
+uint64_t helper_load_wr_modulo_i64(int wreg, int df, int i)
+{
+    int wrlen = 128;
+    uint32_t n = i % DF_ELEMENTS(df, wrlen);
+
+    return helper_load_wr_i64(wreg, df, n);
 }
 
 void helper_store_wr(uint64_t val, int wreg, int df, int i)
@@ -5155,6 +5173,16 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
 
     return;
 }
+
+void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
+{
+    int wrlen = 128;
+    uint32_t n = i % DF_ELEMENTS(df, wrlen);
+
+  
+    helper_store_wr(val, wreg, df, n);
+}
+
 
 
 
