@@ -5255,6 +5255,7 @@ static int update_msacsr(void)
     return ex_cause;
 }
 
+#define FLOAT_SNAN16 0x7fff
 
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
 do {                                                                    \
@@ -5264,7 +5265,8 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = ((DEST >> 6) << 6) | nx_cause;                           \
+        DEST = float ## BITS ## _is_signaling_nan(ARG) ? ARG            \
+            : FLOAT_SNAN ## BITS & nx_cause;                            \
     }                                                                   \
 } while (0)
 
@@ -5276,7 +5278,9 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = ((DEST >> 6) << 6) | nx_cause;                           \
+        DEST = float ## BITS ## _is_signaling_nan(ARG2) ? ARG2          \
+            : float ## BITS ## _is_signaling_nan(ARG1) ? ARG1           \
+            : FLOAT_SNAN ## BITS & nx_cause;                            \
     }                                                                   \
 } while (0)
 
@@ -5288,7 +5292,10 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = ((DEST >> 6) << 6) | nx_cause;                           \
+        DEST = float ## BITS ## _is_signaling_nan(ARG3) ? ARG3          \
+            : float ## BITS ## _is_signaling_nan(ARG2) ? ARG2           \
+            : float ## BITS ## _is_signaling_nan(ARG1) ? ARG1           \
+            : FLOAT_SNAN ## BITS & nx_cause;                            \
     }                                                                   \
 } while (0)
 
