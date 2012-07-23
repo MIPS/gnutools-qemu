@@ -74,6 +74,8 @@ struct CPUMIPSMSAContext {
 
 
     int32_t msacsr;
+    int32_t msacsr_saved;
+
 #define MSACSR_REGISTER 1
 
 #define MSACSR_RM_POS   0
