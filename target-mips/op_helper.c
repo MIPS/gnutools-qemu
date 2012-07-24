@@ -5191,16 +5191,17 @@ void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
  *  MSA Floating-point operations
  */
 
-static void save_msacsr(void) {
+static void clear_msacsr_cause(void) {
+    SET_FP_CAUSE(env->active_msa.msacsr, 0);
     env->active_msa.msacsr_saved = env->active_msa.msacsr;
 }
 
-static void restore_msacsr(void) {
-    env->active_msa.msacsr = env->active_msa.msacsr_saved;
+static void restore_msacsr_flags(void) {
+    SET_FP_FLAGS(env->active_msa.msacsr, 
+                 GET_FP_FLAGS(env->active_msa.msacsr_saved));
 }
 
-
-static void check_msafpe(void) 
+static void check_msacsr_cause(void) 
 {
     if (env->active_msa.msacsr & MSACSR_NX_BIT) {
         return;
@@ -5209,7 +5210,7 @@ static void check_msafpe(void)
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
         & GET_FP_CAUSE(env->active_msa.msacsr)) {
 
-        restore_msacsr();
+        restore_msacsr_flags();
         helper_raise_exception(EXCP_MSAFPE);
     }
 }
@@ -5320,7 +5321,7 @@ void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5340,7 +5341,7 @@ void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5351,7 +5352,7 @@ void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5371,7 +5372,7 @@ void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5382,7 +5383,7 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5402,7 +5403,7 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5413,7 +5414,7 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5436,7 +5437,7 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5448,7 +5449,7 @@ void helper_frem_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5468,7 +5469,7 @@ void helper_frem_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5485,7 +5486,7 @@ void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5505,7 +5506,7 @@ void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5521,7 +5522,7 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5547,7 +5548,7 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5558,7 +5559,7 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5578,7 +5579,7 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5594,7 +5595,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5634,7 +5635,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5645,7 +5646,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5687,7 +5688,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5738,7 +5739,7 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5758,7 +5759,7 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5770,7 +5771,7 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5806,7 +5807,7 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5818,7 +5819,7 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5838,7 +5839,7 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5850,7 +5851,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5886,7 +5887,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5945,7 +5946,7 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5965,7 +5966,7 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5977,7 +5978,7 @@ void helper_fcequ_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -5997,7 +5998,7 @@ void helper_fcequ_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6008,7 +6009,7 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6028,7 +6029,7 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6039,7 +6040,7 @@ void helper_fcleu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6059,7 +6060,7 @@ void helper_fcleu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6070,7 +6071,7 @@ void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6090,7 +6091,7 @@ void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6101,7 +6102,7 @@ void helper_fcltu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6121,7 +6122,7 @@ void helper_fcltu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6132,7 +6133,7 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6152,7 +6153,7 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6342,7 +6343,7 @@ void helper_ffint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6362,7 +6363,7 @@ void helper_ffint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6374,7 +6375,7 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6394,7 +6395,7 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6406,7 +6407,7 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6441,7 +6442,7 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6453,7 +6454,7 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6489,7 +6490,7 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6500,7 +6501,7 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6520,7 +6521,7 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6633,7 +6634,7 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     wr_t wx, *pwx = &wx;
 
-    save_msacsr();
+    clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
@@ -6655,7 +6656,7 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msafpe(); 
+    check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
 
