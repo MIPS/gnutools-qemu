@@ -4688,6 +4688,8 @@ void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
  */
 void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 {
+    int64_t s64 = ((int64_t)s10 << 54) >> 54;
+
     switch (df) {
     case DF_BYTE:
         ALL_B_ELEMENTS(i, wrlen) {
@@ -4697,19 +4699,19 @@ void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 
     case DF_HALF:
         ALL_H_ELEMENTS(i, wrlen) {
-            H(pwd, i)   = (int16_t)s10;
+            H(pwd, i)   = (int16_t)s64;
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            W(pwd, i)   = (int32_t)s10;
+            W(pwd, i)   = (int32_t)s64;
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            D(pwd, i)   = (int64_t)s10;
+            D(pwd, i)   = s64;
         } DONE_ALL_ELEMENTS;
        break;
 
