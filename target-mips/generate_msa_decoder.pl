@@ -1395,7 +1395,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -1420,7 +1420,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);

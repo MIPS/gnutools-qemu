@@ -69,14 +69,22 @@ typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
 struct CPUMIPSMSAContext {
     wr_t wr[32];
 
-    int32_t msair;
-#define MSAIR_REGISTER 0
+#define MSAIR_REGISTER      0
+#define MSACSR_REGISTER     1
+#define MSAACCESS_REGISTER  2
+#define MSASAVE_REGISTER    3
+#define MSAMODIFY_REGISTER  4
+#define MSAREQUEST_REGISTER 5
+#define MSAMAP_REGISTER     6
+#define MSAUNMAP_REGISTER   7
 
+    int32_t msair;
+
+#define MSAIR_WRP_POS 16
+#define MSAIR_WRP_BIT (1 << MSAIR_WRP_POS)
 
     int32_t msacsr;
     int32_t msacsr_saved;
-
-#define MSACSR_REGISTER 1
 
 #define MSACSR_RM_POS   0
 #define MSACSR_RM_MASK  (0x3 << MSACSR_RM_POS)
@@ -113,6 +121,13 @@ struct CPUMIPSMSAContext {
      MSACSR_FS_BIT |                            \
      MSACSR_IS_BIT |                            \
      MSACSR_NX_BIT)
+
+    int32_t msaaccess;
+    int32_t msasave;
+    int32_t msamodify;
+    int32_t msarequest;
+    int32_t msamap;
+    int32_t msaunmap;
 
     float_status fp_status;
 };
@@ -428,7 +443,7 @@ struct CPUMIPSState {
     int32_t CP0_Config3;
 #define CP0C3_M    31
 #define CP0C3_CMGCR 29
-#define CP0C3_MSA  28
+#define CP0C3_MSAP  28
 #define CP0C3_EICW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -448,6 +463,7 @@ struct CPUMIPSState {
     int32_t CP0_Config4;
 #define CP0C4_M    31
     int32_t CP0_Config5;
+#define CP0C5_MSAEn  27
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
@@ -488,10 +504,6 @@ struct CPUMIPSState {
     int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
-
-    int32_t CP0_MSAAccess;
-    int32_t CP0_MSASave;
-    int32_t CP0_MSARequest;
 
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];

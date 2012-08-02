@@ -4681,7 +4681,7 @@ static void gen_mvtgr_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4707,7 +4707,7 @@ static void gen_mvtgr_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4877,7 +4877,7 @@ static void gen_mvtg_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4969,7 +4969,7 @@ static void gen_mvtg_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, ws);
+    check_msa_access(env, ctx, ws, ws, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);

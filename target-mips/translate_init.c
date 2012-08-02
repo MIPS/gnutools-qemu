@@ -328,7 +328,7 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt) | (1 << CP0C3_MSA),
+        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt) | (1 << CP0C3_MSAP),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -727,7 +727,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         def->insn_flags &= ~ASE_DSPR2;
     }
 
-    if (def->CP0_Config3 & (1 << CP0C3_MSA)) {
+    if (def->CP0_Config3 & (1 << CP0C3_MSAP)) {
         def->insn_flags |= ASE_MSA;
     } else {
         def->insn_flags &= ~ASE_MSA;
@@ -778,9 +778,13 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 static void msa_reset(CPUMIPSState *env)
 {
     /* MSA access enabled */
-    env->CP0_MSAAccess  = 0xffffffff;
-    env->CP0_MSASave    = 0;
-    env->CP0_MSARequest = 0;
+    env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+
+    /* Vector register partitioning not implemented */
+    env->active_msa.msair = 0;
+    env->active_msa.msaaccess  = 0xffffffff;
+    env->active_msa.msasave    = 0;
+    env->active_msa.msarequest = 0;
 
     /* MSA CSR:
        - non-signaling floating point exception mode off (NX bit is 0)

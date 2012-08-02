@@ -6682,44 +6682,131 @@ target_ulong helper_cfcmsa(uint32_t cs)
                GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
 #endif
         return env->active_msa.msacsr & MSACSR_BITS;
+        
+    case MSAACCESS_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msaaccess;
+        else
+            break;
 
-    default:
-        assert(0);
+    case MSASAVE_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msasave;
+        else
+            break;
+        
+    case MSAMODIFY_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msamodify;
+        else
+            break;
+
+    case MSAREQUEST_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msarequest;
+        else
+            break;
+
+    case MSAMAP_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msamap;
+        else
+            break;
+
+    case MSAUNMAP_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT)
+            return env->active_msa.msaunmap;
+        else
+            break;
     }
+
+    helper_raise_exception(EXCP_RI);
+    return 0;
 }
 
 
 void helper_ctcmsa(target_ulong elm, uint32_t cd)
 {
-    assert(cd == MSACSR_REGISTER);
+    switch (cd) {
+    case MSAIR_REGISTER:
+        break;
 
-    /* This implementation only supports MIPS scalar FPU compatible
-       NaN encoding (NAN2008 set to 0). QEMU softfloat library selects
-       at compile time the NaN encoding based on the target CPU, which
-       for MIPS is the MIPS scalar FPU encoding. */
-    assert((elm &  MSACSR_NAN2008_BIT) == 0);
+    case MSACSR_REGISTER:
+        /* This implementation only supports MIPS scalar FPU compatible
+           NaN encoding (NAN2008 set to 0). QEMU softfloat library selects
+           at compile time the NaN encoding based on the target CPU, which
+           for MIPS is the MIPS scalar FPU encoding. */
+        assert((elm &  MSACSR_NAN2008_BIT) == 0);
 
-    env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
+        env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
 
-    /* set float_status rounding mode */
-    set_float_rounding_mode(
-        ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
-        &env->active_msa.fp_status);
+        /* set float_status rounding mode */
+        set_float_rounding_mode(
+            ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
+            &env->active_msa.fp_status);
 
-    /* set float_status flush modes */
-    set_flush_to_zero(
-        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0,
-        &env->active_msa.fp_status);
-    set_flush_inputs_to_zero(
-        (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
-        &env->active_msa.fp_status);
+        /* set float_status flush modes */
+        set_flush_to_zero(
+            (env->active_msa.msacsr & MSACSR_FS_BIT) != 0,
+            &env->active_msa.fp_status);
+        set_flush_inputs_to_zero(
+            (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
+            &env->active_msa.fp_status);
 
-    /* check exception */
-    if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
-        & GET_FP_CAUSE(env->active_msa.msacsr)) {
-        helper_raise_exception(EXCP_MSAFPE);
+        /* check exception */
+        if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
+            & GET_FP_CAUSE(env->active_msa.msacsr)) {
+            helper_raise_exception(EXCP_MSAFPE);
+        }
+
+        return;
+        
+    case MSAACCESS_REGISTER:
+        break;
+        
+    case MSASAVE_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT) {
+            env->active_msa.msasave = (int32_t)elm;
+            return;
+        }
+        else
+            break;
+        
+    case MSAMODIFY_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT) {
+            env->active_msa.msamodify = (int32_t)elm;
+            return;
+        }
+        else
+            break;
+
+    case MSAREQUEST_REGISTER:
+        break;
+
+    case MSAMAP_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT) {
+            env->active_msa.msamap = (int32_t)elm;
+ 
+            /* TBD */
+            
+            env->active_msa.msaaccess |= 1 << (int32_t)elm;
+            return;
+        }
+        else
+            break;
+        
+    case MSAUNMAP_REGISTER:
+        if (env->active_msa.msair & MSAIR_WRP_BIT) {
+             env->active_msa.msaunmap = (int32_t)elm;
+ 
+            /* TBD */
+            
+             env->active_msa.msaaccess &= ~(1 << (int32_t)elm);
+             return;
+        }
+        else        
+            break;
     }
-
-    /* should be set by the SRVP */
-    //env->active_msa.msacsr |= MSACSR_CS_BIT;
+    
+    helper_raise_exception(EXCP_RI);
 }

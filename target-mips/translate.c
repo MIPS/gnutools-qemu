@@ -3459,19 +3459,6 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "EntryHi";
             break;
 
-        case 5:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSAAccess));
-            rn = "MSAAccess";
-            break;
-        case 6:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSASave));
-            rn = "MSASave";
-            break;
-        case 7:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MSARequest));
-            rn = "MSArequest";
-            break;
-
         default:
             goto die;
         }
@@ -4046,19 +4033,6 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mtc0_entryhi(arg);
             rn = "EntryHi";
-            break;
-
-        case 5:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSAAccess));
-            rn = "MSAAccess";
-            break;
-        case 6:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSASave));
-            rn = "MSASave";
-            break;
-        case 7:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_MSARequest));
-            rn = "MSARequest";
             break;
 
         default:
@@ -11827,11 +11801,23 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
-    int mask, curr_request;
+    int mask, curr_request, curr_modify;
 
-    curr_request = (1 << wt) | (1 << ws) | (1 << wd);
-    env->CP0_MSARequest |= curr_request;
-    mask = (curr_request & ~env->CP0_MSAAccess) || (curr_request & env->CP0_MSASave);
+    if (wd != -1) {
+        curr_request = (1 << wt) | (1 << ws) | (1 << wd);
+        curr_modify  = (1 << wd);
+    }
+    else {
+        curr_request = (1 << wt) | (1 << ws);
+        curr_modify = 0;
+    }
+
+    env->active_msa.msarequest |= curr_request;
+    env->active_msa.msamodify  |= curr_modify;
+
+    mask = (env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0 ||
+           (curr_request & ~env->active_msa.msaaccess) || 
+           (curr_request & env->active_msa.msasave);
 
     if (unlikely(mask)) {
         generate_exception(ctx, EXCP_MSADIS);
