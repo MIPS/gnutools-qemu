@@ -1770,13 +1770,19 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"ffint_u.d","+d,+e",	0x7bcf000f, 0xffff003f, WR_VD|RD_VS,		0,      MSA	},
 {"ftq.h",   "+d,+e,+f",	0x7a40001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
 {"ftq.w",   "+d,+e,+f",	0x7a60001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"ffq.w",   "+d,+e,+f",	0x7a80001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"ffq.d",   "+d,+e,+f",	0x7aa0001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"fexdo.h", "+d,+e,+f",	0x7ac0001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"fexdo.w", "+d,+e,+f",	0x7ae0001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"fexup.w", "+d,+e,+f",	0x7b00001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
-{"fexup.d", "+d,+e,+f",	0x7b20001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
 
+{"ffql.w",   "+d,+e",	0x7bd0000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"ffql.d",   "+d,+e",	0x7bd1000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"ffqr.w",   "+d,+e",	0x7bd2000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"ffqr.d",   "+d,+e",	0x7bd3000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+
+{"fexdo.h", "+d,+e,+f",	0x7a80001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
+{"fexdo.w", "+d,+e,+f",	0x7aa0001c, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
+
+{"fexupl.w", "+d,+e",	0x7bd4000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"fexupl.d", "+d,+e",	0x7bd5000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"fexupr.w", "+d,+e",	0x7bd6000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
+{"fexupr.d", "+d,+e",	0x7bd7000f, 0xffff003f, WR_VD|RD_VS,	0,      MSA	},
 
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},

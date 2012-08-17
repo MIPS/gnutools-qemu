@@ -169,7 +169,9 @@ enum {
     OPC_FTINT_U_df  = 0x7bcc000f | OPC_MSA,
     OPC_FFINT_U_df  = 0x7bce000f | OPC_MSA,
     OPC_FTQ_df      = 0x7a40001c | OPC_MSA,
-    OPC_FFQ_df      = 0x7a80001c | OPC_MSA,
-    OPC_FEXDO_df    = 0x7ac0001c | OPC_MSA,
-    OPC_FEXUP_df    = 0x7b00001c | OPC_MSA,
+    OPC_FFQL_df     = 0x7bd0000f | OPC_MSA,
+    OPC_FFQR_df     = 0x7bd2000f | OPC_MSA,
+    OPC_FEXDO_df    = 0x7a80001c | OPC_MSA,
+    OPC_FEXUPL_df   = 0x7bd4000f | OPC_MSA,
+    OPC_FEXUPR_df   = 0x7bd6000f | OPC_MSA,
 };

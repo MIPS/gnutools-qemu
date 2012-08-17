@@ -41,6 +41,18 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FFINT_U_df:
             gen_ffint_u_df(env, ctx);
             return;
+        case OPC_FFQL_df:
+            gen_ffql_df(env, ctx);
+            return;
+        case OPC_FFQR_df:
+            gen_ffqr_df(env, ctx);
+            return;
+        case OPC_FEXUPL_df:
+            gen_fexupl_df(env, ctx);
+            return;
+        case OPC_FEXUPR_df:
+            gen_fexupr_df(env, ctx);
+            return;
     }
 
     switch (opcode & 0xfffc003f) {
@@ -194,14 +206,8 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FTQ_df:
             gen_ftq_df(env, ctx);
             return;
-        case OPC_FFQ_df:
-            gen_ffq_df(env, ctx);
-            return;
         case OPC_FEXDO_df:
             gen_fexdo_df(env, ctx);
-            return;
-        case OPC_FEXUP_df:
-            gen_fexup_df(env, ctx);
             return;
     }
 

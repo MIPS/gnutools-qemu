@@ -6282,14 +6282,12 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     helper_move_v(pwd, &wx, wrlen);
 }
 
-
-void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fexupl_df(void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    wr_t wy, *pwy = &wy;
 
     switch (df) {
     case DF_WORD:
@@ -6299,21 +6297,15 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
 
-            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pwt, i), ieee, 32);
-            MSA_FLOAT_BINOP(W(pwy, i), from_float16, HR(pwt, i), ieee, 32);
-
+            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pws, i), ieee, 32);
             W(pwx, i) = float32_maybe_silence_nan(W(pwx, i));
-            W(pwy, i) = float32_maybe_silence_nan(W(pwy, i));
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pwt, i), 64);
-            MSA_FLOAT_UNOP(D(pwy, i), from_float32, WR(pwt, i), 64);
-
+            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pws, i), 64);
             D(pwx, i) = float64_maybe_silence_nan(D(pwx, i));
-            D(pwy, i) = float64_maybe_silence_nan(D(pwy, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6323,7 +6315,41 @@ void helper_fexup_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }
 
     helper_move_v(pwd, &wx, wrlen);
-    helper_move_v(pws, &wy, wrlen);
+}
+
+void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+            /* Half precision floats come in two formats: standard
+               IEEE and "ARM" format.  The latter gains extra exponent
+               range by omitting the NaN/Inf encodings.  */
+            flag ieee = 1;
+
+            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HR(pws, i), ieee, 32);
+            W(pwx, i) = float32_maybe_silence_nan(W(pwx, i));
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WR(pws, i), 64);
+            D(pwx, i) = float64_maybe_silence_nan(D(pwx, i));
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 
@@ -6596,26 +6622,23 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     return q_val;
 }
 
-void helper_ffq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ffql_df(void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    wr_t wy, *pwy = &wy;
 
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pwt, i), 32);
-            MSA_FLOAT_UNOP(W(pwy, i), from_q16, HR(pwt, i), 32);
+            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pwt, i), 64);
-            MSA_FLOAT_UNOP(D(pwy, i), from_q32, WR(pwt, i), 64);
+            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6625,9 +6648,35 @@ void helper_ffq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }
 
     helper_move_v(pwd, &wx, wrlen);
-    helper_move_v(pws, &wy, wrlen);
 }
 
+void helper_ffqr_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HR(pws, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WR(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    helper_move_v(pwd, &wx, wrlen);
+}
 
 void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {

@@ -1590,9 +1590,14 @@ sub get_func_type {
         'FMSUB.df' => 'df_wt_ws_wd_p',
 
 
-        'FEXUP.df' => 'df_wt_ws_wd_p',
+        'FEXUPL.df' => 'df_ws_wd_p',
+        'FEXUPR.df' => 'df_ws_wd_p',
+
         'FEXDO.df' => 'df_wt_ws_wd_p',
-        'FFQ.df'   => 'df_wt_ws_wd_p',
+
+        'FFQL.df'   => 'df_ws_wd_p',
+        'FFQR.df'   => 'df_ws_wd_p',
+
         'FTQ.df'   => 'df_wt_ws_wd_p',
 
         'MADDV.df' => 'df_wt_ws_wd_wd',
@@ -9717,6 +9722,88 @@ sub read_instructions {
           {
             'opcode' => [
                           [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7bd0000f',
+            'name' => 'FFQL.df',
+            'match_mm' => '0xcbd00019',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7bd2000f',
+            'name' => 'FFQR.df',
+            'match_mm' => '0xcbd20019',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
                             '21',
                             '21',
                             'df'
@@ -9760,7 +9847,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a80001c',
-            'name' => 'FFQ.df',
+            'name' => 'FEXDO.df',
             'match_mm' => '0xca80002f',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -9768,14 +9855,9 @@ sub read_instructions {
           {
             'opcode' => [
                           [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'wt'
+                            '16',
+                            'df'
                           ],
                           [
                             '15',
@@ -9790,14 +9872,9 @@ sub read_instructions {
                         ],
             'opcode_mm' => [
                              [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'wt'
+                               '16',
+                               'df'
                              ],
                              [
                                '15',
@@ -9810,23 +9887,18 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7ac0001c',
-            'name' => 'FEXDO.df',
-            'match_mm' => '0xcac0002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
+            'match' => '0x7bd4000f',
+            'name' => 'FEXUPL.df',
+            'match_mm' => '0xcbd40019',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
           },
           {
             'opcode' => [
                           [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'wt'
+                            '16',
+                            'df'
                           ],
                           [
                             '15',
@@ -9841,14 +9913,9 @@ sub read_instructions {
                         ],
             'opcode_mm' => [
                              [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'wt'
+                               '16',
+                               'df'
                              ],
                              [
                                '15',
@@ -9861,12 +9928,14 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b00001c',
-            'name' => 'FEXUP.df',
-            'match_mm' => '0xcb00002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
+            'match' => '0x7bd6000f',
+            'name' => 'FEXUPR.df',
+            'match_mm' => '0xcbd60019',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
           }
+
+
         ];
 
 }
