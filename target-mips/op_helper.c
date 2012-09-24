@@ -4050,27 +4050,6 @@ int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
     return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
 }
 
-int64_t helper_dotpi_s_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return (even_arg1 * arg2) + (odd_arg1 * arg2);
-}
-
-int64_t helper_dotp_u_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-int64_t helper_dotpi_u_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return (even_arg1 * arg2) + (odd_arg1 * arg2);
-}
 
 int64_t helper_dpadd_s_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
@@ -4085,17 +4064,6 @@ int64_t helper_dpadd_s_df(int64_t dest,
 }
 
 
-int64_t helper_dpaddi_s_df(int64_t dest,
-                           int64_t arg1, int64_t arg2, uint32_t df)
-{
-    if (df == DF_BYTE)
-        helper_raise_exception(EXCP_RI);
-
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
-}
-
 int64_t helper_dpadd_u_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
@@ -4106,17 +4074,6 @@ int64_t helper_dpadd_u_df(int64_t dest,
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
     return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-int64_t helper_dpaddi_u_df(int64_t dest,
-                           int64_t arg1, int64_t arg2, uint32_t df)
-{
-    if (df == DF_BYTE)
-        helper_raise_exception(EXCP_RI);
-
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return dest + (even_arg1 * arg2) + (odd_arg1 * arg2);
 }
 
 int64_t helper_dpsub_s_df(int64_t dest,
@@ -4131,17 +4088,6 @@ int64_t helper_dpsub_s_df(int64_t dest,
     return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
 }
 
-int64_t helper_dpsubi_s_df(int64_t dest,
-                           int64_t arg1, int64_t arg2, uint32_t df)
-{
-    if (df == DF_BYTE)
-        helper_raise_exception(EXCP_RI);
-
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));
-}
-
 int64_t helper_dpsub_u_df(int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
@@ -4154,16 +4100,6 @@ int64_t helper_dpsub_u_df(int64_t dest,
     return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
 }
 
-int64_t helper_dpsubi_u_df(int64_t dest,
-                           int64_t arg1, int64_t arg2, uint32_t df)
-{
-    if (df == DF_BYTE)
-        helper_raise_exception(EXCP_RI);
-
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-
-    return dest - ((even_arg1 * arg2) + (odd_arg1 * arg2));
-}
 
 
 /*
@@ -4545,13 +4481,6 @@ void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
 {
     ALL_W_ELEMENTS(i, wrlen) {
         W(pwd, i) = W(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_shf_d(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = D(pws, SHF_POS(i, imm));
     } DONE_ALL_ELEMENTS;
 }
 
@@ -5442,39 +5371,6 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     check_msacsr_cause(); 
     helper_move_v(pwd, pwx, wrlen);
 }
-
-
-void helper_frem_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), rem, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), rem, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(); 
-    helper_move_v(pwd, pwx, wrlen);
-}
-
 
 
 /*

@@ -196,10 +196,10 @@ sub get_helper_dummy {
 
     my $helper_body = "/* FIXME Unknown $func_type ($func_name) */";
 
-    my $is_ld_v  = $func_name =~ /ld_v/;
-    my $is_ldx_v = $func_name =~ /ldx_v/;
-    my $is_st_v  = $func_name =~ /st_v/;
-    my $is_stx_v = $func_name =~ /stx_v/;
+    my $is_ld_v  = $func_name =~ /ld_df/ && !($func_name =~ /sld_df/);
+    my $is_ldx_v = $func_name =~ /ldx_df/;
+    my $is_st_v  = $func_name =~ /st_df/;
+    my $is_stx_v = $func_name =~ /stx_df/;
 
     my $is_mvtg = $func_name =~ /mvtg/;
 
@@ -587,10 +587,10 @@ C_END
 
     my $def;
 
-    my $is_ld_v  = $codename =~ /ld_v/;
-    my $is_ldx_v = $codename =~ /ldx_v/;
-    my $is_st_v  = $codename =~ /st_v/;
-    my $is_stx_v = $codename =~ /stx_v/;
+    my $is_ld_v  = $codename =~ /ld_df/ && !($codename =~ /sld_df/);
+    my $is_ldx_v = $codename =~ /ldx_df/;
+    my $is_st_v  = $codename =~ /st_df/;
+    my $is_stx_v = $codename =~ /stx_df/;
 
     if ($is_ld_v) {
         $func_body .= <<"C_END";
@@ -598,7 +598,7 @@ $declare_str
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    uint8_t df = 2; /* faked 'w' format */
+    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
     int16_t offset = s5 * (wrlen/8);
 
@@ -629,7 +629,7 @@ $declare_str
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    uint8_t df = 2; /* faked 'w' format */
+    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
 
     gen_load_gpr(trt, rt);
@@ -668,7 +668,7 @@ $declare_str
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
-    uint8_t df = 2; /* faked 'w' format */
+    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
     int16_t offset = s5 * (wrlen/8);
 
@@ -699,7 +699,7 @@ $declare_str
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    uint8_t df = 2; /* faked 'w' format */
+    if (df != 2) df = 2; /* FIXME: use df not 'w' format  */
     int df_bits = 8 * (1 << df);
 
     gen_load_gpr(trt, rt);
@@ -1534,6 +1534,8 @@ sub get_func_type {
     my $default_func_type = join("_",@fields);
 
     %func_type_of = (
+        'LD.df' => 's5_rs_wd',
+        'ST.df' => 's5_rs_wd',
         'BINSL.df' => 'df_wt_ws_wd_wd',
         'BINSR.df' => 'df_wt_ws_wd_wd',
         'BINSLI.df' => 'dfm_ws_wd_wd',
@@ -1542,10 +1544,6 @@ sub get_func_type {
         'DPADD_U.df' => 'df_wt_ws_wd_wd',
         'DPSUB_S.df' => 'df_wt_ws_wd_wd',
         'DPSUB_U.df' => 'df_wt_ws_wd_wd',
-        'DPADDI_S.df' => 'df_u5_ws_wd_wd',
-        'DPADDI_U.df' => 'df_u5_ws_wd_wd',
-        'DPSUBI_S.df' => 'df_u5_ws_wd_wd',
-        'DPSUBI_U.df' => 'df_u5_ws_wd_wd',
         'BNZ.df' => 'df_s10_wd_branch',
         'BZ.df' => 'df_s10_wd_branch',
         'BNZ.V' => 's10_wd_branch',
@@ -1561,7 +1559,6 @@ sub get_func_type {
         'FSUB.df' => 'df_wt_ws_wd_p',
         'FMUL.df' => 'df_wt_ws_wd_p',
         'FDIV.df' => 'df_wt_ws_wd_p',
-        'FREM.df' => 'df_wt_ws_wd_p',
         'FEXP2.df' => 'df_wt_ws_wd_p',
 
         'FMAX.df' => 'df_wt_ws_wd_p',
@@ -1602,8 +1599,6 @@ sub get_func_type {
 
         'MADDV.df' => 'df_wt_ws_wd_wd',
         'MSUBV.df' => 'df_wt_ws_wd_wd',
-        'MADDVI.df' => 'df_u5_ws_wd_wd',
-        'MSUBVI.df' => 'df_u5_ws_wd_wd',
         'MADD_Q.df' => 'df_wt_ws_wd_wd',
         'MSUB_Q.df' => 'df_wt_ws_wd_wd',
         'MADDR_Q.df' => 'df_wt_ws_wd_wd',
@@ -1636,17 +1631,9 @@ sub get_arg_type {
         'AVE_U.df/ws',
         'AVE_U.df/wt',
 
-        'AVEI_U.df/wd',
-        'AVEI_U.df/ws',
-        'AVEI_U.df/u5',
-
         'ASUB_U.df/wd',
         'ASUB_U.df/ws',
         'ASUB_U.df/wt',
-
-        'ASUBI_U.df/wd',
-        'ASUBI_U.df/ws',
-        'ASUBI_U.df/u5',
 
         'MVTG_U.df/ws',
         'MVTGR_U.df/ws',
@@ -1669,22 +1656,11 @@ sub get_helper_name {
         'ADDSI_S_df' => 'ADDS_S_df',
         'ADDSI_U_df' => 'ADDS_U_df',
         'SUBVI_df' => 'SUBV_df',
-        'ASUBI_S_df' => 'ASUB_S_df',
-        'ASUBI_U_df' => 'ASUB_U_df',
-        'SUBSI_S_df' => 'SUBS_S_df',
-        'SUBSI_U_df' => 'SUBS_U_df',
-        'SUBSSI_U_df' => 'SUBSS_U_df',
-        'MAXI_A_df' => 'MAX_A_df',
         'MAXI_S_df' => 'MAX_S_df',
         'MAXI_U_df' => 'MAX_U_df',
         'MINI_A_df' => 'MIN_A_df',
         'MINI_S_df' => 'MIN_S_df',
         'MINI_U_df' => 'MIN_U_df',
-        'AVEI_S_df' => 'AVE_S_df',
-        'AVEI_U_df' => 'AVE_U_df',
-        'MULVI_df' => 'MULV_df',
-        'MADDVI_df' => 'MADDV_df',
-        'MSUBVI_df' => 'MSUBV_df',
 # skip these ones since they use dfm for immediate - decide whether to change
 #        'SHLI_df' => 'SHL_df',
 #        'SRAI_df' => 'SRA_df',
@@ -1765,9 +1741,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x78000010',
+            'match' => '0x7800000d',
             'name' => 'ADDV.df',
-            'match_mm' => '0xc800001a',
+            'match_mm' => '0xc8000016',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -1816,9 +1792,1570 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x78000000',
+            'match' => '0x78000006',
             'name' => 'ADDVI.df',
-            'match_mm' => '0xc8000001',
+            'match_mm' => '0xc800000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880000d',
+            'name' => 'ADD_A.df',
+            'match_mm' => '0xc8800016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900000d',
+            'name' => 'ADDS_A.df',
+            'match_mm' => '0xc9000016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7980000d',
+            'name' => 'ADDS_S.df',
+            'match_mm' => '0xc9800016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a00000d',
+            'name' => 'ADDS_U.df',
+            'match_mm' => '0xca000016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a80000d',
+            'name' => 'SUBV.df',
+            'match_mm' => '0xca800016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'u5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'u5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78800006',
+            'name' => 'SUBVI.df',
+            'match_mm' => '0xc880000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b00000d',
+            'name' => 'ASUB_S.df',
+            'match_mm' => '0xcb000016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b80000d',
+            'name' => 'ASUB_U.df',
+            'match_mm' => '0xcb800016',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7800000e',
+            'name' => 'SUBS_S.df',
+            'match_mm' => '0xc8000017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880000e',
+            'name' => 'SUBS_U.df',
+            'match_mm' => '0xc8800017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900000e',
+            'name' => 'SUBSS_U.df',
+            'match_mm' => '0xc9000017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7980000e',
+            'name' => 'SUBUS_S.df',
+            'match_mm' => '0xc9800017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a00000e',
+            'name' => 'MAX_A.df',
+            'match_mm' => '0xca000017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a80000e',
+            'name' => 'MAX_S.df',
+            'match_mm' => '0xca800017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            's5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               's5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000006',
+            'name' => 'MAXI_S.df',
+            'match_mm' => '0xc900000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b00000e',
+            'name' => 'MAX_U.df',
+            'match_mm' => '0xcb000017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'u5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'u5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79800006',
+            'name' => 'MAXI_U.df',
+            'match_mm' => '0xc980000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b80000e',
+            'name' => 'MIN_A.df',
+            'match_mm' => '0xcb800017',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7800000f',
+            'name' => 'MIN_S.df',
+            'match_mm' => '0xc8000019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            's5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               's5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000006',
+            'name' => 'MINI_S.df',
+            'match_mm' => '0xca00000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880000f',
+            'name' => 'MIN_U.df',
+            'match_mm' => '0xc8800019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'u5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'u5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a800006',
+            'name' => 'MINI_U.df',
+            'match_mm' => '0xca80000a',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900000f',
+            'name' => 'AVE_S.df',
+            'match_mm' => '0xc9000019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7980000f',
+            'name' => 'AVE_U.df',
+            'match_mm' => '0xc9800019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a00000f',
+            'name' => 'AVER_S.df',
+            'match_mm' => '0xca000019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a80000f',
+            'name' => 'AVER_U.df',
+            'match_mm' => '0xca800019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '16',
+                            'dfm'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '16',
+                               'dfm'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000009',
+            'name' => 'SAT_S.df',
+            'match_mm' => '0xc800000f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '16',
+                            'dfm'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '16',
+                               'dfm'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78800009',
+            'name' => 'SAT_U.df',
+            'match_mm' => '0xc880000f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b00000f',
+            'name' => 'MULV.df',
+            'match_mm' => '0xcb000019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b80000f',
+            'name' => 'MADDV.df',
+            'match_mm' => '0xcb800019',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000010',
+            'name' => 'MSUBV.df',
+            'match_mm' => '0xc800001a',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -1868,59 +3405,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78800010',
-            'name' => 'ADD_A.df',
+            'name' => 'DOTP_S.df',
             'match_mm' => '0xc880001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78800000',
-            'name' => 'ADDI_A.df',
-            'match_mm' => '0xc8800001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -1970,59 +3456,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79000010',
-            'name' => 'ADDS_A.df',
+            'name' => 'DOTP_U.df',
             'match_mm' => '0xc900001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79000000',
-            'name' => 'ADDSI_A.df',
-            'match_mm' => '0xc9000001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2072,59 +3507,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79800010',
-            'name' => 'ADDS_S.df',
+            'name' => 'DPADD_S.df',
             'match_mm' => '0xc980001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79800000',
-            'name' => 'ADDSI_S.df',
-            'match_mm' => '0xc9800001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2174,59 +3558,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a000010',
-            'name' => 'ADDS_U.df',
+            'name' => 'DPADD_U.df',
             'match_mm' => '0xca00001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000000',
-            'name' => 'ADDSI_U.df',
-            'match_mm' => '0xca000001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2276,59 +3609,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a800010',
-            'name' => 'SUBV.df',
+            'name' => 'DPSUB_S.df',
             'match_mm' => '0xca80001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a800000',
-            'name' => 'SUBVI.df',
-            'match_mm' => '0xca800001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2378,59 +3660,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b000010',
-            'name' => 'ASUB_S.df',
+            'name' => 'DPSUB_U.df',
             'match_mm' => '0xcb00001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b000000',
-            'name' => 'ASUBI_S.df',
-            'match_mm' => '0xcb000001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2480,59 +3711,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b800010',
-            'name' => 'ASUB_U.df',
+            'name' => 'DIV_S.df',
             'match_mm' => '0xcb80001a',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b800000',
-            'name' => 'ASUBI_U.df',
-            'match_mm' => '0xcb800001',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2582,59 +3762,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78000011',
-            'name' => 'SUBS_S.df',
+            'name' => 'DIV_U.df',
             'match_mm' => '0xc800001b',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000001',
-            'name' => 'SUBSI_S.df',
-            'match_mm' => '0xc8000002',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2684,59 +3813,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78800011',
-            'name' => 'SUBS_U.df',
+            'name' => 'REM_S.df',
             'match_mm' => '0xc880001b',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78800001',
-            'name' => 'SUBSI_U.df',
-            'match_mm' => '0xc8800002',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2786,7 +3864,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79000011',
-            'name' => 'SUBSS_U.df',
+            'name' => 'REM_U.df',
             'match_mm' => '0xc900001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -2794,14 +3872,14 @@ sub read_instructions {
           {
             'opcode' => [
                           [
-                            '22',
+                            '21',
                             '21',
                             'df'
                           ],
                           [
                             '20',
                             '16',
-                            'u5'
+                            'wt'
                           ],
                           [
                             '15',
@@ -2816,14 +3894,14 @@ sub read_instructions {
                         ],
             'opcode_mm' => [
                              [
-                               '22',
+                               '21',
                                '21',
                                'df'
                              ],
                              [
                                '20',
                                '16',
-                               'u5'
+                               'wt'
                              ],
                              [
                                '15',
@@ -2836,11 +3914,594 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x79000001',
-            'name' => 'SUBSSI_U.df',
-            'match_mm' => '0xc9000002',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
+            'match' => '0x7800001a',
+            'name' => 'MUL_Q.df',
+            'match_mm' => '0xc800002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7840001a',
+            'name' => 'MULR_Q.df',
+            'match_mm' => '0xc840002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880001a',
+            'name' => 'MADD_Q.df',
+            'match_mm' => '0xc880002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78c0001a',
+            'name' => 'MADDR_Q.df',
+            'match_mm' => '0xc8c0002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900001a',
+            'name' => 'MSUB_Q.df',
+            'match_mm' => '0xc900002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7940001a',
+            'name' => 'MSUBR_Q.df',
+            'match_mm' => '0xc940002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7800001d',
+            'name' => 'AND.V',
+            'match_mm' => '0xc8000031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000000',
+            'name' => 'ANDI.B',
+            'match_mm' => '0xc8000001',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7820001d',
+            'name' => 'OR.V',
+            'match_mm' => '0xc8200031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000000',
+            'name' => 'ORI.B',
+            'match_mm' => '0xc9000001',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7840001d',
+            'name' => 'NOR.V',
+            'match_mm' => '0xc8400031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000000',
+            'name' => 'NORI.B',
+            'match_mm' => '0xca000001',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7860001d',
+            'name' => 'XOR.V',
+            'match_mm' => '0xc8600031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b000000',
+            'name' => 'XORI.B',
+            'match_mm' => '0xcb000001',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
           },
           {
             'opcode' => [
@@ -2888,7 +4549,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79800011',
-            'name' => 'MAX_A.df',
+            'name' => 'SHL.df',
             'match_mm' => '0xc980001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -2897,13 +4558,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'u5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -2919,13 +4575,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'u5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -2938,9 +4589,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x79800001',
-            'name' => 'MAXI_A.df',
-            'match_mm' => '0xc9800002',
+            'match' => '0x79000009',
+            'name' => 'SHLI.df',
+            'match_mm' => '0xc900000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -2990,7 +4641,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a000011',
-            'name' => 'MAX_S.df',
+            'name' => 'SRA.df',
             'match_mm' => '0xca00001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -2999,13 +4650,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            's5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3021,13 +4667,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               's5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3040,9 +4681,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7a000001',
-            'name' => 'MAXI_S.df',
-            'match_mm' => '0xca000002',
+            'match' => '0x79800009',
+            'name' => 'SRAI.df',
+            'match_mm' => '0xc980000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3092,7 +4733,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a800011',
-            'name' => 'MAX_U.df',
+            'name' => 'SRL.df',
             'match_mm' => '0xca80001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3101,13 +4742,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'u5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3123,13 +4759,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'u5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3142,11 +4773,134 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7a800001',
-            'name' => 'MAXI_U.df',
-            'match_mm' => '0xca800002',
+            'match' => '0x7a000009',
+            'name' => 'SRLI.df',
+            'match_mm' => '0xca00000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '17',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '17',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b04001d',
+            'name' => 'PCNT.df',
+            'match_mm' => '0xcb040031',
+            'mask_mm' => '0xfffc003f',
+            'mask' => '0xfffc003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '17',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '17',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b08001d',
+            'name' => 'NLOC.df',
+            'match_mm' => '0xcb080031',
+            'mask_mm' => '0xfffc003f',
+            'mask' => '0xfffc003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '17',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '17',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b0c001d',
+            'name' => 'NLZC.df',
+            'match_mm' => '0xcb0c0031',
+            'mask_mm' => '0xfffc003f',
+            'mask' => '0xfffc003f'
           },
           {
             'opcode' => [
@@ -3194,7 +4948,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b000011',
-            'name' => 'MIN_A.df',
+            'name' => 'BINSL.df',
             'match_mm' => '0xcb00001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3203,13 +4957,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'u5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3225,13 +4974,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'u5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3244,9 +4988,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b000001',
-            'name' => 'MINI_A.df',
-            'match_mm' => '0xcb000002',
+            'match' => '0x7a800009',
+            'name' => 'BINSLI.df',
+            'match_mm' => '0xca80000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3296,7 +5040,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b800011',
-            'name' => 'MIN_S.df',
+            'name' => 'BINSR.df',
             'match_mm' => '0xcb80001b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3305,13 +5049,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            's5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3327,13 +5066,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               's5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3346,9 +5080,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b800001',
-            'name' => 'MINI_S.df',
-            'match_mm' => '0xcb800002',
+            'match' => '0x7b000009',
+            'name' => 'BINSRI.df',
+            'match_mm' => '0xcb00000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3398,7 +5132,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78000012',
-            'name' => 'MIN_U.df',
+            'name' => 'BCLR.df',
             'match_mm' => '0xc800001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3407,13 +5141,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            'u5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3429,13 +5158,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               'u5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3448,9 +5172,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x78000002',
-            'name' => 'MINI_U.df',
-            'match_mm' => '0xc8000003',
+            'match' => '0x7b800009',
+            'name' => 'BCLRI.df',
+            'match_mm' => '0xcb80000f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3500,7 +5224,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78800012',
-            'name' => 'AVE_S.df',
+            'name' => 'BSET.df',
             'match_mm' => '0xc880001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3509,13 +5233,8 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
                             '16',
-                            's5'
+                            'dfm'
                           ],
                           [
                             '15',
@@ -3531,13 +5250,8 @@ sub read_instructions {
             'opcode_mm' => [
                              [
                                '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
                                '16',
-                               's5'
+                               'dfm'
                              ],
                              [
                                '15',
@@ -3550,9 +5264,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x78800002',
-            'name' => 'AVEI_S.df',
-            'match_mm' => '0xc8800003',
+            'match' => '0x7800000a',
+            'name' => 'BSETI.df',
+            'match_mm' => '0xc8000011',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3602,7 +5316,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79000012',
-            'name' => 'AVE_U.df',
+            'name' => 'BNEG.df',
             'match_mm' => '0xc900001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3611,13 +5325,49 @@ sub read_instructions {
             'opcode' => [
                           [
                             '22',
-                            '21',
-                            'df'
+                            '16',
+                            'dfm'
                           ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '16',
+                               'dfm'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880000a',
+            'name' => 'BNEGI.df',
+            'match_mm' => '0xc8800011',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
                           [
                             '20',
                             '16',
-                            'u5'
+                            'wt'
                           ],
                           [
                             '15',
@@ -3631,15 +5381,10 @@ sub read_instructions {
                           ]
                         ],
             'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
                              [
                                '20',
                                '16',
-                               'u5'
+                               'wt'
                              ],
                              [
                                '15',
@@ -3652,18 +5397,18 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x79000002',
-            'name' => 'AVEI_U.df',
-            'match_mm' => '0xc9000003',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
+            'match' => '0x7880001d',
+            'name' => 'BMNZ.V',
+            'match_mm' => '0xc8800031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
           },
           {
             'opcode' => [
                           [
-                            '22',
+                            '23',
                             '16',
-                            'dfm'
+                            'i8'
                           ],
                           [
                             '15',
@@ -3678,9 +5423,9 @@ sub read_instructions {
                         ],
             'opcode_mm' => [
                              [
-                               '22',
+                               '23',
                                '16',
-                               'dfm'
+                               'i8'
                              ],
                              [
                                '15',
@@ -3693,18 +5438,18 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7800001e',
-            'name' => 'SAT_S.df',
-            'match_mm' => '0xc8000032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
+            'match' => '0x78000001',
+            'name' => 'BMNZI.B',
+            'match_mm' => '0xc8000002',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
           },
           {
             'opcode' => [
                           [
-                            '22',
+                            '20',
                             '16',
-                            'dfm'
+                            'wt'
                           ],
                           [
                             '15',
@@ -3719,9 +5464,9 @@ sub read_instructions {
                         ],
             'opcode_mm' => [
                              [
-                               '22',
+                               '20',
                                '16',
-                               'dfm'
+                               'wt'
                              ],
                              [
                                '15',
@@ -3734,11 +5479,134 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7880001e',
-            'name' => 'SAT_U.df',
-            'match_mm' => '0xc8800032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
+            'match' => '0x78a0001d',
+            'name' => 'BMZ.V',
+            'match_mm' => '0xc8a00031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000001',
+            'name' => 'BMZI.B',
+            'match_mm' => '0xc9000002',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78c0001d',
+            'name' => 'BSEL.V',
+            'match_mm' => '0xc8c00031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000001',
+            'name' => 'BSELI.B',
+            'match_mm' => '0xca000002',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
           },
           {
             'opcode' => [
@@ -3786,7 +5654,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79800012',
-            'name' => 'MULV.df',
+            'name' => 'CEQ.df',
             'match_mm' => '0xc980001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3836,9 +5704,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x79800002',
-            'name' => 'MULVI.df',
-            'match_mm' => '0xc9800003',
+            'match' => '0x7b000006',
+            'name' => 'CEQI.df',
+            'match_mm' => '0xcb00000a',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3888,7 +5756,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a000012',
-            'name' => 'MADDV.df',
+            'name' => 'CLT_S.df',
             'match_mm' => '0xca00001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -3903,7 +5771,7 @@ sub read_instructions {
                           [
                             '20',
                             '16',
-                            'u5'
+                            's5'
                           ],
                           [
                             '15',
@@ -3925,7 +5793,7 @@ sub read_instructions {
                              [
                                '20',
                                '16',
-                               'u5'
+                               's5'
                              ],
                              [
                                '15',
@@ -3938,9 +5806,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7a000002',
-            'name' => 'MADDVI.df',
-            'match_mm' => '0xca000003',
+            'match' => '0x7b800006',
+            'name' => 'CLTI_S.df',
+            'match_mm' => '0xcb80000a',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -3990,7 +5858,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a800012',
-            'name' => 'MSUBV.df',
+            'name' => 'CLE_S.df',
             'match_mm' => '0xca80001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -4005,7 +5873,7 @@ sub read_instructions {
                           [
                             '20',
                             '16',
-                            'u5'
+                            's5'
                           ],
                           [
                             '15',
@@ -4027,7 +5895,7 @@ sub read_instructions {
                              [
                                '20',
                                '16',
-                               'u5'
+                               's5'
                              ],
                              [
                                '15',
@@ -4040,9 +5908,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7a800002',
-            'name' => 'MSUBVI.df',
-            'match_mm' => '0xca800003',
+            'match' => '0x78000007',
+            'name' => 'CLEI_S.df',
+            'match_mm' => '0xc800000b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4092,7 +5960,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b000012',
-            'name' => 'DOTP_S.df',
+            'name' => 'CLT_U.df',
             'match_mm' => '0xcb00001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -4107,7 +5975,7 @@ sub read_instructions {
                           [
                             '20',
                             '16',
-                            's5'
+                            'u5'
                           ],
                           [
                             '15',
@@ -4129,7 +5997,7 @@ sub read_instructions {
                              [
                                '20',
                                '16',
-                               's5'
+                               'u5'
                              ],
                              [
                                '15',
@@ -4142,9 +6010,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b000002',
-            'name' => 'DOTPI_S.df',
-            'match_mm' => '0xcb000003',
+            'match' => '0x78800007',
+            'name' => 'CLTI_U.df',
+            'match_mm' => '0xc880000b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4194,7 +6062,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7b800012',
-            'name' => 'DOTP_U.df',
+            'name' => 'CLE_U.df',
             'match_mm' => '0xcb80001e',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -4244,11 +6112,319 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b800002',
-            'name' => 'DOTPI_U.df',
-            'match_mm' => '0xcb800003',
+            'match' => '0x79000007',
+            'name' => 'CLEI_U.df',
+            'match_mm' => '0xc900000b',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '11',
+                            's10'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '11',
+                               's10'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7800000c',
+            'name' => 'BNZ.df',
+            'match_mm' => '0xc8000013',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '11',
+                            's10'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '11',
+                               's10'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7880000c',
+            'name' => 'BZ.df',
+            'match_mm' => '0xc8800013',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '11',
+                            's10'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '11',
+                               's10'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78e0001d',
+            'name' => 'BNZ.V',
+            'match_mm' => '0xc8e00031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '20',
+                            '11',
+                            's10'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '20',
+                               '11',
+                               's10'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900001d',
+            'name' => 'BZ.V',
+            'match_mm' => '0xc9000031',
+            'mask_mm' => '0xffe0003f',
+            'mask' => '0xffe0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000019',
+            'name' => 'SLD.df',
+            'match_mm' => '0xc800002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b000001',
+            'name' => 'SHF.B',
+            'match_mm' => '0xcb000002',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78000002',
+            'name' => 'SHF.H',
+            'match_mm' => '0xc8000003',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '23',
+                            '16',
+                            'i8'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '23',
+                               '16',
+                               'i8'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000002',
+            'name' => 'SHF.W',
+            'match_mm' => '0xc9000003',
+            'mask_mm' => '0xff00003f',
+            'mask' => '0xff00003f'
           },
           {
             'opcode' => [
@@ -4296,59 +6472,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78000013',
-            'name' => 'DPADD_S.df',
+            'name' => 'VSHF.df',
             'match_mm' => '0xc800001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000003',
-            'name' => 'DPADDI_S.df',
-            'match_mm' => '0xc8000006',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4398,59 +6523,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78800013',
-            'name' => 'DPADD_U.df',
+            'name' => 'PCKEV.df',
             'match_mm' => '0xc880001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78800003',
-            'name' => 'DPADDI_U.df',
-            'match_mm' => '0xc8800006',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4500,59 +6574,8 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79000013',
-            'name' => 'DPSUB_S.df',
+            'name' => 'PCKOD.df',
             'match_mm' => '0xc900001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79000003',
-            'name' => 'DPSUBI_S.df',
-            'match_mm' => '0xc9000006',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4602,7 +6625,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79800013',
-            'name' => 'DPSUB_U.df',
+            'name' => 'ILVL.df',
             'match_mm' => '0xc980001f',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
@@ -4617,7 +6640,7 @@ sub read_instructions {
                           [
                             '20',
                             '16',
-                            'u5'
+                            'wt'
                           ],
                           [
                             '15',
@@ -4639,7 +6662,7 @@ sub read_instructions {
                              [
                                '20',
                                '16',
-                               'u5'
+                               'wt'
                              ],
                              [
                                '15',
@@ -4652,9 +6675,909 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x79800003',
-            'name' => 'DPSUBI_U.df',
-            'match_mm' => '0xc9800006',
+            'match' => '0x7a000013',
+            'name' => 'ILVR.df',
+            'match_mm' => '0xca00001f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a800013',
+            'name' => 'ILVEV.df',
+            'match_mm' => '0xca80001f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b000013',
+            'name' => 'ILVOD.df',
+            'match_mm' => '0xcb00001f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b800013',
+            'name' => 'MOVER.df',
+            'match_mm' => '0xcb80001f',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78000014',
+            'name' => 'MVTGR_S.df',
+            'match_mm' => '0xc8000021',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78800014',
+            'name' => 'MVTGR_U.df',
+            'match_mm' => '0xc8800021',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000014',
+            'name' => 'SLDR.df',
+            'match_mm' => '0xc9000021',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x787e0019',
+            'name' => 'MOVE.V',
+            'match_mm' => '0xc87e002a',
+            'mask_mm' => '0xffff003f',
+            'mask' => '0xffff003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x78400019',
+            'name' => 'MOVE.df',
+            'match_mm' => '0xc840002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'cd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'cd'
+                             ]
+                           ],
+            'match' => '0x78be0019',
+            'name' => 'CTCMSA',
+            'match_mm' => '0xc8be002a',
+            'mask_mm' => '0xffff003f',
+            'mask' => '0xffff003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78800019',
+            'name' => 'MVTG_S.df',
+            'match_mm' => '0xc880002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '15',
+                            '11',
+                            'cs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '15',
+                               '11',
+                               'cs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78fe0019',
+            'name' => 'CFCMSA',
+            'match_mm' => '0xc8fe002a',
+            'mask_mm' => '0xffff003f',
+            'mask' => '0xffff003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '17',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '17',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b00001d',
+            'name' => 'MVFG.df',
+            'match_mm' => '0xcb000031',
+            'mask_mm' => '0xfffc003f',
+            'mask' => '0xfffc003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'rd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'rd'
+                             ]
+                           ],
+            'match' => '0x78c00019',
+            'name' => 'MVTG_U.df',
+            'match_mm' => '0xc8c0002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79000019',
+            'name' => 'MVFGE.df',
+            'match_mm' => '0xc900002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79800014',
+            'name' => 'MVFGER.df',
+            'match_mm' => '0xc9800021',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '11',
+                            's10'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '11',
+                               's10'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7900000c',
+            'name' => 'LDI.df',
+            'match_mm' => '0xc9000013',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            's5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               's5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79800007',
+            'name' => 'LD.df',
+            'match_mm' => '0xc980000b',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000014',
+            'name' => 'LDX.df',
+            'match_mm' => '0xca000021',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            's5'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               's5'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a000007',
+            'name' => 'ST.df',
+            'match_mm' => '0xca00000b',
+            'mask_mm' => '0xff80003f',
+            'mask' => '0xff80003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '22',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'rt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'rs'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '22',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'rt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'rs'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a800014',
+            'name' => 'STX.df',
+            'match_mm' => '0xca800021',
             'mask_mm' => '0xff80003f',
             'mask' => '0xff80003f'
           },
@@ -4703,8 +7626,590 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
+            'match' => '0x7980001a',
+            'name' => 'FADD.df',
+            'match_mm' => '0xc980002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79c0001a',
+            'name' => 'FSUB.df',
+            'match_mm' => '0xc9c0002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a00001a',
+            'name' => 'FMUL.df',
+            'match_mm' => '0xca00002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7a40001a',
+            'name' => 'FDIV.df',
+            'match_mm' => '0xca40002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b20001d',
+            'name' => 'FSQRT.df',
+            'match_mm' => '0xcb200031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7ac0001a',
+            'name' => 'FMADD.df',
+            'match_mm' => '0xcac0002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b00001a',
+            'name' => 'FMSUB.df',
+            'match_mm' => '0xcb00002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b22001d',
+            'name' => 'FRINT.df',
+            'match_mm' => '0xcb220031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b24001d',
+            'name' => 'FLOG2.df',
+            'match_mm' => '0xcb240031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b40001a',
+            'name' => 'FEXP2.df',
+            'match_mm' => '0xcb40002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b80001a',
+            'name' => 'FMAX.df',
+            'match_mm' => '0xcb80002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7bc0001a',
+            'name' => 'FMAX_A.df',
+            'match_mm' => '0xcbc0002b',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '21',
+                            '21',
+                            'df'
+                          ],
+                          [
+                            '20',
+                            '16',
+                            'wt'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '21',
+                               'df'
+                             ],
+                             [
+                               '20',
+                               '16',
+                               'wt'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
             'match' => '0x7800001b',
-            'name' => 'MUL_Q.df',
+            'name' => 'FMIN.df',
             'match_mm' => '0xc800002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -4755,7 +8260,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7840001b',
-            'name' => 'MULR_Q.df',
+            'name' => 'FMIN_A.df',
             'match_mm' => '0xc840002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -4806,7 +8311,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7880001b',
-            'name' => 'MADD_Q.df',
+            'name' => 'FCEQ.df',
             'match_mm' => '0xc880002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -4857,7 +8362,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x78c0001b',
-            'name' => 'MADDR_Q.df',
+            'name' => 'FCLT.df',
             'match_mm' => '0xc8c0002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -4908,7 +8413,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7900001b',
-            'name' => 'MSUB_Q.df',
+            'name' => 'FCLE.df',
             'match_mm' => '0xc900002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -4959,3417 +8464,10 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7940001b',
-            'name' => 'MSUBR_Q.df',
+            'name' => 'FCUN.df',
             'match_mm' => '0xc940002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800000f',
-            'name' => 'AND.V',
-            'match_mm' => '0xc8000019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800000a',
-            'name' => 'ANDI.B',
-            'match_mm' => '0xc8000011',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7820000f',
-            'name' => 'OR.V',
-            'match_mm' => '0xc8200019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900000a',
-            'name' => 'ORI.B',
-            'match_mm' => '0xc9000011',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7840000f',
-            'name' => 'NOR.V',
-            'match_mm' => '0xc8400019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a00000a',
-            'name' => 'NORI.B',
-            'match_mm' => '0xca000011',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7860000f',
-            'name' => 'XOR.V',
-            'match_mm' => '0xc8600019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b00000a',
-            'name' => 'XORI.B',
-            'match_mm' => '0xcb000011',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000013',
-            'name' => 'SHL.df',
-            'match_mm' => '0xca00001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900001e',
-            'name' => 'SHLI.df',
-            'match_mm' => '0xc9000032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a800013',
-            'name' => 'SRA.df',
-            'match_mm' => '0xca80001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7980001e',
-            'name' => 'SRAI.df',
-            'match_mm' => '0xc9800032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b000013',
-            'name' => 'SRL.df',
-            'match_mm' => '0xcb00001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a00001e',
-            'name' => 'SRLI.df',
-            'match_mm' => '0xca000032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '17',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '17',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b84000f',
-            'name' => 'PCNT.df',
-            'match_mm' => '0xcb840019',
-            'mask_mm' => '0xfffc003f',
-            'mask' => '0xfffc003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '17',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '17',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b88000f',
-            'name' => 'NLOC.df',
-            'match_mm' => '0xcb880019',
-            'mask_mm' => '0xfffc003f',
-            'mask' => '0xfffc003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '17',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '17',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b8c000f',
-            'name' => 'NLZC.df',
-            'match_mm' => '0xcb8c0019',
-            'mask_mm' => '0xfffc003f',
-            'mask' => '0xfffc003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b800013',
-            'name' => 'BINSL.df',
-            'match_mm' => '0xcb80001f',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a80001e',
-            'name' => 'BINSLI.df',
-            'match_mm' => '0xca800032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000014',
-            'name' => 'BINSR.df',
-            'match_mm' => '0xc8000021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b00001e',
-            'name' => 'BINSRI.df',
-            'match_mm' => '0xcb000032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78800014',
-            'name' => 'BCLR.df',
-            'match_mm' => '0xc8800021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b80001e',
-            'name' => 'BCLRI.df',
-            'match_mm' => '0xcb800032',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79000014',
-            'name' => 'BSET.df',
-            'match_mm' => '0xc9000021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800001f',
-            'name' => 'BSETI.df',
-            'match_mm' => '0xc8000033',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79800014',
-            'name' => 'BNEG.df',
-            'match_mm' => '0xc9800021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '16',
-                            'dfm'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '16',
-                               'dfm'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7880001f',
-            'name' => 'BNEGI.df',
-            'match_mm' => '0xc8800033',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7880000f',
-            'name' => 'BMNZ.V',
-            'match_mm' => '0xc8800019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800000b',
-            'name' => 'BMNZI.B',
-            'match_mm' => '0xc8000012',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78a0000f',
-            'name' => 'BMZ.V',
-            'match_mm' => '0xc8a00019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900000b',
-            'name' => 'BMZI.B',
-            'match_mm' => '0xc9000012',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78c0000f',
-            'name' => 'BSEL.V',
-            'match_mm' => '0xc8c00019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a00000b',
-            'name' => 'BSELI.B',
-            'match_mm' => '0xca000012',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000014',
-            'name' => 'CEQ.df',
-            'match_mm' => '0xca000021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            's5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               's5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000003',
-            'name' => 'CEQI.df',
-            'match_mm' => '0xca000006',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a800014',
-            'name' => 'CLT_S.df',
-            'match_mm' => '0xca800021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            's5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               's5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a800003',
-            'name' => 'CLTI_S.df',
-            'match_mm' => '0xca800006',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b000014',
-            'name' => 'CLE_S.df',
-            'match_mm' => '0xcb000021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            's5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               's5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b000003',
-            'name' => 'CLEI_S.df',
-            'match_mm' => '0xcb000006',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b800014',
-            'name' => 'CLT_U.df',
-            'match_mm' => '0xcb800021',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b800003',
-            'name' => 'CLTI_U.df',
-            'match_mm' => '0xcb800006',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000015',
-            'name' => 'CLE_U.df',
-            'match_mm' => '0xc8000023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'u5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'u5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000004',
-            'name' => 'CLEI_U.df',
-            'match_mm' => '0xc8000007',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '11',
-                            's10'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '11',
-                               's10'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800000e',
-            'name' => 'BNZ.df',
-            'match_mm' => '0xc8000017',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '11',
-                            's10'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '11',
-                               's10'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7880000e',
-            'name' => 'BZ.df',
-            'match_mm' => '0xc8800017',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '11',
-                            's10'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '11',
-                               's10'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78e0000f',
-            'name' => 'BNZ.V',
-            'match_mm' => '0xc8e00019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '11',
-                            's10'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '11',
-                               's10'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900000f',
-            'name' => 'BZ.V',
-            'match_mm' => '0xc9000019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '16',
-                            'dfn'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '16',
-                               'dfn'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800001a',
-            'name' => 'SLD.df',
-            'match_mm' => '0xc800002b',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b00000b',
-            'name' => 'SHF.B',
-            'match_mm' => '0xcb000012',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800000c',
-            'name' => 'SHF.H',
-            'match_mm' => '0xc8000013',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900000c',
-            'name' => 'SHF.W',
-            'match_mm' => '0xc9000013',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '23',
-                            '16',
-                            'i8'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '23',
-                               '16',
-                               'i8'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a00000c',
-            'name' => 'SHF.D',
-            'match_mm' => '0xca000013',
-            'mask_mm' => '0xff00003f',
-            'mask' => '0xff00003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78800015',
-            'name' => 'VSHF.df',
-            'match_mm' => '0xc8800023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79000015',
-            'name' => 'PCKEV.df',
-            'match_mm' => '0xc9000023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79800015',
-            'name' => 'PCKOD.df',
-            'match_mm' => '0xc9800023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000015',
-            'name' => 'ILVL.df',
-            'match_mm' => '0xca000023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a800015',
-            'name' => 'ILVR.df',
-            'match_mm' => '0xca800023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b000015',
-            'name' => 'ILVEV.df',
-            'match_mm' => '0xcb000023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b800015',
-            'name' => 'ILVOD.df',
-            'match_mm' => '0xcb800023',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78000016',
-            'name' => 'MOVER.df',
-            'match_mm' => '0xc8000026',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'rd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'rd'
-                             ]
-                           ],
-            'match' => '0x78800016',
-            'name' => 'MVTGR_S.df',
-            'match_mm' => '0xc8800026',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'rd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'rd'
-                             ]
-                           ],
-            'match' => '0x79000016',
-            'name' => 'MVTGR_U.df',
-            'match_mm' => '0xc9000026',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79800016',
-            'name' => 'SLDR.df',
-            'match_mm' => '0xc9800026',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x787e001a',
-            'name' => 'MOVE.V',
-            'match_mm' => '0xc87e002b',
-            'mask_mm' => '0xffff003f',
-            'mask' => '0xffff003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '16',
-                            'dfn'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '16',
-                               'dfn'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7840001a',
-            'name' => 'MOVE.df',
-            'match_mm' => '0xc840002b',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'cd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'cd'
-                             ]
-                           ],
-            'match' => '0x78be001a',
-            'name' => 'CTCMSA',
-            'match_mm' => '0xc8be002b',
-            'mask_mm' => '0xffff003f',
-            'mask' => '0xffff003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '16',
-                            'dfn'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'rd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '16',
-                               'dfn'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'rd'
-                             ]
-                           ],
-            'match' => '0x7880001a',
-            'name' => 'MVTG_S.df',
-            'match_mm' => '0xc880002b',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '15',
-                            '11',
-                            'cs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'rd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '15',
-                               '11',
-                               'cs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'rd'
-                             ]
-                           ],
-            'match' => '0x78fe001a',
-            'name' => 'CFCMSA',
-            'match_mm' => '0xc8fe002b',
-            'mask_mm' => '0xffff003f',
-            'mask' => '0xffff003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '17',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '17',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b80000f',
-            'name' => 'MVFG.df',
-            'match_mm' => '0xcb800019',
-            'mask_mm' => '0xfffc003f',
-            'mask' => '0xfffc003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '16',
-                            'dfn'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'rd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '16',
-                               'dfn'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'rd'
-                             ]
-                           ],
-            'match' => '0x78c0001a',
-            'name' => 'MVTG_U.df',
-            'match_mm' => '0xc8c0002b',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '16',
-                            'dfn'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '16',
-                               'dfn'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900001a',
-            'name' => 'MVFGE.df',
-            'match_mm' => '0xc900002b',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a000016',
-            'name' => 'MVFGER.df',
-            'match_mm' => '0xca000026',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            's5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               's5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7960000f',
-            'name' => 'LD.V',
-            'match_mm' => '0xc9600019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '22',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '11',
-                            's10'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '22',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '11',
-                               's10'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900000e',
-            'name' => 'LDI.df',
-            'match_mm' => '0xc9000017',
-            'mask_mm' => '0xff80003f',
-            'mask' => '0xff80003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7980000f',
-            'name' => 'LDX.V',
-            'match_mm' => '0xc9800019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            's5'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               's5'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79a0000f',
-            'name' => 'ST.V',
-            'match_mm' => '0xc9a00019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rs'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '20',
-                               '16',
-                               'rt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rs'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79c0000f',
-            'name' => 'STX.V',
-            'match_mm' => '0xc9c00019',
-            'mask_mm' => '0xffe0003f',
-            'mask' => '0xffe0003f'
           },
           {
             'opcode' => [
@@ -8417,7 +8515,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7980001b',
-            'name' => 'FADD.df',
+            'name' => 'FCEQU.df',
             'match_mm' => '0xc980002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -8468,7 +8566,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x79c0001b',
-            'name' => 'FSUB.df',
+            'name' => 'FCLTU.df',
             'match_mm' => '0xc9c0002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -8519,10 +8617,215 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a00001b',
-            'name' => 'FMUL.df',
+            'name' => 'FCLEU.df',
             'match_mm' => '0xca00002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b26001d',
+            'name' => 'FCLASS.df',
+            'match_mm' => '0xcb260031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b28001d',
+            'name' => 'FTINT_S.df',
+            'match_mm' => '0xcb280031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b2a001d',
+            'name' => 'FFINT_S.df',
+            'match_mm' => '0xcb2a0031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b2c001d',
+            'name' => 'FTINT_U.df',
+            'match_mm' => '0xcb2c0031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b2e001d',
+            'name' => 'FFINT_U.df',
+            'match_mm' => '0xcb2e0031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
           },
           {
             'opcode' => [
@@ -8570,10 +8873,92 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a40001b',
-            'name' => 'FDIV.df',
+            'name' => 'FTQ.df',
             'match_mm' => '0xca40002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b30001d',
+            'name' => 'FFQL.df',
+            'match_mm' => '0xcb300031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b32001d',
+            'name' => 'FFQR.df',
+            'match_mm' => '0xcb320031',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
           },
           {
             'opcode' => [
@@ -8621,7 +9006,7 @@ sub read_instructions {
                              ]
                            ],
             'match' => '0x7a80001b',
-            'name' => 'FREM.df',
+            'name' => 'FEXDO.df',
             'match_mm' => '0xca80002e',
             'mask_mm' => '0xffc0003f',
             'mask' => '0xffc0003f'
@@ -8661,1235 +9046,9 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7bc0000f',
-            'name' => 'FSQRT.df',
-            'match_mm' => '0xcbc00019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7ac0001b',
-            'name' => 'FMADD.df',
-            'match_mm' => '0xcac0002e',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b00001b',
-            'name' => 'FMSUB.df',
-            'match_mm' => '0xcb00002e',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bc2000f',
-            'name' => 'FRINT.df',
-            'match_mm' => '0xcbc20019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bc4000f',
-            'name' => 'FLOG2.df',
-            'match_mm' => '0xcbc40019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b40001b',
-            'name' => 'FEXP2.df',
-            'match_mm' => '0xcb40002e',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7b80001b',
-            'name' => 'FMAX.df',
-            'match_mm' => '0xcb80002e',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bc0001b',
-            'name' => 'FMAX_A.df',
-            'match_mm' => '0xcbc0002e',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7800001c',
-            'name' => 'FMIN.df',
-            'match_mm' => '0xc800002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7840001c',
-            'name' => 'FMIN_A.df',
-            'match_mm' => '0xc840002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7880001c',
-            'name' => 'FCEQ.df',
-            'match_mm' => '0xc880002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x78c0001c',
-            'name' => 'FCLT.df',
-            'match_mm' => '0xc8c0002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7900001c',
-            'name' => 'FCLE.df',
-            'match_mm' => '0xc900002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7940001c',
-            'name' => 'FCUN.df',
-            'match_mm' => '0xc940002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7980001c',
-            'name' => 'FCEQU.df',
-            'match_mm' => '0xc980002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x79c0001c',
-            'name' => 'FCLTU.df',
-            'match_mm' => '0xc9c0002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a00001c',
-            'name' => 'FCLEU.df',
-            'match_mm' => '0xca00002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bc6000f',
-            'name' => 'FCLASS.df',
-            'match_mm' => '0xcbc60019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bc8000f',
-            'name' => 'FTINT_S.df',
-            'match_mm' => '0xcbc80019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bca000f',
-            'name' => 'FFINT_S.df',
-            'match_mm' => '0xcbca0019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bcc000f',
-            'name' => 'FTINT_U.df',
-            'match_mm' => '0xcbcc0019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bce000f',
-            'name' => 'FFINT_U.df',
-            'match_mm' => '0xcbce0019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a40001c',
-            'name' => 'FTQ.df',
-            'match_mm' => '0xca40002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bd0000f',
-            'name' => 'FFQL.df',
-            'match_mm' => '0xcbd00019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bd2000f',
-            'name' => 'FFQR.df',
-            'match_mm' => '0xcbd20019',
-            'mask_mm' => '0xfffe003f',
-            'mask' => '0xfffe003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '21',
-                            '21',
-                            'df'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'wt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '21',
-                               '21',
-                               'df'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'wt'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7a80001c',
-            'name' => 'FEXDO.df',
-            'match_mm' => '0xca80002f',
-            'mask_mm' => '0xffc0003f',
-            'mask' => '0xffc0003f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '16',
-                            '16',
-                            'df'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'ws'
-                          ],
-                          [
-                            '10',
-                            '6',
-                            'wd'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '16',
-                               '16',
-                               'df'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'ws'
-                             ],
-                             [
-                               '10',
-                               '6',
-                               'wd'
-                             ]
-                           ],
-            'match' => '0x7bd4000f',
+            'match' => '0x7b34001d',
             'name' => 'FEXUPL.df',
-            'match_mm' => '0xcbd40019',
+            'match_mm' => '0xcb340031',
             'mask_mm' => '0xfffe003f',
             'mask' => '0xfffe003f'
           },
@@ -9928,14 +9087,11 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7bd6000f',
+            'match' => '0x7b36001d',
             'name' => 'FEXUPR.df',
-            'match_mm' => '0xcbd60019',
+            'match_mm' => '0xcb360031',
             'mask_mm' => '0xfffe003f',
             'mask' => '0xfffe003f'
           }
-
-
         ];
-
 }
