@@ -1631,6 +1631,10 @@ sub get_arg_type {
         'AVE_U.df/ws',
         'AVE_U.df/wt',
 
+        'AVER_U.df/wd',
+        'AVER_U.df/ws',
+        'AVER_U.df/wt',
+
         'ASUB_U.df/wd',
         'ASUB_U.df/ws',
         'ASUB_U.df/wt',

@@ -1114,8 +1114,8 @@ static void gen_aver_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_i64(ts, tws, tdf, ti);
+        gen_helper_load_wr_i64(tt, twt, tdf, ti);
         gen_helper_aver_u_df(td, ts, tt, tdf);
         gen_helper_store_wr(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);

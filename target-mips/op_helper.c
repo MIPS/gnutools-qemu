@@ -3565,7 +3565,7 @@ int64_t helper_subv_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 
 /*
- *  ADDS_A, ADDS_S, ADDS_U, SUBS_S, SUBS_U, SUBSS_U
+ *  ADDS_A, ADDS_S, ADDS_U, SUBS_S, SUBS_U, SUBSS_U, SUBUS_S
  */
 
 int64_t helper_adds_a_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -3641,6 +3641,25 @@ int64_t helper_subss_u_df(int64_t arg1, int64_t arg2, uint32_t df)
         return u_arg2 - u_arg1 < (uint64_t)(-min_int) ?
             (int64_t)(u_arg1 - u_arg2) :
             min_int;
+    }
+}
+
+int64_t helper_subus_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t max_uint = DF_MAX_UINT(df);
+
+    if (arg2 >= 0) {
+        uint64_t u_arg2 = (uint64_t)arg2;
+        return (u_arg1 > u_arg2) ? 
+            (int64_t)(u_arg1 - u_arg2) : 
+            0;
+    }
+    else {
+        uint64_t u_arg2 = (uint64_t)(-arg2);
+        return (u_arg1 < max_uint - u_arg2) ? 
+            (int64_t)(u_arg1 + u_arg2) : 
+            (int64_t)max_uint;
     }
 }
 
@@ -3748,6 +3767,27 @@ uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
 
     /* unsigned shift */
     return (u_arg1 >> 1) + (u_arg2 >> 1) + (u_arg1 & u_arg2 & 1);
+}
+
+
+/*
+ *  AVER_S, AVER_U
+ */
+
+int64_t helper_aver_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    /* signed shift */
+    return (arg1 >> 1) + (arg2 >> 1) + ((arg1 ^ arg2) & 1);
+
+}
+
+uint64_t helper_aver_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    /* unsigned shift */
+    return (u_arg1 >> 1) + (u_arg2 >> 1) + ((u_arg1 ^ u_arg2) & 1);
 }
 
 
@@ -4046,6 +4086,14 @@ int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
+
+    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
+}
+
+int64_t helper_dotp_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
+    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
 
     return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
 }
@@ -4728,18 +4776,44 @@ void helper_mvfger_df(void *pwd, uint32_t rs, uint32_t rt, uint32_t wrlen_df)
 
 
 /*
- *  MULV
+ *  MULV, DIV_S, DIV_U, REM_S, REM_U
  */
+
 int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 * arg2;
+}
+
+int64_t helper_div_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 / arg2;
+}
+
+int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 / u_arg2;
+}
+
+int64_t helper_rem_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return arg1 % arg2;
+}
+
+int64_t helper_rem_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    uint64_t u_arg2 = UNSIGNED(arg2, df);
+
+    return u_arg1 % u_arg2;
 }
 
 
 /*
  *  NLZC, NLOC, and PCNT
  */
-
 
 int64_t helper_nlzc_df(int64_t arg, uint32_t df)
 {
