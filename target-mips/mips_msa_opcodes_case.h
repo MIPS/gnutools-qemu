@@ -65,8 +65,8 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_NLZC_df:
             gen_nlzc_df(env, ctx);
             return;
-        case OPC_MVFG_df:
-            gen_mvfg_df(env, ctx);
+        case OPC_FILL_df:
+            gen_fill_df(env, ctx);
             return;
     }
 
@@ -119,20 +119,20 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_MSUBR_Q_df:
             gen_msubr_q_df(env, ctx);
             return;
-        case OPC_SLD_df:
-            gen_sld_df(env, ctx);
+        case OPC_SLDI_df:
+            gen_sldi_df(env, ctx);
             return;
-        case OPC_MOVE_df:
-            gen_move_df(env, ctx);
+        case OPC_SPLATI_df:
+            gen_splati_df(env, ctx);
             return;
-        case OPC_MVTG_S_df:
-            gen_mvtg_s_df(env, ctx);
+        case OPC_COPY_S_df:
+            gen_copy_s_df(env, ctx);
             return;
-        case OPC_MVTG_U_df:
-            gen_mvtg_u_df(env, ctx);
+        case OPC_COPY_U_df:
+            gen_copy_u_df(env, ctx);
             return;
-        case OPC_MVFGE_df:
-            gen_mvfge_df(env, ctx);
+        case OPC_INSVI_df:
+            gen_insvi_df(env, ctx);
             return;
         case OPC_FADD_df:
             gen_fadd_df(env, ctx);
@@ -161,38 +161,56 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FMAX_A_df:
             gen_fmax_a_df(env, ctx);
             return;
+        case OPC_FEXDO_df:
+            gen_fexdo_df(env, ctx);
+            return;
+        case OPC_FCUN_df:
+            gen_fcun_df(env, ctx);
+            return;
+        case OPC_FCEQ_df:
+            gen_fceq_df(env, ctx);
+            return;
+        case OPC_FCNE_df:
+            gen_fcne_df(env, ctx);
+            return;
+        case OPC_FCLT_df:
+            gen_fclt_df(env, ctx);
+            return;
+        case OPC_FCGE_df:
+            gen_fcge_df(env, ctx);
+            return;
+        case OPC_FCLE_df:
+            gen_fcle_df(env, ctx);
+            return;
+        case OPC_FCGT_df:
+            gen_fcgt_df(env, ctx);
+            return;
         case OPC_FMIN_df:
             gen_fmin_df(env, ctx);
             return;
         case OPC_FMIN_A_df:
             gen_fmin_a_df(env, ctx);
             return;
-        case OPC_FCEQ_df:
-            gen_fceq_df(env, ctx);
+        case OPC_FSEQ_df:
+            gen_fseq_df(env, ctx);
             return;
-        case OPC_FCLT_df:
-            gen_fclt_df(env, ctx);
+        case OPC_FSNE_df:
+            gen_fsne_df(env, ctx);
             return;
-        case OPC_FCLE_df:
-            gen_fcle_df(env, ctx);
+        case OPC_FSLT_df:
+            gen_fslt_df(env, ctx);
             return;
-        case OPC_FCUN_df:
-            gen_fcun_df(env, ctx);
+        case OPC_FSGE_df:
+            gen_fsge_df(env, ctx);
             return;
-        case OPC_FCEQU_df:
-            gen_fcequ_df(env, ctx);
+        case OPC_FSLE_df:
+            gen_fsle_df(env, ctx);
             return;
-        case OPC_FCLTU_df:
-            gen_fcltu_df(env, ctx);
-            return;
-        case OPC_FCLEU_df:
-            gen_fcleu_df(env, ctx);
+        case OPC_FSGT_df:
+            gen_fsgt_df(env, ctx);
             return;
         case OPC_FTQ_df:
             gen_ftq_df(env, ctx);
-            return;
-        case OPC_FEXDO_df:
-            gen_fexdo_df(env, ctx);
             return;
     }
 
@@ -326,11 +344,11 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_REM_U_df:
             gen_rem_u_df(env, ctx);
             return;
-        case OPC_SHL_df:
-            gen_shl_df(env, ctx);
+        case OPC_SLL_df:
+            gen_sll_df(env, ctx);
             return;
-        case OPC_SHLI_df:
-            gen_shli_df(env, ctx);
+        case OPC_SLLI_df:
+            gen_slli_df(env, ctx);
             return;
         case OPC_SRA_df:
             gen_sra_df(env, ctx);
@@ -410,6 +428,9 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_BZ_df:
             gen_bz_df(env, ctx);
             return;
+        case OPC_SLD_df:
+            gen_sld_df(env, ctx);
+            return;
         case OPC_VSHF_df:
             gen_vshf_df(env, ctx);
             return;
@@ -431,20 +452,8 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_ILVOD_df:
             gen_ilvod_df(env, ctx);
             return;
-        case OPC_MOVER_df:
-            gen_mover_df(env, ctx);
-            return;
-        case OPC_MVTGR_S_df:
-            gen_mvtgr_s_df(env, ctx);
-            return;
-        case OPC_MVTGR_U_df:
-            gen_mvtgr_u_df(env, ctx);
-            return;
-        case OPC_SLDR_df:
-            gen_sldr_df(env, ctx);
-            return;
-        case OPC_MVFGER_df:
-            gen_mvfger_df(env, ctx);
+        case OPC_SPLAT_df:
+            gen_splat_df(env, ctx);
             return;
         case OPC_LDI_df:
             gen_ldi_df(env, ctx);

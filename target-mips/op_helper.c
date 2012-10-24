@@ -4601,23 +4601,15 @@ int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 
 /*
- *  MOVE, MOVER, and MOVE_V
+ *  SPLAT, and MOVE_V
  */
 
-void helper_mover_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_splat_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     uint32_t n = rt % DF_ELEMENTS(df, wrlen);
-
-    helper_move_df(pwd, pws, n, wrlen_df);
-}
-
-void helper_move_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
 
     msa_check_index(df, n, wrlen);
 
@@ -4661,7 +4653,7 @@ void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
 
 
 /*
- *  LDI, MVFG, MVFGE
+ *  LDI, FILL, INSVI
  */
 void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 {
@@ -4698,7 +4690,7 @@ void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
     }
 }
 
-void helper_mvfg_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
+void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4734,7 +4726,7 @@ void helper_mvfg_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
     }
 }
 
-void helper_mvfge_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
+void helper_insvi_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4762,16 +4754,6 @@ void helper_mvfge_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-}
-
-void helper_mvfger_df(void *pwd, uint32_t rs, uint32_t rt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    uint32_t n = rt % DF_ELEMENTS(df, wrlen);
-
-    helper_mvfge_df(pwd, rs, n, wrlen_df);
 }
 
 
@@ -4884,17 +4866,17 @@ int64_t helper_sat_s_df(int64_t arg, uint32_t m, uint32_t df)
 
 
 /*
- *  SHL, SRA, SRL
+ *  SLL, SRA, SRL
  */
 
-int64_t helper_shl_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_sll_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
     return arg1 << b_arg2;
 }
 
 
-int64_t helper_shli_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_slli_df(int64_t arg, uint32_t m, uint32_t df)
 {
     return arg << m;
 }
@@ -4931,28 +4913,18 @@ int64_t helper_srli_df(int64_t arg, uint32_t m, uint32_t df)
 
 
 /*
- *  SLD, SLDR
+ *  SLD
  */
 
-void helper_sldr_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_sld_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     uint32_t n = rt % DF_ELEMENTS(df, wrlen);
 
-    helper_sld_df(pwd, pws, n, wrlen_df);
-}
-
-void helper_sld_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
     uint8_t v[64];
     uint32_t i, k;
-
-
 
 #define CONCATENATE_AND_SLIDE(s, k)             \
     do {                                        \
@@ -5943,37 +5915,6 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 }
 
 
-void helper_fcequ_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(); 
-    helper_move_v(pwd, pwx, wrlen);
-}
-
 void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
@@ -6005,36 +5946,6 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     helper_move_v(pwd, pwx, wrlen);
 }
 
-void helper_fcleu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(W(pwx, i), le, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(D(pwx, i), le, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(); 
-    helper_move_v(pwd, pwx, wrlen);
-}
 
 void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
@@ -6067,36 +5978,6 @@ void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     helper_move_v(pwd, pwx, wrlen);
 }
 
-void helper_fcltu_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(W(pwx, i), lt, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(D(pwx, i), lt, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(); 
-    helper_move_v(pwd, pwx, wrlen);
-}
 
 void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
