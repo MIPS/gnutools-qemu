@@ -4229,6 +4229,10 @@ print_insn_args (const char *d,
 				     mips_msa_control_names_mips3264r2[(l >> OP_SH_MSACR6) & OP_MASK_MSACR6]);
 	      break;
 
+	    case 'i':
+	      (*info->fprintf_func) (info->stream, "%s",
+				     mips_gpr_names[(l >> OP_SH_GPR) & OP_MASK_GPR]);
+	      break;
 
 	    default:
 	      /* xgettext:c-format */

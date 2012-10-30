@@ -503,7 +503,7 @@ C_END
 
         if ($fieldname eq 'df') {
             # adjust df value for Fixed-Point and Floating-Point instructions
-            my $is_floating = $name =~ /\AF/;
+            my $is_floating = ($name =~ /\AF/) && !($name =~ /\AFILL/);
             my $is_fixed = $name =~ /_Q/;
             if ($is_floating) {
                 $declare_str .= <<C_END;

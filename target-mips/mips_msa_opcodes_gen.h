@@ -4282,10 +4282,6 @@ static void gen_fill_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_rs_wd */
 
     uint8_t df = (ctx->opcode >> 16) & 0x3 /* df [17:16] */;
-
-
-    /* adjust df value for floating-point instruction */
-    df = df + 2;
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
