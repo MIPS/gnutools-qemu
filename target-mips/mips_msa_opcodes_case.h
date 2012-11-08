@@ -5,18 +5,21 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
     /* !!! It must do longest prefix match here! */
 
     switch (opcode & 0xffff003f) {
-        case OPC_MOVE_V:
-            gen_move_v(env, ctx);
-            return;
         case OPC_CTCMSA:
             gen_ctcmsa(env, ctx);
             return;
         case OPC_CFCMSA:
             gen_cfcmsa(env, ctx);
             return;
+        case OPC_MOVE_V:
+            gen_move_v(env, ctx);
+            return;
     }
 
     switch (opcode & 0xfffe003f) {
+        case OPC_FCLASS_df:
+            gen_fclass_df(env, ctx);
+            return;
         case OPC_FSQRT_df:
             gen_fsqrt_df(env, ctx);
             return;
@@ -26,20 +29,11 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FLOG2_df:
             gen_flog2_df(env, ctx);
             return;
-        case OPC_FCLASS_df:
-            gen_fclass_df(env, ctx);
+        case OPC_FEXUPL_df:
+            gen_fexupl_df(env, ctx);
             return;
-        case OPC_FTINT_S_df:
-            gen_ftint_s_df(env, ctx);
-            return;
-        case OPC_FFINT_S_df:
-            gen_ffint_s_df(env, ctx);
-            return;
-        case OPC_FTINT_U_df:
-            gen_ftint_u_df(env, ctx);
-            return;
-        case OPC_FFINT_U_df:
-            gen_ffint_u_df(env, ctx);
+        case OPC_FEXUPR_df:
+            gen_fexupr_df(env, ctx);
             return;
         case OPC_FFQL_df:
             gen_ffql_df(env, ctx);
@@ -47,15 +41,24 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FFQR_df:
             gen_ffqr_df(env, ctx);
             return;
-        case OPC_FEXUPL_df:
-            gen_fexupl_df(env, ctx);
+        case OPC_FTINT_S_df:
+            gen_ftint_s_df(env, ctx);
             return;
-        case OPC_FEXUPR_df:
-            gen_fexupr_df(env, ctx);
+        case OPC_FTINT_U_df:
+            gen_ftint_u_df(env, ctx);
+            return;
+        case OPC_FFINT_S_df:
+            gen_ffint_s_df(env, ctx);
+            return;
+        case OPC_FFINT_U_df:
+            gen_ffint_u_df(env, ctx);
             return;
     }
 
     switch (opcode & 0xfffc003f) {
+        case OPC_FILL_df:
+            gen_fill_df(env, ctx);
+            return;
         case OPC_PCNT_df:
             gen_pcnt_df(env, ctx);
             return;
@@ -64,9 +67,6 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
             return;
         case OPC_NLZC_df:
             gen_nlzc_df(env, ctx);
-            return;
-        case OPC_FILL_df:
-            gen_fill_df(env, ctx);
             return;
     }
 
@@ -101,24 +101,6 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
     }
 
     switch (opcode & 0xffc0003f) {
-        case OPC_MUL_Q_df:
-            gen_mul_q_df(env, ctx);
-            return;
-        case OPC_MULR_Q_df:
-            gen_mulr_q_df(env, ctx);
-            return;
-        case OPC_MADD_Q_df:
-            gen_madd_q_df(env, ctx);
-            return;
-        case OPC_MADDR_Q_df:
-            gen_maddr_q_df(env, ctx);
-            return;
-        case OPC_MSUB_Q_df:
-            gen_msub_q_df(env, ctx);
-            return;
-        case OPC_MSUBR_Q_df:
-            gen_msubr_q_df(env, ctx);
-            return;
         case OPC_SLDI_df:
             gen_sldi_df(env, ctx);
             return;
@@ -131,38 +113,8 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_COPY_U_df:
             gen_copy_u_df(env, ctx);
             return;
-        case OPC_INSVI_df:
-            gen_insvi_df(env, ctx);
-            return;
-        case OPC_FADD_df:
-            gen_fadd_df(env, ctx);
-            return;
-        case OPC_FSUB_df:
-            gen_fsub_df(env, ctx);
-            return;
-        case OPC_FMUL_df:
-            gen_fmul_df(env, ctx);
-            return;
-        case OPC_FDIV_df:
-            gen_fdiv_df(env, ctx);
-            return;
-        case OPC_FMADD_df:
-            gen_fmadd_df(env, ctx);
-            return;
-        case OPC_FMSUB_df:
-            gen_fmsub_df(env, ctx);
-            return;
-        case OPC_FEXP2_df:
-            gen_fexp2_df(env, ctx);
-            return;
-        case OPC_FMAX_df:
-            gen_fmax_df(env, ctx);
-            return;
-        case OPC_FMAX_A_df:
-            gen_fmax_a_df(env, ctx);
-            return;
-        case OPC_FEXDO_df:
-            gen_fexdo_df(env, ctx);
+        case OPC_INSV_df:
+            gen_insv_df(env, ctx);
             return;
         case OPC_FCUN_df:
             gen_fcun_df(env, ctx);
@@ -185,12 +137,6 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FCGT_df:
             gen_fcgt_df(env, ctx);
             return;
-        case OPC_FMIN_df:
-            gen_fmin_df(env, ctx);
-            return;
-        case OPC_FMIN_A_df:
-            gen_fmin_a_df(env, ctx);
-            return;
         case OPC_FSEQ_df:
             gen_fseq_df(env, ctx);
             return;
@@ -209,141 +155,66 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FSGT_df:
             gen_fsgt_df(env, ctx);
             return;
+        case OPC_FADD_df:
+            gen_fadd_df(env, ctx);
+            return;
+        case OPC_FSUB_df:
+            gen_fsub_df(env, ctx);
+            return;
+        case OPC_FMUL_df:
+            gen_fmul_df(env, ctx);
+            return;
+        case OPC_FDIV_df:
+            gen_fdiv_df(env, ctx);
+            return;
+        case OPC_FMADD_df:
+            gen_fmadd_df(env, ctx);
+            return;
+        case OPC_FMSUB_df:
+            gen_fmsub_df(env, ctx);
+            return;
+        case OPC_FEXP2_df:
+            gen_fexp2_df(env, ctx);
+            return;
+        case OPC_FEXDO_df:
+            gen_fexdo_df(env, ctx);
+            return;
         case OPC_FTQ_df:
             gen_ftq_df(env, ctx);
+            return;
+        case OPC_FMIN_df:
+            gen_fmin_df(env, ctx);
+            return;
+        case OPC_FMIN_A_df:
+            gen_fmin_a_df(env, ctx);
+            return;
+        case OPC_FMAX_df:
+            gen_fmax_df(env, ctx);
+            return;
+        case OPC_FMAX_A_df:
+            gen_fmax_a_df(env, ctx);
+            return;
+        case OPC_MUL_Q_df:
+            gen_mul_q_df(env, ctx);
+            return;
+        case OPC_MULR_Q_df:
+            gen_mulr_q_df(env, ctx);
+            return;
+        case OPC_MADD_Q_df:
+            gen_madd_q_df(env, ctx);
+            return;
+        case OPC_MADDR_Q_df:
+            gen_maddr_q_df(env, ctx);
+            return;
+        case OPC_MSUB_Q_df:
+            gen_msub_q_df(env, ctx);
+            return;
+        case OPC_MSUBR_Q_df:
+            gen_msubr_q_df(env, ctx);
             return;
     }
 
     switch (opcode & 0xff80003f) {
-        case OPC_ADDV_df:
-            gen_addv_df(env, ctx);
-            return;
-        case OPC_ADDVI_df:
-            gen_addvi_df(env, ctx);
-            return;
-        case OPC_ADD_A_df:
-            gen_add_a_df(env, ctx);
-            return;
-        case OPC_ADDS_A_df:
-            gen_adds_a_df(env, ctx);
-            return;
-        case OPC_ADDS_S_df:
-            gen_adds_s_df(env, ctx);
-            return;
-        case OPC_ADDS_U_df:
-            gen_adds_u_df(env, ctx);
-            return;
-        case OPC_SUBV_df:
-            gen_subv_df(env, ctx);
-            return;
-        case OPC_SUBVI_df:
-            gen_subvi_df(env, ctx);
-            return;
-        case OPC_ASUB_S_df:
-            gen_asub_s_df(env, ctx);
-            return;
-        case OPC_ASUB_U_df:
-            gen_asub_u_df(env, ctx);
-            return;
-        case OPC_SUBS_S_df:
-            gen_subs_s_df(env, ctx);
-            return;
-        case OPC_SUBS_U_df:
-            gen_subs_u_df(env, ctx);
-            return;
-        case OPC_SUBSS_U_df:
-            gen_subss_u_df(env, ctx);
-            return;
-        case OPC_SUBUS_S_df:
-            gen_subus_s_df(env, ctx);
-            return;
-        case OPC_MAX_A_df:
-            gen_max_a_df(env, ctx);
-            return;
-        case OPC_MAX_S_df:
-            gen_max_s_df(env, ctx);
-            return;
-        case OPC_MAXI_S_df:
-            gen_maxi_s_df(env, ctx);
-            return;
-        case OPC_MAX_U_df:
-            gen_max_u_df(env, ctx);
-            return;
-        case OPC_MAXI_U_df:
-            gen_maxi_u_df(env, ctx);
-            return;
-        case OPC_MIN_A_df:
-            gen_min_a_df(env, ctx);
-            return;
-        case OPC_MIN_S_df:
-            gen_min_s_df(env, ctx);
-            return;
-        case OPC_MINI_S_df:
-            gen_mini_s_df(env, ctx);
-            return;
-        case OPC_MIN_U_df:
-            gen_min_u_df(env, ctx);
-            return;
-        case OPC_MINI_U_df:
-            gen_mini_u_df(env, ctx);
-            return;
-        case OPC_AVE_S_df:
-            gen_ave_s_df(env, ctx);
-            return;
-        case OPC_AVE_U_df:
-            gen_ave_u_df(env, ctx);
-            return;
-        case OPC_AVER_S_df:
-            gen_aver_s_df(env, ctx);
-            return;
-        case OPC_AVER_U_df:
-            gen_aver_u_df(env, ctx);
-            return;
-        case OPC_SAT_S_df:
-            gen_sat_s_df(env, ctx);
-            return;
-        case OPC_SAT_U_df:
-            gen_sat_u_df(env, ctx);
-            return;
-        case OPC_MULV_df:
-            gen_mulv_df(env, ctx);
-            return;
-        case OPC_MADDV_df:
-            gen_maddv_df(env, ctx);
-            return;
-        case OPC_MSUBV_df:
-            gen_msubv_df(env, ctx);
-            return;
-        case OPC_DOTP_S_df:
-            gen_dotp_s_df(env, ctx);
-            return;
-        case OPC_DOTP_U_df:
-            gen_dotp_u_df(env, ctx);
-            return;
-        case OPC_DPADD_S_df:
-            gen_dpadd_s_df(env, ctx);
-            return;
-        case OPC_DPADD_U_df:
-            gen_dpadd_u_df(env, ctx);
-            return;
-        case OPC_DPSUB_S_df:
-            gen_dpsub_s_df(env, ctx);
-            return;
-        case OPC_DPSUB_U_df:
-            gen_dpsub_u_df(env, ctx);
-            return;
-        case OPC_DIV_S_df:
-            gen_div_s_df(env, ctx);
-            return;
-        case OPC_DIV_U_df:
-            gen_div_u_df(env, ctx);
-            return;
-        case OPC_REM_S_df:
-            gen_rem_s_df(env, ctx);
-            return;
-        case OPC_REM_U_df:
-            gen_rem_u_df(env, ctx);
-            return;
         case OPC_SLL_df:
             gen_sll_df(env, ctx);
             return;
@@ -361,18 +232,6 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
             return;
         case OPC_SRLI_df:
             gen_srli_df(env, ctx);
-            return;
-        case OPC_BINSL_df:
-            gen_binsl_df(env, ctx);
-            return;
-        case OPC_BINSLI_df:
-            gen_binsli_df(env, ctx);
-            return;
-        case OPC_BINSR_df:
-            gen_binsr_df(env, ctx);
-            return;
-        case OPC_BINSRI_df:
-            gen_binsri_df(env, ctx);
             return;
         case OPC_BCLR_df:
             gen_bclr_df(env, ctx);
@@ -392,6 +251,60 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_BNEGI_df:
             gen_bnegi_df(env, ctx);
             return;
+        case OPC_BINSL_df:
+            gen_binsl_df(env, ctx);
+            return;
+        case OPC_BINSLI_df:
+            gen_binsli_df(env, ctx);
+            return;
+        case OPC_BINSR_df:
+            gen_binsr_df(env, ctx);
+            return;
+        case OPC_BINSRI_df:
+            gen_binsri_df(env, ctx);
+            return;
+        case OPC_ADDV_df:
+            gen_addv_df(env, ctx);
+            return;
+        case OPC_ADDVI_df:
+            gen_addvi_df(env, ctx);
+            return;
+        case OPC_SUBV_df:
+            gen_subv_df(env, ctx);
+            return;
+        case OPC_SUBVI_df:
+            gen_subvi_df(env, ctx);
+            return;
+        case OPC_MAX_S_df:
+            gen_max_s_df(env, ctx);
+            return;
+        case OPC_MAXI_S_df:
+            gen_maxi_s_df(env, ctx);
+            return;
+        case OPC_MAX_U_df:
+            gen_max_u_df(env, ctx);
+            return;
+        case OPC_MAXI_U_df:
+            gen_maxi_u_df(env, ctx);
+            return;
+        case OPC_MIN_S_df:
+            gen_min_s_df(env, ctx);
+            return;
+        case OPC_MINI_S_df:
+            gen_mini_s_df(env, ctx);
+            return;
+        case OPC_MIN_U_df:
+            gen_min_u_df(env, ctx);
+            return;
+        case OPC_MINI_U_df:
+            gen_mini_u_df(env, ctx);
+            return;
+        case OPC_MAX_A_df:
+            gen_max_a_df(env, ctx);
+            return;
+        case OPC_MIN_A_df:
+            gen_min_a_df(env, ctx);
+            return;
         case OPC_CEQ_df:
             gen_ceq_df(env, ctx);
             return;
@@ -404,17 +317,17 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_CLTI_S_df:
             gen_clti_s_df(env, ctx);
             return;
-        case OPC_CLE_S_df:
-            gen_cle_s_df(env, ctx);
-            return;
-        case OPC_CLEI_S_df:
-            gen_clei_s_df(env, ctx);
-            return;
         case OPC_CLT_U_df:
             gen_clt_u_df(env, ctx);
             return;
         case OPC_CLTI_U_df:
             gen_clti_u_df(env, ctx);
+            return;
+        case OPC_CLE_S_df:
+            gen_cle_s_df(env, ctx);
+            return;
+        case OPC_CLEI_S_df:
+            gen_clei_s_df(env, ctx);
             return;
         case OPC_CLE_U_df:
             gen_cle_u_df(env, ctx);
@@ -422,17 +335,110 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_CLEI_U_df:
             gen_clei_u_df(env, ctx);
             return;
-        case OPC_BNZ_df:
-            gen_bnz_df(env, ctx);
+        case OPC_LD_df:
+            gen_ld_df(env, ctx);
             return;
-        case OPC_BZ_df:
-            gen_bz_df(env, ctx);
+        case OPC_ST_df:
+            gen_st_df(env, ctx);
+            return;
+        case OPC_LDX_df:
+            gen_ldx_df(env, ctx);
+            return;
+        case OPC_STX_df:
+            gen_stx_df(env, ctx);
+            return;
+        case OPC_SAT_S_df:
+            gen_sat_s_df(env, ctx);
+            return;
+        case OPC_SAT_U_df:
+            gen_sat_u_df(env, ctx);
+            return;
+        case OPC_ADD_A_df:
+            gen_add_a_df(env, ctx);
+            return;
+        case OPC_ADDS_A_df:
+            gen_adds_a_df(env, ctx);
+            return;
+        case OPC_ADDS_S_df:
+            gen_adds_s_df(env, ctx);
+            return;
+        case OPC_ADDS_U_df:
+            gen_adds_u_df(env, ctx);
+            return;
+        case OPC_AVE_S_df:
+            gen_ave_s_df(env, ctx);
+            return;
+        case OPC_AVE_U_df:
+            gen_ave_u_df(env, ctx);
+            return;
+        case OPC_AVER_S_df:
+            gen_aver_s_df(env, ctx);
+            return;
+        case OPC_AVER_U_df:
+            gen_aver_u_df(env, ctx);
+            return;
+        case OPC_SUBS_S_df:
+            gen_subs_s_df(env, ctx);
+            return;
+        case OPC_SUBS_U_df:
+            gen_subs_u_df(env, ctx);
+            return;
+        case OPC_SUBUS_S_df:
+            gen_subus_s_df(env, ctx);
+            return;
+        case OPC_SUBSS_U_df:
+            gen_subss_u_df(env, ctx);
+            return;
+        case OPC_ASUB_S_df:
+            gen_asub_s_df(env, ctx);
+            return;
+        case OPC_ASUB_U_df:
+            gen_asub_u_df(env, ctx);
+            return;
+        case OPC_MULV_df:
+            gen_mulv_df(env, ctx);
+            return;
+        case OPC_MADDV_df:
+            gen_maddv_df(env, ctx);
+            return;
+        case OPC_MSUBV_df:
+            gen_msubv_df(env, ctx);
+            return;
+        case OPC_DIV_S_df:
+            gen_div_s_df(env, ctx);
+            return;
+        case OPC_DIV_U_df:
+            gen_div_u_df(env, ctx);
+            return;
+        case OPC_MOD_S_df:
+            gen_mod_s_df(env, ctx);
+            return;
+        case OPC_MOD_U_df:
+            gen_mod_u_df(env, ctx);
+            return;
+        case OPC_DOTP_S_df:
+            gen_dotp_s_df(env, ctx);
+            return;
+        case OPC_DOTP_U_df:
+            gen_dotp_u_df(env, ctx);
+            return;
+        case OPC_DPADD_S_df:
+            gen_dpadd_s_df(env, ctx);
+            return;
+        case OPC_DPADD_U_df:
+            gen_dpadd_u_df(env, ctx);
+            return;
+        case OPC_DPSUB_S_df:
+            gen_dpsub_s_df(env, ctx);
+            return;
+        case OPC_DPSUB_U_df:
+            gen_dpsub_u_df(env, ctx);
             return;
         case OPC_SLD_df:
             gen_sld_df(env, ctx);
             return;
-        case OPC_VSHF_df:
-            gen_vshf_df(env, ctx);
+        case OPC_SPLAT_df:
+            gen_splat_df(env, ctx);
             return;
         case OPC_PCKEV_df:
             gen_pckev_df(env, ctx);
@@ -452,23 +458,17 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_ILVOD_df:
             gen_ilvod_df(env, ctx);
             return;
-        case OPC_SPLAT_df:
-            gen_splat_df(env, ctx);
+        case OPC_VSHF_df:
+            gen_vshf_df(env, ctx);
+            return;
+        case OPC_BNZ_df:
+            gen_bnz_df(env, ctx);
+            return;
+        case OPC_BZ_df:
+            gen_bz_df(env, ctx);
             return;
         case OPC_LDI_df:
             gen_ldi_df(env, ctx);
-            return;
-        case OPC_LD_df:
-            gen_ld_df(env, ctx);
-            return;
-        case OPC_LDX_df:
-            gen_ldx_df(env, ctx);
-            return;
-        case OPC_ST_df:
-            gen_st_df(env, ctx);
-            return;
-        case OPC_STX_df:
-            gen_stx_df(env, ctx);
             return;
     }
 

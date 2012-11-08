@@ -4653,7 +4653,7 @@ void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
 
 
 /*
- *  LDI, FILL, INSVI
+ *  LDI, FILL, INSV
  */
 void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 {
@@ -4726,7 +4726,7 @@ void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
     }
 }
 
-void helper_insvi_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
+void helper_insv_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4758,7 +4758,7 @@ void helper_insvi_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
 
 
 /*
- *  MULV, DIV_S, DIV_U, REM_S, REM_U
+ *  MULV, DIV_S, DIV_U, MOD_S, MOD_U
  */
 
 int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -4779,12 +4779,12 @@ int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     return u_arg1 / u_arg2;
 }
 
-int64_t helper_rem_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mod_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 % arg2;
 }
 
-int64_t helper_rem_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mod_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
