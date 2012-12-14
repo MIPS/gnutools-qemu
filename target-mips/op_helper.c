@@ -6905,12 +6905,8 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
             &env->active_msa.fp_status);
 
         /* set float_status flush modes */
-        set_flush_to_zero(
-            (env->active_msa.msacsr & MSACSR_FS_BIT) != 0,
-            &env->active_msa.fp_status);
-        set_flush_inputs_to_zero(
-            (env->active_msa.msacsr & MSACSR_IS_BIT) != 0,
-            &env->active_msa.fp_status);
+        set_flush_to_zero(0, &env->active_msa.fp_status);
+        set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
 
         /* check exception */
         if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
