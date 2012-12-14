@@ -5544,33 +5544,19 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
-                MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
-                                 W(pws, i), W(pwt, i), 0, 32);
-            } else {
-                MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+          MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
+                           W(pws, i), W(pwt, i), 0, 32);
 
-                if (!(get_float_exception_flags(&env->active_msa.fp_status)
-                      & float_flag_invalid)) {
-                    MSA_FLOAT_BINOP(W(pwx, i), add, W(pwd, i), W(pwx, i), 32);
-                }
-            }
+          printf("%d: 0x%08x <-- 0x%08x + 0x%08x * 0x%08x\n", 
+                 i, W(pwx, i), W(pwd, i), W(pws, i), W(pwt, i));
+
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
-                MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
-                                 D(pws, i), D(pwt, i), 0, 64);
-            } else {
-                MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
-
-                if (!(get_float_exception_flags(&env->active_msa.fp_status)
-                      & float_flag_invalid)) {
-                    MSA_FLOAT_BINOP(D(pwx, i), add, D(pwd, i), D(pwx, i), 64);
-                }
-            }
+          MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
+                           D(pws, i), D(pwt, i), 0, 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -5595,35 +5581,21 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
-                MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
-                                 W(pws, i), W(pwt, i),
-                                 float_muladd_negate_product, 32);
-            } else {
-                MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+          MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
+                           W(pws, i), W(pwt, i),
+                           float_muladd_negate_product, 32);
 
-                if (!(get_float_exception_flags(&env->active_msa.fp_status)
-                      & float_flag_invalid)) {
-                    MSA_FLOAT_BINOP(W(pwx, i), sub, W(pwd, i), W(pwx, i), 32);
-                }
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
+          printf("%d: 0x%08x <-- 0x%08x - 0x%08x * 0x%08x\n", 
+                 i, W(pwx, i), W(pwd, i), W(pws, i), W(pwt, i));
+
+      } DONE_ALL_ELEMENTS;
+      break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            if (env->active_msa.msacsr & MSACSR_MAC2008_BIT) {
-                MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
-                                 D(pws, i), D(pwt, i),
-                                 float_muladd_negate_product, 64);
-            } else {
-                MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
-
-                if (!(get_float_exception_flags(&env->active_msa.fp_status)
-                      & float_flag_invalid)) {
-                    MSA_FLOAT_BINOP(D(pwx, i), sub, D(pwd, i), D(pwx, i), 64);
-                }
-            }
+          MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
+                           D(pws, i), D(pwt, i),
+                           float_muladd_negate_product, 64);
         } DONE_ALL_ELEMENTS;
         break;
 
