@@ -35,7 +35,14 @@ these four paragraphs for those parts of this code that are retained.
 
 =============================================================================*/
 
-#if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+
+#if defined TARGET_MIPS
+/* #define TARGET_MIPS_LEGACYFP */
+   #define TARGET_MIPS_IEEE2008
+#endif
+
+
+#if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
 #define SNAN_BIT_IS_ONE		1
 #else
 #define SNAN_BIT_IS_ONE		0
@@ -44,7 +51,7 @@ these four paragraphs for those parts of this code that are retained.
 /*----------------------------------------------------------------------------
 | The pattern for a default generated half-precision NaN.
 *----------------------------------------------------------------------------*/
-#if defined(TARGET_ARM)
+#if defined(TARGET_ARM) || defined(TARGET_MIPS_IEEE2008)
 const float16 float16_default_nan = const_float16(0x7E00);
 #elif SNAN_BIT_IS_ONE
 const float16 float16_default_nan = const_float16(0x7DFF);
@@ -57,7 +64,7 @@ const float16 float16_default_nan = const_float16(0xFE00);
 *----------------------------------------------------------------------------*/
 #if defined(TARGET_SPARC)
 const float32 float32_default_nan = const_float32(0x7FFFFFFF);
-#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA)
+#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || defined(TARGET_MIPS_IEEE2008)
 const float32 float32_default_nan = const_float32(0x7FC00000);
 #elif SNAN_BIT_IS_ONE
 const float32 float32_default_nan = const_float32(0x7FBFFFFF);
@@ -70,7 +77,7 @@ const float32 float32_default_nan = const_float32(0xFFC00000);
 *----------------------------------------------------------------------------*/
 #if defined(TARGET_SPARC)
 const float64 float64_default_nan = const_float64(LIT64( 0x7FFFFFFFFFFFFFFF ));
-#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA)
+#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || defined(TARGET_MIPS_IEEE2008)
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF8000000000000 ));
 #elif SNAN_BIT_IS_ONE
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF7FFFFFFFFFFFF ));
@@ -138,11 +145,7 @@ int float16_is_quiet_nan(float16 a_)
 #if SNAN_BIT_IS_ONE
     return (((a >> 9) & 0x3F) == 0x3E) && (a & 0x1FF);
 #else
-#  if defined(TARGET_MIPS)
     return ((a & ~0x8000) >= 0x7e00);
-#  else
-    return ((a & ~0x8000) >= 0x7c80);
-#  endif
 #endif
 }
 
@@ -155,11 +158,7 @@ int float16_is_signaling_nan(float16 a_)
 {
     uint16_t a = float16_val(a_);
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS)
     return ((a & ~0x8000) >= 0x7e00);
-#  else
-    return ((a & ~0x8000) >= 0x7c80);
-#  endif
 #else
     return (((a >> 9) & 0x3F) == 0x3E) && (a & 0x1FF);
 #endif
@@ -173,7 +172,7 @@ float16 float16_maybe_silence_nan(float16 a_)
 {
     if (float16_is_signaling_nan(a_)) {
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#  if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
         return float16_default_nan;
 #  else
 #    error Rules for silencing a signaling NaN are target-specific
@@ -264,7 +263,7 @@ float32 float32_maybe_silence_nan( float32 a_ )
 {
     if (float32_is_signaling_nan(a_)) {
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#  if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
         return float32_default_nan;
 #  else
 #    error Rules for silencing a signaling NaN are target-specific
@@ -433,7 +432,42 @@ static int pickNaN(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
 | information.
 | Return values : 0 : a; 1 : b; 2 : c; 3 : default-NaN
 *----------------------------------------------------------------------------*/
-#if defined(TARGET_ARM)
+
+#if defined(TARGET_MIPS_IEEE2008)
+static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
+                         flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
+{
+  /* MSA/FPU2 arguments are d, s, t corresponding to c, a, b
+   *
+   * NaN rules are:
+   *  - s/a if is sNaN
+   *  - t/b if is sNaN
+   *  - d/c if is sNaN
+   *  - s/a if is qNaN
+   *  - t/b if is qNaN
+   *  - default qNaN signaling Invalid
+   *       if s/a * t/b is infzero
+   *  - d/c if is qNaN
+   */
+
+  if (aIsSNaN) {
+    return 0;
+  } else if (bIsSNaN) {
+    return 1;
+  } else if (cIsSNaN) {
+    return 2;
+  } else if (aIsQNaN) {
+    return 0;
+  } else if (bIsQNaN) {
+    return 1;
+  } else if (infzero) {
+    float_raise(float_flag_invalid STATUS_VAR);
+    return 3;
+  } else {
+    return 2;
+  }
+}
+#elif defined(TARGET_ARM)
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
                          flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
 {
@@ -637,7 +671,7 @@ float64 float64_maybe_silence_nan( float64 a_ )
 {
     if (float64_is_signaling_nan(a_)) {
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#  if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
         return float64_default_nan;
 #  else
 #    error Rules for silencing a signaling NaN are target-specific
@@ -834,7 +868,7 @@ floatx80 floatx80_maybe_silence_nan( floatx80 a )
 {
     if (floatx80_is_signaling_nan(a)) {
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#  if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
         a.low = floatx80_default_nan_low;
         a.high = floatx80_default_nan_high;
 #  else
@@ -982,7 +1016,7 @@ float128 float128_maybe_silence_nan( float128 a )
 {
     if (float128_is_signaling_nan(a)) {
 #if SNAN_BIT_IS_ONE
-#  if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#  if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
         a.low = float128_default_nan_low;
         a.high = float128_default_nan_high;
 #  else

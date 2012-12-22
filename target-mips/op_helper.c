@@ -2377,10 +2377,15 @@ void cpu_unassigned_access(CPUState *env1, target_phys_addr_t addr,
 #define FLOAT_ONE64 make_float64(0x3ffULL << 52)
 #define FLOAT_TWO32 make_float32(1 << 30)
 #define FLOAT_TWO64 make_float64(1ULL << 62)
-#define FLOAT_QNAN32 0x7fbfffff
-#define FLOAT_QNAN64 0x7ff7ffffffffffffULL
-#define FLOAT_SNAN32 0x7fffffff
-#define FLOAT_SNAN64 0x7fffffffffffffffULL
+
+#define FLOAT_QNAN16 (int16_t)float16_default_nan /* 0x7e00 */
+#define FLOAT_QNAN32 (int32_t)float32_default_nan /* 0x7fc00000 */
+#define FLOAT_QNAN64 (int64_t)float64_default_nan /* 0x7ff8000000000000 */
+
+#define FLOAT_SNAN16 (float16_default_nan ^ 0x0300) /* 0x7d00 */
+#define FLOAT_SNAN32 (float32_default_nan ^ 0x00600000) /* 0x7fa00000 */
+#define FLOAT_SNAN64 (float64_default_nan ^ 0x000c000000000000ULL) /* 0x7ff4000000000000 */
+
 
 /* convert MIPS rounding mode in FCR31 to IEEE library */
 static unsigned int ieee_rm[] = {
@@ -3651,14 +3656,14 @@ int64_t helper_subus_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 
     if (arg2 >= 0) {
         uint64_t u_arg2 = (uint64_t)arg2;
-        return (u_arg1 > u_arg2) ? 
-            (int64_t)(u_arg1 - u_arg2) : 
+        return (u_arg1 > u_arg2) ?
+            (int64_t)(u_arg1 - u_arg2) :
             0;
     }
     else {
         uint64_t u_arg2 = (uint64_t)(-arg2);
-        return (u_arg1 < max_uint - u_arg2) ? 
-            (int64_t)(u_arg1 + u_arg2) : 
+        return (u_arg1 < max_uint - u_arg2) ?
+            (int64_t)(u_arg1 + u_arg2) :
             (int64_t)max_uint;
     }
 }
@@ -4737,7 +4742,7 @@ void helper_insv_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
     case DF_BYTE:
         B(pwd, n)   = (int8_t)rs;
         break;
- 
+
     case DF_HALF:
         H(pwd, n)   = (int16_t)rs;
         break;
@@ -5156,7 +5161,7 @@ void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
     int wrlen = 128;
     uint32_t n = i % DF_ELEMENTS(df, wrlen);
 
-  
+
     helper_store_wr(val, wreg, df, n);
 }
 
@@ -5174,11 +5179,11 @@ static void clear_msacsr_cause(void) {
 }
 
 static void restore_msacsr_flags(void) {
-    SET_FP_FLAGS(env->active_msa.msacsr, 
+    SET_FP_FLAGS(env->active_msa.msacsr,
                  GET_FP_FLAGS(env->active_msa.msacsr_saved));
 }
 
-static void check_msacsr_cause(void) 
+static void check_msacsr_cause(void)
 {
     if (env->active_msa.msacsr & MSACSR_NX_BIT) {
         return;
@@ -5238,14 +5243,32 @@ static int update_msacsr(void)
     return ex_cause;
 }
 
-#define FLOAT_SNAN16 0x7fff
-
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
 do {                                                                    \
     int nx_cause;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
+    nx_cause = update_msacsr();                                         \
+    if (nx_cause) {                                                     \
+        DEST = float ## BITS ## _is_signaling_nan(ARG) ? ARG            \
+            : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
+    }                                                                   \
+} while (0)
+
+#define MSA_FLOAT_LOGB(DEST, ARG, BITS)                                 \
+do {                                                                    \
+    int nx_cause;                                                       \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## log2(ARG,                              \
+                                    &env->active_msa.fp_status);        \
+    set_float_rounding_mode(float_round_to_zero,                        \
+                            &env->active_msa.fp_status);                \
+    DEST = float ## BITS ## _ ## round_to_int(DEST,                     \
+                                      &env->active_msa.fp_status);      \
+    set_float_rounding_mode(ieee_rm[(env->active_msa.msacsr &           \
+                                     MSACSR_RM_MASK) >> MSACSR_RM_POS], \
+                            &env->active_msa.fp_status);                \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
         DEST = float ## BITS ## _is_signaling_nan(ARG) ? ARG            \
@@ -5261,8 +5284,8 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG2) ? ARG2          \
-            : float ## BITS ## _is_signaling_nan(ARG1) ? ARG1           \
+        DEST = float ## BITS ## _is_signaling_nan(ARG1) ? ARG1          \
+            : float ## BITS ## _is_signaling_nan(ARG2) ? ARG2           \
             : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
     }                                                                   \
 } while (0)
@@ -5275,8 +5298,8 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG3) ? ARG3          \
-            : float ## BITS ## _is_signaling_nan(ARG2) ? ARG2           \
+        DEST = float ## BITS ## _is_signaling_nan(ARG2) ? ARG2          \
+            : float ## BITS ## _is_signaling_nan(ARG3) ? ARG3           \
             : float ## BITS ## _is_signaling_nan(ARG1) ? ARG1           \
             : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
     }                                                                   \
@@ -5318,7 +5341,7 @@ void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5349,7 +5372,7 @@ void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5380,7 +5403,7 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5397,9 +5420,6 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             MSA_FLOAT_BINOP(W(pwx, i), div, W(pws, i), W(pwt, i), 32);
-
-            printf("%d 0x%08x 0x%08x\n", i, W(pwd, i), W(pwx, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5414,7 +5434,7 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5450,7 +5470,7 @@ void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5492,7 +5512,7 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5508,13 +5528,13 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), log2, W(pws, i), 32);
+            MSA_FLOAT_LOGB(W(pwx, i), W(pws, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), log2, D(pws, i), 64);
+            MSA_FLOAT_LOGB(D(pwx, i), D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -5523,7 +5543,7 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5546,11 +5566,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_W_ELEMENTS(i, wrlen) {
           MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                            W(pws, i), W(pwt, i), 0, 32);
-
-          printf("%d: 0x%08x <-- 0x%08x + 0x%08x * 0x%08x\n", 
-                 i, W(pwx, i), W(pwd, i), W(pws, i), W(pwt, i));
-
-        } DONE_ALL_ELEMENTS;
+         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
@@ -5565,7 +5581,7 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5584,10 +5600,6 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
           MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
                            W(pws, i), W(pwt, i),
                            float_muladd_negate_product, 32);
-
-          printf("%d: 0x%08x <-- 0x%08x - 0x%08x * 0x%08x\n", 
-                 i, W(pwx, i), W(pwd, i), W(pws, i), W(pwt, i));
-
       } DONE_ALL_ELEMENTS;
       break;
 
@@ -5604,7 +5616,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5675,7 +5687,7 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5723,7 +5735,7 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5755,7 +5767,7 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5803,7 +5815,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5883,7 +5895,7 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5916,7 +5928,7 @@ void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5948,7 +5960,7 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -5979,7 +5991,7 @@ void helper_fcge_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6011,7 +6023,7 @@ void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6042,7 +6054,7 @@ void helper_fcgt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6074,7 +6086,7 @@ void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6106,7 +6118,7 @@ void helper_fseq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6139,7 +6151,7 @@ void helper_fsne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6171,7 +6183,7 @@ void helper_fsle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6202,7 +6214,7 @@ void helper_fsge_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6234,7 +6246,7 @@ void helper_fslt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6265,7 +6277,7 @@ void helper_fsgt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6378,7 +6390,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
             MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
-            
+
             WL(pwx, i) = float32_maybe_silence_nan(WL(pwx, i));
             WR(pwx, i) = float32_maybe_silence_nan(WR(pwx, i));
         } DONE_ALL_ELEMENTS;
@@ -6501,7 +6513,7 @@ void helper_ffint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6533,7 +6545,7 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6550,28 +6562,21 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            if (env->active_msa.fp_status.float_rounding_mode
-                                       == float_round_to_zero) {
-                MSA_FLOAT_UNOP(W(pwx, i),
-                               to_int32_round_to_zero, W(pws, i), 32);
-            }
-            else {
-                MSA_FLOAT_UNOP(W(pwx, i),
-                               to_int32, W(pws, i), 32);
-            }
+          MSA_FLOAT_UNOP(W(pwx, i), to_int32, W(pws, i), 32);
+
+          if (float32_is_any_nan(W(pws, i))) {
+            W(pwx, i) = 0;
+          }
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            if (env->active_msa.fp_status.float_rounding_mode
-                                       == float_round_to_zero) {
-                MSA_FLOAT_UNOP(D(pwx, i),
-                               to_int64_round_to_zero, D(pws, i), 64);
-            }
-            else {
-                MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
-            }
+          MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
+
+          if (float64_is_any_nan(D(pws, i))) {
+            D(pwx, i) = 0;
+          }
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6580,7 +6585,7 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6597,29 +6602,21 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-             if (env->active_msa.fp_status.float_rounding_mode
-                                        == float_round_to_zero) {
-                 MSA_FLOAT_UNOP(W(pwx, i),
-                                to_uint32_round_to_zero, W(pws, i), 32);
-             }
-             else {
-                 MSA_FLOAT_UNOP(W(pwx, i),
-                                to_uint32, W(pws, i), 32);
-             }
+          MSA_FLOAT_UNOP(W(pwx, i), to_uint32, W(pws, i), 32);
+
+          if (float32_is_any_nan(W(pws, i))) {
+            W(pwx, i) = 0;
+          }
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            if (env->active_msa.fp_status.float_rounding_mode
-                                       == float_round_to_zero) {
-                MSA_FLOAT_UNOP(D(pwx, i),
-                               to_uint64_round_to_zero, D(pws, i), 64);
-            }
-            else {
-                MSA_FLOAT_UNOP(D(pwx, i),
-                               to_uint64, D(pws, i), 64);
-            }
+          MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
+
+          if (float64_is_any_nan(D(pws, i))) {
+            D(pwx, i) = 0;
+          }
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6628,7 +6625,7 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6659,7 +6656,7 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6817,7 +6814,7 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause(); 
+    check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
 }
 
@@ -6841,7 +6838,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
                GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
 #endif
         return env->active_msa.msacsr & MSACSR_BITS;
-        
+
     case MSAACCESS_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT)
             return env->active_msa.msaaccess;
@@ -6853,7 +6850,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
             return env->active_msa.msasave;
         else
             break;
-        
+
     case MSAMODIFY_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT)
             return env->active_msa.msamodify;
@@ -6891,12 +6888,6 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         break;
 
     case MSACSR_REGISTER:
-        /* This implementation only supports MIPS scalar FPU compatible
-           NaN encoding (NAN2008 set to 0). QEMU softfloat library selects
-           at compile time the NaN encoding based on the target CPU, which
-           for MIPS is the MIPS scalar FPU encoding. */
-        assert((elm &  MSACSR_NAN2008_BIT) == 0);
-
         env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
 
         /* set float_status rounding mode */
@@ -6915,10 +6906,10 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         }
 
         return;
-        
+
     case MSAACCESS_REGISTER:
         break;
-        
+
     case MSASAVE_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT) {
             env->active_msa.msasave = (int32_t)elm;
@@ -6926,7 +6917,7 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         }
         else
             break;
-        
+
     case MSAMODIFY_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT) {
             env->active_msa.msamodify = (int32_t)elm;
@@ -6941,27 +6932,27 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     case MSAMAP_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT) {
             env->active_msa.msamap = (int32_t)elm;
- 
+
             /* TBD */
-            
+
             env->active_msa.msaaccess |= 1 << (int32_t)elm;
             return;
         }
         else
             break;
-        
+
     case MSAUNMAP_REGISTER:
         if (env->active_msa.msair & MSAIR_WRP_BIT) {
              env->active_msa.msaunmap = (int32_t)elm;
- 
+
             /* TBD */
-            
+
              env->active_msa.msaaccess &= ~(1 << (int32_t)elm);
              return;
         }
-        else        
+        else
             break;
     }
-    
+
     helper_raise_exception(EXCP_RI);
 }
