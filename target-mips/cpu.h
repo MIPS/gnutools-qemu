@@ -93,7 +93,7 @@ struct CPUMIPSMSAContext {
 #define MSACSR_CAUSE_ENABLE_FLAGS_MASK \
     (0xffff << MSACSR_CAUSE_ENABLE_FLAGS_POS)
 
-#define MSACSR_NX_POS 26
+#define MSACSR_NX_POS 18
 #define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
 
 
