@@ -3782,7 +3782,7 @@ uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
 int64_t helper_aver_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
     /* signed shift */
-    return (arg1 >> 1) + (arg2 >> 1) + ((arg1 ^ arg2) & 1);
+    return (arg1 >> 1) + (arg2 >> 1) + ((arg1 | arg2) & 1);
 
 }
 
@@ -3792,7 +3792,7 @@ uint64_t helper_aver_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
     uint64_t u_arg2 = UNSIGNED(arg2, df);
 
     /* unsigned shift */
-    return (u_arg1 >> 1) + (u_arg2 >> 1) + ((u_arg1 ^ u_arg2) & 1);
+    return (u_arg1 >> 1) + (u_arg2 >> 1) + ((u_arg1 | u_arg2) & 1);
 }
 
 
@@ -4773,7 +4773,7 @@ int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 int64_t helper_div_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
-    return arg1 / arg2;
+  return arg2 ? arg1 / arg2 : 0;
 }
 
 int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -4781,12 +4781,12 @@ int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
 
-    return u_arg1 / u_arg2;
+    return u_arg2 ? u_arg1 / u_arg2 : 0;
 }
 
 int64_t helper_mod_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
-    return arg1 % arg2;
+  return arg2 ? arg1 % arg2 : 0;
 }
 
 int64_t helper_mod_u_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -4794,7 +4794,7 @@ int64_t helper_mod_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
 
-    return u_arg1 % u_arg2;
+    return u_arg2 ? u_arg1 % u_arg2 : 0;
 }
 
 
@@ -6703,7 +6703,7 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 
     /* scaling and conversion as integer */
     a = float32_scalbn(a, 15 STATUS_VAR);
-    q_val = float32_to_int16_round_to_zero(a STATUS_VAR);
+    q_val = (int16)float32_to_int32(a STATUS_VAR);
 
     return q_val;
 }
@@ -6876,7 +6876,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
             break;
     }
 
-    helper_raise_exception(EXCP_RI);
+    // helper_raise_exception(EXCP_RI);
     return 0;
 }
 
@@ -6954,5 +6954,5 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
             break;
     }
 
-    helper_raise_exception(EXCP_RI);
+    // helper_raise_exception(EXCP_RI);
 }

@@ -23,10 +23,10 @@ static void gen_sll_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_sll_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -81,9 +81,9 @@ static void gen_slli_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_slli_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -120,10 +120,10 @@ static void gen_sra_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_sra_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -178,9 +178,9 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_srai_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -217,10 +217,10 @@ static void gen_srl_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_srl_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -275,9 +275,9 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_srli_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -314,10 +314,10 @@ static void gen_bclr_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_bclr_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -372,9 +372,9 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_bclri_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -411,10 +411,10 @@ static void gen_bset_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_bset_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -469,9 +469,9 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_bseti_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -508,10 +508,10 @@ static void gen_bneg_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_bneg_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -566,9 +566,9 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_bnegi_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -605,11 +605,11 @@ static void gen_binsl_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_binsl_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -664,10 +664,10 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_binsli_df(td, td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -704,11 +704,11 @@ static void gen_binsr_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_binsr_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -763,10 +763,10 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_binsri_df(td, td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -803,10 +803,10 @@ static void gen_addv_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_addv_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -843,9 +843,9 @@ static void gen_addvi_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_addv_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -882,10 +882,10 @@ static void gen_subv_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_subv_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -922,9 +922,9 @@ static void gen_subvi_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_subv_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -961,10 +961,10 @@ static void gen_max_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_max_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1002,9 +1002,9 @@ static void gen_maxi_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_max_s_df(td, ts, ts5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1041,10 +1041,10 @@ static void gen_max_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_max_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1081,9 +1081,9 @@ static void gen_maxi_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_max_u_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1120,10 +1120,10 @@ static void gen_min_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_min_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1161,9 +1161,9 @@ static void gen_mini_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_min_s_df(td, ts, ts5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1200,10 +1200,10 @@ static void gen_min_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_min_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1240,9 +1240,9 @@ static void gen_mini_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_min_u_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1279,10 +1279,10 @@ static void gen_max_a_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_max_a_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1320,10 +1320,10 @@ static void gen_min_a_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_min_a_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1361,10 +1361,10 @@ static void gen_ceq_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_ceq_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1402,9 +1402,9 @@ static void gen_ceqi_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_ceq_df(td, ts, ts5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1441,10 +1441,10 @@ static void gen_clt_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_clt_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1482,9 +1482,9 @@ static void gen_clti_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_clt_s_df(td, ts, ts5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1521,10 +1521,10 @@ static void gen_clt_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_clt_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1561,9 +1561,9 @@ static void gen_clti_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_clt_u_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1600,10 +1600,10 @@ static void gen_cle_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_cle_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1641,9 +1641,9 @@ static void gen_clei_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_cle_s_df(td, ts, ts5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1680,10 +1680,10 @@ static void gen_cle_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_cle_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1720,9 +1720,9 @@ static void gen_clei_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_cle_u_df(td, ts, tu5, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1758,7 +1758,7 @@ static void gen_ld_df(CPUState *env, DisasContext *ctx) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
         tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1790,7 +1790,7 @@ static void gen_st_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
         tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
         tcg_temp_free_i32(ti);
@@ -1833,7 +1833,7 @@ static void gen_ldx_df(CPUState *env, DisasContext *ctx) {
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
         gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
         tcg_gen_qemu_ld32s(td, telemaddr, ctx->mem_idx);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1875,7 +1875,7 @@ static void gen_stx_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
         gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
         tcg_gen_qemu_st32(td, telemaddr, ctx->mem_idx);
@@ -1934,9 +1934,9 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_sat_s_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1990,9 +1990,9 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_sat_u_df(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2029,10 +2029,10 @@ static void gen_add_a_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_add_a_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2070,10 +2070,10 @@ static void gen_adds_a_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_adds_a_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2111,10 +2111,10 @@ static void gen_adds_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_adds_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2152,10 +2152,10 @@ static void gen_adds_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(ts, tws, tdf, ti);
-        gen_helper_load_wr_i64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_i64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_i64(tt, twt, tdf, ti);
         gen_helper_adds_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2193,10 +2193,10 @@ static void gen_ave_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_ave_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2234,10 +2234,10 @@ static void gen_ave_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(ts, tws, tdf, ti);
-        gen_helper_load_wr_i64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_i64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_i64(tt, twt, tdf, ti);
         gen_helper_ave_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2275,10 +2275,10 @@ static void gen_aver_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_aver_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2316,10 +2316,10 @@ static void gen_aver_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(ts, tws, tdf, ti);
-        gen_helper_load_wr_i64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_i64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_i64(tt, twt, tdf, ti);
         gen_helper_aver_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2357,10 +2357,10 @@ static void gen_subs_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_subs_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2398,10 +2398,10 @@ static void gen_subs_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_subs_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2439,10 +2439,10 @@ static void gen_subus_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_subus_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2480,10 +2480,10 @@ static void gen_subss_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_subss_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2521,10 +2521,10 @@ static void gen_asub_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_asub_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2562,10 +2562,10 @@ static void gen_asub_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(ts, tws, tdf, ti);
-        gen_helper_load_wr_i64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_i64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_i64(tt, twt, tdf, ti);
         gen_helper_asub_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2603,10 +2603,10 @@ static void gen_mulv_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_mulv_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2644,11 +2644,11 @@ static void gen_maddv_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_maddv_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2686,11 +2686,11 @@ static void gen_msubv_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_msubv_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2728,10 +2728,10 @@ static void gen_div_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_div_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2769,10 +2769,10 @@ static void gen_div_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_div_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2810,10 +2810,10 @@ static void gen_mod_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_mod_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2851,10 +2851,10 @@ static void gen_mod_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_mod_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2892,10 +2892,10 @@ static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_dotp_s_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2933,10 +2933,10 @@ static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_dotp_u_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -2974,11 +2974,11 @@ static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_dpadd_s_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -3016,11 +3016,11 @@ static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_dpadd_u_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -3058,11 +3058,11 @@ static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_dpsub_s_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -3100,11 +3100,11 @@ static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_dpsub_u_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -3937,9 +3937,9 @@ static void gen_pcnt_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_pcnt_df(td, ts, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -3972,9 +3972,9 @@ static void gen_nloc_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_nloc_df(td, ts, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -4007,9 +4007,9 @@ static void gen_nlzc_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_nlzc_df(td, ts, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -4062,7 +4062,7 @@ static void gen_copy_s_df(CPUState *env, DisasContext *ctx) {
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_s64(telm, tws, tdf, tn);
+    gen_helper_load_wr_modulo_s64(telm, tws, tdf, tn);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -4114,7 +4114,7 @@ static void gen_copy_u_df(CPUState *env, DisasContext *ctx) {
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_i64(telm, tws, tdf, tn);
+    gen_helper_load_wr_modulo_i64(telm, tws, tdf, tn);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
@@ -5027,10 +5027,10 @@ static void gen_mul_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_mul_q_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5070,10 +5070,10 @@ static void gen_mulr_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
         gen_helper_mulr_q_df(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5113,11 +5113,11 @@ static void gen_madd_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_madd_q_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5157,11 +5157,11 @@ static void gen_maddr_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_maddr_q_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5201,11 +5201,11 @@ static void gen_msub_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_msub_q_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5245,11 +5245,11 @@ static void gen_msubr_q_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_msubr_q_df(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -5288,9 +5288,9 @@ static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_fclass_df(td, ts, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 

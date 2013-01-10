@@ -611,7 +611,7 @@ $declare_str
         TCGv_i32 ti = tcg_const_i32(i);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
         tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -648,7 +648,7 @@ $declare_str
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
         gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
         tcg_gen_qemu_ld32s(td, telemaddr, ctx->mem_idx);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -679,7 +679,7 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
         tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
         tcg_temp_free_i32(ti);
@@ -715,7 +715,7 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_i64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
         gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
         tcg_gen_qemu_st32(td, telemaddr, ctx->mem_idx);
@@ -758,10 +758,10 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_$stype(ts, tws, tdf, ti);
-        gen_helper_load_wr_$ttype(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_$ttype(tt, twt, tdf, ti);
         gen_helper_$helper_name(td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -798,11 +798,11 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(tt, twt, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_$helper_name(td, td, ts, tt, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -845,9 +845,9 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_$stype(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, t$imm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -889,10 +889,10 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_$stype(ts, tws, tdf, ti);
-        gen_helper_load_wr_$dtype(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_$dtype(td, twd, tdf, ti);
         gen_helper_$helper_name(td, td, ts, t$imm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1021,9 +1021,9 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1058,10 +1058,10 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_s64(ts, tws, tdf, ti);
-        gen_helper_load_wr_s64(td, twd, tdf, ti);
+        gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
         gen_helper_$helper_name(td, td, ts, tm, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1098,9 +1098,9 @@ $declare_str
 
     for (i = 0; i < wrlen/df_bits; i++) {
         ti = tcg_const_i32(i);
-        gen_helper_load_wr_$stype(ts, tws, tdf, ti);
+        gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, tdf);
-        gen_helper_store_wr(td, twd, tdf, ti);
+        gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
 
@@ -1402,7 +1402,7 @@ $declare_str
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_$stype(telm, tws, tdf, tn);
+    gen_helper_load_wr_modulo_$stype(telm, tws, tdf, tn);
     gen_store_gpr(telm, rd);
 
     tcg_temp_free(telm);
