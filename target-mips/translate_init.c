@@ -780,6 +780,10 @@ static void msa_reset(CPUMIPSState *env)
     /* MSA access enabled */
     env->CP0_Config5 |= 1 << CP0C5_MSAEn;
 
+    /* CP1 enabled and 64-bit FPRs */
+    env->CP0_Status |= (1 << CP0St_CU1) | (1 << CP0St_FR);
+    env->hflags |= MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X;
+
     /* Vector register partitioning not implemented */
     env->active_msa.msair = 0;
     env->active_msa.msaaccess  = 0xffffffff;
@@ -788,10 +792,6 @@ static void msa_reset(CPUMIPSState *env)
 
     /* MSA CSR:
        - non-signaling floating point exception mode off (NX bit is 0)
-       - non-signaling qNaN compare (CS bit is 0)
-       - flush to zero subnormal subnormal results off (FS bit is 0)
-       - flush to zero subnormal input values off (IS bit is 0)
-       - IEEE 754-2008 modes on (NAN2008 and MAC2008 bits are 0)
        - Cause, Enables, and Flags are all 0
        - round to nearest / ties to even (RM bits are 0) */
     env->active_msa.msacsr = 0;
