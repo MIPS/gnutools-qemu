@@ -2382,9 +2382,9 @@ void cpu_unassigned_access(CPUState *env1, target_phys_addr_t addr,
 #define FLOAT_QNAN32 (int32_t)float32_default_nan /* 0x7fc00000 */
 #define FLOAT_QNAN64 (int64_t)float64_default_nan /* 0x7ff8000000000000 */
 
-#define FLOAT_SNAN16 (float16_default_nan ^ 0x0300) /* 0x7d00 */
-#define FLOAT_SNAN32 (float32_default_nan ^ 0x00600000) /* 0x7fa00000 */
-#define FLOAT_SNAN64 (float64_default_nan ^ 0x000c000000000000ULL) /* 0x7ff4000000000000 */
+#define FLOAT_SNAN16 (float16_default_nan ^ 0x0220) /* 0x7c20 */
+#define FLOAT_SNAN32 (float32_default_nan ^ 0x00400020) /* 0x7f800020 */
+#define FLOAT_SNAN64 (float64_default_nan ^ 0x0008000000000020ULL) /* 0x7ff0000000000020 */
 
 
 /* convert MIPS rounding mode in FCR31 to IEEE library */
@@ -5251,8 +5251,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG) ? ARG            \
-            : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
     }                                                                   \
 } while (0)
 
@@ -5269,10 +5268,15 @@ do {                                                                    \
     set_float_rounding_mode(ieee_rm[(env->active_msa.msacsr &           \
                                      MSACSR_RM_MASK) >> MSACSR_RM_POS], \
                             &env->active_msa.fp_status);                \
+                                                                        \
+    set_float_exception_flags(                                          \
+      get_float_exception_flags(&env->active_msa.fp_status)             \
+      & (~float_flag_inexact),                                          \
+      &env->active_msa.fp_status);                                      \
+                                                                        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG) ? ARG            \
-            : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
     }                                                                   \
 } while (0)
 
@@ -5284,9 +5288,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG1) ? ARG1          \
-            : float ## BITS ## _is_signaling_nan(ARG2) ? ARG2           \
-            : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
     }                                                                   \
 } while (0)
 
@@ -5298,10 +5300,7 @@ do {                                                                    \
                                     &env->active_msa.fp_status);        \
     nx_cause = update_msacsr();                                         \
     if (nx_cause) {                                                     \
-        DEST = float ## BITS ## _is_signaling_nan(ARG2) ? ARG2          \
-            : float ## BITS ## _is_signaling_nan(ARG3) ? ARG3           \
-            : float ## BITS ## _is_signaling_nan(ARG1) ? ARG1           \
-            : ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;              \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
     }                                                                   \
 } while (0)
 
