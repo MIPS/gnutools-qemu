@@ -5854,7 +5854,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
     cause = update_msacsr();                                            \
     if (cause) {                                                        \
-      DEST = ((DEST >> 6) << 6) | cause;                                \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
   } while (0)
 
@@ -5877,7 +5877,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
     cause = update_msacsr();                                            \
     if (cause) {                                                        \
-      DEST = ((DEST >> 6) << 6) | cause;                                \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
   } while (0)
 
@@ -6705,6 +6705,11 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 {
     int16 q_val;
 
+    if (float32_is_any_nan(a)) {
+      float_raise( float_flag_invalid STATUS_VAR);
+      return 0;
+    }
+
     if (float32_lt_quiet(a, int32_to_float32 (-1 STATUS_VAR) STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
         return 0x8000;
@@ -6725,6 +6730,11 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 static int32 float64_to_q32(float64 a STATUS_PARAM)
 {
     int32 q_val;
+
+    if (float64_is_any_nan(a)) {
+      float_raise( float_flag_invalid STATUS_VAR);
+      return 0;
+    }
 
     if (float64_lt_quiet(a, int32_to_float64 (-1 STATUS_VAR) STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
