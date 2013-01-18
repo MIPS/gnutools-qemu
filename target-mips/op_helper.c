@@ -4773,6 +4773,9 @@ int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 int64_t helper_div_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
+  if (arg1 == DF_MIN_INT(df) && arg2 == -1)
+    return DF_MIN_INT(df);
+
   return arg2 ? arg1 / arg2 : 0;
 }
 
@@ -4786,6 +4789,9 @@ int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 int64_t helper_mod_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 {
+  if (arg1 == DF_MIN_INT(df) && arg2 == -1)
+    return 0;
+
   return arg2 ? arg1 % arg2 : 0;
 }
 
@@ -5175,12 +5181,6 @@ void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
 
 static void clear_msacsr_cause(void) {
     SET_FP_CAUSE(env->active_msa.msacsr, 0);
-    env->active_msa.msacsr_saved = env->active_msa.msacsr;
-}
-
-static void restore_msacsr_flags(void) {
-    SET_FP_FLAGS(env->active_msa.msacsr,
-                 GET_FP_FLAGS(env->active_msa.msacsr_saved));
 }
 
 static void check_msacsr_cause(void)
@@ -5192,30 +5192,20 @@ static void check_msacsr_cause(void)
     if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
         & GET_FP_CAUSE(env->active_msa.msacsr)) {
 
-        restore_msacsr_flags();
-        helper_raise_exception(EXCP_MSAFPE);
+      helper_raise_exception(EXCP_MSAFPE);
     }
 }
 
 static int update_msacsr(void)
 {
     int ieee_ex;
+
+    int c;
+    int flags;
     int cause;
     int enable;
-    int ex_cause;
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-
-    if (ieee_ex == float_flag_input_denormal ||
-        ieee_ex == float_flag_output_denormal) {
-
-        /* TODO cause |= FP_INEXACT; */
-    }
-
-    /* Clear underflow if reported in the context of overflow */
-    if ((ieee_ex & float_flag_overflow) && (ieee_ex & float_flag_underflow)) {
-        ieee_ex ^=  float_flag_underflow;
-    }
 
 #if 1
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
@@ -5229,42 +5219,67 @@ static int update_msacsr(void)
     if (ieee_ex) printf("\n");
 #endif
 
-    cause = ieee_ex_to_mips(ieee_ex);
+    c = ieee_ex_to_mips(ieee_ex);
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
-    UPDATE_FP_FLAGS(env->active_msa.msacsr, cause & (~enable));
 
-    ex_cause = cause & enable;
-
-    if ( !((env->active_msa.msacsr & MSACSR_NX_BIT) && ex_cause) ) {
-        int old_cause = GET_FP_CAUSE(env->active_msa.msacsr);
-        SET_FP_CAUSE(env->active_msa.msacsr, (cause | old_cause));
+    /* Set Inexact (I) when Overflow (O) is not enabled */
+    if ((c & FP_OVERFLOW) != 0 && (enable & FP_OVERFLOW) == 0) {
+      c |= FP_INEXACT;
     }
 
-    return ex_cause;
+    /* Clear Exact Underflow when Underflow (U) is not enabled */
+    if ((c & FP_UNDERFLOW) != 0 && (enable & FP_UNDERFLOW) == 0 &&
+        (c & FP_INEXACT) == 0) {
+      c = c ^ FP_UNDERFLOW;
+    }
+
+    cause = c & enable;    /* all current enabled exceptions */
+    flags = c & (~enable); /* all current exceptions not enabled */
+
+    /* Update the MSACSR flags with all current exceptions not enabled */
+    UPDATE_FP_FLAGS(env->active_msa.msacsr, flags);
+
+    if (cause == 0) {
+      /* No enabled exception, update the MSACSR Cause
+         with all current exceptions */
+      SET_FP_CAUSE(env->active_msa.msacsr,
+                   (GET_FP_CAUSE(env->active_msa.msacsr) | c));
+    }
+    else {
+      /* Current exceptions are enabled */
+      if ((env->active_msa.msacsr & MSACSR_NX_BIT) == 0) {
+        /* Exception(s) will trap, update MSACSR Cause
+           with all enabled exceptions */
+        SET_FP_CAUSE(env->active_msa.msacsr,
+                     (GET_FP_CAUSE(env->active_msa.msacsr) | cause));
+      }
+    }
+
+    return cause;
 }
 
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
-do {                                                                    \
-    int nx_cause;                                                       \
+  do {                                                                  \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
-} while (0)
+  } while (0)
 
 #define MSA_FLOAT_LOGB(DEST, ARG, BITS)                                 \
-do {                                                                    \
-    int nx_cause;                                                       \
+  do {                                                                  \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## log2(ARG,                              \
-                                    &env->active_msa.fp_status);        \
+                                      &env->active_msa.fp_status);      \
     set_float_rounding_mode(float_round_to_zero,                        \
                             &env->active_msa.fp_status);                \
     DEST = float ## BITS ## _ ## round_to_int(DEST,                     \
-                                      &env->active_msa.fp_status);      \
+                                           &env->active_msa.fp_status); \
     set_float_rounding_mode(ieee_rm[(env->active_msa.msacsr &           \
                                      MSACSR_RM_MASK) >> MSACSR_RM_POS], \
                             &env->active_msa.fp_status);                \
@@ -5274,35 +5289,35 @@ do {                                                                    \
       & (~float_flag_inexact),                                          \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
-} while (0)
+  } while (0)
 
 #define MSA_FLOAT_BINOP(DEST, OP, ARG1, ARG2, BITS)                     \
-do {                                                                    \
-    int nx_cause;                                                       \
+  do {                                                                  \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
-} while (0)
+  } while (0)
 
 #define MSA_FLOAT_MULADD(DEST, ARG1, ARG2, ARG3, NEGATE, BITS)          \
-do {                                                                    \
-    int nx_cause;                                                       \
+  do {                                                                  \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | nx_cause;               \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
     }                                                                   \
-} while (0)
+  } while (0)
 
 #define NUMBER_QNAN_PAIR(ARG1, ARG2, BITS)      \
   !float ## BITS ## _is_any_nan(ARG1)           \
@@ -5825,46 +5840,46 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  */
 
 #define MSA_FLOAT_COND(DEST, OP, ARG1, ARG2, BITS, QUIET)               \
-do {                                                                    \
+  do {                                                                  \
     int64_t cond;                                                       \
-    int nx_cause;                                                       \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     if (!QUIET) {                                                       \
-        cond = float ## BITS ## _ ## OP(ARG1, ARG2,                     \
-                                        &env->active_msa.fp_status);    \
+      cond = float ## BITS ## _ ## OP(ARG1, ARG2,                       \
+                                      &env->active_msa.fp_status);      \
     } else {                                                            \
-        cond = float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,           \
-                                        &env->active_msa.fp_status);    \
+      cond = float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,             \
+                                           &env->active_msa.fp_status); \
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-        DEST = ((DEST >> 6) << 6) | nx_cause;                           \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((DEST >> 6) << 6) | cause;                                \
     }                                                                   \
-} while (0)
+  } while (0)
 
 #define MSA_FLOAT_CONDU(DEST, OP, ARG1, ARG2, BITS, QUIET)              \
-do {                                                                    \
+  do {                                                                  \
     int64_t cond;                                                       \
-    int nx_cause;                                                       \
+    int cause;                                                          \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     if (!QUIET) {                                                       \
-        cond = float ## BITS ## _unordered(ARG1, ARG2,                  \
-                                        &env->active_msa.fp_status);    \
-        cond |= float ## BITS ## _ ## OP(ARG1, ARG2,                    \
-                                        &env->active_msa.fp_status);    \
+      cond = float ## BITS ## _unordered(ARG1, ARG2,                    \
+                                         &env->active_msa.fp_status);   \
+      cond |= float ## BITS ## _ ## OP(ARG1, ARG2,                      \
+                                       &env->active_msa.fp_status);     \
     } else {                                                            \
-        cond = float ## BITS ## _unordered_quiet(ARG1, ARG2,            \
-                                        &env->active_msa.fp_status);    \
-        cond |= float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,          \
-                                        &env->active_msa.fp_status);    \
+      cond = float ## BITS ## _unordered_quiet(ARG1, ARG2,              \
+                                           &env->active_msa.fp_status); \
+      cond |= float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,            \
+                                           &env->active_msa.fp_status); \
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
-    nx_cause = update_msacsr();                                         \
-    if (nx_cause) {                                                     \
-        DEST = ((DEST >> 6) << 6) | nx_cause;                           \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((DEST >> 6) << 6) | cause;                                \
     }                                                                   \
-} while (0)
+  } while (0)
 
 
 void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)

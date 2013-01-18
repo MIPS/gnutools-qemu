@@ -437,18 +437,22 @@ static int pickNaN(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
                          flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
 {
-  /* MSA/FPU2 arguments are d, s, t corresponding to c, a, b
+  /* MSA/FPU2 arguments are wd, ws, wt corresponding to c, a, b
    *
    * NaN rules are:
-   *  - s/a if is sNaN
-   *  - t/b if is sNaN
-   *  - d/c if is sNaN
-   *  - s/a if is qNaN
-   *  - t/b if is qNaN
-   *  - default qNaN signaling Invalid
-   *       if s/a * t/b is infzero
-   *  - d/c if is qNaN
+   *  - ws/a if is sNaN (addition left operand)
+   *  - wt/b if is sNaN (addition right operand)
+   *  - wd/c if is sNaN (multiplication left operand)
+   *  - ws/a if is qNaN (addition left operand)
+   *  - wt/b if is qNaN (addition right operand)
+   *  - wd/c if is qNaN (multiplication left operand)
+   *  - default qNaN
+   *         if ws/a * wt/b is infzero (multiplication right operand)
    */
+
+  if (infzero) {
+    float_raise(float_flag_invalid STATUS_VAR);
+  }
 
   if (aIsSNaN) {
     return 0;
@@ -460,11 +464,10 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
     return 0;
   } else if (bIsQNaN) {
     return 1;
-  } else if (infzero) {
-    float_raise(float_flag_invalid STATUS_VAR);
-    return 3;
-  } else {
+  } else if (cIsQNaN) {
     return 2;
+  } else {
+    return 3;
   }
 }
 #elif defined(TARGET_ARM)
