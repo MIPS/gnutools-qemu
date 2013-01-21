@@ -5270,6 +5270,23 @@ static int update_msacsr(void)
     return cause;
 }
 
+#define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                            \
+  do {                                                                  \
+    int cause;                                                          \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG,                                \
+                                    &env->active_msa.fp_status);        \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+    }                                                                   \
+    else {                                                              \
+      if (float ## BITS ## _is_any_nan(ARG)) {                          \
+        DEST = 0;                                                       \
+      }                                                                 \
+    }                                                                   \
+  } while (0)
+
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
   do {                                                                  \
     int cause;                                                          \
@@ -6588,21 +6605,13 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(W(pwx, i), to_int32, W(pws, i), 32);
-
-          if (float32_is_any_nan(W(pws, i))) {
-            W(pwx, i) = 0;
-          }
+          MSA_FLOAT_UNOP0(W(pwx, i), to_int32, W(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(D(pwx, i), to_int64, D(pws, i), 64);
-
-          if (float64_is_any_nan(D(pws, i))) {
-            D(pwx, i) = 0;
-          }
+          MSA_FLOAT_UNOP0(D(pwx, i), to_int64, D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6628,21 +6637,13 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(W(pwx, i), to_uint32, W(pws, i), 32);
-
-          if (float32_is_any_nan(W(pws, i))) {
-            W(pwx, i) = 0;
-          }
+          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32, W(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(D(pwx, i), to_uint64, D(pws, i), 64);
-
-          if (float64_is_any_nan(D(pws, i))) {
-            D(pwx, i) = 0;
-          }
+          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64, D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
