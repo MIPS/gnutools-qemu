@@ -4518,23 +4518,35 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 void helper_shf_b(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
 {
+    wr_t wx, *pwx = &wx;
+
     ALL_B_ELEMENTS(i, wrlen) {
-        B(pwd, i) = B(pws, SHF_POS(i, imm));
+        B(pwx, i) = B(pws, SHF_POS(i, imm));
     } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 void helper_shf_h(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
 {
+    wr_t wx, *pwx = &wx;
+
     ALL_H_ELEMENTS(i, wrlen) {
-        H(pwd, i) = H(pws, SHF_POS(i, imm));
+        H(pwx, i) = H(pws, SHF_POS(i, imm));
     } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
 {
+    wr_t wx, *pwx = &wx;
+
     ALL_W_ELEMENTS(i, wrlen) {
-        W(pwd, i) = W(pws, SHF_POS(i, imm));
+        W(pwx, i) = W(pws, SHF_POS(i, imm));
     } DONE_ALL_ELEMENTS;
+
+    helper_move_v(pwd, &wx, wrlen);
 }
 
 
