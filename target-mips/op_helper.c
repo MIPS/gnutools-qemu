@@ -5282,6 +5282,18 @@ static int update_msacsr(void)
     }                                                                   \
   } while (0)
 
+#define MSA_FLOAT_UNOP_XD(DEST, OP, ARG, BITS, XBITS)                   \
+  do {                                                                  \
+    int cause;                                                          \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG,                                \
+                                    &env->active_msa.fp_status);        \
+    cause = update_msacsr();                                            \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## XBITS >> 6) << 6) | cause;                 \
+    }                                                                   \
+  } while (0)
+
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
   do {                                                                  \
     int cause;                                                          \
@@ -6396,11 +6408,33 @@ int64_t helper_fclass_df(int64_t arg, uint32_t df)
  *  FEXDO, FEXUP
  */
 
-#define float16_from_float32 float32_to_float16
-#define float32_from_float64 float64_to_float32
+static float16 float16_from_float32(int32 a, flag ieee STATUS_PARAM) {
+      float16 f_val;
 
-#define float32_from_float16 float16_to_float32
-#define float64_from_float32 float32_to_float64
+      f_val = float32_to_float16((float32)a, ieee  STATUS_VAR);
+      return float16_maybe_silence_nan(f_val);
+}
+
+static float32 float32_from_float64(int64 a STATUS_PARAM) {
+      float32 f_val;
+
+      f_val = float64_to_float32((float64)a STATUS_VAR);
+      return float32_maybe_silence_nan(f_val);
+}
+
+static float32 float32_from_float16(int16 a, flag ieee STATUS_PARAM) {
+      float32 f_val;
+
+      f_val = float16_to_float32((float16)a, ieee STATUS_VAR);
+      return float32_maybe_silence_nan(f_val);
+}
+
+static float64 float64_from_float32(int32 a STATUS_PARAM) {
+      float64 f_val;
+
+      f_val = float32_to_float64((float64)a STATUS_VAR);
+      return float64_maybe_silence_nan(f_val);
+}
 
 void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
@@ -6418,9 +6452,6 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
             MSA_FLOAT_BINOP(HL(pwx, i), from_float32, W(pws, i), ieee, 16);
             MSA_FLOAT_BINOP(HR(pwx, i), from_float32, W(pwt, i), ieee, 16);
-
-            HL(pwx, i) = float16_maybe_silence_nan(HL(pwx, i));
-            HR(pwx, i) = float16_maybe_silence_nan(HR(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6428,9 +6459,6 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
             MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
-
-            WL(pwx, i) = float32_maybe_silence_nan(WL(pwx, i));
-            WR(pwx, i) = float32_maybe_silence_nan(WR(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6459,14 +6487,12 @@ void helper_fexupl_df(void *pwd, void *pws, uint32_t wrlen_df)
             flag ieee = 1;
 
             MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pws, i), ieee, 32);
-            W(pwx, i) = float32_maybe_silence_nan(W(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pws, i), 64);
-            D(pwx, i) = float64_maybe_silence_nan(D(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6495,14 +6521,12 @@ void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
             flag ieee = 1;
 
             MSA_FLOAT_BINOP(W(pwx, i), from_float16, HR(pws, i), ieee, 32);
-            W(pwx, i) = float32_maybe_silence_nan(W(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(D(pwx, i), from_float32, WR(pws, i), 64);
-            D(pwx, i) = float64_maybe_silence_nan(D(pwx, i));
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6774,13 +6798,13 @@ void helper_ffql_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pws, i), 32);
+          MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
+          MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6832,15 +6856,15 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(HL(pwx, i), to_q16, W(pws, i), 32);
-            MSA_FLOAT_UNOP(HR(pwx, i), to_q16, W(pwt, i), 32);
+          MSA_FLOAT_UNOP_XD(HL(pwx, i), to_q16, W(pws, i), 32, 16);
+          MSA_FLOAT_UNOP_XD(HR(pwx, i), to_q16, W(pwt, i), 32, 16);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(WL(pwx, i), to_q32, D(pws, i), 64);
-            MSA_FLOAT_UNOP(WR(pwx, i), to_q32, D(pwt, i), 64);
+          MSA_FLOAT_UNOP_XD(WL(pwx, i), to_q32, D(pws, i), 64, 32);
+          MSA_FLOAT_UNOP_XD(WR(pwx, i), to_q32, D(pwt, i), 64, 32);
         } DONE_ALL_ELEMENTS;
         break;
 

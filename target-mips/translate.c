@@ -4148,7 +4148,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Config4";
             break;
         case 5:
-            /* currently ignored */
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_Config5));
             rn = "Config5";
             break;
         /* 6,7 are implementation dependent */
