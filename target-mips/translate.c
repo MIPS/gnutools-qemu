@@ -11820,7 +11820,7 @@ static inline void check_msa_access(CPUState *env, DisasContext *ctx,
            (curr_request & env->active_msa.msasave);
 
     if (unlikely(mask)) {
-        generate_exception(ctx, EXCP_MSADIS);
+        helper_raise_exception(EXCP_MSADIS);
     }
 }
 
