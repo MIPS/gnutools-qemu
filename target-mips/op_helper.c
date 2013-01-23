@@ -5195,17 +5195,17 @@ static void clear_msacsr_cause(void) {
     SET_FP_CAUSE(env->active_msa.msacsr, 0);
 }
 
+
 static void check_msacsr_cause(void)
 {
-    if (env->active_msa.msacsr & MSACSR_NX_BIT) {
-        return;
-    }
-
-    if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
-        & GET_FP_CAUSE(env->active_msa.msacsr)) {
-
+  if ((GET_FP_CAUSE(env->active_msa.msacsr) &
+       (GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)) == 0) {
+    UPDATE_FP_FLAGS(env->active_msa.msacsr,
+                    GET_FP_CAUSE(env->active_msa.msacsr));
+  }
+  else {
       helper_raise_exception(EXCP_MSAFPE);
-    }
+  }
 }
 
 static int update_msacsr(void)
@@ -5213,7 +5213,6 @@ static int update_msacsr(void)
     int ieee_ex;
 
     int c;
-    int flags;
     int cause;
     int enable;
 
@@ -5246,10 +5245,6 @@ static int update_msacsr(void)
     }
 
     cause = c & enable;    /* all current enabled exceptions */
-    flags = c & (~enable); /* all current exceptions not enabled */
-
-    /* Update the MSACSR flags with all current exceptions not enabled */
-    UPDATE_FP_FLAGS(env->active_msa.msacsr, flags);
 
     if (cause == 0) {
       /* No enabled exception, update the MSACSR Cause
@@ -6444,6 +6439,7 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
+    check_msacsr_cause();
     helper_move_v(pwd, &wx, wrlen);
 }
 
@@ -6479,6 +6475,7 @@ void helper_fexupl_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
+    check_msacsr_cause();
     helper_move_v(pwd, &wx, wrlen);
 }
 
@@ -6514,6 +6511,7 @@ void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
+    check_msacsr_cause();
     helper_move_v(pwd, &wx, wrlen);
 }
 
