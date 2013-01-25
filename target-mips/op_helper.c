@@ -5202,6 +5202,12 @@ static void check_msacsr_cause(void)
        (GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)) == 0) {
     UPDATE_FP_FLAGS(env->active_msa.msacsr,
                     GET_FP_CAUSE(env->active_msa.msacsr));
+
+#if 1
+    printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
+           GET_FP_CAUSE(env->active_msa.msacsr),
+           GET_FP_FLAGS(env->active_msa.msacsr));
+#endif
   }
   else {
       helper_raise_exception(EXCP_MSAFPE);
@@ -5258,9 +5264,14 @@ static int update_msacsr(void)
         /* Exception(s) will trap, update MSACSR Cause
            with all enabled exceptions */
         SET_FP_CAUSE(env->active_msa.msacsr,
-                     (GET_FP_CAUSE(env->active_msa.msacsr) | cause));
+                     (GET_FP_CAUSE(env->active_msa.msacsr) | c));
       }
     }
+
+#if 1
+    printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x\n",
+           c, cause, GET_FP_CAUSE(env->active_msa.msacsr));
+#endif
 
     return cause;
 }
@@ -5894,7 +5905,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
   } while (0)
 
-#define MSA_FLOAT_CONDU(DEST, OP, ARG1, ARG2, BITS, QUIET)              \
+#define MSA_FLOAT_CONDU(DEST, OP, ARG1, ARG2, BITS, QUIET, NEG)         \
   do {                                                                  \
     int64_t cond;                                                       \
     int cause;                                                          \
@@ -5910,7 +5921,12 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       cond |= float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,            \
                                            &env->active_msa.fp_status); \
     }                                                                   \
-    DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
+    if (NEG) {                                                          \
+      DEST = cond ? 0: M_MAX_UINT(BITS);                                \
+    }                                                                   \
+    else {                                                              \
+      DEST = cond ? M_MAX_UINT(BITS) : 0;                               \
+    }                                                                   \
     cause = update_msacsr();                                            \
     if (cause) {                                                        \
       DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
@@ -5961,15 +5977,13 @@ void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 1);
-            W(pwx, i) = ~W(pwx, i);
+          MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 1, 1);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 1);
-            D(pwx, i) = ~D(pwx, i);
+          MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 1, 1);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6184,15 +6198,13 @@ void helper_fsne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 0);
-            W(pwx, i) = ~W(pwx, i);
+          MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 0, 1);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 0);
-            D(pwx, i) = ~D(pwx, i);
+          MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 0, 1);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -6750,7 +6762,8 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
         return 0x8000;
     }
 
-    if (float32_le_quiet(int32_to_float32 (1 STATUS_VAR), a STATUS_VAR)) {
+    /* Note: 0x3f7ffe00 is 0x7fff in q16 (0.1111... binary) */
+    if (float32_lt_quiet((float32)0x3f7ffe00, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
         return 0x7fff;
     }
@@ -6776,7 +6789,8 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
         return 0x80000000;
     }
 
-    if (float64_le_quiet(int32_to_float64 (1 STATUS_VAR), a STATUS_VAR)) {
+    /* Note: 0x3fefffffffc00000 is 0x7fffffff in q32 (0.1111... binary) */
+    if (float64_lt_quiet((float64)0x3fefffffffc00000LL, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
         return 0x7fffffff;
     }
