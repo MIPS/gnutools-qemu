@@ -5273,18 +5273,24 @@ static int update_msacsr(void)
            c, cause, GET_FP_CAUSE(env->active_msa.msacsr));
 #endif
 
-    return cause;
+    return c;
 }
 
 #define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                            \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
     else {                                                              \
       if (float ## BITS ## _is_any_nan(ARG)) {                          \
@@ -5295,31 +5301,46 @@ static int update_msacsr(void)
 
 #define MSA_FLOAT_UNOP_XD(DEST, OP, ARG, BITS, XBITS)                   \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## XBITS >> 6) << 6) | cause;                 \
+      DEST = ((FLOAT_SNAN ## XBITS >> 6) << 6) | c;                     \
     }                                                                   \
   } while (0)
 
 #define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
 #define MSA_FLOAT_LOGB(DEST, ARG, BITS)                                 \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## log2(ARG,                              \
                                       &env->active_msa.fp_status);      \
@@ -5336,33 +5357,48 @@ static int update_msacsr(void)
       & (~float_flag_inexact),                                          \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
 #define MSA_FLOAT_BINOP(DEST, OP, ARG1, ARG2, BITS)                     \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
 #define MSA_FLOAT_MULADD(DEST, ARG1, ARG2, ARG3, NEGATE, BITS)          \
   do {                                                                  \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    cause = update_msacsr();                                            \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
@@ -5450,6 +5486,10 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
+
+            printf("FMUL.W 0x%08x <-- 0x%08x * 0x%08x\n",
+                   W(pwx, i), W(pws, i), W(pwt, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -5888,8 +5928,11 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 #define MSA_FLOAT_COND(DEST, OP, ARG1, ARG2, BITS, QUIET)               \
   do {                                                                  \
-    int64_t cond;                                                       \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
+    int64_t cond;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     if (!QUIET) {                                                       \
       cond = float ## BITS ## _ ## OP(ARG1, ARG2,                       \
@@ -5899,16 +5942,23 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                                            &env->active_msa.fp_status); \
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
-    cause = update_msacsr();                                            \
+                                                                        \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
 #define MSA_FLOAT_CONDU(DEST, OP, ARG1, ARG2, BITS, QUIET, NEG)         \
   do {                                                                  \
-    int64_t cond;                                                       \
+    int c;                                                              \
     int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
+    int64_t cond;                                                       \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     if (!QUIET) {                                                       \
       cond = float ## BITS ## _unordered(ARG1, ARG2,                    \
@@ -5927,9 +5977,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     else {                                                              \
       DEST = cond ? M_MAX_UINT(BITS) : 0;                               \
     }                                                                   \
-    cause = update_msacsr();                                            \
+                                                                        \
+    c = update_msacsr();                                                \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
     if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | cause;                  \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
     }                                                                   \
   } while (0)
 
