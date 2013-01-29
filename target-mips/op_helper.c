@@ -6478,28 +6478,36 @@ static float16 float16_from_float32(int32 a, flag ieee STATUS_PARAM) {
       float16 f_val;
 
       f_val = float32_to_float16((float32)a, ieee  STATUS_VAR);
-      return float16_maybe_silence_nan(f_val);
+      f_val = float16_maybe_silence_nan(f_val);
+
+      return a < 0 ? (f_val | (1 << 15)) : f_val;
 }
 
 static float32 float32_from_float64(int64 a STATUS_PARAM) {
       float32 f_val;
 
       f_val = float64_to_float32((float64)a STATUS_VAR);
-      return float32_maybe_silence_nan(f_val);
+      f_val = float32_maybe_silence_nan(f_val);
+
+      return a < 0 ? (f_val | (1 << 31)) : f_val;      
 }
 
 static float32 float32_from_float16(int16 a, flag ieee STATUS_PARAM) {
       float32 f_val;
 
       f_val = float16_to_float32((float16)a, ieee STATUS_VAR);
-      return float32_maybe_silence_nan(f_val);
+      f_val = float32_maybe_silence_nan(f_val);
+
+      return a < 0 ? (f_val | (1 << 31)) : f_val;
 }
 
 static float64 float64_from_float32(int32 a STATUS_PARAM) {
       float64 f_val;
 
       f_val = float32_to_float64((float64)a STATUS_VAR);
-      return float64_maybe_silence_nan(f_val);
+      f_val = float64_maybe_silence_nan(f_val);
+
+      return a < 0 ? (f_val | (1ULL << 63)) : f_val;
 }
 
 void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
