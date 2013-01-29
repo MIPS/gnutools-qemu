@@ -5344,7 +5344,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## log2(ARG,                              \
                                       &env->active_msa.fp_status);      \
-    set_float_rounding_mode(float_round_to_zero,                        \
+    set_float_rounding_mode(float_round_down,                           \
                             &env->active_msa.fp_status);                \
     DEST = float ## BITS ## _ ## round_to_int(DEST,                     \
                                            &env->active_msa.fp_status); \
