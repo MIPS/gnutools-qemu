@@ -3154,7 +3154,14 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
         }
     }
     if (aExp < -24) {
-        return packFloat16(aSign, 0, 0);
+      roundingMode = STATUS(float_rounding_mode);
+      if ((roundingMode == float_round_up && aSign == 0) ||
+          (roundingMode == float_round_down && aSign == 1)) {
+        return packFloat16(aSign, 0, 1); /* smallest non-zero */
+      }
+      else {
+        return packFloat16(aSign, 0, 0); /* zero */
+      }
     }
     if (aExp < -14) {
         aSig >>= -14 - aExp;
