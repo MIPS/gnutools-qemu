@@ -6813,37 +6813,39 @@ static float64 float64_from_q32(int32 a STATUS_PARAM)
 static int16 float32_to_q16(float32 a STATUS_PARAM)
 {
     int16 q_val;
+    int16 q_min = 0x8000;
+    int16 q_max = 0x7fff;
+
+    float32 float32_minus_one = (1 << 31) | float32_one;
 
     if (float32_is_any_nan(a)) {
       float_raise( float_flag_invalid STATUS_VAR);
       return 0;
     }
 
-    if (float32_lt_quiet(a, int32_to_float32 (-1 STATUS_VAR) STATUS_VAR)) {
-        float_raise( float_flag_invalid STATUS_VAR);
-        return 0x8000;
+    if (a == float32_minus_one) {
+        return q_min;
     }
 
-    /* Note: float32 0x3f7fffff is 0.1111... in binary */
-    if (float32_lt_quiet((float32)0x3f7fffff, a STATUS_VAR)) {
+    if (float32_lt_quiet(a, float32_minus_one STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return 0x7fff;
+        return q_min;
     }
 
-    /* Note: float32 0x3f7ffe00 is max q16 (0x7fff) */
-    if (float32_lt_quiet((float32)0x3f7ffe00, a STATUS_VAR)) {
-      if (STATUS(float_rounding_mode) == float_round_up) {
+    if (float32_le_quiet(float32_one, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
-      }
-      else {
-        float_raise( float_flag_inexact STATUS_VAR);
-      }
-      return 0x7fff;
+        return q_max;
     }
 
     /* scaling and conversion as integer */
     a = float32_scalbn(a, 15 STATUS_VAR);
     q_val = (int16)float32_to_int32(a STATUS_VAR);
+
+    if (q_val == q_min) {
+      set_float_exception_flags(0, &env->active_msa.fp_status);
+      float_raise( float_flag_invalid STATUS_VAR);
+      return q_max;
+    }
 
     return q_val;
 }
@@ -6851,38 +6853,39 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 static int32 float64_to_q32(float64 a STATUS_PARAM)
 {
     int32 q_val;
+    int32 q_min = 0x80000000;
+    int32 q_max = 0x7fffffff;
+
+    float64 float64_minus_one = (1LL << 63) | float64_one;
 
     if (float64_is_any_nan(a)) {
       float_raise( float_flag_invalid STATUS_VAR);
       return 0;
     }
 
-    if (float64_lt_quiet(a, int32_to_float64 (-1 STATUS_VAR) STATUS_VAR)) {
-        float_raise( float_flag_invalid STATUS_VAR);
-        return 0x80000000;
+    if (a == float64_minus_one) {
+        return q_min;
     }
 
-    /* Note: float64 0x3fefffffffffffff is 0.1111... in binary */
-    if (float64_lt_quiet((float64)0x3fefffffffffffffLL, a STATUS_VAR)) {
+    if (float64_lt_quiet(a, float64_minus_one STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return 0x7fffffff;
+        return q_min;
     }
 
-    /* Note: float64 0x3fefffffffc00000 is max q32 (0x7fffffff) */
-    if (float64_lt_quiet((float64)0x3fefffffffc00000LL, a STATUS_VAR)) {
-      if (STATUS(float_rounding_mode) == float_round_up) {
+    if (float64_le_quiet(float64_one, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
-      }
-      else {
-        float_raise( float_flag_inexact STATUS_VAR);
-      }
-
-      return 0x7fffffff;
+        return q_max;
     }
 
     /* scaling and conversion as integer */
     a = float64_scalbn(a, 31 STATUS_VAR);
     q_val = float64_to_int32(a STATUS_VAR);
+
+    if (q_val == q_min) {
+      set_float_exception_flags(0, &env->active_msa.fp_status);
+      float_raise( float_flag_invalid STATUS_VAR);
+      return q_max;
+    }
 
     return q_val;
 }
