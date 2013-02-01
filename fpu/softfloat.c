@@ -2516,7 +2516,7 @@ float32 float32_log2( float32 a STATUS_PARAM )
     }
     if ( aExp == 0xFF ) {
         if ( aSig ) return propagateFloat32NaN( a, float32_zero STATUS_VAR );
-        return a;
+        return float32_default_nan;
     }
 
     aExp -= 0x7F;
@@ -4025,7 +4025,7 @@ float64 float64_log2( float64 a STATUS_PARAM )
     }
     if ( aExp == 0x7FF ) {
         if ( aSig ) return propagateFloat64NaN( a, float64_zero STATUS_VAR );
-        return a;
+        return float64_default_nan;
     }
 
     aExp -= 0x3FF;
@@ -6604,7 +6604,7 @@ uint16 float64_to_uint16_round_to_zero( float64 a STATUS_PARAM )
 
 uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 {
-    float64 one, two32, two64;
+    float64 one, two63, two64;
 
     if (float64_is_any_nan(a)) {
         float_raise( float_flag_invalid STATUS_VAR);
@@ -6612,7 +6612,7 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
     }
 
     one = int32_to_float64 (1 STATUS_VAR);
-    two32 = float64_scalbn(one, 32 STATUS_VAR);
+    two63 = float64_scalbn(one, 63 STATUS_VAR);
     two64 = float64_scalbn(one, 64 STATUS_VAR);
 
     if (float64_lt_quiet(a, 0 STATUS_VAR)) {
@@ -6625,13 +6625,13 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
         return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
     }
 
-    if (float64_le_quiet (two32, a STATUS_VAR)) {
+    if (float64_le_quiet (two63, a STATUS_VAR)) {
         uint64_t v;
 
-        a = float64_scalbn(a, -1 STATUS_VAR);
+        a = float64_sub(a, two63 STATUS_VAR);
         v = float64_to_int64(a STATUS_VAR);
 
-        return v << 1;
+        return v + LIT64( 0x8000000000000000 );
     } else {
         return float64_to_int64(a STATUS_VAR);
     }
@@ -6639,7 +6639,7 @@ uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 
 uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
 {
-    float64 one, two32, two64;
+    float64 one, two63, two64;
 
     if (float64_is_any_nan(a)) {
         float_raise( float_flag_invalid STATUS_VAR);
@@ -6647,7 +6647,7 @@ uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
     }
 
     one = int32_to_float64 (1 STATUS_VAR);
-    two32 = float64_scalbn(one, 32 STATUS_VAR);
+    two63 = float64_scalbn(one, 63 STATUS_VAR);
     two64 = float64_scalbn(one, 64 STATUS_VAR);
 
     if (float64_lt_quiet(a, 0 STATUS_VAR)) {
@@ -6660,13 +6660,13 @@ uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
         return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
     }
 
-    if (float64_le_quiet (two32, a STATUS_VAR)) {
+    if (float64_le_quiet (two63, a STATUS_VAR)) {
         uint64_t v;
 
-        a = float64_scalbn(a, -1 STATUS_VAR);
+        a = float64_sub(a, two63 STATUS_VAR);
         v = float64_to_int64_round_to_zero(a STATUS_VAR);
 
-        return v << 1;
+        return v + LIT64( 0x8000000000000000 );
     } else {
         return float64_to_int64_round_to_zero(a STATUS_VAR);
     }

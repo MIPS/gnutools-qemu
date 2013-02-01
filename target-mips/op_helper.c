@@ -6824,10 +6824,21 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
         return 0x8000;
     }
 
-    /* Note: 0x3f7ffe00 is 0x7fff in q16 (0.1111... binary) */
-    if (float32_lt_quiet((float32)0x3f7ffe00, a STATUS_VAR)) {
+    /* Note: float32 0x3f7fffff is 0.1111... in binary */
+    if (float32_lt_quiet((float32)0x3f7fffff, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
         return 0x7fff;
+    }
+
+    /* Note: float32 0x3f7ffe00 is max q16 (0x7fff) */
+    if (float32_lt_quiet((float32)0x3f7ffe00, a STATUS_VAR)) {
+      if (STATUS(float_rounding_mode) == float_round_up) {
+        float_raise( float_flag_invalid STATUS_VAR);
+      }
+      else {
+        float_raise( float_flag_inexact STATUS_VAR);
+      }
+      return 0x7fff;
     }
 
     /* scaling and conversion as integer */
@@ -6851,10 +6862,22 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
         return 0x80000000;
     }
 
-    /* Note: 0x3fefffffffc00000 is 0x7fffffff in q32 (0.1111... binary) */
-    if (float64_lt_quiet((float64)0x3fefffffffc00000LL, a STATUS_VAR)) {
+    /* Note: float64 0x3fefffffffffffff is 0.1111... in binary */
+    if (float64_lt_quiet((float64)0x3fefffffffffffffLL, a STATUS_VAR)) {
         float_raise( float_flag_invalid STATUS_VAR);
         return 0x7fffffff;
+    }
+
+    /* Note: float64 0x3fefffffffc00000 is max q32 (0x7fffffff) */
+    if (float64_lt_quiet((float64)0x3fefffffffc00000LL, a STATUS_VAR)) {
+      if (STATUS(float_rounding_mode) == float_round_up) {
+        float_raise( float_flag_invalid STATUS_VAR);
+      }
+      else {
+        float_raise( float_flag_inexact STATUS_VAR);
+      }
+
+      return 0x7fffffff;
     }
 
     /* scaling and conversion as integer */
