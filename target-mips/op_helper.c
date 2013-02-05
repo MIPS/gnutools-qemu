@@ -6826,7 +6826,7 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
 
     if (get_float_exception_flags(&env->active_msa.fp_status)
         & float_flag_overflow) {
-      q_val = a < 0 ? q_min : q_max;
+      q_val = (int32)a < 0 ? q_min : q_max;
     }
     else {
       /* conversion to int */
@@ -6862,7 +6862,7 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
 
     if (get_float_exception_flags(&env->active_msa.fp_status)
         & float_flag_overflow) {
-      q_val = a < 0 ? q_min : q_max;
+      q_val = (int64)a < 0 ? q_min : q_max;
     }
     else {
       /* conversion to integer */
