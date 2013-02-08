@@ -451,6 +451,7 @@ struct CPUMIPSState {
 #define CP0C3_M    31
 #define CP0C3_CMGCR 29
 #define CP0C3_MSAP  28
+#define CP0C3_VZ   23
 #define CP0C3_EICW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
