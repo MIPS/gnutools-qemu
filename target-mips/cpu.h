@@ -57,6 +57,60 @@ struct CPUMIPSTLBContext {
 };
 #endif
 
+typedef union wr_t wr_t;
+union wr_t {
+    int8_t  b[32];
+    int16_t h[16];
+    int32_t w[8];
+    int64_t d[4];
+};
+/* MSA Context */
+typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
+struct CPUMIPSMSAContext {
+    wr_t wr[32];
+
+#define MSAIR_REGISTER      0
+#define MSACSR_REGISTER     1
+#define MSAACCESS_REGISTER  2
+#define MSASAVE_REGISTER    3
+#define MSAMODIFY_REGISTER  4
+#define MSAREQUEST_REGISTER 5
+#define MSAMAP_REGISTER     6
+#define MSAUNMAP_REGISTER   7
+
+    int32_t msair;
+
+#define MSAIR_WRP_POS 16
+#define MSAIR_WRP_BIT (1 << MSAIR_WRP_POS)
+
+    int32_t msacsr;
+
+#define MSACSR_RM_POS   0
+#define MSACSR_RM_MASK  (0x3 << MSACSR_RM_POS)
+
+#define MSACSR_CAUSE_ENABLE_FLAGS_POS 2
+#define MSACSR_CAUSE_ENABLE_FLAGS_MASK \
+    (0xffff << MSACSR_CAUSE_ENABLE_FLAGS_POS)
+
+#define MSACSR_NX_POS 18
+#define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
+
+
+#define MSACSR_BITS                             \
+    (MSACSR_RM_MASK |                           \
+     MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
+     MSACSR_NX_BIT)
+
+    int32_t msaaccess;
+    int32_t msasave;
+    int32_t msamodify;
+    int32_t msarequest;
+    int32_t msamap;
+    int32_t msaunmap;
+
+    float_status fp_status;
+};
+
 typedef union fpr_t fpr_t;
 union fpr_t {
     float64  fd;   /* ieee double precision */
@@ -207,6 +261,7 @@ typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
     CPUMIPSFPUContext active_fpu;
+    CPUMIPSMSAContext active_msa;
 
     uint32_t current_tc;
     uint32_t current_fpu;
@@ -395,6 +450,7 @@ struct CPUMIPSState {
     int32_t CP0_Config3;
 #define CP0C3_M    31
 #define CP0C3_CMGCR 29
+#define CP0C3_MSAP  28
 #define CP0C3_EICW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -414,6 +470,7 @@ struct CPUMIPSState {
     int32_t CP0_Config4;
 #define CP0C4_M    31
     int32_t CP0_Config5;
+#define CP0C5_MSAEn  27
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
@@ -454,6 +511,7 @@ struct CPUMIPSState {
     int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
+
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];
@@ -657,8 +715,10 @@ enum {
     EXCP_C2E,
     EXCP_CACHE, /* 32 */
     EXCP_DSPDIS,
+    EXCP_MSADIS,
+    EXCP_MSAFPE,
 
-    EXCP_LAST = EXCP_CACHE,
+    EXCP_LAST
 };
 /* Dummy exception for conditional stores.  */
 #define EXCP_SC 0x100

@@ -541,7 +541,14 @@ static float64 roundAndPackFloat64( flag zSign, int16 zExp, uint64_t zSig STATUS
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
-    zSig = ( zSig + roundIncrement )>>10;
+    if (roundIncrement > LIT64( 0xffffffffffffffff ) - zSig) {
+        /* Overflows on 64-bit arithmetic */
+        zSig = ( zSig >> 10 ) + ( roundIncrement >> 10 ) +
+            ( ( ( zSig & 0x3ff ) + ( roundIncrement & 0x3ff ) ) >> 10 );
+    }
+    else {
+        zSig = ( zSig + roundIncrement )>>10;
+    }
     zSig &= ~ ( ( ( roundBits ^ 0x200 ) == 0 ) & roundNearestEven );
     if ( zSig == 0 ) zExp = 0;
     return packFloat64( zSign, zExp, zSig );
@@ -563,6 +570,11 @@ static float64
     int8 shiftCount;
 
     shiftCount = countLeadingZeros64( zSig ) - 1;
+
+    if (shiftCount < 0) {
+        shiftCount = 0;
+    }
+
     return roundAndPackFloat64( zSign, zExp - shiftCount, zSig<<shiftCount STATUS_VAR);
 
 }
@@ -1273,8 +1285,24 @@ float64 int64_to_float64( int64 a STATUS_PARAM )
 
 float64 uint64_to_float64( uint64 a STATUS_PARAM )
 {
+
     if ( a == 0 ) return float64_zero;
-    return normalizeRoundAndPackFloat64( 0, 0x43C, a STATUS_VAR );
+
+    if ( a & LIT64( 0x8000000000000000 ) ) {
+        /* propagate last 2 digits for rounding */
+        if ( a & 3 ) {
+            a = ( ( a >> 2 ) << 1 ) | 1;
+        }
+        else {
+            a = ( ( a >> 2 ) << 1 );
+        }
+
+        return float64_scalbn(int64_to_float64((int64_t)a STATUS_VAR), 
+                              1 STATUS_VAR);
+    }
+    else {
+        return normalizeRoundAndPackFloat64( 0, 0x43C, a STATUS_VAR );
+    }
 
 }
 
@@ -2476,16 +2504,19 @@ float32 float32_log2( float32 a STATUS_PARAM )
     aSign = extractFloat32Sign( a );
 
     if ( aExp == 0 ) {
-        if ( aSig == 0 ) return packFloat32( 1, 0xFF, 0 );
+        if ( aSig == 0 ) {
+            float_raise( float_flag_divbyzero STATUS_VAR);
+            return packFloat32( 1, 0xFF, 0 );
+        }
         normalizeFloat32Subnormal( aSig, &aExp, &aSig );
     }
     if ( aSign ) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return float32_default_nan;
+        if ( aExp != 0xFF ) return float32_default_nan;
     }
     if ( aExp == 0xFF ) {
         if ( aSig ) return propagateFloat32NaN( a, float32_zero STATUS_VAR );
-        return a;
+        return float32_default_nan;
     }
 
     aExp -= 0x7F;
@@ -3066,8 +3097,14 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
     } else {
         mask = 0x00001fff;
     }
+    
     if (aSig & mask) {
-        float_raise( float_flag_underflow STATUS_VAR );
+        if (aExp < -14) {
+            float_raise( float_flag_underflow | float_flag_inexact STATUS_VAR );
+        } else {
+            float_raise( float_flag_inexact STATUS_VAR );
+        }
+
         roundingMode = STATUS(float_rounding_mode);
         switch (roundingMode) {
         case float_round_nearest_even:
@@ -3099,7 +3136,16 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
     if (ieee) {
         if (aExp > 15) {
             float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-            return packFloat16(aSign, 0x1f, 0);
+
+            roundingMode = STATUS(float_rounding_mode);
+            if (roundingMode == float_round_nearest_even ||
+                (roundingMode == float_round_up && aSign == 0) ||
+                (roundingMode == float_round_down && aSign == 1)) {
+                return packFloat16(aSign, 0x1f, 0);     /* infinity */
+            }
+            else {
+                return packFloat16(aSign, 0x1e, 0x3ff); /* largest value */
+            }
         }
     } else {
         if (aExp > 16) {
@@ -3108,7 +3154,14 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
         }
     }
     if (aExp < -24) {
-        return packFloat16(aSign, 0, 0);
+      roundingMode = STATUS(float_rounding_mode);
+      if ((roundingMode == float_round_up && aSign == 0) ||
+          (roundingMode == float_round_down && aSign == 1)) {
+        return packFloat16(aSign, 0, 1); /* smallest non-zero */
+      }
+      else {
+        return packFloat16(aSign, 0, 0); /* zero */
+      }
     }
     if (aExp < -14) {
         aSig >>= -14 - aExp;
@@ -3960,16 +4013,19 @@ float64 float64_log2( float64 a STATUS_PARAM )
     aSign = extractFloat64Sign( a );
 
     if ( aExp == 0 ) {
-        if ( aSig == 0 ) return packFloat64( 1, 0x7FF, 0 );
+        if ( aSig == 0 ) {
+            float_raise( float_flag_divbyzero STATUS_VAR);
+            return packFloat64( 1, 0x7FF, 0 );
+        }
         normalizeFloat64Subnormal( aSig, &aExp, &aSig );
     }
     if ( aSign ) {
         float_raise( float_flag_invalid STATUS_VAR);
-        return float64_default_nan;
+        if ( aExp != 0x7FF ) return float64_default_nan;
     }
     if ( aExp == 0x7FF ) {
         if ( aSig ) return propagateFloat64NaN( a, float64_zero STATUS_VAR );
-        return a;
+        return float64_default_nan;
     }
 
     aExp -= 0x3FF;
@@ -6412,7 +6468,13 @@ uint32 float32_to_uint32( float32 a STATUS_PARAM )
     int64_t v;
     uint32 res;
 
+    if (float32_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
     v = float32_to_int64(a STATUS_VAR);
+
     if (v < 0) {
         res = 0;
         float_raise( float_flag_invalid STATUS_VAR);
@@ -6429,6 +6491,11 @@ uint32 float32_to_uint32_round_to_zero( float32 a STATUS_PARAM )
 {
     int64_t v;
     uint32 res;
+
+    if (float32_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
 
     v = float32_to_int64_round_to_zero(a STATUS_VAR);
     if (v < 0) {
@@ -6448,6 +6515,11 @@ uint16 float32_to_uint16_round_to_zero( float32 a STATUS_PARAM )
     int64_t v;
     uint16 res;
 
+    if (float32_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
     v = float32_to_int64_round_to_zero(a STATUS_VAR);
     if (v < 0) {
         res = 0;
@@ -6465,6 +6537,11 @@ uint32 float64_to_uint32( float64 a STATUS_PARAM )
 {
     int64_t v;
     uint32 res;
+
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
 
     v = float64_to_int64(a STATUS_VAR);
     if (v < 0) {
@@ -6484,6 +6561,11 @@ uint32 float64_to_uint32_round_to_zero( float64 a STATUS_PARAM )
     int64_t v;
     uint32 res;
 
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
     v = float64_to_int64_round_to_zero(a STATUS_VAR);
     if (v < 0) {
         res = 0;
@@ -6502,6 +6584,11 @@ uint16 float64_to_uint16_round_to_zero( float64 a STATUS_PARAM )
     int64_t v;
     uint16 res;
 
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
     v = float64_to_int64_round_to_zero(a STATUS_VAR);
     if (v < 0) {
         res = 0;
@@ -6515,27 +6602,74 @@ uint16 float64_to_uint16_round_to_zero( float64 a STATUS_PARAM )
     return res;
 }
 
-/* FIXME: This looks broken.  */
 uint64_t float64_to_uint64 (float64 a STATUS_PARAM)
 {
-    int64_t v;
+    float64 one, two63, two64;
 
-    v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-    v += float64_val(a);
-    v = float64_to_int64(make_float64(v) STATUS_VAR);
+    if (float64_is_any_nan(a)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
 
-    return v - INT64_MIN;
+    one = int32_to_float64 (1 STATUS_VAR);
+    two63 = float64_scalbn(one, 63 STATUS_VAR);
+    two64 = float64_scalbn(one, 64 STATUS_VAR);
+
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
+    if (float64_le_quiet (two64, a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
+
+    if (float64_le_quiet (two63, a STATUS_VAR)) {
+        uint64_t v;
+
+        a = float64_sub(a, two63 STATUS_VAR);
+        v = float64_to_int64(a STATUS_VAR);
+
+        return v + LIT64( 0x8000000000000000 );
+    } else {
+        return float64_to_int64(a STATUS_VAR);
+    }
 }
 
 uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
 {
-    int64_t v;
+    float64 one, two63, two64;
 
-    v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
-    v += float64_val(a);
-    v = float64_to_int64_round_to_zero(make_float64(v) STATUS_VAR);
+    if (float64_is_any_nan(a)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
 
-    return v - INT64_MIN;
+    one = int32_to_float64 (1 STATUS_VAR);
+    two63 = float64_scalbn(one, 63 STATUS_VAR);
+    two64 = float64_scalbn(one, 64 STATUS_VAR);
+
+    if (float64_lt_quiet(a, 0 STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return 0;
+    }
+
+    if (float64_le_quiet (two64, a STATUS_VAR)) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return (uint64_t) LIT64( 0xFFFFFFFFFFFFFFFF );
+    }
+
+    if (float64_le_quiet (two63, a STATUS_VAR)) {
+        uint64_t v;
+
+        a = float64_sub(a, two63 STATUS_VAR);
+        v = float64_to_int64_round_to_zero(a STATUS_VAR);
+
+        return v + LIT64( 0x8000000000000000 );
+    } else {
+        return float64_to_int64_round_to_zero(a STATUS_VAR);
+    }
 }
 
 #define COMPARE(s, nan_exp)                                                  \
@@ -6750,8 +6884,11 @@ float32 float32_scalbn( float32 a, int n STATUS_PARAM )
     }
     if ( aExp != 0 )
         aSig |= 0x00800000;
-    else if ( aSig == 0 )
-        return a;
+    else {
+        if ( aSig == 0 )
+            return a;
+        n++;
+    }
 
     if (n > 0x200) {
         n = 0x200;
@@ -6783,8 +6920,11 @@ float64 float64_scalbn( float64 a, int n STATUS_PARAM )
     }
     if ( aExp != 0 )
         aSig |= LIT64( 0x0010000000000000 );
-    else if ( aSig == 0 )
-        return a;
+    else {
+        if ( aSig == 0 )
+            return a;
+        n++;
+    }
 
     if (n > 0x1000) {
         n = 0x1000;

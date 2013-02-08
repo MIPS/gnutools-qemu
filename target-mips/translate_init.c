@@ -407,13 +407,37 @@ static mips_def_t mips_defs[] =
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        /* No DSP implemented. */
         .CP0_Status_rw_bitmask = 0x3778FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "24Kf-MSA",
+        .CP0_PRid = 0x00019300,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
+                    (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (15 << CP0C1_MMU) |
+                       (0 << CP0C1_IS) | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
+                       (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
+                       (1 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
+                       (1 << CP0C3_MSAP),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x3778FF1F,
+        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -781,6 +805,34 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }
+
+    /* re-derive some instruction flags from cp0 config regs */
+    if (def->CP0_Config1 & (1 << CP0C1_CA)) {
+        def->insn_flags |= ASE_MIPS16;
+    } else {
+        def->insn_flags &= ~ASE_MIPS16;
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_DSPP)) {
+        def->insn_flags |= ASE_DSP;
+        def->CP0_Status_rw_bitmask |= (1 << CP0St_MX);
+    } else {
+        def->insn_flags &= ~ASE_DSP;
+        def->CP0_Status_rw_bitmask &= ~(1 << CP0St_MX);
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_DSP2P)) {
+        def->insn_flags |= ASE_DSPR2;
+    } else {
+        def->insn_flags &= ~ASE_DSPR2;
+    }
+
+    if (def->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        def->insn_flags |= ASE_MSA;
+    } else {
+        def->insn_flags &= ~ASE_MSA;
+    }
+
 }
 #endif /* MIPS_AVP */
 #endif /* CONFIG_USER_ONLY */
@@ -794,6 +846,7 @@ static void fpu_init (CPUMIPSState *env, const mips_def_t *def)
 
     memcpy(&env->active_fpu, &env->fpus[0], sizeof(env->active_fpu));
 }
+
 
 static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 {
@@ -820,4 +873,44 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
     env->mvp->CP0_MVPConf1 = (1 << CP0MVPC1_CIM) | (1 << CP0MVPC1_CIF) |
                              (0x0 << CP0MVPC1_PCX) | (0x0 << CP0MVPC1_PCP2) |
                              (0x1 << CP0MVPC1_PCP1);
+}
+
+static void msa_reset(CPUMIPSState *env)
+{
+    /* MSA access enabled */
+    env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+
+    /* CP1 enabled and 64-bit FPRs */
+    env->CP0_Status |= (1 << CP0St_CU1) | (1 << CP0St_FR);
+    env->hflags |= MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X;
+
+    /* Vector register partitioning not implemented */
+    env->active_msa.msair = 0;
+    env->active_msa.msaaccess  = 0xffffffff;
+    env->active_msa.msasave    = 0;
+    env->active_msa.msarequest = 0;
+
+    /* MSA CSR:
+       - non-signaling floating point exception mode off (NX bit is 0)
+       - Cause, Enables, and Flags are all 0
+       - round to nearest / ties to even (RM bits are 0) */
+    env->active_msa.msacsr = 0;
+
+    /* tininess detected after rounding.*/
+    set_float_detect_tininess(float_tininess_after_rounding,
+                              &env->active_msa.fp_status);
+
+    /* clear float_status exception flags */
+    set_float_exception_flags(0, &env->active_msa.fp_status);
+
+    /* set float_status rounding mode */
+    set_float_rounding_mode(float_round_nearest_even,
+                            &env->active_msa.fp_status);
+
+    /* set float_status flush modes */
+    set_flush_to_zero(0, &env->active_msa.fp_status);
+    set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
+
+    /* clear float_status nan mode */
+    set_default_nan_mode(0, &env->active_msa.fp_status);
 }

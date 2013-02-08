@@ -497,4 +497,16 @@ DEF_HELPER_0(rdhwr_ccres, tl)
 DEF_HELPER_1(pmon, void, int)
 DEF_HELPER_0(wait, void)
 
+/* MSA */
+DEF_HELPER_3(load_wr_s64, s64, int, int, int)
+DEF_HELPER_3(load_wr_modulo_s64, s64, int, int, int)
+
+DEF_HELPER_3(load_wr_i64, i64, int, int, int)
+DEF_HELPER_3(load_wr_modulo_i64, i64, int, int, int)
+
+DEF_HELPER_4(store_wr, void, i64, int, int, int)
+DEF_HELPER_4(store_wr_modulo, void, i64, int, int, int)
+
+#include "mips_msa_helper_decl.h"
+
 #include "def-helper.h"
