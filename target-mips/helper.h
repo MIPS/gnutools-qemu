@@ -3,7 +3,7 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 
-#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
 DEF_HELPER_0(avp_ok, void)
 DEF_HELPER_0(avp_fail, void)
 #endif

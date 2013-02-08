@@ -234,7 +234,7 @@ static bool boot_strict;
 uint8_t *boot_splash_filedata;
 size_t boot_splash_filedata_size;
 uint8_t qemu_extra_params_fw[2];
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 char *cpu_model_name;
 char *cpu_config_name;
 #endif
@@ -567,7 +567,7 @@ static void res_free(void)
     }
 }
 
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 static void mips_avp_clean_up(void)
 {
     if (cpu_model_name) {
@@ -2997,7 +2997,7 @@ int main(int argc, char **argv, char **envp)
             }
             case QEMU_OPTION_cpu:
                 /* hw initialization will check this */
-#ifndef MIPS_AVP
+#ifndef MIPSSIM_COMPAT
                 cpu_model = optarg;
 #else
                 {

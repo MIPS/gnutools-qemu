@@ -130,7 +130,7 @@ extern uint8_t *boot_splash_filedata;
 extern size_t boot_splash_filedata_size;
 extern uint8_t qemu_extra_params_fw[2];
 extern QEMUClockType rtc_clock;
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 extern char *cpu_model_name;
 extern char *cpu_config_name;
 #endif

@@ -29,7 +29,7 @@
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
 
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 #include "sysemu/sysemu.h"
 
 void helper_avp_ok(void)

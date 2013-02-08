@@ -612,7 +612,7 @@ static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
     }
 }
 
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 #define CHECK_SET_CONFIG(NAME, TYPE) \
     if (!strcmp(name, #NAME)) { \
         def->NAME = (def->NAME & (~(TYPE)mask)) | (TYPE)value; \
@@ -685,7 +685,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         cpu_abort(env, "Unknown override option %s\n", name);
     }
 }
-#endif /* MIPS_AVP */
+#endif /* MIPSSIM_COMPAT */
 #endif /* CONFIG_USER_ONLY */
 
 static void fpu_init (CPUMIPSState *env, const mips_def_t *def)

@@ -29,7 +29,10 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-#define MIPS_DEBUG_DISAS 0
+#ifdef MIPSSIM_COMPAT
+#include "sysemu/sysemu.h"
+#endif
+//#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 
 /* MIPS major opcodes */
@@ -2067,7 +2070,7 @@ static void gen_slt_imm(DisasContext *ctx, uint32_t opc,
     const char *opn = "imm arith";
     TCGv t0;
 
-#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
     if (opc == OPC_SLTIU && rs == 0 && rt == 0) {
         if ((uint16_t)imm == 0xabc2) {
             gen_helper_avp_ok();
@@ -15952,7 +15955,7 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
     env->cpu_model = def;
 
 #ifndef CONFIG_USER_ONLY
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
     cpu_config(env, def, cpu_config_name);
 #endif
 #endif

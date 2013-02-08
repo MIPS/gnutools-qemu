@@ -192,7 +192,7 @@ static int64_t load_kernel(void)
     initrd_size = 0;
     initrd_offset = 0;
     if (loaderparams.initrd_filename) {
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
         initrd_size = load_mips_hex(loaderparams.initrd_filename);
 #else
         initrd_size = get_image_size (loaderparams.initrd_filename);
@@ -229,7 +229,7 @@ static void main_cpu_reset(void *opaque)
     }
 }
 
-#ifndef MIPS_AVP
+#ifndef MIPSSIM_COMPAT
 static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
 {
     DeviceState *dev;
@@ -257,7 +257,9 @@ mips_mipssim_init(QEMUMachineInitArgs *args)
     const char *initrd_filename = args->initrd_filename;
     char *filename;
     MemoryRegion *address_space_mem = get_system_memory();
+#ifndef MIPSSIM_COMPAT
     MemoryRegion *isa = g_new(MemoryRegion, 1);
+#endif
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *bios = g_new(MemoryRegion, 1);
     MIPSCPU *cpu;
@@ -265,7 +267,7 @@ mips_mipssim_init(QEMUMachineInitArgs *args)
     ResetData *reset_info;
     int bios_size;
 
-#ifdef MIPS_AVP
+#ifdef MIPSSIM_COMPAT
 #ifdef TARGET_WORDS_BIGENDIAN
     const int big_endian = 1;
 #else
@@ -337,7 +339,7 @@ mips_mipssim_init(QEMUMachineInitArgs *args)
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
 
-#ifndef MIPS_AVP
+#ifndef MIPSSIM_COMPAT
     /* Register 64 KB of ISA IO space at 0x1fd00000. */
     memory_region_init_alias(isa, NULL, "isa_mmio",
                              get_system_io(), 0, 0x00010000);
