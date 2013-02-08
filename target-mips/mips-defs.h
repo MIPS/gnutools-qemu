@@ -73,7 +73,7 @@
 /* Define to use SLTIU as stop for AVPs
  *  - also see hw/mips_mipssim for another #define
  */
-#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
 
 /* Ignore MTC0/DMTC0 to non-decoded CP0 registers */
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED

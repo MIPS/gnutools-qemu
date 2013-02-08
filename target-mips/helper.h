@@ -19,7 +19,7 @@
  */
 #include "def-helper.h"
 
-#if defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY)
+#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
 DEF_HELPER_0(avp_ok, void)
 DEF_HELPER_0(avp_fail, void)
 #endif

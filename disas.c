@@ -229,7 +229,7 @@ void target_disas(FILE *out, target_ulong code, target_ulong size, int flags)
     for (pc = code; size > 0; pc += count, size -= count) {
 	fprintf(out, "0x" TARGET_FMT_lx ":  ", pc);
 	count = print_insn(pc, &disasm_info);
-#if 0 || (defined(MIPS_AVP) && !defined(CONFIG_USER_ONLY))
+#if 0 || (defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY))
         {
             int i;
             uint8_t b;
