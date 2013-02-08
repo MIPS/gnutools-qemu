@@ -678,18 +678,18 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) | (1 << CP0C3_CMGCR) |
-                       (0 << CP0C3_VInt) |
+                       (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x3778FF1F,
+        .CP0_Status_rw_bitmask = 0x3d78FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0xa3 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
+        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
