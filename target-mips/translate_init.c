@@ -832,6 +832,36 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_R4000,
     },
     {
+        .name = "Maestro",
+        .CP0_PRid = 0x0001a300,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) | (0x2 << CP0C0_AT) |
+                    (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (63 << CP0C1_MMU) |
+                       (2 << CP0C1_IS) | (4 << CP0C1_IL) | (3 << CP0C1_IA) |
+                       (2 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
+                       (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP) |
+                       (1 << CP0C1_CA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) | (1 << CP0C3_CMGCR) |
+                       (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
+                       (1 << CP0C3_LPA),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x3df8FFFF,
+        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0xa3 << FCR0_PRID),
+        .SEGBITS = 42,
+        /* The architectural limit is 59, but we have hardcoded 36 bit
+           in some places...
+        .PABITS = 59, */ /* the architectural limit */
+        .PABITS = 36,
+        .insn_flags = CPU_MIPS64R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
         .name = "Loongson-2E",
         .CP0_PRid = 0x6302,
         /*64KB I-cache and d-cache. 4 way with 32 bit cache line size*/
