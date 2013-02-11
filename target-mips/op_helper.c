@@ -8427,7 +8427,7 @@ static void check_msacsr_cause(void)
     UPDATE_FP_FLAGS(env->active_msa.msacsr,
                     GET_FP_CAUSE(env->active_msa.msacsr));
 
-#if 1
+#if 0
     printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
            GET_FP_CAUSE(env->active_msa.msacsr),
            GET_FP_FLAGS(env->active_msa.msacsr));
@@ -8448,7 +8448,7 @@ static int update_msacsr(void)
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
 
-#if 1
+#if 0
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
     if (ieee_ex & float_flag_invalid) printf("invalid ");
     if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
@@ -8492,7 +8492,7 @@ static int update_msacsr(void)
       }
     }
 
-#if 1
+#if 0
     printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x\n",
            c, cause, GET_FP_CAUSE(env->active_msa.msacsr));
 #endif
@@ -8710,10 +8710,6 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
-
-            printf("FMUL.W 0x%08x <-- 0x%08x * 0x%08x\n",
-                   W(pwx, i), W(pws, i), W(pwt, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 
@@ -10207,7 +10203,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
         return env->active_msa.msair;
 
     case MSACSR_REGISTER:
-#if 1
+#if 0
         printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
                env->active_msa.msacsr & MSACSR_BITS,
                GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
