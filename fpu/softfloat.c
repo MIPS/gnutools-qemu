@@ -2516,7 +2516,7 @@ float32 float32_log2( float32 a STATUS_PARAM )
     }
     if ( aExp == 0xFF ) {
         if ( aSig ) return propagateFloat32NaN( a, float32_zero STATUS_VAR );
-        return float32_default_nan;
+        return aSign ? float32_default_nan : a;
     }
 
     aExp -= 0x7F;
@@ -4025,7 +4025,7 @@ float64 float64_log2( float64 a STATUS_PARAM )
     }
     if ( aExp == 0x7FF ) {
         if ( aSig ) return propagateFloat64NaN( a, float64_zero STATUS_VAR );
-        return float64_default_nan;
+        return aSign ? float64_default_nan : a;
     }
 
     aExp -= 0x3FF;
