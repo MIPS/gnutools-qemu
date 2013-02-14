@@ -2510,13 +2510,13 @@ float32 float32_log2( float32 a STATUS_PARAM )
         }
         normalizeFloat32Subnormal( aSig, &aExp, &aSig );
     }
-    if ( aSign ) {
-        float_raise( float_flag_invalid STATUS_VAR);
-        if ( aExp != 0xFF ) return float32_default_nan;
-    }
     if ( aExp == 0xFF ) {
         if ( aSig ) return propagateFloat32NaN( a, float32_zero STATUS_VAR );
-        return aSign ? float32_default_nan : a;
+        if ( aSign == 0 ) return a;
+    }
+    if ( aSign ) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return float32_default_nan;
     }
 
     aExp -= 0x7F;
@@ -4019,13 +4019,13 @@ float64 float64_log2( float64 a STATUS_PARAM )
         }
         normalizeFloat64Subnormal( aSig, &aExp, &aSig );
     }
-    if ( aSign ) {
-        float_raise( float_flag_invalid STATUS_VAR);
-        if ( aExp != 0x7FF ) return float64_default_nan;
-    }
     if ( aExp == 0x7FF ) {
         if ( aSig ) return propagateFloat64NaN( a, float64_zero STATUS_VAR );
-        return aSign ? float64_default_nan : a;
+        if ( aSign == 0 ) return a;
+    }
+    if ( aSign ) {
+        float_raise( float_flag_invalid STATUS_VAR);
+        return float64_default_nan;
     }
 
     aExp -= 0x3FF;

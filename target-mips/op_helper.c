@@ -8427,7 +8427,7 @@ static void check_msacsr_cause(void)
     UPDATE_FP_FLAGS(env->active_msa.msacsr,
                     GET_FP_CAUSE(env->active_msa.msacsr));
 
-#if 0
+#if 1
     printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
            GET_FP_CAUSE(env->active_msa.msacsr),
            GET_FP_FLAGS(env->active_msa.msacsr));
@@ -8448,7 +8448,7 @@ static int update_msacsr(void)
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
 
-#if 0
+#if 1
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
     if (ieee_ex & float_flag_invalid) printf("invalid ");
     if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
@@ -8492,9 +8492,10 @@ static int update_msacsr(void)
       }
     }
 
-#if 0
-    printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x\n",
-           c, cause, GET_FP_CAUSE(env->active_msa.msacsr));
+#if 1
+    printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x, MSACSR.NX %d\n",
+           c, cause, GET_FP_CAUSE(env->active_msa.msacsr),
+           (env->active_msa.msacsr & MSACSR_NX_BIT) != 0);
 #endif
 
     return c;
@@ -8578,7 +8579,7 @@ static int update_msacsr(void)
                                                                         \
     set_float_exception_flags(                                          \
       get_float_exception_flags(&env->active_msa.fp_status)             \
-      & (~float_flag_inexact),                                          \
+                                    & (~float_flag_inexact),            \
       &env->active_msa.fp_status);                                      \
                                                                         \
     c = update_msacsr();                                                \
@@ -9709,7 +9710,7 @@ static float32 float32_from_float64(int64 a STATUS_PARAM) {
       f_val = float64_to_float32((float64)a STATUS_VAR);
       f_val = float32_maybe_silence_nan(f_val);
 
-      return a < 0 ? (f_val | (1 << 31)) : f_val;      
+      return a < 0 ? (f_val | (1 << 31)) : f_val;
 }
 
 static float32 float32_from_float16(int16 a, flag ieee STATUS_PARAM) {
@@ -10036,6 +10037,8 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     int32 q_min = 0xffff8000;
     int32 q_max = 0x00007fff;
 
+    int ieee_ex;
+
     if (float32_is_any_nan(a)) {
       float_raise( float_flag_invalid STATUS_VAR);
       return 0;
@@ -10044,22 +10047,30 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     /* scaling */
     a = float32_scalbn(a, 15 STATUS_VAR);
 
-    if (get_float_exception_flags(&env->active_msa.fp_status)
-        & float_flag_overflow) {
-      q_val = (int32)a < 0 ? q_min : q_max;
+    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    if (ieee_ex & float_flag_overflow) {
+      float_raise( float_flag_inexact STATUS_VAR);
+      return (int32)a < 0 ? q_min : q_max;
     }
-    else {
-      /* conversion to int */
-      q_val = float32_to_int32(a STATUS_VAR);
+
+    /* conversion to int */
+    q_val = float32_to_int32(a STATUS_VAR);
+
+    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    if (ieee_ex & float_flag_invalid) {
+      set_float_exception_flags(ieee_ex & (~float_flag_invalid),
+                                &env->active_msa.fp_status);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
+      return (int32)a < 0 ? q_min : q_max;
     }
 
     if (q_val < q_min) {
-      float_raise( float_flag_overflow STATUS_VAR);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int16)q_min;
     }
 
     if (q_max < q_val) {
-      float_raise( float_flag_overflow STATUS_VAR);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int16)q_max;
     }
 
@@ -10072,6 +10083,8 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     int64 q_min = 0xffffffff80000000LL;
     int64 q_max = 0x000000007fffffffLL;
 
+    int ieee_ex;
+
     if (float64_is_any_nan(a)) {
       float_raise( float_flag_invalid STATUS_VAR);
       return 0;
@@ -10080,22 +10093,30 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     /* scaling */
     a = float64_scalbn(a, 31 STATUS_VAR);
 
-    if (get_float_exception_flags(&env->active_msa.fp_status)
-        & float_flag_overflow) {
-      q_val = (int64)a < 0 ? q_min : q_max;
+    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    if (ieee_ex & float_flag_overflow) {
+      float_raise( float_flag_inexact STATUS_VAR);
+      return (int64)a < 0 ? q_min : q_max;
     }
-    else {
-      /* conversion to integer */
-      q_val = float64_to_int64(a STATUS_VAR);
+
+    /* conversion to integer */
+    q_val = float64_to_int64(a STATUS_VAR);
+
+    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    if (ieee_ex & float_flag_invalid) {
+      set_float_exception_flags(ieee_ex & (~float_flag_invalid),
+                                &env->active_msa.fp_status);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
+      return (int64)a < 0 ? q_min : q_max;
     }
 
     if (q_val < q_min) {
-      float_raise( float_flag_overflow STATUS_VAR);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int32)q_min;
     }
 
     if (q_max < q_val) {
-      float_raise( float_flag_overflow STATUS_VAR);
+      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int32)q_max;
     }
 
@@ -10203,7 +10224,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
         return env->active_msa.msair;
 
     case MSACSR_REGISTER:
-#if 0
+#if 1
         printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
                env->active_msa.msacsr & MSACSR_BITS,
                GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),

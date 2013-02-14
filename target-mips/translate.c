@@ -12413,13 +12413,20 @@ static inline void check_msa_access(CPUState *env, DisasContext *ctx,
 {
     int mask, curr_request, curr_modify;
 
+    curr_request = 0;
+    curr_modify = 0;
+
     if (wd != -1) {
-        curr_request = (1 << wt) | (1 << ws) | (1 << wd);
-        curr_modify  = (1 << wd);
+      curr_request = (1 << wd);
+      curr_modify  = (1 << wd);
     }
-    else {
-        curr_request = (1 << wt) | (1 << ws);
-        curr_modify = 0;
+
+    if (wt != -1) {
+      curr_request = (1 << wt);
+    }
+
+    if (ws != -1) {
+      curr_request = (1 << ws);
     }
 
     env->active_msa.msarequest |= curr_request;

@@ -595,6 +595,8 @@ C_END
     if ($is_ld_v) {
         $func_body .= <<"C_END";
 $declare_str
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
@@ -624,6 +626,8 @@ C_END
     } elsif ($is_ldx_v) {
         $func_body .= <<"C_END";
 $declare_str
+    check_msa_access(env, ctx, wd, -1, -1);
+
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -665,6 +669,8 @@ C_END
     } elsif ($is_st_v) {
         $func_body .= <<"C_END";
 $declare_str
+    check_msa_access(env, ctx, wd, -1, -1);
+
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
@@ -694,6 +700,8 @@ C_END
     } elsif ($is_stx_v) {
         $func_body .= <<"C_END";
 $declare_str
+    check_msa_access(env, ctx, wd, -1, -1);
+
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1141,7 +1149,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    check_msa_access(env, ctx, wd, wd, -1);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -1174,7 +1182,10 @@ C_END
     elsif ($func_type eq 's10_wd_branch') {
 
         $func_body .=<<"C_END";
+
 $declare_str
+    check_msa_access(env, ctx, wd, wd, -1);
+
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  =
 tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
@@ -1467,6 +1478,8 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
+    check_msa_access(env, ctx, -1, -1, -1);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcd = tcg_const_i32(cd);
 
@@ -1484,6 +1497,8 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
+    check_msa_access(env, ctx, -1, -1, -1);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcs = tcg_const_i32(cs);
 

@@ -1742,6 +1742,8 @@ static void gen_ld_df(CPUState *env, DisasContext *ctx) {
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    check_msa_access(env, ctx, wd, wd, wd);
+
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
@@ -1776,6 +1778,8 @@ static void gen_st_df(CPUState *env, DisasContext *ctx) {
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    check_msa_access(env, ctx, wd, -1, -1);
+
     TCGv_i32 twd = tcg_const_i32(wd);
     int wrlen = 128;
     // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
@@ -1808,6 +1812,8 @@ static void gen_ldx_df(CPUState *env, DisasContext *ctx) {
     uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, -1, -1);
 
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
@@ -1853,6 +1859,8 @@ static void gen_stx_df(CPUState *env, DisasContext *ctx) {
     uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, -1, -1);
 
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
@@ -3836,8 +3844,11 @@ static void gen_shf_w(CPUState *env, DisasContext *ctx) {
 
 static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s10_wd_branch */
+
     int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, wd, -1);
 
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  =
@@ -3865,8 +3876,11 @@ tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
 static void gen_bz_v(CPUState *env, DisasContext *ctx) {
     /* func_type = s10_wd_branch */
+
     int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, wd, wd, -1);
 
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  =
@@ -4185,7 +4199,7 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    check_msa_access(env, ctx, wd, wd, -1);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -4220,7 +4234,7 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    check_msa_access(env, ctx, wd, wd, -1);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -5582,6 +5596,8 @@ static void gen_ctcmsa(CPUState *env, DisasContext *ctx) {
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t cd = (ctx->opcode >> 6) & 0x1f /* cd [10:6] */;
 
+    check_msa_access(env, ctx, -1, -1, -1);
+
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcd = tcg_const_i32(cd);
 
@@ -5598,6 +5614,8 @@ static void gen_cfcmsa(CPUState *env, DisasContext *ctx) {
 
     uint8_t cs = (ctx->opcode >> 11) & 0x1f /* cs [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
+
+    check_msa_access(env, ctx, -1, -1, -1);
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcs = tcg_const_i32(cs);
