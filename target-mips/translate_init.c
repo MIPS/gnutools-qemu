@@ -620,7 +620,7 @@ static mips_def_t mips_defs[] =
                     (0x3 << CP0TCSt_TKSU) | (1 << CP0TCSt_IXMT) |
                     (0xff << CP0TCSt_TASID),
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x95 << FCR0_PRID),
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0xa1 << FCR0_PRID),
         .CP0_SRSCtl = (0xf << CP0SRSCtl_HSS),
         .CP0_SRSConf0_rw_bitmask = 0x3fffffff,
         .CP0_SRSConf0 = (1 << CP0SRSC0_M) | (0x3fe << CP0SRSC0_SRS3) |
@@ -661,7 +661,7 @@ static mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3d78FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0xa3 << FCR0_PRID),
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
@@ -686,7 +686,7 @@ static mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3d78FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0xa3 << FCR0_PRID),
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
