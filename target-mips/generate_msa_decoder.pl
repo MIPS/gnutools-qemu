@@ -537,16 +537,12 @@ C_END
     } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
         n = dfn & 0x3;
         df = 3;
-    } else if ((dfn & 0x3e) == 0x3c) {  /* quadword data format */
-        uint32_t bits_25_22 = (ctx->opcode >> 22) & 0xf;
+    } else {
+        generate_exception(ctx, EXCP_RI);
+    }
 
-        if (bits_25_22 == 0) { /* SLDI */
-            generate_exception(ctx, EXCP_RI);
-        }
-
-        n = dfn & 0x1;
-        df = 4;
-    } else {                            /* should not get here */
+    int df_bits = 8 * (1 << df);
+    if ( n >= wrlen / df_bits ) {
         generate_exception(ctx, EXCP_RI);
     }
 
@@ -569,8 +565,9 @@ C_END
     } else if ((dfm & 0x78) == 0x70) {  /* byte data format */
         m = dfm & 0x7;
         df = 0;
-    } else {                            /* should not get here */
-        generate_exception(ctx, EXCP_RI);
+    } else {
+        /* shouldn not get here */
+        assert(0);
     }
 
 C_END
@@ -583,6 +580,10 @@ C_END
     my $func_body = <<"C_END";
 static void gen_$codename(CPUState *env, DisasContext *ctx) {
     /* func_type = $func_type */
+
+    /* Implementation fixed to 128-bit vector registers */
+    int __attribute__((unused)) wrlen = 128;
+
 C_END
 
     my $def;
@@ -598,7 +599,7 @@ $declare_str
     check_msa_access(env, ctx, wd, wd, wd);
 
     TCGv_i32 twd = tcg_const_i32(wd);
-    int wrlen = 128;
+
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
     if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
@@ -609,7 +610,7 @@ $declare_str
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
         tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
@@ -631,7 +632,7 @@ $declare_str
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_i32 twd = tcg_const_i32(wd);
-    int wrlen = 128;
+
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
     if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
@@ -647,7 +648,7 @@ $declare_str
     TCGv telemaddr = tcg_temp_new(); /* element addr */
     TCGv_i32 tdf = tcg_const_i32(df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
         gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
@@ -672,7 +673,7 @@ $declare_str
     check_msa_access(env, ctx, wd, -1, -1);
 
     TCGv_i32 twd = tcg_const_i32(wd);
-    int wrlen = 128;
+
     // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
     if (df != 2) df = 2; /* FIXME: use df not 'w' format */
     int df_bits = 8 * (1 << df);
@@ -683,7 +684,7 @@ $declare_str
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
@@ -705,7 +706,7 @@ $declare_str
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_i32 twd = tcg_const_i32(wd);
-    int wrlen = 128;
+
     // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
     if (df != 2) df = 2; /* FIXME: use df not 'w' format  */
     int df_bits = 8 * (1 << df);
@@ -721,7 +722,7 @@ $declare_str
     TCGv telemaddr = tcg_temp_new(); /* element addr */
     TCGv_i32 tdf = tcg_const_i32(df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         tcg_gen_movi_tl(telemoff, i*df_bits/8);
@@ -761,10 +762,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_load_wr_modulo_$ttype(tt, twt, tdf, ti);
@@ -801,10 +801,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_load_wr_modulo_s64(tt, twt, tdf, ti);
@@ -848,10 +847,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, t$imm, tdf);
@@ -892,10 +890,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_load_wr_modulo_$dtype(td, twd, tdf, ti);
@@ -924,7 +921,7 @@ $declare_str
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
+
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_helper_$helper_name(tpwd, tpws, tpwt, twrlen_df);
@@ -947,7 +944,7 @@ $declare_str
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
+
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_helper_$helper_name(tpwd, tpws, twrlen_df);
@@ -970,7 +967,7 @@ $declare_str
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
+
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     gen_helper_$helper_name(tpwd, tpws, tpwt, twrlen);
@@ -994,7 +991,7 @@ $declare_str
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
+
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 t$imm = tcg_const_i32($imm); // FIXME
 
@@ -1024,10 +1021,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, tm, tdf);
@@ -1061,10 +1057,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_s64(ts, tws, tdf, ti);
         gen_helper_load_wr_modulo_s64(td, twd, tdf, ti);
@@ -1101,10 +1096,9 @@ $declare_str
     TCGv_i32 ti;
 
     int i;
-    int wrlen = 128;
     int df_bits = 8 * (1 << df);
 
-    for (i = 0; i < wrlen/df_bits; i++) {
+    for (i = 0; i < wrlen / df_bits; i++) {
         ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_$stype(ts, tws, tdf, ti);
         gen_helper_$helper_name(td, ts, tdf);
@@ -1131,7 +1125,6 @@ $declare_str
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     gen_helper_$helper_name(tpwd, tdf, ts10, twrlen);
@@ -1155,7 +1148,6 @@ $declare_str
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
@@ -1190,7 +1182,6 @@ $declare_str
     TCGv_ptr tpwd  =
 tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
@@ -1221,7 +1212,6 @@ $declare_str
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     gen_helper_$helper_name(tpwd, ts10, twrlen);
@@ -1244,7 +1234,6 @@ $declare_str
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
-    int wrlen = 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_helper_$helper_name(tpwd, tpws, tn, twrlen_df);
@@ -1268,7 +1257,6 @@ $declare_str
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
-    int wrlen = 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_load_gpr(trs, rs);
@@ -1292,7 +1280,6 @@ $declare_str
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_load_gpr(trt, rt);
@@ -1317,7 +1304,6 @@ $declare_str
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_load_gpr(trt, rt);
@@ -1340,7 +1326,6 @@ $declare_str
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     gen_helper_$helper_name(tpwd, tpws, twrlen);
@@ -1360,7 +1345,7 @@ $declare_str
     TCGv_i32 ts5 = tcg_const_i32(s5);
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
     TCGv trs = tcg_temp_new();
-    int wrlen = 128;
+
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
 
     gen_load_gpr(trs, rs);
@@ -1383,7 +1368,7 @@ $declare_str
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
-    int wrlen = 128;
+
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
 
     gen_load_gpr(trt, rt);
@@ -1459,7 +1444,6 @@ $declare_str
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
 
-    int wrlen = 128;
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
     gen_load_gpr(trs, rs);
