@@ -51,8 +51,6 @@ void helper_avp_fail(void)
 
 static inline void compute_hflags(CPUState *env)
 {
-  puts(__FUNCTION__);
-
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
                      MIPS_HFLAG_UX | MIPS_HFLAG_DSP);
