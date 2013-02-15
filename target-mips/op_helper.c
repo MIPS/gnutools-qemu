@@ -51,6 +51,8 @@ void helper_avp_fail(void)
 
 static inline void compute_hflags(CPUState *env)
 {
+  puts(__FUNCTION__);
+
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
                      MIPS_HFLAG_UX | MIPS_HFLAG_DSP);
@@ -106,7 +108,7 @@ static inline void compute_hflags(CPUState *env)
 
 void helper_raise_exception_err (uint32_t exception, int error_code)
 {
-#if 1
+#if 0
     if (exception < 0x100)
         qemu_log("%s: %d %d\n", __func__, exception, error_code);
 #endif
@@ -8427,7 +8429,7 @@ static void check_msacsr_cause(void)
     UPDATE_FP_FLAGS(env->active_msa.msacsr,
                     GET_FP_CAUSE(env->active_msa.msacsr));
 
-#if 1
+#if 0
     printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
            GET_FP_CAUSE(env->active_msa.msacsr),
            GET_FP_FLAGS(env->active_msa.msacsr));
@@ -8448,7 +8450,7 @@ static int update_msacsr(void)
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
 
-#if 1
+#if 0
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
     if (ieee_ex & float_flag_invalid) printf("invalid ");
     if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
@@ -8492,7 +8494,7 @@ static int update_msacsr(void)
       }
     }
 
-#if 1
+#if 0
     printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x, MSACSR.NX %d\n",
            c, cause, GET_FP_CAUSE(env->active_msa.msacsr),
            (env->active_msa.msacsr & MSACSR_NX_BIT) != 0);
@@ -10224,7 +10226,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
         return env->active_msa.msair;
 
     case MSACSR_REGISTER:
-#if 1
+#if 0
         printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
                env->active_msa.msacsr & MSACSR_BITS,
                GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),

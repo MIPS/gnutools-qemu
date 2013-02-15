@@ -1114,7 +1114,10 @@ static void msa_reset(CPUMIPSState *env)
     /* MSA access enabled */
     env->CP0_Config5 |= 1 << CP0C5_MSAEn;
 
-    /* CP1 enabled and 64-bit FPRs */
+    /* DSP and CP1 enabled, 64-bit FPRs */
+    env->CP0_Status |= (1 << CP0St_MX);
+    env->hflags |= MIPS_HFLAG_DSP;
+
     env->CP0_Status |= (1 << CP0St_CU1) | (1 << CP0St_FR);
     env->hflags |= MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X;
 #endif

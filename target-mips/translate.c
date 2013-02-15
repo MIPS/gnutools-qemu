@@ -925,6 +925,7 @@ static inline void check_dsp(CPUState *env, DisasContext *ctx, int rev)
     }
 
     if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSP))) {
+      puts(__FUNCTION__);
         generate_exception(ctx, EXCP_DSPDIS);
     }
 }
