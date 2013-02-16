@@ -66,8 +66,7 @@ static void gen_slli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -170,8 +169,7 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -274,8 +272,7 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -378,8 +375,7 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -482,8 +478,7 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -586,8 +581,7 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -691,8 +685,7 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -797,8 +790,7 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -2068,8 +2060,7 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -2128,8 +2119,7 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
@@ -3102,6 +3092,11 @@ static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -3146,6 +3141,11 @@ static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -3189,6 +3189,11 @@ static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
 
     check_msa_access(env, ctx, wt, ws, wd);
 
@@ -3235,6 +3240,11 @@ static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -3280,6 +3290,11 @@ static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -3324,6 +3339,11 @@ static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
 
     check_msa_access(env, ctx, wt, ws, wd);
 
@@ -4256,6 +4276,13 @@ static void gen_fill_df(CPUState *env, DisasContext *ctx) {
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
+
     check_msa_access(env, ctx, wd, wd, wd);
 
     TCGv trs = tcg_temp_new();
@@ -4417,6 +4444,13 @@ static void gen_copy_s_df(CPUState *env, DisasContext *ctx) {
         generate_exception(ctx, EXCP_RI);
     }
 
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
+
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
@@ -4469,6 +4503,13 @@ static void gen_copy_u_df(CPUState *env, DisasContext *ctx) {
         generate_exception(ctx, EXCP_RI);
     }
 
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
+
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
@@ -4520,6 +4561,13 @@ static void gen_insv_df(CPUState *env, DisasContext *ctx) {
     if ( n >= wrlen / df_bits ) {
         generate_exception(ctx, EXCP_RI);
     }
+
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
 
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;

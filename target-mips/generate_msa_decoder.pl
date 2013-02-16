@@ -547,6 +547,22 @@ C_END
     }
 
 C_END
+
+        my $is_copy = ($codename =~ /copy_[su]_df/);
+        my $is_insv = ($codename =~ /insv_df/);
+
+        if ( $is_copy || $is_insv ) {
+            $declare_str .= <<C_END;
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
+
+C_END
+        }
+
         }
         elsif ($fieldname eq 'dfm') {
             $declare_str .= <<C_END;
@@ -566,8 +582,7 @@ C_END
         m = dfm & 0x7;
         df = 0;
     } else {
-        /* shouldn not get here */
-        assert(0);
+        generate_exception(ctx, EXCP_RI);
     }
 
 C_END
@@ -747,9 +762,24 @@ C_END
         my $ttype = get_arg_type($inst,'wt');
         my $dtype = get_arg_type($inst,'wd');
 
-        $func_body .= <<"C_END";
+        my $is_dotp = ($codename =~ /dotp_[su]_df/);
+
+          $func_body .= <<"C_END";
 
 $declare_str
+C_END
+
+        if ( $is_dotp ) {
+          $func_body .= <<"C_END";
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
+C_END
+        }
+
+        $func_body .= <<"C_END";
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -785,10 +815,27 @@ C_END
        $def = "DEF_HELPER_3($helper_name, $dtype, $stype, $ttype, i32)";
     }
     elsif ( $func_type eq 'df_wt_ws_wd_wd' ) {
+
+        my $is_dpadd = ($codename =~ /dpadd_[su]_df/);
+        my $is_dpsub = ($codename =~ /dpsub_[su]_df/);
+
         # same as df_wt_ws_wd but wd used as input too
         $func_body .= <<"C_END";
 
 $declare_str
+C_END
+
+        if ( $is_dpadd || $is_dpsub ) {
+          $func_body .= <<"C_END";
+    /* check df: byte format not allowed for dot product instructions */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
+C_END
+        }
+
+        $func_body .= <<"C_END";
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -1439,6 +1486,13 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
+#if !defined(TARGET_MIPS64)
+    /* Double format valid only for MIPS64 */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
+#endif
+
     check_msa_access(env, ctx, wd, wd, wd);
 
     TCGv trs = tcg_temp_new();
