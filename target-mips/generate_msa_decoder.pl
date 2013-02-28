@@ -1649,6 +1649,10 @@ sub get_func_type {
         'FTINT_U.df' => 'df_ws_wd_p',
         'FRINT.df' => 'df_ws_wd_p',
 
+        'FRCP.df' => 'df_ws_wd_p',
+        'FRSQRT.df' => 'df_ws_wd_p',
+
+
         'FMADD.df' => 'df_wt_ws_wd_p',
         'FMSUB.df' => 'df_wt_ws_wd_p',
 
@@ -6974,6 +6978,47 @@ sub read_instructions {
           {
             'opcode' => [
                           [
+                            '21',
+                            '16',
+                            'dfn'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '21',
+                               '16',
+                               'dfn'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x79400019',
+            'name' => 'INSVE.df',
+            'match_mm' => '0xc940002a',
+            'mask_mm' => '0xffc0003f',
+            'mask' => '0xffc0003f'
+          },
+          {
+            'opcode' => [
+                          [
                             '22',
                             '21',
                             'df'
@@ -8805,6 +8850,88 @@ sub read_instructions {
             'match' => '0x7b26001e',
             'name' => 'FSQRT.df',
             'match_mm' => '0xcb260032',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b28001e',
+            'name' => 'FRSQRT.df',
+            'match_mm' => '0xcb280032',
+            'mask_mm' => '0xfffe003f',
+            'mask' => '0xfffe003f'
+          },
+          {
+            'opcode' => [
+                          [
+                            '16',
+                            '16',
+                            'df'
+                          ],
+                          [
+                            '15',
+                            '11',
+                            'ws'
+                          ],
+                          [
+                            '10',
+                            '6',
+                            'wd'
+                          ]
+                        ],
+            'opcode_mm' => [
+                             [
+                               '16',
+                               '16',
+                               'df'
+                             ],
+                             [
+                               '15',
+                               '11',
+                               'ws'
+                             ],
+                             [
+                               '10',
+                               '6',
+                               'wd'
+                             ]
+                           ],
+            'match' => '0x7b2a001e',
+            'name' => 'FRCP.df',
+            'match_mm' => '0xcb2a0032',
             'mask_mm' => '0xfffe003f',
             'mask' => '0xfffe003f'
           },

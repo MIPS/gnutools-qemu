@@ -95,10 +95,19 @@ struct CPUMIPSMSAContext {
 #define MSACSR_NX_POS 18
 #define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
 
+#define MSACSR_IS_POS 19
+#define MSACSR_IS_BIT (1 << MSACSR_IS_POS)
+
+#define MSACSR_FS_POS 20
+#define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
+
+
 
 #define MSACSR_BITS                             \
     (MSACSR_RM_MASK |                           \
      MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
+     MSACSR_FS_BIT |                            \
+     MSACSR_IS_BIT |                            \
      MSACSR_NX_BIT)
 
     int32_t msaaccess;

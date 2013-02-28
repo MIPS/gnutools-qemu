@@ -23,6 +23,12 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
         case OPC_FSQRT_df:
             gen_fsqrt_df(env, ctx);
             return;
+        case OPC_FRSQRT_df:
+            gen_frsqrt_df(env, ctx);
+            return;
+        case OPC_FRCP_df:
+            gen_frcp_df(env, ctx);
+            return;
         case OPC_FRINT_df:
             gen_frint_df(env, ctx);
             return;
@@ -115,6 +121,9 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
             return;
         case OPC_INSV_df:
             gen_insv_df(env, ctx);
+            return;
+        case OPC_INSVE_df:
+            gen_insve_df(env, ctx);
             return;
         case OPC_FCUN_df:
             gen_fcun_df(env, ctx);

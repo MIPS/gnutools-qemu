@@ -7894,7 +7894,7 @@ void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
 
 
 /*
- *  LDI, FILL, INSV
+ *  LDI, FILL, INSV, INSVE
  */
 void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 {
@@ -7989,6 +7989,36 @@ void helper_insv_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
 
     case DF_DOUBLE:
         D(pwd, n)   = (int64_t)rs;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+void helper_insve_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    msa_check_index(df, n, wrlen);
+
+    switch (df) {
+    case DF_BYTE:
+        B(pwd, n)   = (int8_t)B(pws, 0);
+        break;
+
+    case DF_HALF:
+        H(pwd, n)   = (int16_t)H(pws, 0);
+        break;
+
+    case DF_WORD:
+        W(pwd, n)   = (int32_t)W(pws, 0);
+        break;
+
+    case DF_DOUBLE:
+        D(pwd, n)   = (int64_t)D(pws, 0);
         break;
 
     default:
@@ -8462,6 +8492,18 @@ static int update_msacsr(void)
 
     c = ieee_ex_to_mips(ieee_ex);
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
+
+    /* Set Inexact (I) when flushing inputs to zero */
+    if ((ieee_ex & float_flag_input_denormal) &&
+        (env->active_msa.msacsr & MSACSR_IS_BIT) != 0) {
+      c |= FP_INEXACT;
+    }
+
+    /* Set Inexact (I) and Underflow (U) when flushing outputs to zero */
+    if ((ieee_ex & float_flag_output_denormal) &&
+        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
+      c |= FP_INEXACT | FP_UNDERFLOW;
+    }
 
     /* Set Inexact (I) when Overflow (O) is not enabled */
     if ((c & FP_OVERFLOW) != 0 && (enable & FP_OVERFLOW) == 0) {
@@ -9165,6 +9207,8 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
                                                                         \
     c = update_msacsr();                                                \
+    c &= ~FP_INEXACT; /* Clear Inexact if set due to flush-to-zero */   \
+                                                                        \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -9200,6 +9244,8 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
                                                                         \
     c = update_msacsr();                                                \
+    c &= ~FP_INEXACT; /* Clear Inexact if set due to flush-to-zero */   \
+                                                                        \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -10212,6 +10258,88 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     helper_move_v(pwd, pwx, wrlen);
 }
 
+/*
+ *  FRCP, FRSQRT
+ */
+
+void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_BINOP(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_BINOP(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    /* Inexact flag is always set */
+    set_float_exception_flags(
+      get_float_exception_flags(&env->active_msa.fp_status)
+                                     | ~float_flag_inexact,
+      &env->active_msa.fp_status);
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+
+void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+           MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
+           MSA_FLOAT_BINOP(W(pwx, i), div, FLOAT_ONE32, W(pwx, i), 32);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
+            MSA_FLOAT_BINOP(D(pwx, i), div, FLOAT_ONE64, D(pwx, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    /* Inexact flag is always set */
+    set_float_exception_flags(
+      get_float_exception_flags(&env->active_msa.fp_status)
+                                     | ~float_flag_inexact,
+      &env->active_msa.fp_status);
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+
 
 /*
  *  MSA Control Register (MSACSR) instructions: CFCMSA, CTCMSA
@@ -10290,8 +10418,12 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
             &env->active_msa.fp_status);
 
         /* set float_status flush modes */
-        set_flush_to_zero(0, &env->active_msa.fp_status);
-        set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
+        set_flush_to_zero(
+          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
+          &env->active_msa.fp_status);
+        set_flush_inputs_to_zero(
+          (env->active_msa.msacsr & MSACSR_IS_BIT) != 0 ? 1 : 0,
+          &env->active_msa.fp_status);
 
         /* check exception */
         if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
