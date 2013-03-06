@@ -499,7 +499,7 @@ static TCGv_i32 fpu_fcr0, fpu_fcr31;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
 
-static TCGv cpu_wr[32];
+// static TCGv cpu_wr[32];
 
 #include "gen-icount.h"
 
@@ -567,12 +567,6 @@ static const char *fregnames[] =
       "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
       "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
       "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31", };
-
-static const char *wregnames[] = {
-    "w0",  "w1",  "w2",  "w3",  "w4",  "w5",  "w6",  "w7",
-    "w8",  "w9",  "w10", "w11", "w12", "w13", "w14", "w15",
-    "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23",
-    "w24", "w25", "w26", "w27", "w28", "w29", "w30", "w31", };
 
 
 #ifdef MIPS_DEBUG_DISAS
@@ -713,6 +707,10 @@ static inline void gen_store_srsgpr (int from, int to)
 /* Floating point register moves. */
 static inline void gen_load_fpr32 (TCGv_i32 t, int reg)
 {
+    TCGv_i64 z  = tcg_const_i64(0);
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+
     tcg_gen_ld_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[FP_ENDIAN_IDX]));
 }
 
@@ -723,16 +721,27 @@ static inline void gen_store_fpr32 (TCGv_i32 t, int reg)
 
 static inline void gen_load_fpr32h (TCGv_i32 t, int reg)
 {
+    TCGv_i64 z  = tcg_const_i64(0);
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+
     tcg_gen_ld_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
 }
 
 static inline void gen_store_fpr32h (TCGv_i32 t, int reg)
 {
+    TCGv_i64 z  = tcg_const_i64(0);
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+
     tcg_gen_st_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
 }
 
 static inline void gen_load_fpr64 (DisasContext *ctx, TCGv_i64 t, int reg)
 {
+    TCGv_i64 z  = tcg_const_i64(0);
+    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+
     if (ctx->hflags & MIPS_HFLAG_F64) {
         tcg_gen_ld_i64(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].d));
     } else {
@@ -13492,11 +13501,6 @@ static void mips_tcg_init(void)
     fpu_fcr31 = tcg_global_mem_new_i32(TCG_AREG0,
                                        offsetof(CPUState, active_fpu.fcr31),
                                        "fcr31");
-    /* MSA */
-    for (i = 0; i < 32; i++)
-        cpu_wr[i] = tcg_global_mem_new(TCG_AREG0,
-                                       offsetof(CPUState, active_msa.wr[i]),
-                                       wregnames[i]);
 
     /* register helpers */
 #define GEN_HELPER 2

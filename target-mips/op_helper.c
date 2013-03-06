@@ -8353,13 +8353,13 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
 
     switch (df) {
     case DF_BYTE: /* b */
-        return env->active_msa.wr[wreg].b[i];
+        return env->active_fpu.fpr[wreg].wr.b[i];
     case DF_HALF: /* h */
-        return env->active_msa.wr[wreg].h[i];
+        return env->active_fpu.fpr[wreg].wr.h[i];
     case DF_WORD: /* w */
-        return env->active_msa.wr[wreg].w[i];
+        return env->active_fpu.fpr[wreg].wr.w[i];
     case DF_DOUBLE: /* d */
-        return env->active_msa.wr[wreg].d[i];
+        return env->active_fpu.fpr[wreg].wr.d[i];
     default:
         /* shouldn't get here */
       assert(0);
@@ -8381,13 +8381,13 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
 
     switch (df) {
     case DF_BYTE: /* b */
-        return (uint8_t)env->active_msa.wr[wreg].b[i];
+        return (uint8_t)env->active_fpu.fpr[wreg].wr.b[i];
     case DF_HALF: /* h */
-        return (uint16_t)env->active_msa.wr[wreg].h[i];
+        return (uint16_t)env->active_fpu.fpr[wreg].wr.h[i];
     case DF_WORD: /* w */
-        return (uint32_t)env->active_msa.wr[wreg].w[i];
+        return (uint32_t)env->active_fpu.fpr[wreg].wr.w[i];
     case DF_DOUBLE: /* d */
-        return (uint64_t)env->active_msa.wr[wreg].d[i];
+        return (uint64_t)env->active_fpu.fpr[wreg].wr.d[i];
     default:
         /* shouldn't get here */
       assert(0);
@@ -8409,16 +8409,16 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
 
     switch (df) {
     case DF_BYTE: /* b */
-        env->active_msa.wr[wreg].b[i] = (uint8_t)val;
+        env->active_fpu.fpr[wreg].wr.b[i] = (uint8_t)val;
         break;
     case DF_HALF: /* h */
-        env->active_msa.wr[wreg].h[i] = (uint16_t)val;
+        env->active_fpu.fpr[wreg].wr.h[i] = (uint16_t)val;
         break;
     case DF_WORD: /* w */
-        env->active_msa.wr[wreg].w[i] = (uint32_t)val;
+        env->active_fpu.fpr[wreg].wr.w[i] = (uint32_t)val;
         break;
     case DF_DOUBLE: /* d */
-        env->active_msa.wr[wreg].d[i] = (uint64_t)val;
+        env->active_fpu.fpr[wreg].wr.d[i] = (uint64_t)val;
         break;
     default:
         /* shouldn't get here */

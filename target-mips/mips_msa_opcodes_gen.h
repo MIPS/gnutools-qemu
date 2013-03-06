@@ -3393,8 +3393,8 @@ static void gen_sld_df(CPUState *env, DisasContext *ctx) {
     check_msa_access(env, ctx, ws, ws, wd);
 
     TCGv trt = tcg_temp_new();
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3444,8 +3444,8 @@ static void gen_sldi_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
@@ -3474,8 +3474,8 @@ static void gen_splat_df(CPUState *env, DisasContext *ctx) {
     check_msa_access(env, ctx, ws, ws, wd);
 
     TCGv trt = tcg_temp_new();
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3525,8 +3525,8 @@ static void gen_splati_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
@@ -3554,9 +3554,9 @@ static void gen_pckev_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3582,9 +3582,9 @@ static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3610,9 +3610,9 @@ static void gen_ilvl_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3638,9 +3638,9 @@ static void gen_ilvr_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3666,9 +3666,9 @@ static void gen_ilvev_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3694,9 +3694,9 @@ static void gen_ilvod_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3722,9 +3722,9 @@ static void gen_vshf_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -3749,9 +3749,9 @@ static void gen_and_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -3776,8 +3776,8 @@ static void gen_andi_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -3803,9 +3803,9 @@ static void gen_or_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -3830,8 +3830,8 @@ static void gen_ori_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -3857,9 +3857,9 @@ static void gen_nor_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -3884,8 +3884,8 @@ static void gen_nori_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -3911,9 +3911,9 @@ static void gen_xor_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -3938,8 +3938,8 @@ static void gen_xori_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -3965,9 +3965,9 @@ static void gen_bmnz_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -3992,8 +3992,8 @@ static void gen_bmnzi_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4019,9 +4019,9 @@ static void gen_bmz_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4046,8 +4046,8 @@ static void gen_bmzi_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4073,9 +4073,9 @@ static void gen_bsel_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4100,8 +4100,8 @@ static void gen_bseli_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4127,8 +4127,8 @@ static void gen_shf_b(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4154,8 +4154,8 @@ static void gen_shf_h(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4181,8 +4181,8 @@ static void gen_shf_w(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
@@ -4209,7 +4209,7 @@ static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
 
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  =
-tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4244,7 +4244,7 @@ static void gen_bz_v(CPUState *env, DisasContext *ctx) {
 
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd  =
-tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4286,7 +4286,7 @@ static void gen_fill_df(CPUState *env, DisasContext *ctx) {
     check_msa_access(env, ctx, wd, wd, wd);
 
     TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4575,7 +4575,7 @@ static void gen_insv_df(CPUState *env, DisasContext *ctx) {
     check_msa_access(env, ctx, wd, wd, wd);
 
     TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
@@ -4627,8 +4627,8 @@ static void gen_insve_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 tn  = tcg_const_i32(n);
 
@@ -4657,7 +4657,7 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4695,7 +4695,7 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4733,7 +4733,7 @@ static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
@@ -4763,9 +4763,9 @@ static void gen_fcun_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4795,9 +4795,9 @@ static void gen_fceq_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4827,9 +4827,9 @@ static void gen_fcne_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4859,9 +4859,9 @@ static void gen_fclt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4891,9 +4891,9 @@ static void gen_fcge_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4923,9 +4923,9 @@ static void gen_fcle_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4955,9 +4955,9 @@ static void gen_fcgt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -4987,9 +4987,9 @@ static void gen_fseq_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5019,9 +5019,9 @@ static void gen_fsne_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5051,9 +5051,9 @@ static void gen_fslt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5083,9 +5083,9 @@ static void gen_fsge_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5115,9 +5115,9 @@ static void gen_fsle_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5147,9 +5147,9 @@ static void gen_fsgt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5179,9 +5179,9 @@ static void gen_fadd_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5211,9 +5211,9 @@ static void gen_fsub_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5243,9 +5243,9 @@ static void gen_fmul_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5275,9 +5275,9 @@ static void gen_fdiv_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5307,9 +5307,9 @@ static void gen_fmadd_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5339,9 +5339,9 @@ static void gen_fmsub_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5371,9 +5371,9 @@ static void gen_fexp2_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5403,9 +5403,9 @@ static void gen_fexdo_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5435,9 +5435,9 @@ static void gen_ftq_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5467,9 +5467,9 @@ static void gen_fmin_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5499,9 +5499,9 @@ static void gen_fmin_a_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5531,9 +5531,9 @@ static void gen_fmax_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5563,9 +5563,9 @@ static void gen_fmax_a_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, wt, ws, wd);
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5916,8 +5916,8 @@ static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5945,8 +5945,8 @@ static void gen_frsqrt_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -5974,8 +5974,8 @@ static void gen_frcp_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6003,8 +6003,8 @@ static void gen_frint_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6032,8 +6032,8 @@ static void gen_flog2_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6061,8 +6061,8 @@ static void gen_fexupl_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6090,8 +6090,8 @@ static void gen_fexupr_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6119,8 +6119,8 @@ static void gen_ffql_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6148,8 +6148,8 @@ static void gen_ffqr_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6177,8 +6177,8 @@ static void gen_ftint_s_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6206,8 +6206,8 @@ static void gen_ftint_u_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6235,8 +6235,8 @@ static void gen_ffint_s_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6264,8 +6264,8 @@ static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
 
@@ -6334,8 +6334,8 @@ static void gen_move_v(CPUState *env, DisasContext *ctx) {
 
     check_msa_access(env, ctx, ws, ws, wd);
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_msa.wr[wd]));
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
