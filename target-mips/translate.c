@@ -12420,33 +12420,50 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
-    int mask, curr_request, curr_modify;
 
-    curr_request = 0;
-    curr_modify = 0;
-
-    if (wd != -1) {
-      curr_request = (1 << wd);
-      curr_modify  = (1 << wd);
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
     }
 
-    if (wt != -1) {
-      curr_request = (1 << wt);
+    if (unlikely((env->CP0_Status & (1 << CP0St_CU1)) != 0 &&
+                 (env->CP0_Status & (1 << CP0St_FR )) == 0)) {
+      generate_exception(ctx, EXCP_RI);
     }
 
-    if (ws != -1) {
-      curr_request = (1 << ws);
-    }
-
-    env->active_msa.msarequest |= curr_request;
-    env->active_msa.msamodify  |= curr_modify;
-
-    mask = (env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0 ||
-           (curr_request & ~env->active_msa.msaaccess) || 
-           (curr_request & env->active_msa.msasave);
-
-    if (unlikely(mask)) {
+    if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
       generate_exception(ctx, EXCP_MSADIS);
+    }
+
+    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+      int curr_request;
+
+      curr_request = 0;
+
+      if (wd != -1) {
+        curr_request |= (1 << wd);
+      }
+
+      if (wt != -1) {
+        curr_request |= (1 << wt);
+      }
+
+      if (ws != -1) {
+        curr_request |= (1 << ws);
+      }
+
+      env->active_msa.msarequest = curr_request
+        & (~env->active_msa.msaaccess | env->active_msa.msasave);
+
+      if (unlikely(env->active_msa.msarequest != 0)) {
+        generate_exception(ctx, EXCP_MSADIS);
+      }
+    }
+}
+
+static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
+                                     int wd) {
+    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+        env->active_msa.msamodify |= (1 << wd);
     }
 }
 

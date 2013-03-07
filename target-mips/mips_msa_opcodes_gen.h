@@ -40,6 +40,8 @@ static void gen_sll_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_slli_df(CPUState *env, DisasContext *ctx) {
@@ -99,6 +101,8 @@ static void gen_slli_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_sra_df(CPUState *env, DisasContext *ctx) {
@@ -143,6 +147,8 @@ static void gen_sra_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_srai_df(CPUState *env, DisasContext *ctx) {
@@ -202,6 +208,8 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_srl_df(CPUState *env, DisasContext *ctx) {
@@ -246,6 +254,8 @@ static void gen_srl_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_srli_df(CPUState *env, DisasContext *ctx) {
@@ -305,6 +315,8 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bclr_df(CPUState *env, DisasContext *ctx) {
@@ -349,6 +361,8 @@ static void gen_bclr_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
@@ -408,6 +422,8 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bset_df(CPUState *env, DisasContext *ctx) {
@@ -452,6 +468,8 @@ static void gen_bset_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
@@ -511,6 +529,8 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bneg_df(CPUState *env, DisasContext *ctx) {
@@ -555,6 +575,8 @@ static void gen_bneg_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
@@ -614,6 +636,8 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_binsl_df(CPUState *env, DisasContext *ctx) {
@@ -659,6 +683,8 @@ static void gen_binsl_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
@@ -719,6 +745,8 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_binsr_df(CPUState *env, DisasContext *ctx) {
@@ -764,6 +792,8 @@ static void gen_binsr_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
@@ -824,6 +854,8 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_addv_df(CPUState *env, DisasContext *ctx) {
@@ -868,6 +900,8 @@ static void gen_addv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_addvi_df(CPUState *env, DisasContext *ctx) {
@@ -909,6 +943,8 @@ static void gen_addvi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subv_df(CPUState *env, DisasContext *ctx) {
@@ -953,6 +989,8 @@ static void gen_subv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subvi_df(CPUState *env, DisasContext *ctx) {
@@ -994,6 +1032,8 @@ static void gen_subvi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_max_s_df(CPUState *env, DisasContext *ctx) {
@@ -1038,6 +1078,8 @@ static void gen_max_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_maxi_s_df(CPUState *env, DisasContext *ctx) {
@@ -1080,6 +1122,8 @@ static void gen_maxi_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(ts5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_max_u_df(CPUState *env, DisasContext *ctx) {
@@ -1124,6 +1168,8 @@ static void gen_max_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_maxi_u_df(CPUState *env, DisasContext *ctx) {
@@ -1165,6 +1211,8 @@ static void gen_maxi_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_min_s_df(CPUState *env, DisasContext *ctx) {
@@ -1209,6 +1257,8 @@ static void gen_min_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mini_s_df(CPUState *env, DisasContext *ctx) {
@@ -1251,6 +1301,8 @@ static void gen_mini_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(ts5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_min_u_df(CPUState *env, DisasContext *ctx) {
@@ -1295,6 +1347,8 @@ static void gen_min_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mini_u_df(CPUState *env, DisasContext *ctx) {
@@ -1336,6 +1390,8 @@ static void gen_mini_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_max_a_df(CPUState *env, DisasContext *ctx) {
@@ -1380,6 +1436,8 @@ static void gen_max_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_min_a_df(CPUState *env, DisasContext *ctx) {
@@ -1424,6 +1482,8 @@ static void gen_min_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ceq_df(CPUState *env, DisasContext *ctx) {
@@ -1468,6 +1528,8 @@ static void gen_ceq_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ceqi_df(CPUState *env, DisasContext *ctx) {
@@ -1510,6 +1572,8 @@ static void gen_ceqi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(ts5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clt_s_df(CPUState *env, DisasContext *ctx) {
@@ -1554,6 +1618,8 @@ static void gen_clt_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clti_s_df(CPUState *env, DisasContext *ctx) {
@@ -1596,6 +1662,8 @@ static void gen_clti_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(ts5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clt_u_df(CPUState *env, DisasContext *ctx) {
@@ -1640,6 +1708,8 @@ static void gen_clt_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clti_u_df(CPUState *env, DisasContext *ctx) {
@@ -1681,6 +1751,8 @@ static void gen_clti_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_cle_s_df(CPUState *env, DisasContext *ctx) {
@@ -1725,6 +1797,8 @@ static void gen_cle_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clei_s_df(CPUState *env, DisasContext *ctx) {
@@ -1767,6 +1841,8 @@ static void gen_clei_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(ts5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_cle_u_df(CPUState *env, DisasContext *ctx) {
@@ -1811,6 +1887,8 @@ static void gen_cle_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_clei_u_df(CPUState *env, DisasContext *ctx) {
@@ -1852,6 +1930,8 @@ static void gen_clei_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tu5);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ld_df(CPUState *env, DisasContext *ctx) {
@@ -1892,6 +1972,8 @@ static void gen_ld_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(td);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_st_df(CPUState *env, DisasContext *ctx) {
@@ -1932,6 +2014,8 @@ static void gen_st_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(td);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ldx_df(CPUState *env, DisasContext *ctx) {
@@ -1983,6 +2067,8 @@ static void gen_ldx_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(tdf);
     tcg_temp_free(telemoff);
     tcg_temp_free(telemaddr);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_stx_df(CPUState *env, DisasContext *ctx) {
@@ -2034,6 +2120,8 @@ static void gen_stx_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(tdf);
     tcg_temp_free(telemoff);
     tcg_temp_free(telemaddr);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
@@ -2093,6 +2181,8 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
@@ -2152,6 +2242,8 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_add_a_df(CPUState *env, DisasContext *ctx) {
@@ -2196,6 +2288,8 @@ static void gen_add_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_adds_a_df(CPUState *env, DisasContext *ctx) {
@@ -2240,6 +2334,8 @@ static void gen_adds_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_adds_s_df(CPUState *env, DisasContext *ctx) {
@@ -2284,6 +2380,8 @@ static void gen_adds_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_adds_u_df(CPUState *env, DisasContext *ctx) {
@@ -2328,6 +2426,8 @@ static void gen_adds_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ave_s_df(CPUState *env, DisasContext *ctx) {
@@ -2372,6 +2472,8 @@ static void gen_ave_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ave_u_df(CPUState *env, DisasContext *ctx) {
@@ -2416,6 +2518,8 @@ static void gen_ave_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_aver_s_df(CPUState *env, DisasContext *ctx) {
@@ -2460,6 +2564,8 @@ static void gen_aver_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_aver_u_df(CPUState *env, DisasContext *ctx) {
@@ -2504,6 +2610,8 @@ static void gen_aver_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subs_s_df(CPUState *env, DisasContext *ctx) {
@@ -2548,6 +2656,8 @@ static void gen_subs_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subs_u_df(CPUState *env, DisasContext *ctx) {
@@ -2592,6 +2702,8 @@ static void gen_subs_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subus_s_df(CPUState *env, DisasContext *ctx) {
@@ -2636,6 +2748,8 @@ static void gen_subus_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_subss_u_df(CPUState *env, DisasContext *ctx) {
@@ -2680,6 +2794,8 @@ static void gen_subss_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_asub_s_df(CPUState *env, DisasContext *ctx) {
@@ -2724,6 +2840,8 @@ static void gen_asub_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_asub_u_df(CPUState *env, DisasContext *ctx) {
@@ -2768,6 +2886,8 @@ static void gen_asub_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mulv_df(CPUState *env, DisasContext *ctx) {
@@ -2812,6 +2932,8 @@ static void gen_mulv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_maddv_df(CPUState *env, DisasContext *ctx) {
@@ -2857,6 +2979,8 @@ static void gen_maddv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_msubv_df(CPUState *env, DisasContext *ctx) {
@@ -2902,6 +3026,8 @@ static void gen_msubv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_div_s_df(CPUState *env, DisasContext *ctx) {
@@ -2946,6 +3072,8 @@ static void gen_div_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_div_u_df(CPUState *env, DisasContext *ctx) {
@@ -2990,6 +3118,8 @@ static void gen_div_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mod_s_df(CPUState *env, DisasContext *ctx) {
@@ -3034,6 +3164,8 @@ static void gen_mod_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mod_u_df(CPUState *env, DisasContext *ctx) {
@@ -3078,6 +3210,8 @@ static void gen_mod_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
@@ -3127,6 +3261,8 @@ static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
@@ -3176,6 +3312,8 @@ static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
@@ -3226,6 +3364,8 @@ static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
@@ -3276,6 +3416,8 @@ static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
@@ -3326,6 +3468,8 @@ static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
@@ -3376,6 +3520,8 @@ static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_sld_df(CPUState *env, DisasContext *ctx) {
@@ -3405,6 +3551,8 @@ static void gen_sld_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free(trt);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_sldi_df(CPUState *env, DisasContext *ctx) {
@@ -3457,6 +3605,8 @@ static void gen_sldi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_splat_df(CPUState *env, DisasContext *ctx) {
@@ -3486,6 +3636,8 @@ static void gen_splat_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free(trt);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_splati_df(CPUState *env, DisasContext *ctx) {
@@ -3538,6 +3690,8 @@ static void gen_splati_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_pckev_df(CPUState *env, DisasContext *ctx) {
@@ -3566,6 +3720,8 @@ static void gen_pckev_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
@@ -3594,6 +3750,8 @@ static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ilvl_df(CPUState *env, DisasContext *ctx) {
@@ -3622,6 +3780,8 @@ static void gen_ilvl_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ilvr_df(CPUState *env, DisasContext *ctx) {
@@ -3650,6 +3810,8 @@ static void gen_ilvr_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ilvev_df(CPUState *env, DisasContext *ctx) {
@@ -3678,6 +3840,8 @@ static void gen_ilvev_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ilvod_df(CPUState *env, DisasContext *ctx) {
@@ -3706,6 +3870,8 @@ static void gen_ilvod_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_vshf_df(CPUState *env, DisasContext *ctx) {
@@ -3734,6 +3900,8 @@ static void gen_vshf_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_and_v(CPUState *env, DisasContext *ctx) {
@@ -3761,6 +3929,8 @@ static void gen_and_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_andi_b(CPUState *env, DisasContext *ctx) {
@@ -3788,6 +3958,8 @@ static void gen_andi_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_or_v(CPUState *env, DisasContext *ctx) {
@@ -3815,6 +3987,8 @@ static void gen_or_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ori_b(CPUState *env, DisasContext *ctx) {
@@ -3842,6 +4016,8 @@ static void gen_ori_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_nor_v(CPUState *env, DisasContext *ctx) {
@@ -3869,6 +4045,8 @@ static void gen_nor_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_nori_b(CPUState *env, DisasContext *ctx) {
@@ -3896,6 +4074,8 @@ static void gen_nori_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_xor_v(CPUState *env, DisasContext *ctx) {
@@ -3923,6 +4103,8 @@ static void gen_xor_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_xori_b(CPUState *env, DisasContext *ctx) {
@@ -3950,6 +4132,8 @@ static void gen_xori_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bmnz_v(CPUState *env, DisasContext *ctx) {
@@ -3977,6 +4161,8 @@ static void gen_bmnz_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bmnzi_b(CPUState *env, DisasContext *ctx) {
@@ -4004,6 +4190,8 @@ static void gen_bmnzi_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bmz_v(CPUState *env, DisasContext *ctx) {
@@ -4031,6 +4219,8 @@ static void gen_bmz_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bmzi_b(CPUState *env, DisasContext *ctx) {
@@ -4058,6 +4248,8 @@ static void gen_bmzi_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bsel_v(CPUState *env, DisasContext *ctx) {
@@ -4085,6 +4277,8 @@ static void gen_bsel_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bseli_b(CPUState *env, DisasContext *ctx) {
@@ -4112,6 +4306,8 @@ static void gen_bseli_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_shf_b(CPUState *env, DisasContext *ctx) {
@@ -4139,6 +4335,8 @@ static void gen_shf_b(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_shf_h(CPUState *env, DisasContext *ctx) {
@@ -4166,6 +4364,8 @@ static void gen_shf_h(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_shf_w(CPUState *env, DisasContext *ctx) {
@@ -4193,6 +4393,8 @@ static void gen_shf_w(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(ti8);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
@@ -4228,6 +4430,8 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bz_v(CPUState *env, DisasContext *ctx) {
@@ -4263,6 +4467,8 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fill_df(CPUState *env, DisasContext *ctx) {
@@ -4296,6 +4502,8 @@ static void gen_fill_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(trs);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_pcnt_df(CPUState *env, DisasContext *ctx) {
@@ -4334,6 +4542,8 @@ static void gen_pcnt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twd);
     tcg_temp_free(ts);
     tcg_temp_free(td);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_nloc_df(CPUState *env, DisasContext *ctx) {
@@ -4372,6 +4582,8 @@ static void gen_nloc_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twd);
     tcg_temp_free(ts);
     tcg_temp_free(td);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_nlzc_df(CPUState *env, DisasContext *ctx) {
@@ -4410,6 +4622,8 @@ static void gen_nlzc_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twd);
     tcg_temp_free(ts);
     tcg_temp_free(td);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_copy_s_df(CPUState *env, DisasContext *ctx) {
@@ -4468,7 +4682,6 @@ static void gen_copy_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
-
 }
 
 static void gen_copy_u_df(CPUState *env, DisasContext *ctx) {
@@ -4527,7 +4740,6 @@ static void gen_copy_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
-
 }
 
 static void gen_insv_df(CPUState *env, DisasContext *ctx) {
@@ -4588,6 +4800,8 @@ static void gen_insv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_insve_df(CPUState *env, DisasContext *ctx) {
@@ -4640,6 +4854,8 @@ static void gen_insve_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
@@ -4678,6 +4894,8 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bz_df(CPUState *env, DisasContext *ctx) {
@@ -4716,6 +4934,8 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
@@ -4743,6 +4963,8 @@ static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fcun_df(CPUState *env, DisasContext *ctx) {
@@ -4775,6 +4997,8 @@ static void gen_fcun_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fceq_df(CPUState *env, DisasContext *ctx) {
@@ -4807,6 +5031,8 @@ static void gen_fceq_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fcne_df(CPUState *env, DisasContext *ctx) {
@@ -4839,6 +5065,8 @@ static void gen_fcne_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fclt_df(CPUState *env, DisasContext *ctx) {
@@ -4871,6 +5099,8 @@ static void gen_fclt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fcge_df(CPUState *env, DisasContext *ctx) {
@@ -4903,6 +5133,8 @@ static void gen_fcge_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fcle_df(CPUState *env, DisasContext *ctx) {
@@ -4935,6 +5167,8 @@ static void gen_fcle_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fcgt_df(CPUState *env, DisasContext *ctx) {
@@ -4967,6 +5201,8 @@ static void gen_fcgt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fseq_df(CPUState *env, DisasContext *ctx) {
@@ -4999,6 +5235,8 @@ static void gen_fseq_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsne_df(CPUState *env, DisasContext *ctx) {
@@ -5031,6 +5269,8 @@ static void gen_fsne_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fslt_df(CPUState *env, DisasContext *ctx) {
@@ -5063,6 +5303,8 @@ static void gen_fslt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsge_df(CPUState *env, DisasContext *ctx) {
@@ -5095,6 +5337,8 @@ static void gen_fsge_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsle_df(CPUState *env, DisasContext *ctx) {
@@ -5127,6 +5371,8 @@ static void gen_fsle_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsgt_df(CPUState *env, DisasContext *ctx) {
@@ -5159,6 +5405,8 @@ static void gen_fsgt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fadd_df(CPUState *env, DisasContext *ctx) {
@@ -5191,6 +5439,8 @@ static void gen_fadd_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsub_df(CPUState *env, DisasContext *ctx) {
@@ -5223,6 +5473,8 @@ static void gen_fsub_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmul_df(CPUState *env, DisasContext *ctx) {
@@ -5255,6 +5507,8 @@ static void gen_fmul_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fdiv_df(CPUState *env, DisasContext *ctx) {
@@ -5287,6 +5541,8 @@ static void gen_fdiv_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmadd_df(CPUState *env, DisasContext *ctx) {
@@ -5319,6 +5575,8 @@ static void gen_fmadd_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmsub_df(CPUState *env, DisasContext *ctx) {
@@ -5351,6 +5609,8 @@ static void gen_fmsub_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fexp2_df(CPUState *env, DisasContext *ctx) {
@@ -5383,6 +5643,8 @@ static void gen_fexp2_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fexdo_df(CPUState *env, DisasContext *ctx) {
@@ -5415,6 +5677,8 @@ static void gen_fexdo_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ftq_df(CPUState *env, DisasContext *ctx) {
@@ -5447,6 +5711,8 @@ static void gen_ftq_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmin_df(CPUState *env, DisasContext *ctx) {
@@ -5479,6 +5745,8 @@ static void gen_fmin_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmin_a_df(CPUState *env, DisasContext *ctx) {
@@ -5511,6 +5779,8 @@ static void gen_fmin_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmax_df(CPUState *env, DisasContext *ctx) {
@@ -5543,6 +5813,8 @@ static void gen_fmax_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fmax_a_df(CPUState *env, DisasContext *ctx) {
@@ -5575,6 +5847,8 @@ static void gen_fmax_a_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mul_q_df(CPUState *env, DisasContext *ctx) {
@@ -5621,6 +5895,8 @@ static void gen_mul_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_mulr_q_df(CPUState *env, DisasContext *ctx) {
@@ -5667,6 +5943,8 @@ static void gen_mulr_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_madd_q_df(CPUState *env, DisasContext *ctx) {
@@ -5714,6 +5992,8 @@ static void gen_madd_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_maddr_q_df(CPUState *env, DisasContext *ctx) {
@@ -5761,6 +6041,8 @@ static void gen_maddr_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_msub_q_df(CPUState *env, DisasContext *ctx) {
@@ -5808,6 +6090,8 @@ static void gen_msub_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_msubr_q_df(CPUState *env, DisasContext *ctx) {
@@ -5855,6 +6139,8 @@ static void gen_msubr_q_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
@@ -5897,6 +6183,8 @@ static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twd);
     tcg_temp_free(ts);
     tcg_temp_free(td);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
@@ -5926,6 +6214,8 @@ static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_frsqrt_df(CPUState *env, DisasContext *ctx) {
@@ -5955,6 +6245,8 @@ static void gen_frsqrt_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_frcp_df(CPUState *env, DisasContext *ctx) {
@@ -5984,6 +6276,8 @@ static void gen_frcp_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_frint_df(CPUState *env, DisasContext *ctx) {
@@ -6013,6 +6307,8 @@ static void gen_frint_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_flog2_df(CPUState *env, DisasContext *ctx) {
@@ -6042,6 +6338,8 @@ static void gen_flog2_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fexupl_df(CPUState *env, DisasContext *ctx) {
@@ -6071,6 +6369,8 @@ static void gen_fexupl_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fexupr_df(CPUState *env, DisasContext *ctx) {
@@ -6100,6 +6400,8 @@ static void gen_fexupr_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ffql_df(CPUState *env, DisasContext *ctx) {
@@ -6129,6 +6431,8 @@ static void gen_ffql_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ffqr_df(CPUState *env, DisasContext *ctx) {
@@ -6158,6 +6462,8 @@ static void gen_ffqr_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ftint_s_df(CPUState *env, DisasContext *ctx) {
@@ -6187,6 +6493,8 @@ static void gen_ftint_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ftint_u_df(CPUState *env, DisasContext *ctx) {
@@ -6216,6 +6524,8 @@ static void gen_ftint_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ffint_s_df(CPUState *env, DisasContext *ctx) {
@@ -6245,6 +6555,8 @@ static void gen_ffint_s_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
@@ -6274,6 +6586,8 @@ static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ctcmsa(CPUState *env, DisasContext *ctx) {
@@ -6344,5 +6658,7 @@ static void gen_move_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 }
 

@@ -637,6 +637,8 @@ $declare_str
     tcg_temp_free(td);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+
+    update_msa_modify(env, ctx, wd);
 C_END
         $def = ''; # no helper required
     } elsif ($is_ldx_v) {
@@ -680,6 +682,8 @@ $declare_str
     tcg_temp_free_i32(tdf);
     tcg_temp_free(telemoff);
     tcg_temp_free(telemaddr);
+
+    update_msa_modify(env, ctx, wd);
 C_END
         $def = ''; # no helper required
     } elsif ($is_st_v) {
@@ -711,6 +715,8 @@ $declare_str
     tcg_temp_free(td);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+
+    update_msa_modify(env, ctx, wd);
 C_END
         $def = ''; # no helper required
     } elsif ($is_stx_v) {
@@ -754,6 +760,8 @@ $declare_str
     tcg_temp_free_i32(tdf);
     tcg_temp_free(telemoff);
     tcg_temp_free(telemaddr);
+
+    update_msa_modify(env, ctx, wd);
 C_END
         $def = ''; # no helper required
     } elsif ( $func_type eq 'df_wt_ws_wd' ) {
@@ -810,6 +818,8 @@ C_END
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
        $def = "DEF_HELPER_3($helper_name, $dtype, $stype, $ttype, i32)";
@@ -867,6 +877,8 @@ C_END
     tcg_temp_free(tws);
     tcg_temp_free(twt);
     tcg_temp_free(tdf);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, s64, s64, s64, s64, i32)";
@@ -910,6 +922,8 @@ $declare_str
     tcg_temp_free_i64(t$imm);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, $dtype, $stype, $immtype, i32)";
@@ -954,6 +968,8 @@ $declare_str
     tcg_temp_free_i64(t$imm);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, $dtype, $dtype, $stype, $immtype, i32)";
@@ -977,6 +993,8 @@ $declare_str
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, ptr, i32)";
@@ -999,6 +1017,8 @@ $declare_str
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, void, ptr, ptr, i32)";
@@ -1023,6 +1043,8 @@ $declare_str
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, ptr, i32)";
@@ -1048,6 +1070,8 @@ $declare_str
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
     tcg_temp_free_i32(t$imm);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, i32, i32)";
@@ -1084,6 +1108,8 @@ $declare_str
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, s64, s64, i32, i32)";
@@ -1121,6 +1147,8 @@ $declare_str
     tcg_temp_free(tws);
     tcg_temp_free(td);
     tcg_temp_free(ts);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, s64, s64, s64, i32, i32)";
@@ -1158,6 +1186,8 @@ $declare_str
     tcg_temp_free_i32(twd);
     tcg_temp_free(ts);
     tcg_temp_free(td);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_2($helper_name, $dtype, $stype, i32)";
@@ -1180,6 +1210,8 @@ $declare_str
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
@@ -1214,6 +1246,8 @@ $declare_str
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, i32, ptr, i32, i32)";
@@ -1246,6 +1280,8 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_2($helper_name, i32, ptr, i32)";
@@ -1266,6 +1302,8 @@ $declare_str
     tcg_temp_free_i32(ts10);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, void, i64, i32, i32)";
@@ -1289,6 +1327,8 @@ $declare_str
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
       $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, i32, i32)";
@@ -1313,6 +1353,8 @@ $declare_str
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(tn);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
       $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
@@ -1337,6 +1379,8 @@ $declare_str
     tcg_temp_free(trt);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
       $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
@@ -1360,6 +1404,8 @@ $declare_str
     tcg_temp_free_i64(tpws);
     tcg_temp_free(trt);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
       $def = "DEF_HELPER_4($helper_name, void, ptr, ptr, i32, i32)";
@@ -1380,6 +1426,8 @@ $declare_str
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
       $def = "DEF_HELPER_3($helper_name, void, ptr, ptr, i32)";
     }
@@ -1402,6 +1450,8 @@ $declare_str
     tcg_temp_free_i64(tpwd);
     tcg_temp_free(trs);
     tcg_temp_free_i32(twrlen);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_4($helper_name, void, ptr, i32, i32, i32)";
@@ -1427,6 +1477,7 @@ $declare_str
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen);
 
+    update_msa_modify(env, ctx, wd);
 C_END
 
        $def = "DEF_HELPER_4($helper_name, void, ptr, tl, tl, i32)";
@@ -1452,7 +1503,6 @@ $declare_str
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
-
 C_END
         $def = ''; # no helper required
     }
@@ -1506,6 +1556,8 @@ $declare_str
     tcg_temp_free(trs);
     tcg_temp_free_i64(tpwd);
     tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
 C_END
 
         $def = "DEF_HELPER_3($helper_name, void, ptr, i32, i32)";
