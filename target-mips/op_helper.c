@@ -5642,6 +5642,10 @@ target_ulong helper_cfc1 (uint32_t reg)
     case 28:
         arg1 = (env->active_fpu.fcr31 & 0x00000f83) | ((env->active_fpu.fcr31 >> 22) & 0x4);
         break;
+    case 30: /* FCSR2 mirrors CP0St_FR. Note: this implementation
+              * returns CP0St_FR even when FCSR2 does not exist) */
+        arg1 = env->CP0_Status & (1 << CP0St_FR);
+        break;
     default:
         arg1 = (int32_t)env->active_fpu.fcr31;
         break;
@@ -5670,6 +5674,14 @@ void helper_ctc1 (target_ulong arg1, uint32_t reg)
         env->active_fpu.fcr31 = (env->active_fpu.fcr31 & 0xfefff07c) | (arg1 & 0x00000f83) |
                      ((arg1 & 0x4) << 22);
         break;
+    case 30: /* FCSR2 exists only if FCR0_CR2 is set and mirrors
+              * CP0St_FR */
+        if ((env->active_fpu.fcr0 & (1 << FCR0_CR2)) &&
+            (arg1 ^ env->CP0_Status) & (1 << CP0St_FR)) {
+            env->CP0_Status ^= (1 << CP0St_FR);
+            env->hflags     ^=  MIPS_HFLAG_F64;
+        }
+        return;
     case 31:
         if (arg1 & 0x007c0000)
             return;

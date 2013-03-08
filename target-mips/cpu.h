@@ -149,6 +149,7 @@ struct CPUMIPSFPUContext {
     float_status fp_status;
     /* fpu implementation/revision register (fir) */
     uint32_t fcr0;
+#define FCR0_CR2 28
 #define FCR0_F64 22
 #define FCR0_L 21
 #define FCR0_W 20
