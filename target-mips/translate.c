@@ -13684,6 +13684,7 @@ void cpu_reset (CPUMIPSState *env)
     }
 #endif
     env->exception_index = EXCP_NONE;
+    env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
 
     /* MSA */
     msa_reset(env);
