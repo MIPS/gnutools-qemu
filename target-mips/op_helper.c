@@ -5676,26 +5676,11 @@ void helper_ctc1 (target_ulong arg1, uint32_t reg)
         break;
     case 30: /* FCSR2 exists only if FCR0_CR2 is set and mirrors
               * CP0St_FR */
-
-      printf("CTC1 FR from 0x%08x/0x%02x to 0x%08x (Status 0x%08x) --",
-             env->CP0_Status & (1 << CP0St_FR),
-             env->hflags & MIPS_HFLAG_F64,
-             arg1            & (1 << CP0St_FR),
-             env->CP0_Status);
-
         if ((env->active_fpu.fcr0 & (1 << FCR0_CR2)) &&
             (arg1 ^ env->CP0_Status) & (1 << CP0St_FR)) {
             env->CP0_Status ^= (1 << CP0St_FR);
             env->hflags     ^=  MIPS_HFLAG_F64;
-
-            printf(">");
         }
-
-        printf("\n     now is  0x%08x/0x%02x               (Status 0x%08x)\n",
-               env->CP0_Status & (1 << CP0St_FR),
-               env->hflags & MIPS_HFLAG_F64,
-               env->CP0_Status);
-
         return;
     case 31:
         if (arg1 & 0x007c0000)
