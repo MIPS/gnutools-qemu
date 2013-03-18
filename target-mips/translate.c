@@ -707,41 +707,36 @@ static inline void gen_store_srsgpr (int from, int to)
 /* Floating point register moves. */
 static inline void gen_load_fpr32 (TCGv_i32 t, int reg)
 {
-    TCGv_i64 z  = tcg_const_i64(0);
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
-
     tcg_gen_ld_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[FP_ENDIAN_IDX]));
 }
 
 static inline void gen_store_fpr32 (TCGv_i32 t, int reg)
 {
+    TCGv_i64 z64  = tcg_const_i64(0);
+    TCGv_i32 z32  = tcg_const_i32(0);
+    tcg_gen_st_i64(z64, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+    tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
+
     tcg_gen_st_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[FP_ENDIAN_IDX]));
 }
 
 static inline void gen_load_fpr32h (TCGv_i32 t, int reg)
 {
-    TCGv_i64 z  = tcg_const_i64(0);
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
-
     tcg_gen_ld_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
 }
 
 static inline void gen_store_fpr32h (TCGv_i32 t, int reg)
 {
-    TCGv_i64 z  = tcg_const_i64(0);
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[0]));
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+    TCGv_i64 z64  = tcg_const_i64(0);
+    TCGv_i32 z32  = tcg_const_i32(0);
+    tcg_gen_st_i64(z64, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+    tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[FP_ENDIAN_IDX]));
 
     tcg_gen_st_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
 }
 
 static inline void gen_load_fpr64 (DisasContext *ctx, TCGv_i64 t, int reg)
 {
-    TCGv_i64 z  = tcg_const_i64(0);
-    tcg_gen_ld_i64(z, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
-
     if (ctx->hflags & MIPS_HFLAG_F64) {
         tcg_gen_ld_i64(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].d));
     } else {
@@ -757,6 +752,9 @@ static inline void gen_load_fpr64 (DisasContext *ctx, TCGv_i64 t, int reg)
 
 static inline void gen_store_fpr64 (DisasContext *ctx, TCGv_i64 t, int reg)
 {
+    TCGv_i64 z64  = tcg_const_i64(0);
+    tcg_gen_st_i64(z64, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
+
     if (ctx->hflags & MIPS_HFLAG_F64) {
         tcg_gen_st_i64(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].d));
     } else {
