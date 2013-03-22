@@ -5676,11 +5676,17 @@ void helper_ctc1 (target_ulong arg1, uint32_t reg)
         break;
     case 30: /* FCSR2 exists only if FCR0_CR2 is set and mirrors
               * CP0St_FR */
-        if ((env->active_fpu.fcr0 & (1 << FCR0_CR2)) &&
-            (arg1 ^ env->CP0_Status) & (1 << CP0St_FR)) {
-            env->CP0_Status ^= (1 << CP0St_FR);
-            env->hflags     ^=  MIPS_HFLAG_F64;
+        if ((env->active_fpu.fcr0 & (1 << FCR0_CR2))) {
+          if (arg1 & (1 << CP0St_FR)) {
+            env->CP0_Status |= (1 << CP0St_FR);
+            env->hflags     |=  MIPS_HFLAG_F64;
+          }
+          else {
+            env->CP0_Status &= ~(1 << CP0St_FR);
+            env->hflags     &= ~MIPS_HFLAG_F64;
+          }
         }
+
         return;
     case 31:
         if (arg1 & 0x007c0000)

@@ -6939,6 +6939,8 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
     case OPC_CTC1:
         gen_load_gpr(t0, rt);
         gen_helper_1i(ctc1, t0, fs);
+        /* Stop translation as we may have changed hflags */
+        ctx->bstate = BS_STOP;
         opn = "ctc1";
         break;
 #if defined(TARGET_MIPS64)
