@@ -9025,38 +9025,25 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  */
 
 
-#define FMAXMIN_A(F, G, X, S, T, BITS)                  \
-    uint## BITS ##_t as = float## BITS ##_abs(S);       \
-    uint## BITS ##_t at = float## BITS ##_abs(T);       \
-                                                        \
-    uint## BITS ##_t xs, xt, xd;                        \
-    MSA_FLOAT_BINOP(xs, F, S, T, BITS);                 \
-    MSA_FLOAT_BINOP(xt, G, S, T, BITS);                 \
-                                                        \
-    if (NUMBER_QNAN_PAIR(as, at, BITS)) {               \
-        X = S;                                          \
-    }                                                   \
-    else if (NUMBER_QNAN_PAIR(at, as, BITS)) {          \
-        X = T;                                          \
-    }                                                   \
-    else if (as == at) {                                \
-        X =  xs;                                        \
-    }                                                   \
-    else {                                              \
-        MSA_FLOAT_BINOP(xd, F, as, at, BITS);           \
-                                                        \
-        if (xd == float## BITS ##_abs(xs)) {            \
-            X = xs;                                     \
-        }                                               \
-        else if (xd == float## BITS ##_abs(xt)) {       \
-            X = xt;                                     \
-        }                                               \
-        else {                                          \
-            /* shouldn't get here */                    \
-            assert(0);                                  \
-        }                                               \
-    }
-
+#define FMAXMIN_A(F, G, X, S, T, BITS)                          \
+  if (NUMBER_QNAN_PAIR(S, T, BITS)) {                           \
+    T = S;                                                      \
+  }                                                             \
+  else if (NUMBER_QNAN_PAIR(T, S, BITS)) {                      \
+    S = T;                                                      \
+  }                                                             \
+                                                                \
+  uint## BITS ##_t as = float## BITS ##_abs(S);                 \
+  uint## BITS ##_t at = float## BITS ##_abs(T);                 \
+                                                                \
+  uint## BITS ##_t xs, xt, xd;                                  \
+                                                                \
+  MSA_FLOAT_BINOP(xs, F,  S,  T, BITS);                         \
+  MSA_FLOAT_BINOP(xt, G,  S,  T, BITS);                         \
+  MSA_FLOAT_BINOP(xd, F, as, at, BITS);                         \
+                                                                \
+  X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
+ 
 
 void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
@@ -9103,28 +9090,26 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                W(pwx, i) = W(pws, i);
+                W(pwt, i) = W(pws, i);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                W(pwx, i) = W(pwt, i);
+                W(pws, i) = W(pwt, i);
             }
-            else {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
-            }
+
+            MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                D(pwx, i) = D(pws, i);
+                D(pwt, i) = D(pws, i);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                D(pwx, i) = D(pwt, i);
+                D(pws, i) = D(pwt, i);
             }
-            else {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
-            }
+
+            MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9183,28 +9168,26 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                W(pwx, i) = W(pws, i);
+                W(pwt, i) = W(pws, i);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                W(pwx, i) = W(pwt, i);
+                W(pws, i) = W(pwt, i);
             }
-            else {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
-            }
+
+            MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                D(pwx, i) = D(pws, i);
+                D(pwt, i) = D(pws, i);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                D(pwx, i) = D(pwt, i);
+                D(pws, i) = D(pwt, i);
             }
-            else {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
-            }
+
+            MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 

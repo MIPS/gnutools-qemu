@@ -1773,7 +1773,8 @@ static float32 addFloat32Sigs( float32 a, float32 b, flag zSign STATUS_PARAM)
         }
         if ( aExp == 0 ) {
             if (STATUS(flush_to_zero)) {
-                if (aSig + bSig < 0x20000000) {
+                zSig = aSig + bSig;
+                if (0 < zSig && zSig < 0x20000000) {
                     float_raise(float_flag_output_denormal STATUS_VAR);
                     return packFloat32(zSign, 0, 0);
                 }
@@ -3361,7 +3362,8 @@ static float64 addFloat64Sigs( float64 a, float64 b, flag zSign STATUS_PARAM )
         }
         if ( aExp == 0 ) {
             if (STATUS(flush_to_zero)) {
-                if (aSig + bSig < LIT64( 0x2000000000000000 )) {
+                zSig = aSig + bSig;
+                if (0 < zSig && zSig < LIT64( 0x2000000000000000 )) {
                     float_raise(float_flag_output_denormal STATUS_VAR);
                     return packFloat64(zSign, 0, 0);
                 }
