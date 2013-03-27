@@ -8486,7 +8486,12 @@ static void check_msacsr_cause(void)
   }
 }
 
-static int update_msacsr(void)
+
+/* Flush-to-zero use cases for update_msacsr() */
+#define CLEAR_FS_UNDERFLOW 1
+#define CLEAR_IS_INEXACT   1
+
+static int update_msacsr(int action)
 {
     int ieee_ex;
 
@@ -8514,13 +8519,24 @@ static int update_msacsr(void)
     /* Set Inexact (I) when flushing inputs to zero */
     if ((ieee_ex & float_flag_input_denormal) &&
         (env->active_msa.msacsr & MSACSR_IS_BIT) != 0) {
-      c |= FP_INEXACT;
+      if (action & CLEAR_IS_INEXACT) {
+        c &= ~FP_INEXACT;
+      }
+      else {
+        c |=  FP_INEXACT;
+      }
     }
 
     /* Set Inexact (I) and Underflow (U) when flushing outputs to zero */
     if ((ieee_ex & float_flag_output_denormal) &&
         (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
-      c |= FP_INEXACT | FP_UNDERFLOW;
+      c |= FP_INEXACT;
+      if (action & CLEAR_FS_UNDERFLOW) {
+        c &= ~FP_UNDERFLOW;
+      }
+      else {
+        c |=  FP_UNDERFLOW;
+      }
     }
 
     /* Set Inexact (I) when Overflow (O) is not enabled */
@@ -8570,7 +8586,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr();                                                \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8593,7 +8609,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr();                                                \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8611,7 +8627,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr();                                                \
+    c = update_msacsr(0);                                               \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8642,7 +8658,7 @@ static int update_msacsr(void)
                                     & (~float_flag_inexact),            \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    c = update_msacsr();                                                \
+    c = update_msacsr(0);                                               \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8660,7 +8676,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr();                                                \
+    c = update_msacsr(0);                                               \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8678,7 +8694,7 @@ static int update_msacsr(void)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr();                                                \
+    c = update_msacsr(0);                                               \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -9224,8 +9240,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
                                                                         \
-    c = update_msacsr();                                                \
-    c &= ~FP_INEXACT; /* Clear Inexact if set due to flush-to-zero */   \
+    c = update_msacsr(CLEAR_IS_INEXACT);                                \
                                                                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
@@ -9261,8 +9276,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       DEST = cond ? M_MAX_UINT(BITS) : 0;                               \
     }                                                                   \
                                                                         \
-    c = update_msacsr();                                                \
-    c &= ~FP_INEXACT; /* Clear Inexact if set due to flush-to-zero */   \
+    c = update_msacsr(CLEAR_IS_INEXACT);                                \
                                                                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
