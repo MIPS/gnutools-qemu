@@ -6679,6 +6679,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
  *  MSA
  */
 
+#define DEBUG_MSACSR 0
 
 /* Data format and vector length unpacking */
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
@@ -8475,7 +8476,7 @@ static void check_msacsr_cause(void)
     UPDATE_FP_FLAGS(env->active_msa.msacsr,
                     GET_FP_CAUSE(env->active_msa.msacsr));
 
-#if 0
+#if DEBUG_MSACSR
     printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
            GET_FP_CAUSE(env->active_msa.msacsr),
            GET_FP_FLAGS(env->active_msa.msacsr));
@@ -8501,7 +8502,7 @@ static int update_msacsr(int action)
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
 
-#if 0
+#if DEBUG_MSACSR
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
     if (ieee_ex & float_flag_invalid) printf("invalid ");
     if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
@@ -8568,7 +8569,7 @@ static int update_msacsr(int action)
       }
     }
 
-#if 0
+#if DEBUG_MSACSR
     printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x, MSACSR.NX %d\n",
            c, cause, GET_FP_CAUSE(env->active_msa.msacsr),
            (env->active_msa.msacsr & MSACSR_NX_BIT) != 0);
@@ -9025,7 +9026,9 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  */
 
 
-#define FMAXMIN_A(F, G, X, S, T, BITS)                          \
+#define FMAXMIN_A(F, G, X, _S, _T, BITS)                        \
+  uint## BITS ##_t S = _S, T = _T;                              \
+                                                                \
   if (NUMBER_QNAN_PAIR(S, T, BITS)) {                           \
     T = S;                                                      \
   }                                                             \
@@ -9090,26 +9093,28 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                W(pwt, i) = W(pws, i);
+                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                W(pws, i) = W(pwt, i);
+                MSA_FLOAT_BINOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
             }
-
-            MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
+            else {
+                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
+            }
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                D(pwt, i) = D(pws, i);
+                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                D(pws, i) = D(pwt, i);
+                MSA_FLOAT_BINOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
             }
-
-            MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
+            else {
+                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
+            }
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9168,27 +9173,29 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                W(pwt, i) = W(pws, i);
+                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                W(pws, i) = W(pwt, i);
+                MSA_FLOAT_BINOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
             }
-
-            MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
+            else {
+                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
+            }
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                D(pwt, i) = D(pws, i);
+                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                D(pws, i) = D(pwt, i);
+                MSA_FLOAT_BINOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
             }
-
-            MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
+            else {
+                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
+            }
+         } DONE_ALL_ELEMENTS;
         break;
 
     default:
@@ -10367,7 +10374,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
         return env->active_msa.msair;
 
     case MSACSR_REGISTER:
-#if 0
+#if DEBUG_MSACSR
         printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
                env->active_msa.msacsr & MSACSR_BITS,
                GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
