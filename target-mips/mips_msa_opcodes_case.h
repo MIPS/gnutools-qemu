@@ -1,4 +1,4 @@
-static void gen_msa(CPUState *env, DisasContext *ctx)
+static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
 {
     uint32_t opcode = ctx->opcode;
 
@@ -472,9 +472,11 @@ static void gen_msa(CPUState *env, DisasContext *ctx)
             return;
         case OPC_BNZ_df:
             gen_bnz_df(env, ctx);
+            *is_branch = 1;
             return;
         case OPC_BZ_df:
             gen_bz_df(env, ctx);
+            *is_branch = 1;
             return;
         case OPC_LDI_df:
             gen_ldi_df(env, ctx);

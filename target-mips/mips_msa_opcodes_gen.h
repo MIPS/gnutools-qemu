@@ -4419,12 +4419,9 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     gen_helper_bnz_v(tbcond, tpwd, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
@@ -4456,12 +4453,9 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     gen_helper_bz_v(tbcond, tpwd, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
@@ -4882,12 +4876,9 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     gen_helper_bnz_df(tbcond, tpwd, tdf, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
@@ -4922,12 +4913,9 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     gen_helper_bz_df(tbcond, tpwd, tdf, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);

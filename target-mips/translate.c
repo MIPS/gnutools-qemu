@@ -13198,7 +13198,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
     case OPC_MSA:
         /* MDMX: Not implemented. */
         check_insn(env, ctx, ASE_MDMX | ASE_MSA);
-        gen_msa(env, ctx);
+        gen_msa(env, ctx, is_branch);
         break;
     default:            /* Invalid */
         MIPS_INVAL("major opcode");

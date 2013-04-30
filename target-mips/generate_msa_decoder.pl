@@ -117,7 +117,7 @@ sub write_opcodes_case {
     open(OPCASE, '>', $filename) or die "Can't open file $filename: $!\n";
 
     print OPCASE <<'HERECODE';
-static void gen_msa(CPUState *env, DisasContext *ctx)
+static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
 {
     uint32_t opcode = ctx->opcode;
 
@@ -134,12 +134,23 @@ HERECODE
         foreach my $inst (@insts) {
             my $name = get_code_name($inst->{name});
             my $namelc = lc($name);
+            my $is_branch = $namelc =~ /bnz_df/ || $namelc =~ /bz_df/;
 
+            if ($is_branch) {
+            print OPCASE <<"HERECODE";
+        case OPC_$name:
+            gen_$namelc(env, ctx);
+            *is_branch = 1;
+            return;
+HERECODE
+            }
+            else {
             print OPCASE <<"HERECODE";
         case OPC_$name:
             gen_$namelc(env, ctx);
             return;
 HERECODE
+            }
         }
 
     print OPCASE <<'HERECODE';
@@ -1234,12 +1245,9 @@ $declare_str
     gen_helper_$helper_name(tbcond, tpwd, tdf, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
@@ -1269,12 +1277,9 @@ tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
     gen_helper_$helper_name(tbcond, tpwd, twrlen);
 
     int64_t offset = (s10 << 54) >> 52;
-    ctx->btarget = ctx->pc + offset;
-    int l1 = gen_new_label();
-    tcg_gen_brcondi_tl(TCG_COND_NE, tbcond, 0, l1);
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* insn_bytes hardcoded 4 */
-    gen_set_label(l1);
-    gen_goto_tb(ctx, 0, ctx->btarget);
+    ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
+    ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(ts10);
