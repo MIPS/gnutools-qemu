@@ -5006,8 +5006,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Config4";
             break;
         case 5:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_Config5));
+            gen_helper_mtc0_config5(arg);
             rn = "Config5";
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
             break;
         /* 6,7 are implementation dependent */
         case 6:

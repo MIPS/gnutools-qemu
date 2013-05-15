@@ -549,7 +549,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x00FFF
+#define MIPS_HFLAG_TMASK  0x01FFF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -572,21 +572,22 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
 #define MIPS_HFLAG_M16_SHIFT 10
 #define MIPS_HFLAG_DSP    0x00800
+#define MIPS_HFLAG_MSA    0x01000
     /* If translation is interrupted between the branch instruction and
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
      * this from three bits to two.  */
-#define MIPS_HFLAG_BMASK_BASE  0x07000
-#define MIPS_HFLAG_B      0x01000 /* Unconditional branch               */
-#define MIPS_HFLAG_BC     0x02000 /* Conditional branch                 */
-#define MIPS_HFLAG_BL     0x03000 /* Likely branch                      */
-#define MIPS_HFLAG_BR     0x04000 /* branch to register (can't link TB) */
+#define MIPS_HFLAG_BMASK_BASE  0x07000000
+#define MIPS_HFLAG_B      0x01000000 /* Unconditional branch               */
+#define MIPS_HFLAG_BC     0x02000000 /* Conditional branch                 */
+#define MIPS_HFLAG_BL     0x03000000 /* Likely branch                      */
+#define MIPS_HFLAG_BR     0x04000000 /* branch to register (can't link TB) */
     /* Extra flags about the current pending branch.  */
-#define MIPS_HFLAG_BMASK_EXT 0x78000
-#define MIPS_HFLAG_B16    0x08000 /* branch instruction was 16 bits     */
-#define MIPS_HFLAG_BDS16  0x10000 /* branch requires 16-bit delay slot  */
-#define MIPS_HFLAG_BDS32  0x20000 /* branch requires 32-bit delay slot  */
-#define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
+#define MIPS_HFLAG_BMASK_EXT 0x78000000
+#define MIPS_HFLAG_B16    0x08000000 /* branch instruction was 16 bits     */
+#define MIPS_HFLAG_BDS16  0x10000000 /* branch requires 16-bit delay slot  */
+#define MIPS_HFLAG_BDS32  0x20000000 /* branch requires 32-bit delay slot  */
+#define MIPS_HFLAG_BX     0x40000000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */

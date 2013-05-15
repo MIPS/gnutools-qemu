@@ -155,7 +155,7 @@ static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP);
+                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_MSA);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -199,6 +199,11 @@ static inline void compute_hflags(CPUState *env)
            would be too restrictive for them.  */
         if (env->CP0_Status & (1 << CP0St_CU3)) {
             env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
+    if (env->insn_flags & ASE_MSA) {
+        if (env->CP0_Config5 & (1 << CP0C5_MSAEn)) {
+            env->hflags |= MIPS_HFLAG_MSA;
         }
     }
 }
@@ -5218,7 +5223,8 @@ target_ulong helper_mftc0_configx(target_ulong idx)
     case 1: return other->CP0_Config1;
     case 2: return other->CP0_Config2;
     case 3: return other->CP0_Config3;
-    /* 4 and 5 are reserved.  */
+    /* 4 is reserved.  */
+    case 5: return other->CP0_Config5;
     case 6: return other->CP0_Config6;
     case 7: return other->CP0_Config7;
     default:
@@ -5236,6 +5242,11 @@ void helper_mtc0_config2 (target_ulong arg1)
 {
     /* tertiary/secondary caches not implemented */
     env->CP0_Config2 = (env->CP0_Config2 & 0x8FFF0FFF);
+}
+
+void helper_mtc0_config5 (target_ulong arg1)
+{
+    env->CP0_Config5 = (env->CP0_Config5 & 0xF7FFFFFF) | (arg1 & 0x08000000);
 }
 
 void helper_mtc0_lladdr (target_ulong arg1)
