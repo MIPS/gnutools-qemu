@@ -6679,7 +6679,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
  *  MSA
  */
 
-#define DEBUG_MSACSR 0
+#define DEBUG_MSACSR 1
 
 /* Data format and vector length unpacking */
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
@@ -8490,7 +8490,7 @@ static void check_msacsr_cause(void)
 
 /* Flush-to-zero use cases for update_msacsr() */
 #define CLEAR_FS_UNDERFLOW 1
-#define CLEAR_IS_INEXACT   1
+#define CLEAR_IS_INEXACT   2
 
 static int update_msacsr(int action)
 {
@@ -8519,7 +8519,7 @@ static int update_msacsr(int action)
 
     /* Set Inexact (I) when flushing inputs to zero */
     if ((ieee_ex & float_flag_input_denormal) &&
-        (env->active_msa.msacsr & MSACSR_IS_BIT) != 0) {
+        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
       if (action & CLEAR_IS_INEXACT) {
         c &= ~FP_INEXACT;
       }
@@ -10444,7 +10444,7 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
           (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
           &env->active_msa.fp_status);
         set_flush_inputs_to_zero(
-          (env->active_msa.msacsr & MSACSR_IS_BIT) != 0 ? 1 : 0,
+          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
           &env->active_msa.fp_status);
 
         /* check exception */
