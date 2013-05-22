@@ -134,7 +134,7 @@ HERECODE
         foreach my $inst (@insts) {
             my $name = get_code_name($inst->{name});
             my $namelc = lc($name);
-            my $is_branch = $namelc =~ /bnz_df/ || $namelc =~ /bz_df/;
+            my $is_branch = $namelc =~ /bnz_/ || $namelc =~ /bz_/;
 
             if ($is_branch) {
             print OPCASE <<"HERECODE";

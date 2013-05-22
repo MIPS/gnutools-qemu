@@ -4129,7 +4129,7 @@ print_insn_args (const char *d,
 	      delta = ((l >> OP_SH_10BIT) & OP_MASK_10BIT);
 	      if (delta & 0x200) /* test sign bit */
 		delta |= ~OP_MASK_10BIT;
-	      info->target = (delta << 2) + pc;
+	      info->target = (delta << 2) + pc + INSNLEN;
 	      (*info->print_address_func) (info->target, info);
 	      break;
 	      

@@ -100,9 +100,11 @@ static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
             return;
         case OPC_BNZ_V:
             gen_bnz_v(env, ctx);
+            *is_branch = 1;
             return;
         case OPC_BZ_V:
             gen_bz_v(env, ctx);
+            *is_branch = 1;
             return;
     }
 
