@@ -8483,6 +8483,11 @@ static void check_msacsr_cause(void)
 #endif
   }
   else {
+#if DEBUG_MSACSR
+    printf("check_msacsr_cause: MSACSR.Enable 0x%02x, MSACSR.Cause 0x%02x FPE\n",
+           GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED,
+           GET_FP_CAUSE(env->active_msa.msacsr));
+#endif
       helper_raise_exception(EXCP_MSAFPE);
   }
 }
@@ -10434,6 +10439,13 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     case MSACSR_REGISTER:
         env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
 
+#if DEBUG_MSACSR
+        printf("ctcmsa 0x%08x (0x%08x): Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
+               env->active_msa.msacsr & MSACSR_BITS, elm,
+               GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
+               GET_FP_ENABLE(env->active_msa.msacsr & MSACSR_BITS),
+               GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
+#endif
         /* set float_status rounding mode */
         set_float_rounding_mode(
             ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
