@@ -9214,8 +9214,17 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 
 /*
- *  FCEQ, FCNE, FCLE, FCLT, FCUN
- *  FSEQ, FSNE, FSLE, FSLT
+ *  FCAF, FSAF,
+ *  FCEQ, FSEQ,
+ *  FCUEQ, FSUEQ,
+ *  FCNE, FSNE,
+ *  FCUNE, FSUNE,
+ *  FCLE, FSLE,
+ *  FCULE, FSULE,
+ *  FCLT, FSLT,
+ *  FCULT, FSULT,
+ *  FCUN, FSUN,
+ *  FCOR, FSOR
  */
 
 #define MSA_FLOAT_COND(DEST, OP, ARG1, ARG2, BITS, QUIET)               \
@@ -9245,45 +9254,69 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
   } while (0)
 
-#define MSA_FLOAT_CONDU(DEST, OP, ARG1, ARG2, BITS, QUIET, NEG)         \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    int64_t cond;                                                       \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    if (!QUIET) {                                                       \
-      cond = float ## BITS ## _unordered(ARG1, ARG2,                    \
-                                         &env->active_msa.fp_status);   \
-      cond |= float ## BITS ## _ ## OP(ARG1, ARG2,                      \
-                                       &env->active_msa.fp_status);     \
-    } else {                                                            \
-      cond = float ## BITS ## _unordered_quiet(ARG1, ARG2,              \
-                                           &env->active_msa.fp_status); \
-      cond |= float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,            \
-                                           &env->active_msa.fp_status); \
-    }                                                                   \
-    if (NEG) {                                                          \
-      DEST = cond ? 0: M_MAX_UINT(BITS);                                \
-    }                                                                   \
-    else {                                                              \
-      DEST = cond ? M_MAX_UINT(BITS) : 0;                               \
-    }                                                                   \
-                                                                        \
-    c = update_msacsr(CLEAR_IS_INEXACT);                                \
-                                                                        \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
+
+#define MSA_FLOAT_AF(DEST, ARG1, ARG2, BITS, QUIET)             \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, eq, ARG1, ARG2, BITS, QUIET);          \
+    if ((DEST & M_MAX_UINT(BITS)) == M_MAX_UINT(BITS)) {        \
+      DEST = 0;                                                 \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_UEQ(DEST, ARG1, ARG2, BITS, QUIET)            \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, eq, ARG1, ARG2, BITS, QUIET);        \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_NE(DEST, ARG1, ARG2, BITS, QUIET)             \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);          \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, lt, ARG2, ARG1, BITS, QUIET);        \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_UNE(DEST, ARG1, ARG2, BITS, QUIET)            \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);        \
+      if (DEST == 0) {                                          \
+        MSA_FLOAT_COND(DEST, lt, ARG2, ARG1, BITS, QUIET);      \
+      }                                                         \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_ULE(DEST, ARG1, ARG2, BITS, QUIET)            \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, le, ARG1, ARG2, BITS, QUIET);        \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_ULT(DEST, ARG1, ARG2, BITS, QUIET)            \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);        \
+    }                                                           \
+  } while (0)
+
+#define MSA_FLOAT_OR(DEST, ARG1, ARG2, BITS, QUIET)             \
+  do {                                                          \
+    MSA_FLOAT_COND(DEST, le, ARG1, ARG2, BITS, QUIET);          \
+    if (DEST == 0) {                                            \
+      MSA_FLOAT_COND(DEST, le, ARG2, ARG1, BITS, QUIET);        \
+    }                                                           \
   } while (0)
 
 
-void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
+static void 
+compare_af(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
@@ -9294,13 +9327,138 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_COND(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 1);
+          MSA_FLOAT_AF(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 1);
+          MSA_FLOAT_AF(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcaf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_af(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsaf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_af(pwd, pws, pwt, wrlen_df, 0);
+}
+
+static void
+compare_eq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_COND(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, quiet);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_COND(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_eq(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fseq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_eq(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_ueq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UEQ(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UEQ(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcueq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ueq(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsueq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ueq(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_ne(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_NE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_NE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9315,6 +9473,16 @@ void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
+  compare_ne(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ne(pwd, pws, pwt, wrlen_df, 0);
+}
+
+static void
+compare_une(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
@@ -9325,13 +9493,13 @@ void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 1, 1);
-         } DONE_ALL_ELEMENTS;
+          MSA_FLOAT_UNE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+        } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 1, 1);
+          MSA_FLOAT_UNE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9344,9 +9512,19 @@ void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     helper_move_v(pwd, pwx, wrlen);
 }
 
-
-void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcune_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
+  compare_une(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsune_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_une(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void 
+compare_le(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
@@ -9357,13 +9535,97 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), le, W(pws, i), W(pwt, i), 32, 1);
+            MSA_FLOAT_COND(W(pwx, i), le, W(pws, i), W(pwt, i), 32, quiet);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), le, D(pws, i), D(pwt, i), 64, 1);
+            MSA_FLOAT_COND(D(pwx, i), le, D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_le(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_le(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_ule(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_ULE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_ULE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcule_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ule(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsule_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ule(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_lt(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_COND(W(pwx, i), lt, W(pws, i), W(pwt, i), 32, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_COND(D(pwx, i), lt, D(pws, i), D(pwt, i), 64, quiet);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9378,166 +9640,17 @@ void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), lt, W(pws, i), W(pwt, i), 32, 1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), lt, D(pws, i), D(pwt, i), 64, 1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+  compare_lt(pwd, pws, pwt, wrlen_df, 1);
 }
-
-
-
-void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), unordered, W(pws, i), W(pwt, i), 32, 1);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), unordered, D(pws, i), D(pwt, i), 64, 1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
-}
-
-
-void helper_fseq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_COND(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 0);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 0);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
-}
-
-void helper_fsne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_CONDU(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, 0, 1);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_CONDU(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, 0, 1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
-}
-
-
-void helper_fsle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause();
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), le, W(pws, i), W(pwt, i), 32, 0);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), le, D(pws, i), D(pwt, i), 64, 0);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
-}
-
 
 void helper_fslt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
+  compare_lt(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_ult(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
@@ -9548,13 +9661,13 @@ void helper_fslt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), lt, W(pws, i), W(pwt, i), 32, 0);
-        } DONE_ALL_ELEMENTS;
+          MSA_FLOAT_ULT(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), lt, D(pws, i), D(pwt, i), 64, 0);
+          MSA_FLOAT_ULT(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -9565,6 +9678,99 @@ void helper_fslt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcult_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ult(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsult_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_ult(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void
+compare_un(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_COND(W(pwx, i), unordered, W(pws, i), W(pwt, i), 32, quiet);
+         } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+            MSA_FLOAT_COND(D(pwx, i), unordered, D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_un(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_un(pwd, pws, pwt, wrlen_df, 0);
+}
+
+
+static void 
+compare_or(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+
+    clear_msacsr_cause();
+
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_OR(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_OR(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+void helper_fcor_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_or(pwd, pws, pwt, wrlen_df, 1);
+}
+
+void helper_fsor_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+{
+  compare_or(pwd, pws, pwt, wrlen_df, 0);
 }
 
 

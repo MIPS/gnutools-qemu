@@ -1676,6 +1676,13 @@ sub get_func_type {
         'FMIN.df' => 'df_wt_ws_wd_p',
         'FMIN_A.df' => 'df_wt_ws_wd_p',
 
+        'FCAF.df' => 'df_wt_ws_wd_p',
+        'FCOR.df' => 'df_wt_ws_wd_p',
+        'FCUEQ.df' => 'df_wt_ws_wd_p',
+        'FCULE.df' => 'df_wt_ws_wd_p',
+        'FCULT.df' => 'df_wt_ws_wd_p',
+        'FCUNE.df' => 'df_wt_ws_wd_p',
+
         'FCEQ.df' => 'df_wt_ws_wd_p',
         'FCEQU.df' => 'df_wt_ws_wd_p',
         'FCLEU.df' => 'df_wt_ws_wd_p',
@@ -1687,6 +1694,14 @@ sub get_func_type {
         'FCNE.df' => 'df_wt_ws_wd_p',
         'FCLT.df' => 'df_wt_ws_wd_p',
         'FCLE.df' => 'df_wt_ws_wd_p',
+
+        'FSAF.df' => 'df_wt_ws_wd_p',
+        'FSOR.df' => 'df_wt_ws_wd_p',
+        'FSUEQ.df' => 'df_wt_ws_wd_p',
+        'FSULE.df' => 'df_wt_ws_wd_p',
+        'FSULT.df' => 'df_wt_ws_wd_p',
+        'FSUN.df' => 'df_wt_ws_wd_p',
+        'FSUNE.df' => 'df_wt_ws_wd_p',
 
         'FSEQ.df' => 'df_wt_ws_wd_p',
         'FSNE.df' => 'df_wt_ws_wd_p',
