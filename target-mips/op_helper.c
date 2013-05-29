@@ -8233,6 +8233,65 @@ int64_t helper_srli_df(int64_t arg, uint32_t m, uint32_t df)
 
 
 /*
+ *  SRAR, SRLR
+ */
+
+int64_t helper_srar_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    if (b_arg2 == 0) {
+      return arg1;
+    }
+    else {
+      int64_t r_bit = (arg1 >> (b_arg2 - 1)) & 1;
+      return (arg1 >> b_arg2) + r_bit;
+    }
+}
+
+
+int64_t helper_srari_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    if (m == 0) {
+      return arg;
+    }
+    else {
+      int64_t r_bit = (arg >> (m - 1)) & 1;
+      return (arg >> m) + r_bit;
+    }
+}
+
+
+int64_t helper_srlr_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    uint64_t u_arg1 = UNSIGNED(arg1, df);
+    int32_t b_arg2 = BIT_POSITION(arg2, df);
+
+    if (b_arg2 == 0) {
+      return u_arg1;
+    }
+    else {
+      uint64_t r_bit = (u_arg1 >> (b_arg2 - 1)) & 1;
+      return (u_arg1 >> b_arg2) + r_bit;
+    }
+}
+
+
+int64_t helper_srlri_df(int64_t arg, uint32_t m, uint32_t df)
+{
+    uint64_t u_arg = UNSIGNED(arg, df);
+
+    if (m == 0) {
+      return u_arg;
+    }
+    else {
+      uint64_t r_bit = (u_arg >> (m - 1)) & 1;
+      return (u_arg >> m) + r_bit;
+    }
+}
+
+
+/*
  *  SLD
  */
 
