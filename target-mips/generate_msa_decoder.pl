@@ -1717,6 +1717,9 @@ sub get_func_type {
         'FTINT_U.df' => 'df_ws_wd_p',
         'FRINT.df' => 'df_ws_wd_p',
 
+        'FTRUNC_S.df' => 'df_ws_wd_p',
+        'FTRUNC_U.df' => 'df_ws_wd_p',
+
         'FRCP.df' => 'df_ws_wd_p',
         'FRSQRT.df' => 'df_ws_wd_p',
 

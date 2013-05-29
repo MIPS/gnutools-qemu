@@ -1,47 +1,5 @@
 /* copy_s_df doesn't require helper function. */
 /* copy_u_df doesn't require helper function. */
-int64_t helper_ftrunc_s_df(int64_t arg, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
-int64_t helper_ftrunc_u_df(int64_t arg, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
-int64_t helper_hadd_s_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
-int64_t helper_hadd_u_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
-int64_t helper_hsub_s_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
-int64_t helper_hsub_u_df(int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\n", __func__);
-    return 0; // FIXME
-}
-
-
 /* ld_df doesn't require helper function. */
 /* ldx_df doesn't require helper function. */
 int64_t helper_srar_df(int64_t arg1, int64_t arg2, uint32_t df)

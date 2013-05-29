@@ -7307,6 +7307,7 @@ int64_t helper_clt_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 
 
 /*
+ *  HADD_S, HADD_U, HSUB_S, HSUB_U,
  *  DOTP_S, DOTP_U, DPADD_S, DPADD_U, DPSUB_S, DPSUB_U
  */
 
@@ -7328,6 +7329,29 @@ int64_t helper_clt_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     int64_t e = UNSIGNED_EVEN(a, df);           \
     int64_t o = UNSIGNED_ODD(a, df);
 
+
+int64_t helper_hadd_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return SIGNED_ODD(arg1, df) + SIGNED_EVEN(arg2, df);
+}
+
+
+int64_t helper_hadd_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return UNSIGNED_ODD(arg1, df) + UNSIGNED_EVEN(arg2, df);
+}
+
+
+int64_t helper_hsub_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return SIGNED_ODD(arg1, df) - SIGNED_EVEN(arg2, df);
+}
+
+
+int64_t helper_hsub_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+{
+    return UNSIGNED_ODD(arg1, df) - UNSIGNED_EVEN(arg2, df);
+}
 
 
 int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
@@ -9051,7 +9075,7 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
   MSA_FLOAT_BINOP(xd, F, as, at, BITS);                         \
                                                                 \
   X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
- 
+
 
 void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
@@ -9315,7 +9339,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
   } while (0)
 
 
-static void 
+static void
 compare_af(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9523,7 +9547,7 @@ void helper_fsune_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 }
 
 
-static void 
+static void
 compare_le(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9733,7 +9757,7 @@ void helper_fsun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 }
 
 
-static void 
+static void
 compare_or(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9991,7 +10015,7 @@ void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
 
 
 /*
- *  FFINT, FTINT, FRINT
+ *  FFINT, FTINT, FTRUNC, FRINT
  */
 
 #define float32_from_int32 int32_to_float32
@@ -10123,6 +10147,75 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+void helper_ftrunc_s_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+    signed char rm = env->active_msa.fp_status.float_rounding_mode;
+
+    clear_msacsr_cause();
+
+    env->active_msa.fp_status.float_rounding_mode = float_round_to_zero;
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UNOP0(W(pwx, i), to_int32, W(pws, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UNOP0(D(pwx, i), to_int64, D(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+    env->active_msa.fp_status.float_rounding_mode = rm;
+
+    check_msacsr_cause();
+    helper_move_v(pwd, pwx, wrlen);
+}
+
+
+void helper_ftrunc_u_df(void *pwd, void *pws, uint32_t wrlen_df)
+{
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
+    wr_t wx, *pwx = &wx;
+    signed char rm = env->active_msa.fp_status.float_rounding_mode;
+
+    clear_msacsr_cause();
+
+    env->active_msa.fp_status.float_rounding_mode = float_round_to_zero;
+    switch (df) {
+    case DF_WORD:
+        ALL_W_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32, W(pws, i), 32);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    case DF_DOUBLE:
+        ALL_D_ELEMENTS(i, wrlen) {
+          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64, D(pws, i), 64);
+        } DONE_ALL_ELEMENTS;
+        break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+    env->active_msa.fp_status.float_rounding_mode = rm;
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
