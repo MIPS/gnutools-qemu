@@ -3226,7 +3226,7 @@ static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -3277,7 +3277,7 @@ static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -3328,7 +3328,7 @@ static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -3380,7 +3380,7 @@ static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -3432,7 +3432,7 @@ static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -3484,7 +3484,7 @@ static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -4130,6 +4130,11 @@ static void gen_hadd_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -4175,6 +4180,11 @@ static void gen_hadd_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    /* check df: byte format not allowed */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
 
     check_msa_access(env, ctx, wt, ws, wd);
 
@@ -4222,6 +4232,11 @@ static void gen_hsub_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
+    /* check df: byte format not allowed */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
+
     check_msa_access(env, ctx, wt, ws, wd);
 
     TCGv_i32 tdf = tcg_const_i32(df);
@@ -4267,6 +4282,11 @@ static void gen_hsub_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    /* check df: byte format not allowed */
+    if (df == 0) {
+        generate_exception(ctx, EXCP_RI);
+    }
 
     check_msa_access(env, ctx, wt, ws, wd);
 

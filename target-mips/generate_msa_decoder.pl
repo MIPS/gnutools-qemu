@@ -782,15 +782,17 @@ C_END
         my $dtype = get_arg_type($inst,'wd');
 
         my $is_dotp = ($codename =~ /dotp_[su]_df/);
+        my $is_hadd = ($codename =~ /hadd_[su]_df/);
+        my $is_hsub = ($codename =~ /hsub_[su]_df/);
 
           $func_body .= <<"C_END";
 
 $declare_str
 C_END
 
-        if ( $is_dotp ) {
+        if ( $is_dotp || $is_hadd || $is_hsub ) {
           $func_body .= <<"C_END";
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
@@ -848,7 +850,7 @@ C_END
 
         if ( $is_dpadd || $is_dpsub ) {
           $func_body .= <<"C_END";
-    /* check df: byte format not allowed for dot product instructions */
+    /* check df: byte format not allowed */
     if (df == 0) {
         generate_exception(ctx, EXCP_RI);
     }
