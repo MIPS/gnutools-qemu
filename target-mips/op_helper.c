@@ -10205,21 +10205,19 @@ void helper_ftrunc_s_df(void *pwd, void *pws, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    signed char rm = env->active_msa.fp_status.float_rounding_mode;
 
     clear_msacsr_cause();
 
-    env->active_msa.fp_status.float_rounding_mode = float_round_to_zero;
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_int32, W(pws, i), 32);
+          MSA_FLOAT_UNOP0(W(pwx, i), to_int32_round_to_zero, W(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_int64, D(pws, i), 64);
+          MSA_FLOAT_UNOP0(D(pwx, i), to_int64_round_to_zero, D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10227,7 +10225,6 @@ void helper_ftrunc_s_df(void *pwd, void *pws, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-    env->active_msa.fp_status.float_rounding_mode = rm;
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
@@ -10240,21 +10237,19 @@ void helper_ftrunc_u_df(void *pwd, void *pws, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    signed char rm = env->active_msa.fp_status.float_rounding_mode;
 
     clear_msacsr_cause();
 
-    env->active_msa.fp_status.float_rounding_mode = float_round_to_zero;
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32, W(pws, i), 32);
+          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32_round_to_zero, W(pws, i), 32);
         } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64, D(pws, i), 64);
+          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64_round_to_zero, D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10262,7 +10257,6 @@ void helper_ftrunc_u_df(void *pwd, void *pws, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-    env->active_msa.fp_status.float_rounding_mode = rm;
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
