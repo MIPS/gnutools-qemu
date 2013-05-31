@@ -10300,12 +10300,12 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b40001e',
+            'match' => '0x7b22001e',
             'name' => 'FTRUNC_S.df',
-            'match_mm' => '0xcb400032',
+            'match_mm' => '0xcb220032',
             'mask_mm' => '0xfffe003f',
             'mask' => '0xfffe003f'
-          },
+           },
           {
             'opcode' => [
                           [
@@ -10341,12 +10341,12 @@ sub read_instructions {
                                'wd'
                              ]
                            ],
-            'match' => '0x7b42001e',
+            'match' => '0x7b24001e',
             'name' => 'FTRUNC_U.df',
-            'match_mm' => '0xcb420032',
+            'match_mm' => '0xcb240032',
             'mask_mm' => '0xfffe003f',
             'mask' => '0xfffe003f'
-          },
+           },
           {
             'opcode' => [
                           [
