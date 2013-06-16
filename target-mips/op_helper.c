@@ -10533,10 +10533,8 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
     }
 
     /* Inexact flag is always set */
-    set_float_exception_flags(
-      get_float_exception_flags(&env->active_msa.fp_status)
-                                     | ~float_flag_inexact,
-      &env->active_msa.fp_status);
+    SET_FP_CAUSE(env->active_msa.msacsr,
+                 (GET_FP_CAUSE(env->active_msa.msacsr) | FP_INEXACT));
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
