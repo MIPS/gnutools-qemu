@@ -8567,6 +8567,7 @@ static void check_msacsr_cause(void)
 /* Flush-to-zero use cases for update_msacsr() */
 #define CLEAR_FS_UNDERFLOW 1
 #define CLEAR_IS_INEXACT   2
+#define RECIPROCAL_INEXACT 4
 
 static int update_msacsr(int action)
 {
@@ -8625,6 +8626,13 @@ static int update_msacsr(int action)
     if ((c & FP_UNDERFLOW) != 0 && (enable & FP_UNDERFLOW) == 0 &&
         (c & FP_INEXACT) == 0) {
       c = c ^ FP_UNDERFLOW;
+    }
+
+    /* Reciprocal operations set only Inexact when valid and not
+       divide by zero */
+    if ((action & RECIPROCAL_INEXACT) && 
+        (c & (FP_INVALID | FP_DIV0)) == 0) {
+      c = FP_INEXACT;
     }
 
     cause = c & enable;    /* all current enabled exceptions */
@@ -8754,6 +8762,24 @@ static int update_msacsr(int action)
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
     c = update_msacsr(0);                                               \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
+    }                                                                   \
+  } while (0)
+
+#define MSA_FLOAT_BINOP_INEXACT(DEST, OP, ARG1, ARG2, BITS)             \
+  do {                                                                  \
+    int c;                                                              \
+    int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
+                                    &env->active_msa.fp_status);        \
+    c = update_msacsr(RECIPROCAL_INEXACT);                              \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -10517,13 +10543,13 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
+            MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
+            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10531,10 +10557,6 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-
-    /* Inexact flag is always set */
-    SET_FP_CAUSE(env->active_msa.msacsr,
-                 (GET_FP_CAUSE(env->active_msa.msacsr) | FP_INEXACT));
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
@@ -10554,14 +10576,14 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
            MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
-           MSA_FLOAT_BINOP(W(pwx, i), div, FLOAT_ONE32, W(pwx, i), 32);
+           MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwx, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
-            MSA_FLOAT_BINOP(D(pwx, i), div, FLOAT_ONE64, D(pwx, i), 64);
+            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwx, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10569,12 +10591,6 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
         /* shouldn't get here */
       assert(0);
     }
-
-    /* Inexact flag is always set */
-    set_float_exception_flags(
-      get_float_exception_flags(&env->active_msa.fp_status)
-                                     | ~float_flag_inexact,
-      &env->active_msa.fp_status);
 
     check_msacsr_cause();
     helper_move_v(pwd, pwx, wrlen);
