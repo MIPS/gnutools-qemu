@@ -1975,7 +1975,8 @@ static void gen_slt_imm(CPUState *env, DisasContext *ctx, uint32_t opc,
     const char *opn = "imm arith";
     TCGv t0;
 
-#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
     if (opc == OPC_SLTIU && rs == 0 && rt == 0) {
         if ((uint16_t)imm == 0xabc2) {
             gen_helper_avp_ok();
@@ -1985,6 +1986,7 @@ static void gen_slt_imm(CPUState *env, DisasContext *ctx, uint32_t opc,
             return;
         }
     }
+#endif
 #endif
 
     if (rt == 0) {
@@ -13540,8 +13542,8 @@ CPUMIPSState *cpu_mips_init(const char *cpu_model)
     env->cpu_model = def;
     env->cpu_model_str = cpu_model;
 
-#ifndef CONFIG_USER_ONLY
 #ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
     cpu_config(env, def, cpu_config_name);
 #endif
 #endif

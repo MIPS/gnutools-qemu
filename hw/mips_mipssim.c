@@ -50,6 +50,7 @@ typedef struct ResetData {
     uint64_t vector;
 } ResetData;
 
+#ifdef MIPSSIM_COMPAT
 /* For AVPS:
  *  Use -kernel to load first ELF file (as usual)
  *  Use -initrd to load second MIPS 'hex' file (normally a binary image)
@@ -158,6 +159,7 @@ done:
 
     return size;
 }
+#endif
 
 static int64_t load_kernel(void)
 {

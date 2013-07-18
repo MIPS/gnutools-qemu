@@ -70,10 +70,11 @@
    Note that we still maintain Count/Compare to match the host clock. */
 //#define MIPS_STRICT_STANDARD 1
 
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
 /* Define to use SLTIU as stop for AVPs
  *  - also see hw/mips_mipssim for another #define
  */
-#if defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY)
 
 /* Ignore MTC0/DMTC0 to non-decoded CP0 registers */
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
@@ -87,6 +88,7 @@
 
 #ifndef MIPS_STRICT_STANDARD
 #define MIPS_STRICT_STANDARD 1
+#endif
 #endif
 
 #endif
