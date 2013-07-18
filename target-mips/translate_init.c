@@ -18,10 +18,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CONFIG_USER_ONLY
-#include "sysemu/sysemu.h"
+#ifdef MIPSSIM_COMPAT
+#include "mips-avp.h"
 #endif
-
 /* CPU / CPU family specific config register values. */
 
 /* Have config1, uncached coherency */

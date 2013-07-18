@@ -31,6 +31,7 @@ static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
 
 #ifdef MIPSSIM_COMPAT
 #include "sysemu/sysemu.h"
+#include "mips-avp.h"
 
 void helper_avp_ok(void)
 {
