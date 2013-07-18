@@ -1,0 +1,11 @@
+--- mips_timer.c
++++ mips_timer.c
+@@ -125,7 +124,7 @@
+     CPUState *env;
+ 
+     env = opaque;
+-#if 0 || defined(MIPSSIM_COMPAT)
++#if 0
+     qemu_log("%s\n", __func__);
+ #endif
+ 
