@@ -8779,7 +8779,8 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(RECIPROCAL_INEXACT);                              \
+    c = update_msacsr(float ## BITS ## _is_quiet_nan(DEST)?             \
+                      0 : RECIPROCAL_INEXACT);                          \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
