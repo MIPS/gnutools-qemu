@@ -728,10 +728,7 @@ static inline void gen_load_fpr32h (TCGv_i32 t, int reg)
 static inline void gen_store_fpr32h (TCGv_i32 t, int reg)
 {
     TCGv_i64 z64  = tcg_const_i64(0);
-    TCGv_i32 z32  = tcg_const_i32(0);
     tcg_gen_st_i64(z64, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].wr.d[1]));
-    tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[FP_ENDIAN_IDX]));
-
     tcg_gen_st_i32(t, cpu_env, offsetof(CPUState, active_fpu.fpr[reg].w[!FP_ENDIAN_IDX]));
 }
 
