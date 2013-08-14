@@ -355,7 +355,7 @@ static float32 roundAndPackFloat32( flag zSign, int16 zExp, uint32_t zSig STATUS
             shift32RightJamming( zSig, - zExp, &zSig );
             zExp = 0;
             roundBits = zSig & 0x7F;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            if ( isTiny /* && roundBits */ ) float_raise( float_flag_underflow STATUS_VAR);
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
@@ -537,7 +537,7 @@ static float64 roundAndPackFloat64( flag zSign, int16 zExp, uint64_t zSig STATUS
             shift64RightJamming( zSig, - zExp, &zSig );
             zExp = 0;
             roundBits = zSig & 0x3FF;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            if ( isTiny /* && roundBits */) float_raise( float_flag_underflow STATUS_VAR);
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
@@ -729,7 +729,7 @@ static floatx80
             shift64RightJamming( zSig0, 1 - zExp, &zSig0 );
             zExp = 0;
             roundBits = zSig0 & roundMask;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            if ( isTiny /* && roundBits */ ) float_raise( float_flag_underflow STATUS_VAR);
             if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
             zSig0 += roundIncrement;
             if ( (int64_t) zSig0 < 0 ) zExp = 1;
@@ -795,7 +795,7 @@ static floatx80
                 || ( zSig0 < LIT64( 0xFFFFFFFFFFFFFFFF ) );
             shift64ExtraRightJamming( zSig0, zSig1, 1 - zExp, &zSig0, &zSig1 );
             zExp = 0;
-            if ( isTiny && zSig1 ) float_raise( float_flag_underflow STATUS_VAR);
+            if ( isTiny /* && zSig1 */) float_raise( float_flag_underflow STATUS_VAR);
             if ( zSig1 ) STATUS(float_exception_flags) |= float_flag_inexact;
             if ( roundNearestEven ) {
                 increment = ( (int64_t) zSig1 < 0 );
@@ -1065,7 +1065,7 @@ static float128
             shift128ExtraRightJamming(
                 zSig0, zSig1, zSig2, - zExp, &zSig0, &zSig1, &zSig2 );
             zExp = 0;
-            if ( isTiny && zSig2 ) float_raise( float_flag_underflow STATUS_VAR);
+            if ( isTiny /* && zSig2 */) float_raise( float_flag_underflow STATUS_VAR);
             if ( roundNearestEven ) {
                 increment = ( (int64_t) zSig2 < 0 );
             }
