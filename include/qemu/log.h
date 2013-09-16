@@ -14,6 +14,15 @@
 extern FILE *qemu_logfile;
 extern int qemu_loglevel;
 
+#if defined(MIPSSIM_COMPAT)
+extern FILE *svtracefile;
+
+#define sv_log(...) do {                          \
+        if (svtracefile)                          \
+            fprintf(svtracefile, ## __VA_ARGS__); \
+    } while (0)
+#endif
+
 /* 
  * The new API:
  *

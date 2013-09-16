@@ -15762,6 +15762,14 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
+
+#if defined(MIPSSIM_COMPAT)
+#if !defined(CONFIG_USER_ONLY)
+    sv_log("%s : " TARGET_FMT_lx " " TARGET_FMT_lx " ?: %08x\n", env->cpu_model_str, pc_start,
+           cpu_mips_translate_address(env, ctx.pc, 1), ctx.opcode);
+#endif
+#endif
+
 #ifdef DEBUG_DISAS
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
