@@ -8382,8 +8382,8 @@ int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8397,8 +8397,8 @@ int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8411,8 +8411,8 @@ int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8426,8 +8426,8 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
