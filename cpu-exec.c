@@ -640,7 +640,7 @@ int cpu_exec(CPUArchState *env)
                     tc_ptr = tb->tc_ptr;
 #ifdef MIPSSIM_COMPAT
                     if (sv_enabled()) {
-                        trace_cpu_state(env, 0);
+                        trace_cpu_state(cpu, 0);
                         sv_target_disas(env, tb->pc, 4, 0);
                     }
 #endif
@@ -648,7 +648,7 @@ int cpu_exec(CPUArchState *env)
                     next_tb = cpu_tb_exec(cpu, tc_ptr);
 #ifdef MIPSSIM_COMPAT
                     if (sv_enabled()) {
-                        trace_cpu_state(env, 0);
+                        trace_cpu_state(cpu, 0);
                     }
 #endif
                     switch (next_tb & TB_EXIT_MASK) {
