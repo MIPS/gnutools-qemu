@@ -12433,7 +12433,6 @@ int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags)
         case LB32:
         case LH32:
         case DADDIU32:
-        case POOL48A:           /* ??? */
         case LWC132:
         case LDC132:
         case LD32:

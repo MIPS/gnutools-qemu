@@ -326,24 +326,28 @@ void target_disas(FILE *out, CPUArchState *env, target_ulong code,
 }
 
 #ifdef MIPSSIM_COMPAT
-void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code, target_ulong size, int flags)
+void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
+                   target_ulong size, int flags)
 {
     target_ulong pc;
-    struct disassemble_info disasm_info;
-    int (*print_insn)(bfd_vma pc, disassemble_info *info);
+    CPUDebug s;
+    int (*print_insn)(bfd_vma pc, disassemble_info *info) = NULL;
     char sv_dis_options[] = "gpr-names=numeric,cp0-names=mips32r2";
 
-    INIT_DISASSEMBLE_INFO(disasm_info, out, fprintf);
+    INIT_DISASSEMBLE_INFO(s.info, out, fprintf);
 
-    disasm_info.read_memory_func = target_read_memory;
-    disasm_info.buffer_vma = code;
-    disasm_info.buffer_length = size;
-    disasm_info.disassembler_options = sv_dis_options;
+    s.env = env;
+    s.info.read_memory_func = target_read_memory;
+    s.info.buffer_vma = code;
+    s.info.buffer_length = size;
+    s.info.print_address_func = generic_print_target_address;
+
+    s.info.disassembler_options = sv_dis_options;
 
 #ifdef TARGET_WORDS_BIGENDIAN
-    disasm_info.endian = BFD_ENDIAN_BIG;
+    s.info.endian = BFD_ENDIAN_BIG;
 #else
-    disasm_info.endian = BFD_ENDIAN_LITTLE;
+    s.info.endian = BFD_ENDIAN_LITTLE;
 #endif
 
 #if defined(TARGET_MIPS)
@@ -363,27 +367,27 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code, target_ulong
     int insn_bytes;
     uint32_t opcode;
 
-    fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %x: ",
-            env->cpu_model_str,
+    fprintf(out, " : " TARGET_FMT_lx " " TARGET_FMT_lx " %x: ",
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
             (env->CP0_Config0) & 0x7
             );
 
     if (!(env->hflags & MIPS_HFLAG_M16)) {
-        opcode = ldl_code(pc);
+        target_read_memory(pc, (bfd_byte *)&opcode, 4, &s.info);
         insn_bytes = 4;
 
         fprintf(out, "%08lx ", (unsigned long) opcode);
-        print_insn(pc, &disasm_info);
+        print_insn(pc, &s.info);
         fprintf(out, "\n");
         }
     else if (env->insn_flags & ASE_MICROMIPS) {
-        opcode = lduw_code(pc);
+        target_read_memory(pc, (bfd_byte *)&opcode, 2, &s.info);
         insn_bytes = cpu_mips_insnlen_micromips_opc(opcode, env->hflags);
         if (insn_bytes == 4)
         {
-            uint16_t insn_low = lduw_code(pc + 2);
+            uint16_t insn_low;// = lduw_code(pc + 2);
+            target_read_memory(pc+2, (bfd_byte *)&insn_low, 2, &s.info);
             opcode = (opcode << 16) | insn_low;
             fprintf(out, "%08lx ", (unsigned long) opcode);
         }

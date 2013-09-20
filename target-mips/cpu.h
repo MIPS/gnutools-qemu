@@ -645,8 +645,8 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 void cpu_state_reset(CPUMIPSState *s);
 
 #ifdef MIPSSIM_COMPAT
-void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
-                    int flags);
+void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
+                          int flags);
 int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags);
 #endif
 
