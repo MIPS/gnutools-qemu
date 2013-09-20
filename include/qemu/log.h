@@ -21,6 +21,7 @@ extern FILE *svtracefile;
         if (svtracefile)                          \
             fprintf(svtracefile, ## __VA_ARGS__); \
     } while (0)
+#define sv_enabled() (svtracefile != NULL)
 #endif
 
 /* 
