@@ -641,6 +641,7 @@ int cpu_exec(CPUArchState *env)
 #ifdef MIPSSIM_COMPAT
                     if (sv_enabled()) {
                         trace_cpu_state(env, 0);
+                        sv_target_disas(env, tb->pc, 4, 0);
                     }
 #endif
                     /* execute the generated code */

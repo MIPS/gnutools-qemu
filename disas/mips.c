@@ -4082,12 +4082,19 @@ print_insn_mips (bfd_vma memaddr,
 				     | INSN_LOAD_MEMORY_DELAY)) != 0)
 		info->insn_type = dis_dref;
 
+#ifdef MIPSSIM_COMPAT
+	      (*info->fprintf_func) (info->stream, "%-10s ", op->name);
+#else
 	      (*info->fprintf_func) (info->stream, "%s", op->name);
+#endif
 
 	      d = op->args;
 	      if (d != NULL && *d != '\0')
 		{
+#ifdef MIPSSIM_COMPAT
+#else
 		  (*info->fprintf_func) (info->stream, "\t");
+#endif
 		  print_insn_args (d, word, memaddr, info, op);
 		}
 

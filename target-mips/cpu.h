@@ -647,6 +647,7 @@ void cpu_state_reset(CPUMIPSState *s);
 #ifdef MIPSSIM_COMPAT
 void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
                     int flags);
+int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags);
 #endif
 
 /* mips_timer.c */
