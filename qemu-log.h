@@ -13,6 +13,7 @@ extern FILE *svtracefile;
             fprintf(svtracefile, ## __VA_ARGS__); \
     } while (0)
 #define sv_enabled() (svtracefile != NULL)
+#define trace_cpu_state(env, f) cpu_mips_trace_state((env), svtracefile, fprintf, (f));
 #endif
 
 

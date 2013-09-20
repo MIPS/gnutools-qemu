@@ -749,6 +749,11 @@ CPUMIPSState *cpu_mips_init(const char *cpu_model);
 //~ uint32_t cpu_mips_get_clock (void);
 int cpu_mips_signal_handler(int host_signum, void *pinfo, void *puc);
 
+#ifdef MIPSSIM_COMPAT
+void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
+                    int flags);
+#endif
+
 /* mips_timer.c */
 uint32_t cpu_mips_get_random (CPUState *env);
 uint32_t cpu_mips_get_count (CPUState *env);

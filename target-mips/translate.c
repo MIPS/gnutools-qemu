@@ -13484,6 +13484,181 @@ void cpu_dump_state (CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 #endif
 }
 
+#ifdef MIPSSIM_COMPAT
+void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
+        int flags)
+{
+    int i;
+    static CPUState env_prev;
+    static CPUMIPSMVPContext mvp_prev;
+
+#define CHK_CP0_REG(REG, NAME) do { \
+        if(env_prev.REG != env->REG) \
+            sv_log("%s : Write " NAME " = " TARGET_FMT_lx "\n", env->cpu_model_str, env->REG); \
+    } while(0)
+    CHK_CP0_REG(active_tc.HI[0],           "HI          ");
+    CHK_CP0_REG(active_tc.LO[0],           "LO          ");
+
+    //cp0 registers
+    //0
+    CHK_CP0_REG(CP0_Index,                 "C0IDX       ");
+
+    //CP0_MVPControl
+    if(mvp_prev.CP0_MVPControl != env->mvp->CP0_MVPControl) {
+        sv_log("%s : Write C0MVPCTL     = " TARGET_FMT_lx "\n", env->cpu_model_str, env->mvp->CP0_MVPControl);
+    }
+    //CP0_MVPConf0
+    if(mvp_prev.CP0_MVPConf0 != env->mvp->CP0_MVPConf0) {
+        sv_log("%s : Write C0MVPCONF0   = " TARGET_FMT_lx "\n", env->cpu_model_str, env->mvp->CP0_MVPConf0);
+    }
+    //CP0_MVPConf1
+    if(mvp_prev.CP0_MVPConf1 != env->mvp->CP0_MVPConf1) {
+        sv_log("%s : Write C0MVPCONF1   = " TARGET_FMT_lx "\n", env->cpu_model_str, env->mvp->CP0_MVPConf1);
+    }
+
+    //1
+    CHK_CP0_REG(CP0_Random,                "C0RAND      ");
+    CHK_CP0_REG(CP0_VPEControl,            "C0VPECTL    ");
+    CHK_CP0_REG(CP0_VPEConf0,              "C0VPECONF0  ");
+    CHK_CP0_REG(CP0_VPEConf1,              "C0VPECONF1  ");
+    CHK_CP0_REG(CP0_YQMask,                "C0YQMASK    ");
+    CHK_CP0_REG(CP0_VPESchedule,           "C0VPESCHED  ");
+    CHK_CP0_REG(CP0_VPEScheFBack,          "C0VPESCHEDFB");
+    CHK_CP0_REG(CP0_VPEOpt,                "C0VPEOPT    ");
+
+    //2
+    CHK_CP0_REG(CP0_EntryLo0,              "C0ENLO0     ");
+    CHK_CP0_REG(active_tc.CP0_TCStatus,    "C0TCSTAT    ");
+    CHK_CP0_REG(active_tc.CP0_TCBind,      "C0TCBIND    ");
+    // TCRestart missing
+    CHK_CP0_REG(active_tc.CP0_TCHalt,      "C0TCHALT    ");
+    CHK_CP0_REG(active_tc.CP0_TCContext,   "C0TCCTXT    ");
+    CHK_CP0_REG(active_tc.CP0_TCSchedule,  "C0TCSCHED   ");
+    CHK_CP0_REG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
+
+    //3
+    CHK_CP0_REG(CP0_EntryLo1,              "C0ENLO1     ");
+
+    //4
+    CHK_CP0_REG(CP0_Context,               "C0CTXT      ");
+
+    //5
+    CHK_CP0_REG(CP0_PageMask,              "C0PMASK     ");
+    CHK_CP0_REG(CP0_PageGrain,             "C0PGRAIN    ");
+
+    //6
+    CHK_CP0_REG(CP0_Wired,                 "C0WIRED     ");
+    CHK_CP0_REG(CP0_SRSConf0,              "C0SRSCONF   ");
+    CHK_CP0_REG(CP0_SRSConf1,              "C0SRSCONF1  ");
+    CHK_CP0_REG(CP0_SRSConf2,              "C0SRSCONF2  ");
+    CHK_CP0_REG(CP0_SRSConf3,              "C0SRSCONF3  ");
+    CHK_CP0_REG(CP0_SRSConf4,              "C0SRSCONF4  ");
+
+    //7
+    CHK_CP0_REG(CP0_HWREna,                "C0HWRENA    ");
+
+    //8
+    CHK_CP0_REG(CP0_BadVAddr,              "C0BVA       ");
+
+    //9
+    CHK_CP0_REG(CP0_Count,                 "C0COUNT     ");
+
+    //10
+    CHK_CP0_REG(CP0_EntryHi,               "C0ENHI      ");
+
+    //11
+    CHK_CP0_REG(CP0_Compare,               "C0COMP      ");
+
+    //12
+    CHK_CP0_REG(CP0_Status,                "C0STAT      ");
+    CHK_CP0_REG(CP0_IntCtl,                "C0INTCTL    ");
+    CHK_CP0_REG(CP0_SRSCtl,                "C0SRSCTL    ");
+    CHK_CP0_REG(CP0_SRSMap,                "C0SRSMAP    ");
+
+    //13
+    CHK_CP0_REG(CP0_Cause,                 "C0CAUS      ");
+
+    //14
+    CHK_CP0_REG(CP0_EPC,                   "C0EPC       ");
+
+    //15
+    CHK_CP0_REG(CP0_PRid,                  "C0PRID      ");
+    CHK_CP0_REG(CP0_EBase,                 "C0EBASE     ");
+
+    //16
+    CHK_CP0_REG(CP0_Config0,               "C0CONFIG    ");
+    CHK_CP0_REG(CP0_Config1,               "C0CONFIG1   ");
+    CHK_CP0_REG(CP0_Config2,               "C0CONFIG2   ");
+    CHK_CP0_REG(CP0_Config3,               "C0CONFIG3   ");
+    CHK_CP0_REG(CP0_Config4,               "C0CONFIG4   ");
+    CHK_CP0_REG(CP0_Config5,               "C0CONFIG5   ");
+    //MSA
+    CHK_CP0_REG(CP0_Config6,               "C0CONFIG6   ");
+    CHK_CP0_REG(CP0_Config7,               "C0CONFIG7   ");
+
+    //17
+    CHK_CP0_REG(lladdr,                    "C0LLA       ");
+    //...
+
+    //18
+    CHK_CP0_REG(CP0_WatchLo[0],            "C0WATCHLO   ");
+    CHK_CP0_REG(CP0_WatchLo[1],            "C0WATCHLO1  ");
+    CHK_CP0_REG(CP0_WatchLo[2],            "C0WATCHLO2  ");
+    CHK_CP0_REG(CP0_WatchLo[3],            "C0WATCHLO3  ");
+    CHK_CP0_REG(CP0_WatchLo[4],            "C0WATCHLO4  ");
+    CHK_CP0_REG(CP0_WatchLo[5],            "C0WATCHLO5  ");
+    CHK_CP0_REG(CP0_WatchLo[6],            "C0WATCHLO6  ");
+    CHK_CP0_REG(CP0_WatchLo[7],            "C0WATCHLO7  ");
+
+    //19
+    CHK_CP0_REG(CP0_WatchHi[0],            "C0WATCHHI   ");
+    CHK_CP0_REG(CP0_WatchHi[1],            "C0WATCHHI1  ");
+    CHK_CP0_REG(CP0_WatchHi[2],            "C0WATCHHI2  ");
+    CHK_CP0_REG(CP0_WatchHi[3],            "C0WATCHHI3  ");
+    CHK_CP0_REG(CP0_WatchHi[4],            "C0WATCHHI4  ");
+    CHK_CP0_REG(CP0_WatchHi[5],            "C0WATCHHI5  ");
+    CHK_CP0_REG(CP0_WatchHi[6],            "C0WATCHHI6  ");
+    CHK_CP0_REG(CP0_WatchHi[7],            "C0WATCHHI7  ");
+
+    //20 for 64bit
+    CHK_CP0_REG(CP0_XContext,              "C0XCTXT     ");
+    //CP0_Framemask???
+
+    //23
+    CHK_CP0_REG(CP0_Debug,                 "C0DEBUG     ");
+
+    //24
+    CHK_CP0_REG(CP0_DEPC,                  "C0DEPC      ");
+
+    //25
+    CHK_CP0_REG(CP0_Performance0,          "C0PERF0CTL  ");
+
+    //28
+    CHK_CP0_REG(CP0_TagLo,                 "C0TAGLO     ");
+    CHK_CP0_REG(CP0_DataLo,                "C0DATALO    ");
+
+    //29
+    CHK_CP0_REG(CP0_TagHi,                 "C0TAGHI     ");
+    CHK_CP0_REG(CP0_DataHi,                "C0DATAHI    ");
+
+    //30
+    CHK_CP0_REG(CP0_ErrorEPC,              "C0ErrorEPC  ");
+
+    //31
+    CHK_CP0_REG(CP0_DESAVE,                "C0DESAVE    ");
+
+    //GPRs
+    for (i = 0; i < 32; i++) {
+        if(env_prev.active_tc.gpr[i] != env->active_tc.gpr[i]) {
+            sv_log("%s : Write GPR[%2d]      = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.gpr[i]);
+        }
+    }
+
+    memcpy(&env_prev, env, sizeof(CPUState));
+    memcpy(&mvp_prev, env->mvp, sizeof(CPUMIPSMVPContext));
+}
+#endif
+
 static void mips_tcg_init(void)
 {
     int i;

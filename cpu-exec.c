@@ -567,8 +567,18 @@ int cpu_exec(CPUState *env)
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
 
+#ifdef MIPSSIM_COMPAT
+                    if (sv_enabled()) {
+                        trace_cpu_state(env, 0);
+                    }
+#endif
                 /* execute the generated code */
                     next_tb = tcg_qemu_tb_exec(env, tc_ptr);
+#ifdef MIPSSIM_COMPAT
+                    if (sv_enabled()) {
+                        trace_cpu_state(env, 0);
+                    }
+#endif
                     if ((next_tb & 3) == 2) {
                         /* Instruction counter expired.  */
                         int insns_left;
