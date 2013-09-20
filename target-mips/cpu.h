@@ -644,6 +644,11 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 /* TODO QOM'ify CPU reset and remove */
 void cpu_state_reset(CPUMIPSState *s);
 
+#ifdef MIPSSIM_COMPAT
+void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
+                    int flags);
+#endif
+
 /* mips_timer.c */
 uint32_t cpu_mips_get_random (CPUMIPSState *env);
 uint32_t cpu_mips_get_count (CPUMIPSState *env);

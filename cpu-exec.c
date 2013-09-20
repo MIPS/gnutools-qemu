@@ -638,8 +638,18 @@ int cpu_exec(CPUArchState *env)
                 barrier();
                 if (likely(!cpu->exit_request)) {
                     tc_ptr = tb->tc_ptr;
+#ifdef MIPSSIM_COMPAT
+                    if (sv_enabled()) {
+                        trace_cpu_state(env, 0);
+                    }
+#endif
                     /* execute the generated code */
                     next_tb = cpu_tb_exec(cpu, tc_ptr);
+#ifdef MIPSSIM_COMPAT
+                    if (sv_enabled()) {
+                        trace_cpu_state(env, 0);
+                    }
+#endif
                     switch (next_tb & TB_EXIT_MASK) {
                     case TB_EXIT_REQUESTED:
                         /* Something asked us to stop executing
