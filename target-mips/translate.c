@@ -1606,22 +1606,36 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
     t0 = tcg_temp_new();
     gen_base_offset_addr(ctx, t0, base, offset);
 
+#ifdef MIPSSIM_COMPAT
+    TCGv taddr;
+    taddr = tcg_temp_new();
+    tcg_gen_mov_tl(taddr, t0);
+#endif
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_LWU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "lwu";
         break;
     case OPC_LD:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+#endif
         opn = "ld";
         break;
     case OPC_LLD:
         save_cpu_state(ctx, 1);
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+#endif
         opn = "lld";
         break;
     case OPC_LDL:
@@ -1643,6 +1657,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_or_tl(t0, t0, t1);
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+#endif
         opn = "ldl";
         break;
     case OPC_LDR:
@@ -1664,6 +1681,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_or_tl(t0, t0, t1);
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+#endif
         opn = "ldr";
         break;
     case OPC_LDPC:
@@ -1672,6 +1692,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+#endif
         opn = "ldpc";
         break;
 #endif
@@ -1681,31 +1704,49 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "lwpc";
         break;
     case OPC_LW:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "lw";
         break;
     case OPC_LH:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESW);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00002);
+#endif
         opn = "lh";
         break;
     case OPC_LHU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUW);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00002);
+#endif
         opn = "lhu";
         break;
     case OPC_LB:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_SB);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00001);
+#endif
         opn = "lb";
         break;
     case OPC_LBU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_UB);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00001);
+#endif
         opn = "lbu";
         break;
     case OPC_LWL:
@@ -1728,6 +1769,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "lwl";
         break;
     case OPC_LWR:
@@ -1750,18 +1794,27 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "lwr";
         break;
     case OPC_LL:
         save_cpu_state(ctx, 1);
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+#endif
         opn = "ll";
         break;
     }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
+#ifdef MIPSSIM_COMPAT
+    tcg_temp_free(taddr);
+#endif
 }
 
 /* Store */
@@ -1778,39 +1831,63 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
 #if defined(TARGET_MIPS64)
     case OPC_SD:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEQ);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sd";
         break;
     case OPC_SDL:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(sdl, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sdl";
         break;
     case OPC_SDR:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(sdr, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sdr";
         break;
 #endif
     case OPC_SW:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "sw";
         break;
     case OPC_SH:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUW);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10002);
+#endif
         opn = "sh";
         break;
     case OPC_SB:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_8);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10001);
+#endif
         opn = "sb";
         break;
     case OPC_SWL:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(swl, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "swl";
         break;
     case OPC_SWR:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(swr, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "swr";
         break;
     }

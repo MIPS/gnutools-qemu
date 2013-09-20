@@ -44,6 +44,38 @@ void helper_avp_fail(void)
     puts("fail");
     qemu_system_shutdown_request();
 }
+
+void helper_trace_mem_access(CPUMIPSState *env,
+                                           target_ulong val,
+                                           target_ulong addr,
+                                           uint32_t rw_size)
+{
+    sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %x] = ",
+            (rw_size >> 16)? "Write":"Read",
+            addr,
+            (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
+            (env->CP0_Config0) & 0x7
+            );
+
+    switch(rw_size & 0xffff)
+    {
+    case 1:
+        sv_log("%02x\n", (uint8_t) val);
+        break;
+    case 2:
+        sv_log("%04x\n", (uint16_t) val);
+        break;
+    case 4:
+        sv_log("%08x\n", (uint32_t) val);
+        break;
+    case 8:
+        sv_log("%016lx", (uint64_t) val);
+        break;
+    default:
+        sv_log("\n");
+        break;
+    }
+}
 #endif
 #endif
 
