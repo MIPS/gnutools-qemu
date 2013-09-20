@@ -549,7 +549,11 @@ int cpu_exec(CPUState *env)
                 /* see if we can patch the calling TB. When the TB
                    spans two pages, we cannot safely do a direct
                    jump. */
-                if (next_tb != 0 && tb->page_addr[1] == -1) {
+                if (next_tb != 0 && tb->page_addr[1] == -1
+#ifdef MIPSSIM_COMPAT
+                        && !sv_enabled()
+#endif
+                        ) {
                     tb_add_jump((TranslationBlock *)(next_tb & ~3), next_tb & 3, tb);
                 }
                 spin_unlock(&tb_lock);
@@ -562,6 +566,7 @@ int cpu_exec(CPUState *env)
                 barrier();
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
+
                 /* execute the generated code */
                     next_tb = tcg_qemu_tb_exec(env, tc_ptr);
                     if ((next_tb & 3) == 2) {
