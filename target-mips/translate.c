@@ -1558,20 +1558,40 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
 #if defined(TARGET_MIPS64)
     case OPC_LWU:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lwu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lwu(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+#endif
         opn = "lwu";
         break;
     case OPC_LD:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_ld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_ld(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
+#endif
         opn = "ld";
         break;
     case OPC_LLD:
         save_cpu_state(ctx, 1);
+#ifndef MIPSSIM_COMPAT
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lld(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
+#endif
         opn = "lld";
         break;
     case OPC_LDL:
@@ -1579,6 +1599,9 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(ldl, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
+#endif
         opn = "ldl";
         break;
     case OPC_LDR:
@@ -1586,14 +1609,24 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(ldr, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
+#endif
         opn = "ldr";
         break;
     case OPC_LDPC:
         save_cpu_state(ctx, 0);
         tcg_gen_movi_tl(t1, pc_relative_pc(ctx));
         gen_op_addr_add(ctx, t0, t0, t1);
+#ifndef MIPSSIM_COMPAT
         op_ld_ld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_ld(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
+#endif
         opn = "ldpc";
         break;
 #endif
@@ -1601,38 +1634,80 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 0);
         tcg_gen_movi_tl(t1, pc_relative_pc(ctx));
         gen_op_addr_add(ctx, t0, t0, t1);
+#ifndef MIPSSIM_COMPAT
         op_ld_lw(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lw(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+#endif
         opn = "lwpc";
         break;
     case OPC_LW:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lw(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lw(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+#endif
         opn = "lw";
         break;
     case OPC_LH:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lh(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lh(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00002);
+#endif
         opn = "lh";
         break;
     case OPC_LHU:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lhu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lhu(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00002);
+#endif
         opn = "lhu";
         break;
     case OPC_LB:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lb(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lb(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00001);
+#endif
         opn = "lb";
         break;
     case OPC_LBU:
         save_cpu_state(ctx, 0);
+#ifndef MIPSSIM_COMPAT
         op_ld_lbu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_lbu(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00001);
+#endif
         opn = "lbu";
         break;
     case OPC_LWL:
@@ -1640,6 +1715,9 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(lwl, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+#endif
         opn = "lwl";
         break;
     case OPC_LWR:
@@ -1647,12 +1725,23 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(lwr, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+#endif
         opn = "lwr";
         break;
     case OPC_LL:
         save_cpu_state(ctx, 1);
+#ifndef MIPSSIM_COMPAT
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#else
+        op_ld_ll(t1, t0, ctx);
+        gen_store_gpr(t1, rt);
+
+        gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
+		//FIXME lwx
+#endif
         opn = "ll";
         break;
     }
@@ -1678,42 +1767,67 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 0);
         op_st_sd(t1, t0, ctx);
         opn = "sd";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         break;
     case OPC_SDL:
         save_cpu_state(ctx, 1);
         gen_helper_2i(sdl, t1, t0, ctx->mem_idx);
         opn = "sdl";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         break;
     case OPC_SDR:
         save_cpu_state(ctx, 1);
         gen_helper_2i(sdr, t1, t0, ctx->mem_idx);
         opn = "sdr";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         break;
 #endif
     case OPC_SW:
         save_cpu_state(ctx, 0);
         op_st_sw(t1, t0, ctx);
         opn = "sw";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         break;
     case OPC_SH:
         save_cpu_state(ctx, 0);
         op_st_sh(t1, t0, ctx);
         opn = "sh";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10002);
+#endif
         break;
     case OPC_SB:
         save_cpu_state(ctx, 0);
         op_st_sb(t1, t0, ctx);
         opn = "sb";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10001);
+#endif
         break;
     case OPC_SWL:
         save_cpu_state(ctx, 1);
         gen_helper_2i(swl, t1, t0, ctx->mem_idx);
         opn = "swl";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         break;
     case OPC_SWR:
         save_cpu_state(ctx, 1);
         gen_helper_2i(swr, t1, t0, ctx->mem_idx);
         opn = "swr";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
+        //FIXME swx
+#endif
         break;
     }
     (void)opn; /* avoid a compiler warning */
