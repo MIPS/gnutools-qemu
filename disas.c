@@ -254,6 +254,79 @@ void target_disas(FILE *out, target_ulong code, target_ulong size, int flags)
     }
 }
 
+#ifdef MIPSSIM_COMPAT
+void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong size, int flags)
+{
+    target_ulong pc;
+    struct disassemble_info disasm_info;
+    int (*print_insn)(bfd_vma pc, disassemble_info *info);
+    char sv_dis_options[] = "gpr-names=numeric,cp0-names=mips32r2";
+
+    INIT_DISASSEMBLE_INFO(disasm_info, out, fprintf);
+
+    disasm_info.read_memory_func = target_read_memory;
+    disasm_info.buffer_vma = code;
+    disasm_info.buffer_length = size;
+    disasm_info.disassembler_options = sv_dis_options;
+
+#ifdef TARGET_WORDS_BIGENDIAN
+    disasm_info.endian = BFD_ENDIAN_BIG;
+#else
+    disasm_info.endian = BFD_ENDIAN_LITTLE;
+#endif
+
+#if defined(TARGET_MIPS)
+#ifdef TARGET_WORDS_BIGENDIAN
+    print_insn = print_insn_big_mips;
+#else
+    print_insn = print_insn_little_mips;
+#endif
+#else
+    fprintf(out, "0x" TARGET_FMT_lx
+        ": Asm output not supported on this arch\n", code);
+    return;
+#endif
+
+    pc = code;
+
+    int insn_bytes;
+    uint32_t opcode;
+
+    fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %x: ",
+            env->cpu_model_str,
+            pc,
+            (target_ulong) cpu_mips_translate_address(env, pc, 0),
+            (env->CP0_Config0) & 0x7
+            );
+
+    if (!(env->hflags & MIPS_HFLAG_M16)) {
+        opcode = ldl_code(pc);
+        insn_bytes = 4;
+
+        fprintf(out, "%08lx ", (unsigned long) opcode);
+        print_insn(pc, &disasm_info);
+        fprintf(out, "\n");
+        }
+    else if (env->insn_flags & ASE_MICROMIPS) {
+        opcode = lduw_code(pc);
+        insn_bytes = cpu_mips_insnlen_micromips_opc(opcode, env->hflags);
+        if (insn_bytes == 4)
+        {
+            uint16_t insn_low = lduw_code(pc + 2);
+            opcode = (opcode << 16) | insn_low;
+            fprintf(out, "%08lx ", (unsigned long) opcode);
+        }
+        else if (insn_bytes == 2)
+        {
+            fprintf(out, "    %04x ", (uint16_t) opcode);
+        }
+        //FIXME micromips disa
+        fprintf(out, "micromips _disa_here\n");
+    }
+    // FIXME mips16 ase
+}
+#endif
+
 /* Disassemble this for me please... (debugging). */
 void disas(FILE *out, void *code, unsigned long size)
 {

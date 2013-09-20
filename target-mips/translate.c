@@ -12100,6 +12100,125 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
     }
 }
 
+#ifdef MIPSSIM_COMPAT
+// this function is based on decode_micromips_opc()
+int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags)
+{
+    uint32_t op;
+
+    op = (opcode >> 10) & 0x3f;
+    /* Enforce properly-sized instructions in a delay slot */
+    if (hflags & MIPS_HFLAG_BMASK) {
+        int bits = hflags & MIPS_HFLAG_BMASK_EXT;
+
+        switch (op) {
+        case POOL32A:
+        case POOL32B:
+        case POOL32I:
+        case POOL32C:
+        case ADDI32:
+        case ADDIU32:
+        case ORI32:
+        case XORI32:
+        case SLTI32:
+        case SLTIU32:
+        case ANDI32:
+        case JALX32:
+        case LBU32:
+        case LHU32:
+        case POOL32F:
+        case JALS32:
+        case BEQ32:
+        case BNE32:
+        case J32:
+        case JAL32:
+        case SB32:
+        case SH32:
+        case POOL32S:
+        case ADDIUPC:
+        case SWC132:
+        case SDC132:
+        case SD32:
+        case SW32:
+        case LB32:
+        case LH32:
+        case DADDIU32:
+        case POOL48A:           /* ??? */
+        case LWC132:
+        case LDC132:
+        case LD32:
+        case LW32:
+            if (bits & MIPS_HFLAG_BDS16) {
+                return 2;
+            }
+            break;
+        case POOL16A:
+        case POOL16B:
+        case POOL16C:
+        case LWGP16:
+        case POOL16F:
+        case LBU16:
+        case LHU16:
+        case LWSP16:
+        case LW16:
+        case SB16:
+        case SH16:
+        case SWSP16:
+        case SW16:
+        case MOVE16:
+        case ANDI16:
+        case POOL16D:
+        case POOL16E:
+        case BEQZ16:
+        case BNEZ16:
+        case B16:
+        case LI16:
+            if (bits & MIPS_HFLAG_BDS32) {
+                return 2;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    switch (op) {
+    case POOL16A:
+    case POOL16B:
+    case POOL16C:
+    case LWGP16:
+    case POOL16F:
+    case LBU16:
+    case LHU16:
+    case LWSP16:
+    case LW16:
+    case SB16:
+    case SH16:
+    case SWSP16:
+    case SW16:
+    case MOVE16:
+    case ANDI16:
+    case POOL16D:
+    case POOL16E:
+    case B16:
+    case BNEZ16:
+    case BEQZ16:
+    case LI16:
+    case RES_20:
+    case RES_28:
+    case RES_29:
+    case RES_30:
+    case RES_31:
+    case RES_38:
+    case RES_39:
+        break;
+    default:
+        return 4;
+    }
+
+    return 2;
+}
+#endif
+
 static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 {
     uint32_t op;
@@ -13353,13 +13472,6 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
-
-#if defined(MIPSSIM_COMPAT)
-#if !defined(CONFIG_USER_ONLY)
-    sv_log("%s : " TARGET_FMT_lx " " TARGET_FMT_lx " ?: %08x\n", env->cpu_model_str, pc_start,
-           cpu_mips_translate_address(env, ctx.pc, 1), ctx.opcode);
-#endif
-#endif
 
 #ifdef DEBUG_DISAS
     LOG_DISAS("\n");

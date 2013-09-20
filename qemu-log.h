@@ -14,6 +14,8 @@ extern FILE *svtracefile;
     } while (0)
 #define sv_enabled() (svtracefile != NULL)
 #define trace_cpu_state(env, f) cpu_mips_trace_state((env), svtracefile, fprintf, (f));
+#define sv_target_disas(env, start, len, flags) \
+        mips_sv_disas(svtracefile,  env, (start), (len), (flags))
 #endif
 
 
