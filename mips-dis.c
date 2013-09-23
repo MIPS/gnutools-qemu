@@ -3607,6 +3607,138 @@ static const struct mips_cp0sel_name mips_cp0sel_names_mips3264r2[] =
   { 29, 7, "c0_datahi3"		},
 };
 
+#ifdef MIPSSIM_COMPAT
+static const char * const mips_cp0_names_iasim[32] =
+{
+  "C0IDX",        "C0RAND",       "C0ENLO0",      "C0ENLO1",
+  "C0CTXT",       "C0PMASK",      "C0WIRED",      "C0HWRENA",
+  "C0BVA",        "C0COUNT",      "C0ENHI",       "C0COMP",
+  "C0STAT",       "C0CAUS",       "C0EPC",        "C0PRID",
+  "C0CONFIG",     "C0LLA",        "C0WATCHLO",    "C0WATCHHI",
+  "C0XCTXT",      "$21",          "$22",          "C0DEBUG",
+  "C0DEPC",       "C0PERF0CTL",   "C0ECC",        "C0CACHEERR",
+  "C0TAGLO",      "C0TAGHI",      "C0ErrorEPC",   "C0DESAVE",
+};
+
+static const struct mips_cp0sel_name mips_cp0sel_names_iasim[] =
+{
+  {  0, 1, "C0MVPCTL"       },
+  {  0, 2, "C0MVPCONF0"     },
+  {  0, 3, "C0MVPCONF1"     },
+  {  1, 1, "C0VPECTL"       },
+  {  1, 2, "C0VPECONF0"     },
+  {  1, 3, "C0VPECONF1"     },
+  {  1, 4, "C0YQMASK"       },
+  {  1, 5, "C0VPESCHED"     },
+  {  1, 6, "C0VPESCHEDFB"   },
+  {  1, 7, "C0VPEOPT"       },
+  {  2, 1, "C0TCSTAT"       },
+  {  2, 2, "C0TCBIND"       },
+  {  2, 3, "C0TCRSTART"     },
+  {  2, 4, "C0TCHALT"       },
+  {  2, 5, "C0TCCTXT"       },
+  {  2, 6, "C0TCSCHED"      },
+  {  2, 7, "C0TCSCHEDFB"    },
+  {  3, 7, "C0TCOPT"        },
+  {  4, 1, "C0CTXTCFG"      },
+  {  4, 2, "C0USERLOCAL"    },
+  {  4, 3, "C0XCTXTCFG"     },
+  {  5, 1, "C0PGRAIN"       },
+  {  5, 2, "C0SEGCTL0"      },
+  {  5, 3, "C0SEGCTL1"      },
+  {  5, 4, "C0SEGCTL2"      },
+  {  5, 5, "C0PWBASE"       },
+  {  5, 6, "C0PWFIELD"      },
+  {  5, 7, "C0PWSIZE"       },
+  {  6, 1, "C0SRSCONF"      },
+  {  6, 2, "C0SRSCONF1"     },
+  {  6, 3, "C0SRSCONF2"     },
+  {  6, 4, "C0SRSCONF3"     },
+  {  6, 5, "C0SRSCONF4"     },
+  {  6, 6, "C0PWCTL"        },
+  {  8, 1, "C0BADINSTR"     },
+  {  8, 2, "C0BADINSTRP"    },
+  { 10, 4, "C0GUESTCTL1"    },
+  { 10, 5, "C0GUESTCTL2"    },
+  { 10, 6, "C0GUESTCTL3"    },
+  { 11, 4, "C0GCTL0EXT"     },
+  { 12, 1, "C0INTCTL"       },
+  { 12, 2, "C0SRSCTL"       },
+  { 12, 3, "C0SRSMAP"       },
+  { 12, 4, "C0VIEWIPL"      },
+  { 12, 5, "C0SRSMAP2"      },
+  { 12, 6, "C0GUESTCTL0"    },
+  { 12, 7, "C0GTOFFSET"     },
+  { 13, 4, "C0VIEWRIPL"     },
+  { 13, 5, "C0NESTEDEXC"    },
+  { 14, 2, "C0NESTEDEPC"    },
+  { 15, 1, "C0EBASE"        },
+  { 15, 2, "C0CDMMBASE"     },
+  { 15, 3, "C0CMGCRBASE"    },
+  { 16, 1, "C0CONFIG1"      },
+  { 16, 2, "C0CONFIG2"      },
+  { 16, 3, "C0CONFIG3"      },
+  { 16, 4, "C0CONFIG4"      },
+  { 16, 5, "C0CONFIG5"      },
+  { 16, 6, "C0CONFIG6"      },
+  { 16, 7, "C0CONFIG7"      },
+  { 17, 1, "C0MAAR"         },
+  { 17, 2, "C0MAARI"        },
+  { 18, 1, "C0WATCHLO1"     },
+  { 18, 2, "C0WATCHLO2"     },
+  { 18, 3, "C0WATCHLO3"     },
+  { 18, 4, "C0WATCHLO4"     },
+  { 18, 5, "C0WATCHLO5"     },
+  { 18, 6, "C0WATCHLO6"     },
+  { 18, 7, "C0WATCHLO7"     },
+  { 19, 1, "C0WATCHHI1"     },
+  { 19, 2, "C0WATCHHI2"     },
+  { 19, 3, "C0WATCHHI3"     },
+  { 19, 4, "C0WATCHHI4"     },
+  { 19, 5, "C0WATCHHI5"     },
+  { 19, 6, "C0WATCHHI6"     },
+  { 19, 7, "C0WATCHHI7"     },
+  { 23, 1, "C0TRCTL"        },
+  { 23, 2, "C0TRCTL2"       },
+  { 23, 3, "C0TRUSRDATA1"   },
+  { 23, 4, "C0TRIBPC"       },
+  { 23, 5, "C0TRDBPC"       },
+  { 23, 6, "C0DEBUG2"       },
+  { 24, 2, "C0TRCTL3"       },
+  { 24, 3, "C0TRUSRDATA2"   },
+  { 25, 1, "C0PERF0CNT"     },
+  { 25, 2, "C0PERF1CTL"     },
+  { 25, 3, "C0PERF1CNT"     },
+  { 25, 4, "C0PERF2CTL"     },
+  { 25, 5, "C0PERF2CNT"     },
+  { 25, 6, "C0PERF3CTL"     },
+  { 25, 7, "C0PERF3CNT"     },
+  { 27, 1, "c0_cacheerr,1"  }, // n/a in iasim
+  { 27, 2, "c0_cacheerr,2"  }, // n/a in iasim
+  { 27, 3, "c0_cacheerr,3"  }, // n/a in iasim
+  { 28, 1, "C0DATALO"       },
+  { 28, 2, "C0DTAGLO"       },
+  { 28, 3, "C0DDATALO"      },
+  { 28, 4, "C0L23TAGLO"     },
+  { 28, 5, "C0L23DATALO"    },
+  { 28, 6, "c0_taglo3"      }, // n/a in iasim
+  { 28, 7, "c0_datalo3"     }, // n/a in iasim
+  { 29, 1, "C0DATAHI"       },
+  { 29, 2, "C0DTAGHI"       },
+  { 29, 3, "c0_datahi1"     }, // n/a in iasim
+  { 29, 4, "c0_taghi2"      }, // n/a in iasim
+  { 29, 5, "C0L23DATAHI"    },
+  { 29, 6, "c0_taghi3"      }, // n/a in iasim
+  { 29, 7, "c0_datahi3"     }, // n/a in iasim
+  { 29, 2, "C0KSCRATCH1"    },
+  { 29, 3, "C0KSCRATCH2"    },
+  { 29, 4, "C0KSCRATCH3"    },
+  { 29, 5, "C0KSCRATCH4"    },
+  { 29, 6, "C0KSCRATCH5"    },
+  { 29, 7, "C0KSCRATCH6"    },
+};
+#endif
+
 /* SB-1: MIPS64 (mips_cp0_names_mips3264) with minor mods.  */
 static const char * const mips_cp0_names_sb1[32] =
 {
@@ -3821,6 +3953,15 @@ static const struct mips_arch_choice mips_arch_choices[] =
     mips_cp0_names_sb1,
     mips_cp0sel_names_sb1, ARRAY_SIZE (mips_cp0sel_names_sb1),
     mips_hwr_names_numeric },
+
+#ifdef MIPSSIM_COMPAT
+  { "iasim", 1, bfd_mach_mipsisa32r2, CPU_MIPS32R2,
+    (ISA_MIPS32R2 | INSN_MIPS16 | INSN_SMARTMIPS | INSN_DSP | INSN_DSPR2
+     | INSN_MIPS3D | INSN_MT | INSN_MSA),
+    mips_cp0_names_iasim,
+    mips_cp0sel_names_iasim, ARRAY_SIZE (mips_cp0sel_names_iasim),
+    mips_hwr_names_mips3264r2 },
+#endif
 
   /* This entry, mips16, is here only for ISA/processor selection; do
      not print its name.  */
@@ -4103,6 +4244,11 @@ print_insn_args (const char *d,
       switch (*d)
 	{
 	case ',':
+#ifdef MIPSSIM_COMPAT
+	  (*info->fprintf_func) (info->stream, "%c", *d);
+	  (*info->fprintf_func) (info->stream, " ");
+	  break;
+#endif
 	case '(':
 	case ')':
 	case '[':
@@ -4765,7 +4911,16 @@ print_insn_mips (bfd_vma memaddr,
 		info->insn_type = dis_dref;
 
 #ifdef MIPSSIM_COMPAT
-	      (*info->fprintf_func) (info->stream, "%-10s ", op->name);
+	      { // Uppercase OP names
+	          char tmp[20];
+	          int i;
+
+	          memset(tmp, 0, 20);
+	          for (i = 0; i < strlen(op->name) && i < 20; i++) {
+	              tmp[i] = (char) toupper(op->name[i]);
+	          }
+	          (*info->fprintf_func) (info->stream, "%-10s ", tmp);
+	      }
 #else
 	      (*info->fprintf_func) (info->stream, "%s", op->name);
 #endif
