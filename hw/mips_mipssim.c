@@ -304,6 +304,11 @@ mips_mipssim_init (ram_addr_t ram_size,
     /* Load a BIOS / boot exception handler image. */
     if (bios_name == NULL)
         bios_name = BIOS_FILENAME;
+#if defined(MIPSSIM_COMPAT)
+    /* Use -bios to load test.hex for SV against IASim */
+    bios_size = load_mips_hex(bios_name);
+    if (bios_size < 0 && !kernel_filename) {
+#else
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
     if (filename) {
         bios_size = load_image_targphys(filename, 0x1fc00000LL, BIOS_SIZE);
@@ -312,6 +317,7 @@ mips_mipssim_init (ram_addr_t ram_size,
         bios_size = -1;
     }
     if ((bios_size < 0 || bios_size > BIOS_SIZE) && !kernel_filename) {
+#endif
         /* Bail out if we have neither a kernel image nor boot vector code. */
         fprintf(stderr,
                 "qemu: Could not load MIPS bios '%s', and no -kernel argument was specified\n",
