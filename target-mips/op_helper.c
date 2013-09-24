@@ -4947,7 +4947,6 @@ target_ulong helper_mftc0_configx(target_ulong idx)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
     CPUState *other = mips_cpu_map_tc(&other_tc);
-
     switch (idx) {
     case 0: return other->CP0_Config0;
     case 1: return other->CP0_Config1;
@@ -5288,12 +5287,31 @@ static void r4k_fill_tlb (int idx)
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+
+#ifdef MIPSSIM_COMPAT
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->V1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    sv_log("%s : Write TLB Entry[%d] = \n", env->cpu_model_str, idx);
+#endif
 }
 
 void r4k_helper_tlbwi (void)
 {
     int idx;
 
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS32_TLB) %s TLBWI ", env->cpu_model_str);
+#endif
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
 
     /* Discard cached TLB entries.  We could avoid doing this if the
@@ -5307,6 +5325,9 @@ void r4k_helper_tlbwi (void)
 
 void r4k_helper_tlbwr (void)
 {
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS32_TLB) %s TLBWR ", env->cpu_model_str);
+#endif
     int r = cpu_mips_get_random(env);
 
     r4k_invalidate_tlb(env, r, 1);
@@ -5353,6 +5374,9 @@ void r4k_helper_tlbp (void)
 
         env->CP0_Index |= 0x80000000;
     }
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS32_TLB) %s TLBP \n", env->cpu_model_str);
+#endif
 }
 
 void r4k_helper_tlbr (void)
@@ -5377,6 +5401,17 @@ void r4k_helper_tlbr (void)
                         (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS32_TLB) %s: TLBR ", env->cpu_model_str);
+    sv_log("VPN " TARGET_FMT_lx, tlb->VPN);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->V1);
+    sv_log("ASID tlb=0x%08x ", tlb->ASID);
+    sv_log("EnHi=0x%08x\n", env->CP0_EntryHi);
+#endif
 }
 
 void helper_tlbwi(void)

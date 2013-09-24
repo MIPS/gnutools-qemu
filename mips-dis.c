@@ -4474,8 +4474,13 @@ print_insn_args (const char *d,
 	  break;
 
 	case '7':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_DSPACC) & OP_MASK_DSPACC);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_DSPACC) & OP_MASK_DSPACC);
+#endif
 	  break;
 
 	case '8':
@@ -4484,8 +4489,13 @@ print_insn_args (const char *d,
 	  break;
 
 	case '9':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_DSPACC_S) & OP_MASK_DSPACC_S);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_DSPACC_S) & OP_MASK_DSPACC_S);
+#endif
 	  break;
 
 	case '0': /* dsp 6-bit signed immediate in bit 20 */
@@ -4525,13 +4535,23 @@ print_insn_args (const char *d,
 	  break;
 
 	case '*':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_MTACC_T) & OP_MASK_MTACC_T);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_MTACC_T) & OP_MASK_MTACC_T);
+#endif
 	  break;
 
 	case '&':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_MTACC_D) & OP_MASK_MTACC_D);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_MTACC_D) & OP_MASK_MTACC_D);
+#endif
 	  break;
 
 	case 'g':
