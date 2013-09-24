@@ -1853,6 +1853,22 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+
+#ifdef MIPSSIM_COMPAT
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->V1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    sv_log(" : Write TLB Entry[%d] = \n", idx);
+#endif
 }
 
 void r4k_helper_tlbwi(CPUMIPSState *env)
@@ -1862,6 +1878,14 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
     target_ulong VPN;
     uint8_t ASID;
     bool G, V0, D0, V1, D1;
+
+#ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) TLBWI ");
+#else
+    sv_log("Info (MIPS32_TLB) TLBWI ");
+#endif
+#endif
 
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     tlb = &env->tlb->mmu.r4k.tlb[idx];
@@ -1890,6 +1914,13 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
 
 void r4k_helper_tlbwr(CPUMIPSState *env)
 {
+#ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) TLBWR ");
+#else
+    sv_log("Info (MIPS32_TLB) TLBWR ");
+#endif
+#endif
     int r = cpu_mips_get_random(env);
 
     r4k_invalidate_tlb(env, r, 1);
@@ -1942,6 +1973,13 @@ void r4k_helper_tlbp(CPUMIPSState *env)
 
         env->CP0_Index |= 0x80000000;
     }
+#ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) TLBP ");
+#else
+    sv_log("Info (MIPS32_TLB) TLBP ");
+#endif
+#endif
 }
 
 void r4k_helper_tlbr(CPUMIPSState *env)
@@ -1966,6 +2004,21 @@ void r4k_helper_tlbr(CPUMIPSState *env)
                         (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+#ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) : TLBR ");
+#else
+    sv_log("Info (MIPS32_TLB) : TLBR ");
+#endif
+    sv_log("VPN " TARGET_FMT_lx, tlb->VPN);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->V1);
+    sv_log("ASID tlb=0x%08x ", tlb->ASID);
+    sv_log("EnHi="TARGET_FMT_lx"\n", env->CP0_EntryHi);
+#endif
 }
 
 void helper_tlbwi(CPUMIPSState *env)

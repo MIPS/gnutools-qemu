@@ -407,7 +407,9 @@ void mips_cpu_do_interrupt(CPUState *cs)
     target_ulong offset;
     int cause = -1;
     const char *name;
-
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS32_EXCEPT) " TARGET_FMT_lx, env->active_tc.PC);
+#endif
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
         if (env->exception_index < 0 || env->exception_index > EXCP_LAST)
             name = "unknown";
@@ -640,6 +642,10 @@ void mips_cpu_do_interrupt(CPUState *cs)
                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
                 env->CP0_DEPC);
     }
+#ifdef MIPSSIM_COMPAT
+    sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+#endif
+
 #endif
     env->exception_index = EXCP_NONE;
 }
