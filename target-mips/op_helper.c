@@ -7771,35 +7771,36 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 #define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
 
-void helper_shf_b(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
 {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
     wr_t wx, *pwx = &wx;
 
-    ALL_B_ELEMENTS(i, wrlen) {
+    switch (df) {
+    case DF_BYTE:
+      ALL_B_ELEMENTS(i, wrlen) {
         B(pwx, i) = B(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_h(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_H_ELEMENTS(i, wrlen) {
+    case DF_HALF:
+      ALL_H_ELEMENTS(i, wrlen) {
         H(pwx, i) = H(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_W_ELEMENTS(i, wrlen) {
+    case DF_WORD:
+      ALL_W_ELEMENTS(i, wrlen) {
         W(pwx, i) = W(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
 
     helper_move_v(pwd, &wx, wrlen);
 }
@@ -10748,4 +10749,22 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     }
 
     // helper_raise_exception(EXCP_RI);
+}
+
+
+/*
+ *  MIPS R6 DLSA and LSA
+ */
+
+#define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
+
+uint64_t helper_dlsa(uint64_t rt, uint64_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
+}
+
+
+uint32_t helper_lsa(uint32_t rt, uint32_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
 }

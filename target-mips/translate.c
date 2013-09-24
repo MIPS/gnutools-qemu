@@ -138,10 +138,16 @@ enum {
     OPC_ROTR     = OPC_SRL | (1 << 21),
     OPC_SRA      = 0x03 | OPC_SPECIAL,
     OPC_SLLV     = 0x04 | OPC_SPECIAL,
+
+    OPC_MSA_S05  = 0x05 | OPC_SPECIAL,
+
     OPC_SRLV     = 0x06 | OPC_SPECIAL, /* also ROTRV */
     OPC_ROTRV    = OPC_SRLV | (1 << 6),
     OPC_SRAV     = 0x07 | OPC_SPECIAL,
     OPC_DSLLV    = 0x14 | OPC_SPECIAL,
+
+    OPC_MSA_S15  = 0x15 | OPC_SPECIAL,
+
     OPC_DSRLV    = 0x16 | OPC_SPECIAL, /* also DROTRV */
     OPC_DROTRV   = OPC_DSRLV | (1 << 6),
     OPC_DSRAV    = 0x17 | OPC_SPECIAL,
@@ -327,9 +333,6 @@ enum {
     OPC_DMODU_G_2E  = 0x27 | OPC_SPECIAL3,
 };
 
-/* MSA opcodes */
-#define MASK_MSA(op)    (MASK_OP_MAJOR(op) | (op & 0x3F))
-
 /* BSHFL opcodes */
 #define MASK_BSHFL(op)     (MASK_SPECIAL3(op) | (op & (0x1F << 6)))
 
@@ -419,6 +422,10 @@ enum {
     OPC_BC1      = (0x08 << 21) | OPC_CP1, /* bc */
     OPC_BC1ANY2  = (0x09 << 21) | OPC_CP1,
     OPC_BC1ANY4  = (0x0A << 21) | OPC_CP1,
+
+    OPC_MSA_C0B  = (0x0B << 21) | OPC_CP1,
+    OPC_MSA_C0F  = (0x0F << 21) | OPC_CP1,
+
     OPC_S_FMT    = (FMT_S << 21) | OPC_CP1,
     OPC_D_FMT    = (FMT_D << 21) | OPC_CP1,
     OPC_E_FMT    = (FMT_E << 21) | OPC_CP1,
@@ -426,6 +433,15 @@ enum {
     OPC_W_FMT    = (FMT_W << 21) | OPC_CP1,
     OPC_L_FMT    = (FMT_L << 21) | OPC_CP1,
     OPC_PS_FMT   = (FMT_PS << 21) | OPC_CP1,
+
+    OPC_MSA_C18  = (0x18 << 21) | OPC_CP1,
+    OPC_MSA_C19  = (0x19 << 21) | OPC_CP1,
+    OPC_MSA_C1A  = (0x1A << 21) | OPC_CP1,
+    OPC_MSA_C1B  = (0x1B << 21) | OPC_CP1,
+    OPC_MSA_C1C  = (0x1C << 21) | OPC_CP1,
+    OPC_MSA_C1D  = (0x1D << 21) | OPC_CP1,
+    OPC_MSA_C1E  = (0x1E << 21) | OPC_CP1,
+    OPC_MSA_C1F  = (0x1F << 21) | OPC_CP1,
 };
 
 #define MASK_CP1_FUNC(op)       (MASK_CP1(op) | (op & 0x3F))
@@ -447,6 +463,8 @@ enum {
     OPC_BC1FANY4     = (0x00 << 16) | OPC_BC1ANY4,
     OPC_BC1TANY4     = (0x01 << 16) | OPC_BC1ANY4,
 };
+
+#define OPC_CP1_MSA
 
 #define MASK_CP2(op)       (MASK_OP_MAJOR(op) | (op & (0x1F << 21)))
 
@@ -12507,6 +12525,12 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
     switch (op) {
     case OPC_SPECIAL:
         op1 = MASK_SPECIAL(ctx->opcode);
+
+        if (op1 == OPC_MSA_S05 ||
+            op1 == OPC_MSA_S15) {
+          goto decode_msa;
+        }
+
         switch (op1) {
         case OPC_SLL:          /* Shift with immediate */
         case OPC_SRA:
@@ -13059,9 +13083,24 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         break;
 
     case OPC_CP1:
+        op1 = MASK_CP1(ctx->opcode);
+      
+        if (op1 == OPC_MSA_C0B ||
+            op1 == OPC_MSA_C0F ||
+            op1 == OPC_MSA_C18 ||
+            op1 == OPC_MSA_C19 ||
+            op1 == OPC_MSA_C1A ||
+            op1 == OPC_MSA_C1B ||
+            op1 == OPC_MSA_C1C ||
+            op1 == OPC_MSA_C1D ||
+            op1 == OPC_MSA_C1E ||
+            op1 == OPC_MSA_C1F) {
+          goto decode_msa;
+        }
+
         if (env->CP0_Config1 & (1 << CP0C1_FP)) {
             check_cp1_enabled(ctx);
-            op1 = MASK_CP1(ctx->opcode);
+
             switch (op1) {
             case OPC_MFHC1:
             case OPC_MTHC1:
@@ -13193,6 +13232,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         *is_branch = 1;
         break;
     case OPC_MSA:
+    decode_msa:
         /* MDMX: Not implemented. */
         check_insn(env, ctx, ASE_MDMX | ASE_MSA);
         gen_msa(env, ctx, is_branch);

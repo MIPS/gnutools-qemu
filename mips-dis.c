@@ -219,24 +219,26 @@ see <http://www.gnu.org/licenses/>.  */
 #define OP_MASK_MTACC_D		0x3
 
 /* MIPS MSA Extension */
-#define OP_MASK_1BIT		0x1
-#define OP_SH_1BIT		16
-#define OP_MASK_2BIT		0x3
-#define OP_SH_2BIT		16
-#define OP_MASK_3BIT		0x7
-#define OP_SH_3BIT		16
-#define OP_MASK_4BIT		0xf
-#define OP_SH_4BIT		16
-#define OP_MASK_5BIT		0x1f
-#define OP_SH_5BIT		16
-#define OP_MASK_10BIT		0x3ff
-#define OP_SH_10BIT		11
-#define OP_MASK_MSACR11		0x1f
-#define OP_SH_MSACR11		11
-#define OP_MASK_MSACR6		0x1f
-#define OP_SH_MSACR6		6
-#define OP_MASK_GPR		0x1f
-#define OP_SH_GPR		6
+#define OP_MASK_1BIT            0x1
+#define OP_SH_1BIT              16
+#define OP_MASK_2BIT            0x3
+#define OP_SH_2BIT              16
+#define OP_MASK_3BIT            0x7
+#define OP_SH_3BIT              16
+#define OP_MASK_4BIT            0xf
+#define OP_SH_4BIT              16
+#define OP_MASK_5BIT            0x1f
+#define OP_SH_5BIT              16
+#define OP_MASK_10BIT           0x3ff
+#define OP_SH_10BIT             11
+#define OP_MASK_MSACR11         0x1f
+#define OP_SH_MSACR11           11
+#define OP_MASK_MSACR6          0x1f
+#define OP_SH_MSACR6            6
+#define OP_MASK_GPR             0x1f
+#define OP_SH_GPR               6
+#define OP_MASK_1_TO_4          0x3
+#define OP_SH_1_TO_4            6
 
 
 #define	OP_OP_COP0		0x10
@@ -1422,14 +1424,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"st.h",    "+d,+k(d)",	0x7ba00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
 {"st.w",    "+d,+k(d)",	0x7bc00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
 {"st.d",    "+d,+k(d)",	0x7be00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
-{"ldx.b",   "+d,t(d)",	0x7b00000f, 0xffe0003f, WR_VD|RD_t,		RD_d,	      MSA	},
-{"ldx.h",   "+d,t(d)",	0x7b20000f, 0xffe0003f, WR_VD|RD_t,		RD_d,	      MSA	},
-{"ldx.w",   "+d,t(d)",	0x7b40000f, 0xffe0003f, WR_VD|RD_t,		RD_d,	      MSA	},
-{"ldx.d",   "+d,t(d)",	0x7b60000f, 0xffe0003f, WR_VD|RD_t,		RD_d,	      MSA	},
-{"stx.b",   "+d,t(d)",	0x7b80000f, 0xffe0003f, RD_VD|RD_t,		RD_d,	      MSA	},
-{"stx.h",   "+d,t(d)",	0x7ba0000f, 0xffe0003f, RD_VD|RD_t,		RD_d,	      MSA	},
-{"stx.w",   "+d,t(d)",	0x7bc0000f, 0xffe0003f, RD_VD|RD_t,		RD_d,	      MSA	},
-{"stx.d",   "+d,t(d)",	0x7be0000f, 0xffe0003f, RD_VD|RD_t,		RD_d,	      MSA	},
 {"sat_s.b", "+d,+e,+7",	0x7870000a, 0xfff8003f, WR_VD|RD_VS,		0,      MSA	},
 {"sat_s.h", "+d,+e,+8",	0x7860000a, 0xfff0003f, WR_VD|RD_VS,		0,      MSA	},
 {"sat_s.w", "+d,+e,+9",	0x7840000a, 0xffe0003f, WR_VD|RD_VS,		0,      MSA	},
@@ -1629,8 +1623,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"shf.b",   "+d,+e,5",	0x78000002, 0xff00003f, WR_VD|RD_VS,		0,      MSA	},
 {"shf.h",   "+d,+e,5",	0x79000002, 0xff00003f, WR_VD|RD_VS,		0,      MSA	},
 {"shf.w",   "+d,+e,5",	0x7a000002, 0xff00003f, WR_VD|RD_VS,		0,      MSA	},
-{"bnz.v",   "+d,+!",	0x7900001e, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bz.v",    "+d,+!",	0x7920001e, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
+{"bnz.v",    "+f,p",    0x45e00000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bz.v",    "+f,p",     0x45600000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
 {"fill.b",  "+d,d",	0x7b00001e, 0xffff003f, WR_VD,			RD_d,	      MSA	},
 {"fill.h",  "+d,d",	0x7b01001e, 0xffff003f, WR_VD,			RD_d,	      MSA	},
 {"fill.w",  "+d,d",	0x7b02001e, 0xffff003f, WR_VD,			RD_d,	      MSA	},
@@ -1663,18 +1657,18 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"insve.h", "+d[+8],+e[+~]",	0x79600019, 0xfff0003f, WR_VD|RD_VD|RD_VS,	0,	      MSA	},
 {"insve.w", "+d[+7],+e[+~]",	0x79700019, 0xfff8003f, WR_VD|RD_VD|RD_VS,	0,	      MSA	},
 {"insve.d", "+d[+6],+e[+~]",	0x79780019, 0xfffc003f, WR_VD|RD_VD|RD_VS,	0,	      MSA	},
-{"bnz.b",   "+d,+!",	0x7800000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bnz.h",   "+d,+!",	0x7820000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bnz.w",   "+d,+!",	0x7840000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bnz.d",   "+d,+!",	0x7860000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bz.b",    "+d,+!",	0x7880000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bz.h",    "+d,+!",	0x78a0000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bz.w",    "+d,+!",	0x78c0000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"bz.d",    "+d,+!",	0x78e0000c, 0xffe0003f, CBD|RD_VD,		0,      MSA	},
-{"ldi.b",   "+d,+0",	0x7900000c, 0xffe0003f, WR_VD,			0,      MSA	},
-{"ldi.h",   "+d,+0",	0x7920000c, 0xffe0003f, WR_VD,			0,      MSA	},
-{"ldi.w",   "+d,+0",	0x7940000c, 0xffe0003f, WR_VD,			0,      MSA	},
-{"ldi.d",   "+d,+0",	0x7960000c, 0xffe0003f, WR_VD,			0,      MSA	},
+{"bnz.b",    "+f,p",    0x47800000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bnz.h",    "+f,p",    0x47a00000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bnz.w",    "+f,p",    0x47c00000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bnz.d",    "+f,p",    0x47e00000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bz.b",    "+f,p",     0x47000000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bz.h",    "+f,p",     0x47200000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bz.w",    "+f,p",     0x47400000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"bz.d",    "+f,p",     0x47600000, 0xffe00000, CBD|RD_VT,              0,      MSA     },
+{"ldi.b",   "+d,+0",    0x7b000007, 0xffe0003f, WR_VD,                  0,      MSA     },
+{"ldi.h",   "+d,+0",    0x7b200007, 0xffe0003f, WR_VD,                  0,      MSA     },
+{"ldi.w",   "+d,+0",    0x7b400007, 0xffe0003f, WR_VD,                  0,      MSA     },
+{"ldi.d",   "+d,+0",    0x7b600007, 0xffe0003f, WR_VD,                  0,      MSA     },
 {"fcaf.w",  "+d,+e,+f",	0x7800001a, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
 {"fcaf.d",  "+d,+e,+f",	0x7820001a, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
 {"fcun.w",  "+d,+e,+f",	0x7840001a, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
@@ -1792,6 +1786,9 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"ctcmsa",  "+h,d",	0x783e0019, 0xffff003f, COD,			RD_d,	      MSA	},
 {"cfcmsa",  "+i,+g",	0x787e0019, 0xffff003f, COD,			0,      MSA	},
 {"move.v",  "+d,+e",	0x78be0019, 0xffff003f, WR_VD|RD_VS,		0,      MSA	},
+{"lsa",     "d,v,t,+@",     0x00000005, 0xfc00073f, WR_d|RD_s|RD_t, 0,          MSA     },
+{"dlsa",    "d,v,t,+@", 0x00000015, 0xfc00073f, WR_d|RD_s|RD_t, 0,              MSA64   },
+
 
 /* MIPS */
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
@@ -4191,6 +4188,15 @@ print_insn_args (const char *d,
 	      (*info->print_address_func) (info->target, info);
 	      break;
 	      
+            case '~':
+              (*info->fprintf_func) (info->stream, "0");
+              break;
+
+            case '@':
+              (*info->fprintf_func) (info->stream, "0x%lx",
+                                     ((l >> OP_SH_1_TO_4) & OP_MASK_1_TO_4)+1);
+              break;
+
 	    case 'C':
 	    case 'H':
 	      msbd = (l >> OP_SH_EXTMSBD) & OP_MASK_EXTMSBD;
