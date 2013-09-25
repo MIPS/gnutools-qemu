@@ -5301,7 +5301,11 @@ static void r4k_fill_tlb (int idx)
     sv_log("D1 %x ", tlb->V1);
     sv_log("ASID %08x\n", tlb->ASID);
 
-    sv_log("%s : Write TLB Entry[%d] = \n", env->cpu_model_str, idx);
+    sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
+    sv_log("%08x ", tlb->PageMask);
+    sv_log(TARGET_FMT_lx " ", tlb->VPN | (tlb->G << 12) | tlb->ASID );
+    sv_log(TARGET_FMT_lx " ", tlb->PFN[0] | (tlb->C0 << 3) | (tlb->D0 << 2) | (tlb->V0 << 1));
+    sv_log(TARGET_FMT_lx "\n", tlb->PFN[1] | (tlb->C1 << 3) | (tlb->D1 << 2) | (tlb->V1 << 1));
 #endif
 }
 
@@ -5310,7 +5314,11 @@ void r4k_helper_tlbwi (void)
     int idx;
 
 #ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWI ", env->cpu_model_str);
+#else
     sv_log("Info (MIPS32_TLB) %s TLBWI ", env->cpu_model_str);
+#endif
 #endif
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
 
@@ -5326,7 +5334,11 @@ void r4k_helper_tlbwi (void)
 void r4k_helper_tlbwr (void)
 {
 #ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWR ", env->cpu_model_str);
+#else
     sv_log("Info (MIPS32_TLB) %s TLBWR ", env->cpu_model_str);
+#endif
 #endif
     int r = cpu_mips_get_random(env);
 
@@ -5375,7 +5387,14 @@ void r4k_helper_tlbp (void)
         env->CP0_Index |= 0x80000000;
     }
 #ifdef MIPSSIM_COMPAT
-    sv_log("Info (MIPS32_TLB) %s TLBP \n", env->cpu_model_str);
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBP ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBP ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
+    sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
+    sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
 #endif
 }
 
@@ -5402,7 +5421,11 @@ void r4k_helper_tlbr (void)
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
 #ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
+#else
     sv_log("Info (MIPS32_TLB) %s: TLBR ", env->cpu_model_str);
+#endif
     sv_log("VPN " TARGET_FMT_lx, tlb->VPN);
     sv_log("G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
