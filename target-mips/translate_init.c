@@ -995,7 +995,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
             continue;
         }
 
-        res = sscanf(line, "%s %u %u", name, &value, &mask);
+        res = sscanf(line, "%s %x %x", name, &value, &mask);
 
         if (res != 3) {
             cpu_abort(env, "Bad line in configfile %s: %s\n", filename, line);
