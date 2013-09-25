@@ -7297,7 +7297,9 @@ static void gen_lsa(CPUState *env, DisasContext *ctx) {
     uint8_t u2 = (ctx->opcode >> 6) & 0x3 /* u2 [7:6] */;
 
 
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
+    }
 
     TCGv_i32 tu2 = tcg_const_i32(u2);
     TCGv trt = tcg_temp_new();
@@ -7332,7 +7334,9 @@ static void gen_dlsa(CPUState *env, DisasContext *ctx) {
     generate_exception(ctx, EXCP_RI);
 #endif
 
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
+    }
 
     TCGv_i32 tu2 = tcg_const_i32(u2);
     TCGv trt = tcg_temp_new();

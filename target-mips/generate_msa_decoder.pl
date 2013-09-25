@@ -1466,7 +1466,9 @@ C_END
 
         $func_body .= <<"C_END";
 
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
+    }
 
     TCGv_i32 tu2 = tcg_const_i32(u2);
     TCGv trt = tcg_temp_new();
