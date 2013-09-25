@@ -408,7 +408,11 @@ void mips_cpu_do_interrupt(CPUState *cs)
     int cause = -1;
     const char *name;
 #ifdef MIPSSIM_COMPAT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_EXCEPT) " TARGET_FMT_lx, env->active_tc.PC);
+#else
     sv_log("Info (MIPS32_EXCEPT) " TARGET_FMT_lx, env->active_tc.PC);
+#endif
 #endif
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
         if (env->exception_index < 0 || env->exception_index > EXCP_LAST)

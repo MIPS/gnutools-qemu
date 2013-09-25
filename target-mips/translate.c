@@ -1920,12 +1920,18 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_scd(t1, t0, rt, ctx);
         opn = "scd";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         break;
 #endif
     case OPC_SC:
         save_cpu_state(ctx, 1);
         op_st_sc(t1, t0, rt, ctx);
         opn = "sc";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         break;
     }
     (void)opn; /* avoid a compiler warning */
