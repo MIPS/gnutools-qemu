@@ -292,11 +292,11 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
     int insn_bytes;
     uint32_t opcode;
 
-    fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %x: ",
+    fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
             env->cpu_model_str,
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
-            (env->CP0_Config0) & 0x7
+            cpu_mips_cacheability(env, pc, 0)
             );
 
     if (!(env->hflags & MIPS_HFLAG_M16)) {
