@@ -16264,6 +16264,22 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
             sv_log(" : Write GPR[%2d]      = " TARGET_FMT_lx "\n", i, env->active_tc.gpr[i]);
         }
     }
+
+    //DSP
+    CHK_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
+
+    CHK_CP0_REG(active_tc.HI[0], "HI          ");
+    CHK_CP0_REG(active_tc.LO[0], "LO          ");
+
+    for (i = 1; i < MIPS_DSP_ACC; i++) {
+        if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {
+            sv_log(" : Write HI%x         = " TARGET_FMT_lx "\n", i, env->active_tc.HI[i]);
+        }
+        if(env_prev.active_tc.LO[i] != env->active_tc.LO[i]) {
+            sv_log(" : Write LO%x         = " TARGET_FMT_lx "\n", i, env->active_tc.LO[i]);
+        }
+    }
+
     memcpy(&env_prev, env, sizeof(CPUMIPSState));
     memcpy(&mvp_prev, env->mvp, sizeof(CPUMIPSMVPContext));
 }
