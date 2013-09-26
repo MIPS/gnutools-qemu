@@ -45,16 +45,75 @@ void helper_avp_fail(void)
     qemu_system_shutdown_request();
 }
 
+int cpu_mips_cacheability(CPUMIPSState *env, target_ulong vaddr, int rw)
+{
+    // this function doesn't care of kernel/super/user mode as it is a debug only function.
+    // FIXME: MIPS64
+    hwaddr physical;
+    int prot;
+    int cca = 2;// uncached by default
+
+    if (vaddr <= (int32_t)0x7FFFFFFFUL) {
+        /* useg */
+        if ((env->CP0_Status) & (1 << CP0St_ERL)) {
+            cca = 2;
+        }
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From KU field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_KU) & 0x7;
+        }
+    }
+    else if (vaddr < (int32_t)0xA0000000UL) {
+        /* kseg0 */
+        //From K0 field of Config Register
+        cca = (env->CP0_Config0) & 0x7;
+    }
+    else if (vaddr < (int32_t)0xC0000000UL) {
+        /* kseg1 */
+        cca = 2; // Uncached
+    }
+    else if (vaddr < (int32_t)0xE0000000UL) {
+        /* sseg (kseg2) */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    else {
+        /* kseg3 */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    return cca;
+}
+
 void helper_trace_mem_access(CPUMIPSState *env,
                                            target_ulong val,
                                            target_ulong addr,
                                            uint32_t rw_size)
 {
-    sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %x] = ",
+    sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
             (rw_size >> 16)? "Write":"Read",
             addr,
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
-            (env->CP0_Config0) & 0x7
+            cpu_mips_cacheability(env, addr, rw_size >> 16)
             );
 
     switch(rw_size & 0xffff)
@@ -76,6 +135,7 @@ void helper_trace_mem_access(CPUMIPSState *env,
         break;
     }
 }
+
 #endif
 #endif
 
@@ -1864,14 +1924,14 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     sv_log("V0 %x ", tlb->V0);
     sv_log("V1 %x ", tlb->V1);
     sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->V1);
+    sv_log("D1 %x ", tlb->D1);
     sv_log("ASID %08x\n", tlb->ASID);
 
     sv_log(" : Write TLB Entry[%d] = ", idx);
-    sv_log("%08x ", tlb->PageMask);
-    sv_log(TARGET_FMT_lx " ", tlb->VPN | (tlb->G << 12) | tlb->ASID );
-    sv_log(TARGET_FMT_lx " ", tlb->PFN[0] | (tlb->C0 << 3) | (tlb->D0 << 2) | (tlb->V0 << 1));
-    sv_log(TARGET_FMT_lx "\n", tlb->PFN[1] | (tlb->C1 << 3) | (tlb->D1 << 2) | (tlb->V1 << 1));
+    sv_log("%08x ", env->CP0_PageMask);
+    sv_log(TARGET_FMT_lx" ", env->CP0_EntryHi);
+    sv_log(TARGET_FMT_lx" ", env->CP0_EntryLo1);
+    sv_log(TARGET_FMT_lx"\n", env->CP0_EntryLo0);
 #endif
 }
 
@@ -2017,14 +2077,14 @@ void r4k_helper_tlbr(CPUMIPSState *env)
 #else
     sv_log("Info (MIPS32_TLB) : TLBR ");
 #endif
-    sv_log("VPN " TARGET_FMT_lx, tlb->VPN);
-    sv_log("G %x ", tlb->G);
+    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log(" G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
     sv_log("V1 %x ", tlb->V1);
     sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->V1);
+    sv_log("D1 %x ", tlb->D1);
     sv_log("ASID tlb=0x%08x ", tlb->ASID);
-    sv_log("EnHi="TARGET_FMT_lx"\n", env->CP0_EntryHi);
+    sv_log("EnHi="TARGET_FMT_lx"\n", env->CP0_EntryHi & 0xff);
 #endif
 }
 

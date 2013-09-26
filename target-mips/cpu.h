@@ -648,6 +648,9 @@ void cpu_state_reset(CPUMIPSState *s);
 void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                           int flags);
 int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags);
+int cpu_mips_cacheability(CPUMIPSState *env, target_ulong vaddr, int rw);
+int r4k_map_address_debug(CPUMIPSState *env, hwaddr *physical, int *prot, int *cca,
+                     target_ulong address, int rw, int access_type);
 #endif
 
 /* mips_timer.c */
