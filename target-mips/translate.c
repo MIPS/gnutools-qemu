@@ -13728,8 +13728,6 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
         if(env_prev.REG != env->REG) \
             sv_log("%s : Write " NAME " = " TARGET_FMT_lx "\n", env->cpu_model_str, env->REG); \
     } while(0)
-    CHK_CP0_REG(active_tc.HI[0],           "HI          ");
-    CHK_CP0_REG(active_tc.LO[0],           "LO          ");
 
     //cp0 registers
     //0
@@ -13883,6 +13881,21 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     for (i = 0; i < 32; i++) {
         if(env_prev.active_tc.gpr[i] != env->active_tc.gpr[i]) {
             sv_log("%s : Write GPR[%2d]      = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.gpr[i]);
+        }
+    }
+
+    //DSP
+    CHK_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
+
+    CHK_CP0_REG(active_tc.HI[0], "HI          ");
+    CHK_CP0_REG(active_tc.LO[0], "LO          ");
+
+    for (i = 1; i < MIPS_DSP_ACC; i++) {
+        if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {
+            sv_log("%s : Write HI%x         = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.HI[i]);
+        }
+        if(env_prev.active_tc.LO[i] != env->active_tc.LO[i]) {
+            sv_log("%s : Write LO%x         = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.LO[i]);
         }
     }
 
