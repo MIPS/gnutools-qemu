@@ -653,10 +653,10 @@ $declare_str
     check_msa_access(env, ctx, wd, wd, wd);
 
     /* 
-     *  set element granularity to 32 bits (df = 2) because the load
-     *  is implemented using tcg_gen_qemu_ld32s()
+     *  set element granularity to 8 bits (df = 0) because the load
+     *  is implemented using tcg_gen_qemu_ld8u()
      */
-    df = 2;
+    df = 0;
     int df_bits = 8 * (1 << df);
 
     int i;
@@ -668,7 +668,7 @@ $declare_str
     for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
+        tcg_gen_qemu_ld8u(td, taddr, ctx->mem_idx);
         gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
@@ -689,10 +689,10 @@ $declare_str
     check_msa_access(env, ctx, wd, -1, -1);
 
     /* 
-     *  set element granularity to 32 bits (df = 2) because the store
-     *  is implemented using tcg_gen_qemu_st32s()
+     *  set element granularity to 8 bits (df = 0) because the store
+     *  is implemented using tcg_gen_qemu_st8()
      */
-    df = 2;
+    df = 0;
     int df_bits = 8 * (1 << df);
 
     int i;
@@ -705,7 +705,7 @@ $declare_str
         TCGv_i32 ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
         gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
+        tcg_gen_qemu_st8(td, taddr, ctx->mem_idx);
         tcg_temp_free_i32(ti);
     }
 

@@ -1416,14 +1416,14 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"clei_u.h","+d,+e,k",	0x7aa00007, 0xffe0003f, WR_VD|RD_VS,		0,      MSA	},
 {"clei_u.w","+d,+e,k",	0x7ac00007, 0xffe0003f, WR_VD|RD_VS,		0,      MSA	},
 {"clei_u.d","+d,+e,k",	0x7ae00007, 0xffe0003f, WR_VD|RD_VS,		0,      MSA	},
-{"ld.b",    "+d,+k(d)",	0x7b000007, 0xffe0003f, WR_VD,			RD_d,	      MSA	},
-{"ld.h",    "+d,+k(d)",	0x7b200007, 0xffe0003f, WR_VD,			RD_d,	      MSA	},
-{"ld.w",    "+d,+k(d)",	0x7b400007, 0xffe0003f, WR_VD,			RD_d,	      MSA	},
-{"ld.d",    "+d,+k(d)",	0x7b600007, 0xffe0003f, WR_VD,			RD_d,	      MSA	},
-{"st.b",    "+d,+k(d)",	0x7b800007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
-{"st.h",    "+d,+k(d)",	0x7ba00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
-{"st.w",    "+d,+k(d)",	0x7bc00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
-{"st.d",    "+d,+k(d)",	0x7be00007, 0xffe0003f, RD_VD,			RD_d,	      MSA	},
+{"ld.b",    "+d,+^(d)", 0x78000020, 0xfc00003f, WR_VD|LDD,              RD_d,      MSA  },
+{"ld.h",    "+d,+#(d)", 0x78000021, 0xfc00003f, WR_VD|LDD,              RD_d,      MSA  },
+{"ld.w",    "+d,+$(d)", 0x78000022, 0xfc00003f, WR_VD|LDD,              RD_d,      MSA  },
+{"ld.d",    "+d,+%(d)", 0x78000023, 0xfc00003f, WR_VD|LDD,              RD_d,      MSA  },
+{"st.b",    "+d,+^(d)", 0x78000024, 0xfc00003f, RD_VD|SM,                       RD_d,         MSA       },
+{"st.h",    "+d,+#(d)", 0x78000025, 0xfc00003f, RD_VD|SM,                       RD_d,         MSA       },
+{"st.w",    "+d,+$(d)", 0x78000026, 0xfc00003f, RD_VD|SM,                       RD_d,         MSA       },
+{"st.d",    "+d,+%(d)", 0x78000027, 0xfc00003f, RD_VD|SM,                       RD_d,         MSA       },
 {"sat_s.b", "+d,+e,+7",	0x7870000a, 0xfff8003f, WR_VD|RD_VS,		0,      MSA	},
 {"sat_s.h", "+d,+e,+8",	0x7860000a, 0xfff0003f, WR_VD|RD_VS,		0,      MSA	},
 {"sat_s.w", "+d,+e,+9",	0x7840000a, 0xffe0003f, WR_VD|RD_VS,		0,      MSA	},
@@ -4195,6 +4195,34 @@ print_insn_args (const char *d,
             case '@':
               (*info->fprintf_func) (info->stream, "0x%lx",
                                      ((l >> OP_SH_1_TO_4) & OP_MASK_1_TO_4)+1);
+              break;
+
+            case '^': /* 10-bit signed immediate << 0 in bit 16 */
+              delta = ((l >> OP_SH_IMM10) & OP_MASK_IMM10);
+              if (delta & 0x200) /* test sign bit */
+                delta |= ~OP_MASK_IMM10;
+              (*info->fprintf_func) (info->stream, "%d", delta);
+              break;
+
+            case '#': /* 10-bit signed immediate << 1 in bit 16 */
+              delta = ((l >> OP_SH_IMM10) & OP_MASK_IMM10);
+              if (delta & 0x200) /* test sign bit */
+                delta |= ~OP_MASK_IMM10;
+              (*info->fprintf_func) (info->stream, "%d", delta << 1);
+              break;
+
+            case '$': /* 10-bit signed immediate << 2 in bit 16 */
+              delta = ((l >> OP_SH_IMM10) & OP_MASK_IMM10);
+              if (delta & 0x200) /* test sign bit */
+                delta |= ~OP_MASK_IMM10;
+              (*info->fprintf_func) (info->stream, "%d", delta << 2);
+              break;
+
+            case '%': /* 10-bit signed immediate << 3 in bit 16 */
+              delta = ((l >> OP_SH_IMM10) & OP_MASK_IMM10);
+              if (delta & 0x200) /* test sign bit */
+                delta |= ~OP_MASK_IMM10;
+              (*info->fprintf_func) (info->stream, "%d", delta << 3);
               break;
 
 	    case 'C':
