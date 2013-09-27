@@ -4855,7 +4855,7 @@ void helper_mtc0_entryhi (target_ulong arg1)
     target_ulong old, val;
 
     /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
+    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0x4FF);
 #if defined(TARGET_MIPS64)
     val &= env->SEGMask;
 #endif
