@@ -328,6 +328,7 @@ struct CPUMIPSState {
     target_ulong CP0_EntryLo0;
     target_ulong CP0_EntryLo1;
     target_ulong CP0_Context;
+    target_ulong CP0_ContextConfig;
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
@@ -473,6 +474,7 @@ struct CPUMIPSState {
 #define CP0C3_RXI  12
 #define CP0C3_DSP2P 11
 #define CP0C3_DSPP 10
+#define CP0C3_CTXTC 9
 #define CP0C3_LPA  7
 #define CP0C3_VEIC 6
 #define CP0C3_VInt 5

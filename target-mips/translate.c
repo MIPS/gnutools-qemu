@@ -3975,9 +3975,9 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Context";
             break;
         case 1:
-//            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_ContextConfig));
             rn = "ContextConfig";
-//            break;
+            break;
         default:
             goto die;
         }
@@ -4421,7 +4421,9 @@ die:
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
 #else
-    tcg_gen_movi_tl(arg, 0);
+    sv_log("MFC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
+    exit(127);
+    //tcg_gen_movi_tl(arg, 0);
 #endif
 }
 
@@ -4568,9 +4570,9 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Context";
             break;
         case 1:
-//            gen_helper_mtc0_contextconfig(arg); /* SmartMIPS ASE */
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_ContextConfig));
             rn = "ContextConfig";
-//            break;
+            break;
         default:
             goto die;
         }
@@ -5613,7 +5615,9 @@ die:
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
 #else
-    tcg_gen_movi_tl(arg, 0);
+    sv_log("MFC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
+    exit(127);
+    //tcg_gen_movi_tl(arg, 0);
 #endif
 }
 
@@ -13771,6 +13775,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //4
     CHK_CP0_REG(CP0_Context,               "C0CTXT      ");
+    CHK_CP0_REG(CP0_ContextConfig,         "C0CTXTCFG   ");
 
     //5
     CHK_CP0_REG(CP0_PageMask,              "C0PMASK     ");
@@ -14011,6 +14016,7 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_Config5 = env->cpu_model->CP0_Config5;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
+    env->CP0_ContextConfig = env->cpu_model->CP0_ContextConfig;
     env->CP0_LLAddr_rw_bitmask = env->cpu_model->CP0_LLAddr_rw_bitmask
                                  << env->cpu_model->CP0_LLAddr_shift;
     env->CP0_LLAddr_shift = env->cpu_model->CP0_LLAddr_shift;

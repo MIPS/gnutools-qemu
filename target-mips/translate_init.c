@@ -91,6 +91,7 @@ struct mips_def_t {
     int32_t CP0_SRSConf3;
     int32_t CP0_SRSConf4_rw_bitmask;
     int32_t CP0_SRSConf4;
+    int32_t CP0_ContextConfig;
     int insn_flags;
     enum mips_mmu_types mmu_type;
 };
@@ -1034,6 +1035,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         CHECK_SET_CONFIG(CP0_SRSConf4_rw_bitmask, uint32_t);
         CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
         CHECK_SET_CONFIG(insn_flags, int);
+        CHECK_SET_CONFIG(CP0_ContextConfig, uint32_t);
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }
