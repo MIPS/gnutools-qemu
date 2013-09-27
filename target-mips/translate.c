@@ -16266,10 +16266,10 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     }
 
     //DSP
-    CHK_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
+    CHK_CP0_REG_ULONG(active_tc.DSPControl,    "DSPCTL      ");
 
-    CHK_CP0_REG(active_tc.HI[0], "HI          ");
-    CHK_CP0_REG(active_tc.LO[0], "LO          ");
+    CHK_CP0_REG_ULONG(active_tc.HI[0], "HI          ");
+    CHK_CP0_REG_ULONG(active_tc.LO[0], "LO          ");
 
     for (i = 1; i < MIPS_DSP_ACC; i++) {
         if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {

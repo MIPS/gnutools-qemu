@@ -3015,6 +3015,14 @@ static const struct mips_cp0sel_name mips_cp0sel_names_mips3264r2[] =
 };
 
 #ifdef MIPSSIM_COMPAT
+static const char * const mips_fpr_names_numeric_iasim[32] =
+{
+  "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
+  "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
+  "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+  "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"
+};
+
 static const char * const mips_cp0_names_iasim[32] =
 {
   "C0IDX",        "C0RAND",       "C0ENLO0",      "C0ENLO1",
@@ -3214,6 +3222,9 @@ static struct mips_abi_choice mips_abi_choices[] =
   { "32", mips_gpr_names_oldabi, mips_fpr_names_32 },
   { "n32", mips_gpr_names_newabi, mips_fpr_names_n32 },
   { "64", mips_gpr_names_newabi, mips_fpr_names_64 },
+#ifdef MIPSSIM_COMPAT
+  { "iasim", mips_gpr_names_numeric, mips_fpr_names_numeric_iasim },
+#endif
 };
 
 struct mips_arch_choice
