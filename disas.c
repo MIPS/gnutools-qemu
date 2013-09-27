@@ -260,7 +260,7 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
     target_ulong pc;
     struct disassemble_info disasm_info;
     int (*print_insn)(bfd_vma pc, disassemble_info *info);
-    char sv_dis_options[] = "gpr-names=numeric,cp0-names=iasim";
+    char sv_dis_options[] = "gpr-names=iasim,cp0-names=iasim,fpr-names=iasim";
 
     INIT_DISASSEMBLE_INFO(disasm_info, out, fprintf);
 
