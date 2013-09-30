@@ -306,24 +306,29 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
         fprintf(out, "%08lx ", (unsigned long) opcode);
         print_insn(pc, &disasm_info);
         fprintf(out, "\n");
-        }
-    else if (env->insn_flags & ASE_MICROMIPS) {
+    }
+    else {
         opcode = lduw_code(pc);
-        insn_bytes = cpu_mips_insnlen_micromips_opc(opcode, env->hflags);
-        if (insn_bytes == 4)
-        {
+        /* In SV we run in singlestep mode, so assuming that current_tb->size
+           contains size of a single instruction */
+        insn_bytes = env->current_tb->size;
+        if (insn_bytes == 4) {
             uint16_t insn_low = lduw_code(pc + 2);
             opcode = (opcode << 16) | insn_low;
-            fprintf(out, "%08lx ", (unsigned long) opcode);
         }
-        else if (insn_bytes == 2)
-        {
-            fprintf(out, "    %04x ", (uint16_t) opcode);
+
+        if (env->insn_flags & ASE_MICROMIPS) {
+            // FIXME micromips disa
+            fprintf(out, "%08lx micromips _disa_here\n", (unsigned long)opcode);
         }
-        //FIXME micromips disa
-        fprintf(out, "micromips _disa_here\n");
+        else if (env->insn_flags & ASE_MIPS16) {
+            // FIXME mips16 disa
+            fprintf(out, "%08lx mips16 _disa_here\n", (unsigned long)opcode);
+        }
+        else {
+            fprintf(out, "unknown _disa_here\n");
+        }
     }
-    // FIXME mips16 ase
 }
 #endif
 
