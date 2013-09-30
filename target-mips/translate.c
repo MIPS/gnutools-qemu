@@ -1745,6 +1745,13 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         opn = "ll";
         break;
     }
+    if(opc != OPC_LL && opc != OPC_LLD)
+    {
+        // Any memory access instruction between the execution of LL and SC
+        // is able to SC instruction fail. (Other implementation can be vary)
+        TCGv_i32 z32 = tcg_const_i32(0);
+        tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+    }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
@@ -1830,6 +1837,11 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
 #endif
         break;
     }
+    // Any memory access instruction between the execution of LL and SC
+    // is able to SC instruction fail. (Other implementation can be vary)
+    TCGv_i32 z32 = tcg_const_i32(0);
+    tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
@@ -1858,18 +1870,12 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_scd(t1, t0, rt, ctx);
         opn = "scd";
-#ifdef MIPSSIM_COMPAT
-        gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
-#endif
         break;
 #endif
     case OPC_SC:
         save_cpu_state(ctx, 1);
         op_st_sc(t1, t0, rt, ctx);
         opn = "sc";
-#ifdef MIPSSIM_COMPAT
-        gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
-#endif
         break;
     }
     (void)opn; /* avoid a compiler warning */
@@ -13714,6 +13720,9 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //17
     CHK_CP0_REG(lladdr,                    "C0LLA       ");
+    if(env_prev.llbit != env->llbit) {
+        sv_log("%s : Write C0LL         = %u\n", env->cpu_model_str, env->llbit);
+    }
     //...
 
     //18

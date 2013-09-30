@@ -490,6 +490,7 @@ struct CPUMIPSState {
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
     target_ulong lladdr;
+    target_ulong llbit;
     target_ulong llval;
     target_ulong llnewval;
     target_ulong llreg;

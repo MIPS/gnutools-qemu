@@ -120,10 +120,10 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
     switch(rw_size & 0xffff)
     {
     case 1:
-        sv_log("%02x\n", (uint8_t) val);
+        sv_log("------%02x\n", (uint8_t) val);
         break;
     case 2:
-        sv_log("%04x\n", (uint16_t) val);
+        sv_log("----%04x\n", (uint16_t) val);
         break;
     case 4:
         sv_log("%08x\n", (uint32_t) val);
@@ -256,6 +256,7 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     insn##_raw(addr, val);                                              \
 }
 #else
+#ifndef MIPSSIM_COMPAT
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
 {                                                                       \
@@ -267,6 +268,25 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     case 2: insn##_user(addr, val); break;                              \
     }                                                                   \
 }
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
+{                                                                       \
+    switch (mem_idx)                                                    \
+    {                                                                   \
+    case 0: insn##_kernel(addr, val); break;                            \
+    case 1: insn##_super(addr, val); break;                             \
+    default:                                                            \
+    case 2: insn##_user(addr, val); break;                              \
+    }                                                                   \
+    if (sizeof(val) == sizeof(uint8_t))                                 \
+        helper_trace_mem_access(val, addr, 0x10001);                    \
+    else if (sizeof(val) == sizeof(uint32_t))                           \
+        helper_trace_mem_access(val, addr, 0x10004);                    \
+    else if (sizeof(val) == sizeof(uint64_t))                           \
+        helper_trace_mem_access(val, addr, 0x10008);                    \
+}
+#endif
 #endif
 HELPER_ST(sb, stb, uint8_t)
 HELPER_ST(sw, stl, uint32_t)
@@ -3671,8 +3691,8 @@ static inline target_phys_addr_t do_translate_address(target_ulong address, int 
 target_ulong helper_##name(target_ulong arg, int mem_idx)                     \
 {                                                                             \
     env->lladdr = do_translate_address(arg, 0);                               \
-    env->llval = do_##insn(arg, mem_idx);                                     \
-    return env->llval;                                                        \
+    env->llbit = 1;                                                           \
+    return do_##insn(arg, mem_idx);                                           \
 }
 HELPER_LD_ATOMIC(ll, lw)
 #ifdef TARGET_MIPS64
@@ -3683,21 +3703,24 @@ HELPER_LD_ATOMIC(lld, ld)
 #define HELPER_ST_ATOMIC(name, ld_insn, st_insn, almask)                      \
 target_ulong helper_##name(target_ulong arg1, target_ulong arg2, int mem_idx) \
 {                                                                             \
-    target_long tmp;                                                          \
-                                                                              \
+    int ret = 0;                                                              \
     if (arg2 & almask) {                                                      \
         env->CP0_BadVAddr = arg2;                                             \
         helper_raise_exception(EXCP_AdES);                                    \
     }                                                                         \
     if (do_translate_address(arg2, 1) == env->lladdr) {                       \
-        tmp = do_##ld_insn(arg2, mem_idx);                                    \
-        if (tmp == env->llval) {                                              \
+        if (env->llbit) {                                                     \
             do_##st_insn(arg2, arg1, mem_idx);                                \
-            return 1;                                                         \
+            ret = 1;                                                          \
         }                                                                     \
     }                                                                         \
-    return 0;                                                                 \
+    arg1 = (0) | ((env->llbit) & 1);                                          \
+    return ret;                                                               \
 }
+// FIXME:   A return value is not required from the above function.
+//          Atomic load functions for user mode are also required to be
+//          fixed before submit to upstream.
+
 HELPER_ST_ATOMIC(sc, lw, sw, 0x3)
 #ifdef TARGET_MIPS64
 HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
@@ -4684,6 +4707,7 @@ void helper_mtc0_tcrestart (target_ulong arg1)
     env->active_tc.PC = arg1;
     env->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
     env->lladdr = 0ULL;
+    env->llbit = 0;
     /* MIPS16 not implemented. */
 }
 
@@ -4696,11 +4720,13 @@ void helper_mttc0_tcrestart (target_ulong arg1)
         other->active_tc.PC = arg1;
         other->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     } else {
         other->tcs[other_tc].PC = arg1;
         other->tcs[other_tc].CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     }
 }
@@ -5381,11 +5407,6 @@ void r4k_helper_tlbwi (void)
 #endif
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
 
-    /* Discard cached TLB entries.  We could avoid doing this if the
-       tlbwi is just upgrading access permissions on the current entry;
-       that might be a further win.  */
-    r4k_mips_tlb_flush_extra (env, env->tlb->nb_tlb);
-
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(idx);
 }
@@ -5586,7 +5607,7 @@ void helper_eret (void)
     }
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+    env->llbit = 0;
 }
 
 void helper_deret (void)
@@ -5597,7 +5618,7 @@ void helper_deret (void)
     env->hflags &= MIPS_HFLAG_DM;
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+//  A DERET placed between an LL and SC instruction does not cause the SC to fail.
 }
 #endif /* !CONFIG_USER_ONLY */
 
