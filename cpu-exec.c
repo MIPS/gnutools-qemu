@@ -570,7 +570,10 @@ int cpu_exec(CPUState *env)
 #ifdef MIPSSIM_COMPAT
                     if (sv_enabled()) {
                         trace_cpu_state(env, 0);
-                        sv_target_disas(env, tb->pc, 4, 0);
+                        // skip disassemble if there was unaligned access attempt
+                        if (tb->size > 0) {
+                            sv_target_disas(env, tb->pc, 4, 0);
+                        }
                     }
 #endif
                 /* execute the generated code */

@@ -12242,12 +12242,15 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
         tcg_gen_movi_tl(t0, ctx->pc);
         tcg_gen_st_tl(t0, cpu_env, offsetof(CPUState, CP0_BadVAddr));
         tcg_temp_free(t0);
+        generate_exception(ctx, EXCP_AdEL);
+        ctx->bstate = BS_STOP;
+        return 0;
 #else
         env->CP0_BadVAddr = ctx->pc;
-#endif
         generate_exception(ctx, EXCP_AdEL);
         ctx->bstate = BS_STOP;
         return 2;
+#endif
     }
 
     op = (ctx->opcode >> 10) & 0x3f;
@@ -12612,8 +12615,11 @@ static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
 #include "mips_msa_opcodes_gen.h"
 #include "mips_msa_opcodes_case.h"
 
-
+#if defined(MIPSSIM_COMPAT)
+static int decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
+#else
 static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
+#endif
 {
     int32_t offset;
     int rs, rt, rd, sa;
@@ -12628,11 +12634,13 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         tcg_gen_movi_tl(t0, ctx->pc);
         tcg_gen_st_tl(t0, cpu_env, offsetof(CPUState, CP0_BadVAddr));
         tcg_temp_free(t0);
+        generate_exception(ctx, EXCP_AdEL);
+        return 0;
 #else
         env->CP0_BadVAddr = ctx->pc;
-#endif
         generate_exception(ctx, EXCP_AdEL);
         return;
+#endif
     }
 
     /* Handle blikely not taken case */
@@ -13353,6 +13361,9 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         generate_exception(ctx, EXCP_RI);
         break;
     }
+#if defined(MIPSSIM_COMPAT)
+    return 4;
+#endif
 }
 
 static inline void
@@ -13426,8 +13437,13 @@ gen_intermediate_code_internal (CPUState *env, TranslationBlock *tb,
         is_branch = 0;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = ldl_code(ctx.pc);
+#if defined(MIPSSIM_COMPAT)
+            // insn_bytes is zero if accessing unaligned address
+            insn_bytes = decode_opc(env, &ctx, &is_branch);
+#else
             insn_bytes = 4;
             decode_opc(env, &ctx, &is_branch);
+#endif
         } else if (env->insn_flags & ASE_MICROMIPS) {
             ctx.opcode = lduw_code(ctx.pc);
             insn_bytes = decode_micromips_opc(env, &ctx, &is_branch);
