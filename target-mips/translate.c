@@ -12236,7 +12236,15 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
     /* make sure instructions are on a halfword boundary */
     if (ctx->pc & 0x1) {
+#if defined(MIPSSIM_COMPAT)
+        // In SV we want to change BadVAddr during tcg execution
+        TCGv t0 = tcg_temp_new();
+        tcg_gen_movi_tl(t0, ctx->pc);
+        tcg_gen_st_tl(t0, cpu_env, offsetof(CPUState, CP0_BadVAddr));
+        tcg_temp_free(t0);
+#else
         env->CP0_BadVAddr = ctx->pc;
+#endif
         generate_exception(ctx, EXCP_AdEL);
         ctx->bstate = BS_STOP;
         return 2;
@@ -12614,7 +12622,15 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
+#if defined(MIPSSIM_COMPAT)
+        // In SV we want to change BadVAddr during tcg execution
+        TCGv t0 = tcg_temp_new();
+        tcg_gen_movi_tl(t0, ctx->pc);
+        tcg_gen_st_tl(t0, cpu_env, offsetof(CPUState, CP0_BadVAddr));
+        tcg_temp_free(t0);
+#else
         env->CP0_BadVAddr = ctx->pc;
+#endif
         generate_exception(ctx, EXCP_AdEL);
         return;
     }
