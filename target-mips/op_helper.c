@@ -8805,17 +8805,16 @@ static int update_msacsr(int action, int denormal)
     }                                                                   \
   } while (0)
 
-#define MSA_FLOAT_BINOP_INEXACT(DEST, OP, ARG1, ARG2, BITS)             \
+#define MSA_FLOAT_RECIPROCAL(DEST, ARG, BITS)                           \
   do {                                                                  \
     int c;                                                              \
     int cause;                                                          \
     int enable;                                                         \
                                                                         \
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(float ## BITS ## _is_infinity(ARG1) ||            \
-                      float ## BITS ## _is_infinity(ARG2) ||            \
+    DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
+                                     &env->active_msa.fp_status);       \
+    c = update_msacsr(float ## BITS ## _is_infinity(ARG) ||             \
                       float ## BITS ## _is_quiet_nan(DEST)?             \
                       0 : RECIPROCAL_INEXACT,                           \
                       IS_DENORMAL(DEST, BITS));                         \
@@ -10594,13 +10593,13 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
+            MSA_FLOAT_RECIPROCAL(W(pwx, i), W(pws, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
+            MSA_FLOAT_RECIPROCAL(D(pwx, i), D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10620,35 +10619,28 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
-    wr_t wy, *pwy = &wy;
 
     clear_msacsr_cause();
 
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-           MSA_FLOAT_UNOP(W(pwy, i), sqrt, W(pws, i), 32);
+          MSA_FLOAT_RECIPROCAL(W(pwx, i), 
+                               float32_sqrt(W(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               32);
 
-           if (!float32_is_any_nan(W(pwy, i))) {
-               MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwy, i), 32);
-           }
-           else {
-               W(pwx, i) = W(pwy, i);
-           }
+          printf("frsqrt.w 0x%08x <-- 0x%08x\n", W(pwx, i), W(pws, i));
 
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwy, i), sqrt, D(pws, i), 64);
-
-            if (!float64_is_any_nan(D(pwy, i))) {
-              MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwy, i), 64);
-            }
-            else {
-               D(pwx, i) = D(pwy, i);
-            }
+          MSA_FLOAT_RECIPROCAL(D(pwx, i), 
+                               float64_sqrt(D(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               64);
         } DONE_ALL_ELEMENTS;
         break;
 
