@@ -10628,14 +10628,27 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
            MSA_FLOAT_UNOP(W(pwy, i), sqrt, W(pws, i), 32);
-           MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwy, i), 32);
+
+           if (!float32_is_any_nan(W(pwy, i))) {
+               MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwy, i), 32);
+           }
+           else {
+               W(pwx, i) = W(pwy, i);
+           }
+
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             MSA_FLOAT_UNOP(D(pwy, i), sqrt, D(pws, i), 64);
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwy, i), 64);
+
+            if (!float64_is_any_nan(D(pwy, i))) {
+              MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwy, i), 64);
+            }
+            else {
+               D(pwx, i) = D(pwy, i);
+            }
         } DONE_ALL_ELEMENTS;
         break;
 
