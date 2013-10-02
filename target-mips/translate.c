@@ -13811,6 +13811,27 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
+    //FPR
+    for (i = 0; i < 32; i++) {
+        if (env_prev.active_fpu.fpr[i].fd != env->active_fpu.fpr[i].fd) {
+            sv_log("%s : Write FPR[%2d]      = %016" PRIx64 "\n", env->cpu_model_str, i, env->active_fpu.fpr[i].fd);
+        }
+    }
+
+    //MSA
+    if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
+        sv_log("%s : Write msa_csr      = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_msa.msacsr);
+    }
+
+    for (i = 0; i < 32; i++) {
+        /* print vector register only when higher doubleword changes (lower doubleword 
+           is already checked above - FPR) */
+        if (env_prev.active_fpu.fpr[i].wr.d[1] != env->active_fpu.fpr[i].wr.d[1]) {
+            sv_log("%s : Write VR[%2d]      = %016" PRIx64 "%016" PRIx64 "\n", 
+                   env->cpu_model_str, i, env->active_fpu.fpr[i].wr.d[1], env->active_fpu.fpr[i].wr.d[0]);
+        }
+    }
+
     //DSP
     CHK_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
 

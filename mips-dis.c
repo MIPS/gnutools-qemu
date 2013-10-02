@@ -3812,7 +3812,7 @@ static const char * const mips_msa_control_names_numeric[32] =
 
 static const char * const mips_msa_control_names_mips3264r2[32] =
 {
-  "msa_ir",   "msa_csr",  "$2",   "$3",
+  "MSAIR",   "MSACSR",  "$2",   "$3",
   "$4",           "$5",           "$6",           "$7",
   "$8",   "$9",   "$10",  "$11",  "$12",  "$13",  "$14",  "$15",
   "$16",  "$17",  "$18",  "$19",  "$20",  "$21",  "$22",  "$23",
