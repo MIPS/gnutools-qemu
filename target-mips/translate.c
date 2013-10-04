@@ -13656,6 +13656,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     //0
     CHK_CP0_REG(CP0_Index,                 "C0IDX       ");
 
+    /*
     //CP0_MVPControl
     if(mvp_prev.CP0_MVPControl != env->mvp->CP0_MVPControl) {
         sv_log("%s : Write C0MVPCTL     = " TARGET_FMT_lx "\n", env->cpu_model_str, env->mvp->CP0_MVPControl);
@@ -13668,9 +13669,10 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     if(mvp_prev.CP0_MVPConf1 != env->mvp->CP0_MVPConf1) {
         sv_log("%s : Write C0MVPCONF1   = " TARGET_FMT_lx "\n", env->cpu_model_str, env->mvp->CP0_MVPConf1);
     }
+    */
 
     //1
-    CHK_CP0_REG(CP0_Random,                "C0RAND      ");
+    //CHK_CP0_REG(CP0_Random,                "C0RAND      ");
     CHK_CP0_REG(CP0_VPEControl,            "C0VPECTL    ");
     CHK_CP0_REG(CP0_VPEConf0,              "C0VPECONF0  ");
     CHK_CP0_REG(CP0_VPEConf1,              "C0VPECONF1  ");
@@ -13715,7 +13717,6 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_BadVAddr,              "C0BVA       ");
 
     //9
-    // Looks like IASim isn't tracing values of this register
     // CHK_CP0_REG(CP0_Count,                 "C0COUNT     ");
 
     //10
@@ -13759,6 +13760,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     //...
 
     //18
+    /*
     CHK_CP0_REG(CP0_WatchLo[0],            "C0WATCHLO   ");
     CHK_CP0_REG(CP0_WatchLo[1],            "C0WATCHLO1  ");
     CHK_CP0_REG(CP0_WatchLo[2],            "C0WATCHLO2  ");
@@ -13767,8 +13769,10 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_WatchLo[5],            "C0WATCHLO5  ");
     CHK_CP0_REG(CP0_WatchLo[6],            "C0WATCHLO6  ");
     CHK_CP0_REG(CP0_WatchLo[7],            "C0WATCHLO7  ");
+    */
 
     //19
+    /*
     CHK_CP0_REG(CP0_WatchHi[0],            "C0WATCHHI   ");
     CHK_CP0_REG(CP0_WatchHi[1],            "C0WATCHHI1  ");
     CHK_CP0_REG(CP0_WatchHi[2],            "C0WATCHHI2  ");
@@ -13777,7 +13781,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_WatchHi[5],            "C0WATCHHI5  ");
     CHK_CP0_REG(CP0_WatchHi[6],            "C0WATCHHI6  ");
     CHK_CP0_REG(CP0_WatchHi[7],            "C0WATCHHI7  ");
-
+    */
     //20 for 64bit
     CHK_CP0_REG(CP0_XContext,              "C0XCTXT     ");
     //CP0_Framemask???

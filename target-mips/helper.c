@@ -280,6 +280,8 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
     }
     /* Raise exception */
     env->CP0_BadVAddr = address;
+    env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
+                       ((address >> 9) & 0x007ffff0);
 #if defined(MIPSSIM_COMPAT)
     if (exception != EXCP_AdES && exception != EXCP_AdEL) {
         /* "MIPS Architecture for Programmers, Volume III: The MIPS32 and microMIPS
@@ -287,12 +289,10 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
            - according to the manual, on Address Error Exception ContextVPN2,
            EntryHiVPN2 values are unpredictable, so in general it shouldn't
            matter whether these registers are changed or not in the simulator.
-           However, in IASim these registers don't seem to be changed,
+           However, in IASim EntryHiVPN2 doesn't seem to be changed,
            thus we modify qemu to work in the same way to make diff tests pass.
         */
 #endif
-    env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
-                       ((address >> 9) & 0x007ffff0);
     env->CP0_EntryHi =
         (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
 #if defined(MIPSSIM_COMPAT)
