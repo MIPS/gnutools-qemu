@@ -58,6 +58,19 @@ static void cpu_mips_timer_update(CPUState *env)
     now = qemu_get_clock_ns(vm_clock);
     wait = env->CP0_Compare - env->CP0_Count -
 	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+#if defined(MIPSSIM_COMPAT)
+    /* FIXME: workaround for SV failures.
+       If there is "MTC0 $0, C0COUNT" instruction and C0COMP=0:
+       QEMU - schedules timer after 0 cycles and the timer expires immediately
+              (during execution of the same instruction)
+       IASim - schedules timer after 0xffffffff cycles
+
+       In general it looks like IASim schedules timer for C0COMP - C0COUNT - 1.
+       Thus, doing the same here.
+       */
+    wait--;
+    sv_log("Info (MIPS32_EXCEPT) - schedule timer interrupt after %u (0x%x)\n", wait, wait);
+#endif
     next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
     qemu_mod_timer(env->timer, next);
 }

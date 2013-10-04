@@ -13715,7 +13715,8 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_BadVAddr,              "C0BVA       ");
 
     //9
-    CHK_CP0_REG(CP0_Count,                 "C0COUNT     ");
+    // Looks like IASim isn't tracing values of this register
+    // CHK_CP0_REG(CP0_Count,                 "C0COUNT     ");
 
     //10
     CHK_CP0_REG(CP0_EntryHi,               "C0ENHI      ");
