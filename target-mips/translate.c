@@ -13816,6 +13816,11 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
+    //FPU
+    if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
+        sv_log("%s : Write C1FCSR           = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_fpu.fcr31);
+    }
+
     //FPR
     for (i = 0; i < 32; i++) {
         if (env_prev.active_fpu.fpr[i].fd != env->active_fpu.fpr[i].fd) {
