@@ -255,7 +255,7 @@ void target_disas(FILE *out, target_ulong code, target_ulong size, int flags)
 }
 
 #ifdef MIPSSIM_COMPAT
-void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong size, int flags)
+void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong insn_bytes, int flags)
 {
     target_ulong pc;
     struct disassemble_info disasm_info;
@@ -266,7 +266,7 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
 
     disasm_info.read_memory_func = target_read_memory;
     disasm_info.buffer_vma = code;
-    disasm_info.buffer_length = size;
+    disasm_info.buffer_length = 4; // max length for single step
     disasm_info.disassembler_options = sv_dis_options;
 
 #ifdef TARGET_WORDS_BIGENDIAN
@@ -289,7 +289,6 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
 
     pc = code;
 
-    int insn_bytes;
     uint32_t opcode;
 
     fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
@@ -301,7 +300,6 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
 
     if (!(env->hflags & MIPS_HFLAG_M16)) {
         opcode = ldl_code(pc);
-        insn_bytes = 4;
 
         fprintf(out, "%08lx ", (unsigned long) opcode);
         print_insn(pc, &disasm_info);
@@ -311,7 +309,6 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong siz
         opcode = lduw_code(pc);
         /* In SV we run in singlestep mode, so assuming that current_tb->size
            contains size of a single instruction */
-        insn_bytes = env->current_tb->size;
         if (insn_bytes == 4) {
             uint16_t insn_low = lduw_code(pc + 2);
             opcode = (opcode << 16) | insn_low;
