@@ -2225,6 +2225,11 @@ static inline target_ulong dsp_extp(uint64_t acc_value, uint32_t size,
 
     if (pos < size) {
         set_DSPCONTROL_14(1);
+#if defined(MIPSSIM_COMPAT)
+        /* Manual says - unpredictable value. 
+           Behave like IASim and return 0. */
+        acc_value = 0;
+#endif
     } else {
         set_DSPCONTROL_14(0);
         if (do_dp) {
