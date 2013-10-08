@@ -24,6 +24,9 @@
 DEF_HELPER_0(avp_ok, void)
 DEF_HELPER_0(avp_fail, void)
 #endif
+#endif
+
+#ifdef SV_SUPPORT
 DEF_HELPER_3(trace_mem_access, void, tl, tl, i32)
 #endif
 

@@ -752,10 +752,9 @@ CPUMIPSState *cpu_mips_init(const char *cpu_model);
 //~ uint32_t cpu_mips_get_clock (void);
 int cpu_mips_signal_handler(int host_signum, void *pinfo, void *puc);
 
-#ifdef MIPSSIM_COMPAT
+#if defined(SV_SUPPORT)
 void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
                     int flags);
-int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags);
 int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw);
 int r4k_map_address_debug(CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
                      target_ulong address, int rw, int access_type);

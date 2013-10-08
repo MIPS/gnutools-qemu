@@ -304,7 +304,7 @@ mips_mipssim_init (ram_addr_t ram_size,
     /* Load a BIOS / boot exception handler image. */
     if (bios_name == NULL)
         bios_name = BIOS_FILENAME;
-#if defined(MIPSSIM_COMPAT)
+#ifdef SV_SUPPORT
     /* Use -bios to load test.hex for SV against IASim */
     bios_size = load_mips_hex(bios_name);
     if (bios_size < 0 && !kernel_filename) {

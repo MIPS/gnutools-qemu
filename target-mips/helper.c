@@ -100,7 +100,7 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 /* MIPS32/MIPS64 R4000-style MMU emulation */
 int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
                      target_ulong address, int rw, int access_type)
@@ -282,7 +282,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
     env->CP0_BadVAddr = address;
     env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
                        ((address >> 9) & 0x007ffff0);
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
     if (exception != EXCP_AdES && exception != EXCP_AdEL) {
         /* "MIPS Architecture for Programmers, Volume III: The MIPS32 and microMIPS
            Privileged Resource Architecture", Revision 5.03 Sept. 9, 2013
@@ -295,7 +295,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
 #endif
     env->CP0_EntryHi =
         (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
     }
 #endif
 #if defined(TARGET_MIPS64)
@@ -459,7 +459,7 @@ void do_interrupt (CPUState *env)
     target_ulong offset;
     int cause = -1;
     const char *name;
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_EXCEPT) %s %" PRIx64, env->cpu_model_str, env->active_tc.PC);
 #else
@@ -704,7 +704,7 @@ void do_interrupt (CPUState *env)
                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
                 env->CP0_DEPC);
     }
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
     sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
 #endif
 

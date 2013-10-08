@@ -3607,7 +3607,7 @@ static const struct mips_cp0sel_name mips_cp0sel_names_mips3264r2[] =
   { 29, 7, "c0_datahi3"		},
 };
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 static const char * const mips_fpr_names_numeric_iasim[32] =
 {
   "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
@@ -3833,7 +3833,7 @@ static struct mips_abi_choice mips_abi_choices[] =
   { "32", mips_gpr_names_oldabi, mips_fpr_names_32 },
   { "n32", mips_gpr_names_newabi, mips_fpr_names_n32 },
   { "64", mips_gpr_names_newabi, mips_fpr_names_64 },
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
   { "iasim", mips_gpr_names_numeric, mips_fpr_names_numeric_iasim },
 #endif
 };
@@ -3965,7 +3965,7 @@ static const struct mips_arch_choice mips_arch_choices[] =
     mips_cp0sel_names_sb1, ARRAY_SIZE (mips_cp0sel_names_sb1),
     mips_hwr_names_numeric },
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
   { "iasim", 1, bfd_mach_mipsisa32r2, CPU_MIPS32R2,
     (ISA_MIPS32R2 | INSN_MIPS16 | INSN_SMARTMIPS | INSN_DSP | INSN_DSPR2
      | INSN_MIPS3D | INSN_MT | INSN_MSA),
@@ -4255,7 +4255,7 @@ print_insn_args (const char *d,
       switch (*d)
 	{
 	case ',':
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 	  (*info->fprintf_func) (info->stream, "%c", *d);
 	  (*info->fprintf_func) (info->stream, " ");
 	  break;
@@ -4485,7 +4485,7 @@ print_insn_args (const char *d,
 	  break;
 
 	case '7':
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
       (*info->fprintf_func) (info->stream, "%ld",
                  (l >> OP_SH_DSPACC) & OP_MASK_DSPACC);
 #else
@@ -4500,7 +4500,7 @@ print_insn_args (const char *d,
 	  break;
 
 	case '9':
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
       (*info->fprintf_func) (info->stream, "%ld",
                  (l >> OP_SH_DSPACC_S) & OP_MASK_DSPACC_S);
 #else
@@ -4546,7 +4546,7 @@ print_insn_args (const char *d,
 	  break;
 
 	case '*':
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
       (*info->fprintf_func) (info->stream, "%ld",
                  (l >> OP_SH_MTACC_T) & OP_MASK_MTACC_T);
 #else
@@ -4556,7 +4556,7 @@ print_insn_args (const char *d,
 	  break;
 
 	case '&':
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
       (*info->fprintf_func) (info->stream, "%ld",
                  (l >> OP_SH_MTACC_D) & OP_MASK_MTACC_D);
 #else
@@ -4615,7 +4615,7 @@ print_insn_args (const char *d,
 	case 'a':
 	  info->target = (((pc + 4) & ~(bfd_vma) 0x0fffffff)
 			  | (((l >> OP_SH_TARGET) & OP_MASK_TARGET) << 2));
-#if !defined(MIPSSIM_COMPAT)
+#ifndef SV_SUPPORT
 	  /* For gdb disassembler, force odd address on jalx.  */
 	  if (info->flavour == bfd_target_unknown_flavour
 	      && strcmp (opp->name, "jalx") == 0)
@@ -4943,7 +4943,7 @@ print_insn_mips (bfd_vma memaddr,
 				     | INSN_LOAD_MEMORY_DELAY)) != 0)
 		info->insn_type = dis_dref;
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 	      { // Uppercase OP names
 	          char tmp[20];
 	          int i;
@@ -4961,7 +4961,7 @@ print_insn_mips (bfd_vma memaddr,
 	      d = op->args;
 	      if (d != NULL && *d != '\0')
 		{
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #else
 		  (*info->fprintf_func) (info->stream, "\t");
 #endif
@@ -5525,7 +5525,7 @@ print_mips16_insn_arg (char type,
 		  }
 	      }
 	    info->target = (baseaddr & ~((1 << shift) - 1)) + immed;
-#if !defined(MIPSSIM_COMPAT)
+#ifndef SV_SUPPORT
 	    if (pcrel && branch
 		&& info->flavour == bfd_target_unknown_flavour)
 	      /* For gdb disassembler, maintain odd address.  */

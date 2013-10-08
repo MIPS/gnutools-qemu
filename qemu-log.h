@@ -5,7 +5,7 @@
 extern FILE *logfile;
 extern int loglevel;
 
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
 extern FILE *svtracefile;
 
 #define sv_log(...) do {                          \

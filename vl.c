@@ -236,7 +236,9 @@ uint8_t qemu_extra_params_fw[2];
 #ifdef MIPSSIM_COMPAT
 char *cpu_model_name;
 char *cpu_config_name;
+#ifdef SV_SUPPORT
 FILE *svtracefile;
+#endif
 #endif
 
 typedef struct FWBootEntry FWBootEntry;
@@ -318,7 +320,9 @@ static void mips_avp_clean_up(void)
         cpu_model_name = NULL;
     }
 }
+#endif
 
+#ifdef SV_SUPPORT
 static void sv_log_init(const char * filename)
 {
     if (svtracefile){
@@ -3121,7 +3125,7 @@ int main(int argc, char **argv, char **envp)
         }
         set_cpu_log(log_mask);
 
-#if defined(MIPSSIM_COMPAT)
+#ifdef SV_SUPPORT
         sv_log_init("qemu.svtrace");
 #endif
     }

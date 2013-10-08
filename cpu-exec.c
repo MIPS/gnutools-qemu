@@ -550,7 +550,7 @@ int cpu_exec(CPUState *env)
                    spans two pages, we cannot safely do a direct
                    jump. */
                 if (next_tb != 0 && tb->page_addr[1] == -1
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
                         && !sv_enabled()
 #endif
                         ) {
@@ -567,7 +567,7 @@ int cpu_exec(CPUState *env)
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
                     if (sv_enabled()) {
                         trace_cpu_state(env, 0);
                         // skip disassemble if there was unaligned access attempt
@@ -578,7 +578,7 @@ int cpu_exec(CPUState *env)
 #endif
                 /* execute the generated code */
                     next_tb = tcg_qemu_tb_exec(env, tc_ptr);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
                     if (sv_enabled()) {
                         trace_cpu_state(env, 0);
                     }

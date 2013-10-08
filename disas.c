@@ -254,7 +254,7 @@ void target_disas(FILE *out, target_ulong code, target_ulong size, int flags)
     }
 }
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong insn_bytes, int flags)
 {
     target_ulong pc;

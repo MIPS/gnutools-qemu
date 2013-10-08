@@ -25,7 +25,7 @@
 #include "qemu-timer.h"
 #include "qemu-log.h"
 
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
 /* In SV - C0COUNT has to be incremented by a number of executed instructions
    as this is how IASim works.
 */
@@ -58,7 +58,7 @@ static void cpu_mips_timer_update(CPUState *env)
     now = qemu_get_clock_ns(vm_clock);
     wait = env->CP0_Compare - env->CP0_Count -
 	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
     /* FIXME: workaround for SV failures.
        If there is "MTC0 $0, C0COUNT" instruction and C0COMP=0:
        QEMU - schedules timer after 0 cycles and the timer expires immediately

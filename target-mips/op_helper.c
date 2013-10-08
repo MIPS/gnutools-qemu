@@ -47,7 +47,10 @@ void helper_avp_fail(void)
     puts("fail");
     qemu_system_shutdown_request();
 }
+#endif
+#endif
 
+#ifdef SV_SUPPORT
 int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
 {
     // this function doesn't care of kernel/super/user mode as it is a debug only function.
@@ -136,7 +139,6 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
         break;
     }
 }
-#endif
 #endif
 
 static inline void compute_hflags(CPUState *env)
@@ -256,7 +258,7 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     insn##_raw(addr, val);                                              \
 }
 #else
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
 {                                                                       \
@@ -2225,7 +2227,7 @@ static inline target_ulong dsp_extp(uint64_t acc_value, uint32_t size,
 
     if (pos < size) {
         set_DSPCONTROL_14(1);
-#if defined(MIPSSIM_COMPAT)
+#ifdef SV_SUPPORT
         /* Manual says - unpredictable value. 
            Behave like IASim and return 0. */
         acc_value = 0;
@@ -5378,7 +5380,7 @@ static void r4k_fill_tlb (int idx)
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
     sv_log("FILL TLB index %d, ", idx);
     sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
     sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
@@ -5403,7 +5405,7 @@ void r4k_helper_tlbwi (void)
 {
     int idx;
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s TLBWI ", env->cpu_model_str);
 #else
@@ -5418,7 +5420,7 @@ void r4k_helper_tlbwi (void)
 
 void r4k_helper_tlbwr (void)
 {
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s TLBWR ", env->cpu_model_str);
 #else
@@ -5471,7 +5473,7 @@ void r4k_helper_tlbp (void)
 
         env->CP0_Index |= 0x80000000;
     }
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s TLBP ", env->cpu_model_str);
 #else
@@ -5505,7 +5507,7 @@ void r4k_helper_tlbr (void)
                         (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
 #else

@@ -1558,7 +1558,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
 #if defined(TARGET_MIPS64)
     case OPC_LWU:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lwu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1570,7 +1570,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LD:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_ld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1583,7 +1583,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LLD:
         save_cpu_state(ctx, 1);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1599,7 +1599,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(ldl, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
 #endif
         opn = "ldl";
@@ -1609,7 +1609,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(ldr, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x00008);
 #endif
         opn = "ldr";
@@ -1618,7 +1618,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 0);
         tcg_gen_movi_tl(t1, pc_relative_pc(ctx));
         gen_op_addr_add(ctx, t0, t0, t1);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_ld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1634,7 +1634,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 0);
         tcg_gen_movi_tl(t1, pc_relative_pc(ctx));
         gen_op_addr_add(ctx, t0, t0, t1);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lw(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1647,7 +1647,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LW:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lw(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1660,7 +1660,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LH:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lh(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1673,7 +1673,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LHU:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lhu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1686,7 +1686,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LB:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lb(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1699,7 +1699,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         break;
     case OPC_LBU:
         save_cpu_state(ctx, 0);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_lbu(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1715,7 +1715,7 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(lwl, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
 #endif
         opn = "lwl";
@@ -1725,14 +1725,14 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t1, rt);
         gen_helper_3i(lwr, t1, t1, t0, ctx->mem_idx);
         gen_store_gpr(t1, rt);
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x00004);
 #endif
         opn = "lwr";
         break;
     case OPC_LL:
         save_cpu_state(ctx, 1);
-#ifndef MIPSSIM_COMPAT
+#ifndef SV_SUPPORT
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #else
@@ -1774,7 +1774,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 0);
         op_st_sd(t1, t0, ctx);
         opn = "sd";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
 #endif
         break;
@@ -1782,7 +1782,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         gen_helper_2i(sdl, t1, t0, ctx->mem_idx);
         opn = "sdl";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
 #endif
         break;
@@ -1790,7 +1790,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         gen_helper_2i(sdr, t1, t0, ctx->mem_idx);
         opn = "sdr";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10008);
 #endif
         break;
@@ -1799,7 +1799,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 0);
         op_st_sw(t1, t0, ctx);
         opn = "sw";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
 #endif
         break;
@@ -1807,7 +1807,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 0);
         op_st_sh(t1, t0, ctx);
         opn = "sh";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10002);
 #endif
         break;
@@ -1815,7 +1815,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 0);
         op_st_sb(t1, t0, ctx);
         opn = "sb";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10001);
 #endif
         break;
@@ -1823,7 +1823,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         gen_helper_2i(swl, t1, t0, ctx->mem_idx);
         opn = "swl";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
 #endif
         break;
@@ -1831,7 +1831,7 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         gen_helper_2i(swr, t1, t0, ctx->mem_idx);
         opn = "swr";
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
         gen_helper_2i(trace_mem_access, t1, t0, 0x10004);
         //FIXME swx
 #endif
@@ -4427,9 +4427,12 @@ die:
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
 #else
+#ifdef SV_SUPPORT
     sv_log("MFC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
     exit(127);
-    //tcg_gen_movi_tl(arg, 0);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 #endif
 }
 
@@ -5621,9 +5624,12 @@ die:
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
 #else
+#ifdef SV_SUPPORT
     sv_log("MFC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
     exit(127);
-    //tcg_gen_movi_tl(arg, 0);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
 #endif
 }
 
@@ -12236,7 +12242,7 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
     /* make sure instructions are on a halfword boundary */
     if (ctx->pc & 0x1) {
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
         // In SV we want to change BadVAddr during tcg execution
         TCGv t0 = tcg_temp_new();
         tcg_gen_movi_tl(t0, ctx->pc);
@@ -12615,7 +12621,7 @@ static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
 #include "mips_msa_opcodes_gen.h"
 #include "mips_msa_opcodes_case.h"
 
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
 static int decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 #else
 static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
@@ -12628,7 +12634,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
         // In SV we want to change BadVAddr during tcg execution
         TCGv t0 = tcg_temp_new();
         tcg_gen_movi_tl(t0, ctx->pc);
@@ -13361,7 +13367,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         generate_exception(ctx, EXCP_RI);
         break;
     }
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
     return 4;
 #endif
 }
@@ -13437,7 +13443,7 @@ gen_intermediate_code_internal (CPUState *env, TranslationBlock *tb,
         is_branch = 0;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = ldl_code(ctx.pc);
-#if defined(MIPSSIM_COMPAT)
+#if defined(SV_SUPPORT)
             // insn_bytes is zero if accessing unaligned address
             insn_bytes = decode_opc(env, &ctx, &is_branch);
 #else
@@ -13639,7 +13645,7 @@ void cpu_dump_state (CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 #endif
 }
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
 void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
         int flags)
 {
