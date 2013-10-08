@@ -1162,6 +1162,31 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_R4000,
     },
     {
+        .name = "5KEf",
+        .CP0_PRid = 0x00018900,
+        .CP0_Config0 = MIPS_CONFIG0 | (3 << CP0C0_K23) | (3 << CP0C0_KU) |
+                       (2 << CP0C0_AT) | (1 << CP0C0_AR) |
+                       (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (47 << CP0C1_MMU) |
+                       (3 << CP0C1_IS) | (4 << CP0C1_IL) | (3 << CP0C1_IA) |
+                       (3 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
+                       (1 << CP0C1_CA) | (1 << CP0C1_FP),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VInt),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x36F8FFFF,
+        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+                    (1 << FCR0_D) | (1 << FCR0_S) |
+                    (0x89 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .SEGBITS = 42,
+        .PABITS = 36,
+        .insn_flags = CPU_MIPS64R2 | ASE_MIPS16,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
         .name = "20Kc",
         /* We emulate a later version of the 20Kc, earlier ones had a broken
            WAIT instruction. */
