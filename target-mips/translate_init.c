@@ -651,7 +651,7 @@ static mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3778FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
+                    (1 << FCR0_D) | (1 << FCR0_S) | (0x96 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
