@@ -460,6 +460,31 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_FMT,
     },
     {
+        .name = "VirtuosoUP",
+        .CP0_PRid = 0x0001a700,
+        .CP0_Config0 = MIPS_CONFIG0 | (1 << CP0C0_AR) |
+                    (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (15 << CP0C1_MMU) |
+                       (3 << CP0C1_IL) | (1 << CP0C1_IA) |
+                       (3 << CP0C1_DL) | (1 << CP0C1_DA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) |
+                       (1 << CP0C3_EICW) | /*IPLW*/
+                       (1 << CP0C3_MCU) | (0 << CP0C3_ISA_ON_EXC) |
+                       (2 << CP0C3_ISA) | (1 << CP0C3_ULRI) |
+                       (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
+                       (1 << CP0C3_VInt),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1358FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS | ASE_DSP | ASE_DSPR2,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
         .name = "VirtuosoUPF",
         .CP0_PRid = 0x0001a700,
         .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
