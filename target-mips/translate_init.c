@@ -245,6 +245,26 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_FMT,
     },
     {
+        .name = "4Kp",
+        .CP0_PRid = 0x00018300,
+        .CP0_Config0 = MIPS_CONFIG0 | (2 << CP0C0_K23) | (2 << CP0C0_KU) |
+                       (1 << CP0C0_MDU) | (1 << CP0C0_MM) | (1 << CP0C0_AR) |
+                       (MMU_TYPE_FMT << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
+                       (3 << CP0C1_DL) | (1 << CP0C1_DA),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x1258FF17,
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2,
+        .mmu_type = MMU_TYPE_FMT,
+    },
+    {
         .name = "M14Kc",
         .CP0_PRid = 0x00019c00,
         .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
