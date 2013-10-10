@@ -6679,7 +6679,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
  *  MSA
  */
 
-#define DEBUG_MSACSR 1
+#define DEBUG_MSACSR 0
 
 /* Data format and vector length unpacking */
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
