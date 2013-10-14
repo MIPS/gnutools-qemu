@@ -50,6 +50,97 @@ void helper_avp_fail(void)
 #endif
 #endif
 
+#ifdef SV_SUPPORT
+int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
+{
+    // this function doesn't care of kernel/super/user mode as it is a debug only function.
+    // FIXME: MIPS64
+    target_phys_addr_t physical;
+    int prot;
+    int cca = 2;// uncached by default
+
+    if (vaddr <= (int32_t)0x7FFFFFFFUL) {
+        /* useg */
+        if ((env->CP0_Status) & (1 << CP0St_ERL)) {
+            cca = 2;
+        }
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From KU field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_KU) & 0x7;
+        }
+    }
+    else if (vaddr < (int32_t)0xA0000000UL) {
+        /* kseg0 */
+        //From K0 field of Config Register
+        cca = (env->CP0_Config0) & 0x7;
+    }
+    else if (vaddr < (int32_t)0xC0000000UL) {
+        /* kseg1 */
+        cca = 2; // Uncached
+    }
+    else if (vaddr < (int32_t)0xE0000000UL) {
+        /* sseg (kseg2) */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    else {
+        /* kseg3 */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    return cca;
+}
+
+void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_size)
+{
+    sv_log("%s : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
+            env->cpu_model_str,
+            (rw_size >> 16)? "Write":"Read",
+            addr,
+            (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
+            cpu_mips_cacheability(env, addr, rw_size >> 16)
+            );
+
+    switch(rw_size & 0xffff)
+    {
+    case 1:
+        sv_log("------%02x\n", (uint8_t) val);
+        break;
+    case 2:
+        sv_log("----%04x\n", (uint16_t) val);
+        break;
+    case 4:
+        sv_log("%08x\n", (uint32_t) val);
+        break;
+    case 8:
+        sv_log("%016lx", (uint64_t) val);
+        break;
+    default:
+        sv_log("\n");
+        break;
+    }
+}
+#endif
+
 static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
@@ -167,6 +258,7 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     insn##_raw(addr, val);                                              \
 }
 #else
+#ifndef SV_SUPPORT
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
 {                                                                       \
@@ -178,6 +270,25 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     case 2: insn##_user(addr, val); break;                              \
     }                                                                   \
 }
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
+{                                                                       \
+    switch (mem_idx)                                                    \
+    {                                                                   \
+    case 0: insn##_kernel(addr, val); break;                            \
+    case 1: insn##_super(addr, val); break;                             \
+    default:                                                            \
+    case 2: insn##_user(addr, val); break;                              \
+    }                                                                   \
+    if (sizeof(val) == sizeof(uint8_t))                                 \
+        helper_trace_mem_access(val, addr, 0x10001);                    \
+    else if (sizeof(val) == sizeof(uint32_t))                           \
+        helper_trace_mem_access(val, addr, 0x10004);                    \
+    else if (sizeof(val) == sizeof(uint64_t))                           \
+        helper_trace_mem_access(val, addr, 0x10008);                    \
+}
+#endif
 #endif
 HELPER_ST(sb, stb, uint8_t)
 HELPER_ST(sw, stl, uint32_t)
@@ -2116,6 +2227,11 @@ static inline target_ulong dsp_extp(uint64_t acc_value, uint32_t size,
 
     if (pos < size) {
         set_DSPCONTROL_14(1);
+#ifdef SV_SUPPORT
+        /* Manual says - unpredictable value. 
+           Behave like IASim and return 0. */
+        acc_value = 0;
+#endif
     } else {
         set_DSPCONTROL_14(0);
         if (do_dp) {
@@ -3582,8 +3698,8 @@ static inline target_phys_addr_t do_translate_address(target_ulong address, int 
 target_ulong helper_##name(target_ulong arg, int mem_idx)                     \
 {                                                                             \
     env->lladdr = do_translate_address(arg, 0);                               \
-    env->llval = do_##insn(arg, mem_idx);                                     \
-    return env->llval;                                                        \
+    env->llbit = 1;                                                           \
+    return do_##insn(arg, mem_idx);                                           \
 }
 HELPER_LD_ATOMIC(ll, lw)
 #ifdef TARGET_MIPS64
@@ -3594,21 +3710,24 @@ HELPER_LD_ATOMIC(lld, ld)
 #define HELPER_ST_ATOMIC(name, ld_insn, st_insn, almask)                      \
 target_ulong helper_##name(target_ulong arg1, target_ulong arg2, int mem_idx) \
 {                                                                             \
-    target_long tmp;                                                          \
-                                                                              \
+    int ret = 0;                                                              \
     if (arg2 & almask) {                                                      \
         env->CP0_BadVAddr = arg2;                                             \
         helper_raise_exception(EXCP_AdES);                                    \
     }                                                                         \
     if (do_translate_address(arg2, 1) == env->lladdr) {                       \
-        tmp = do_##ld_insn(arg2, mem_idx);                                    \
-        if (tmp == env->llval) {                                              \
+        if (env->llbit) {                                                     \
             do_##st_insn(arg2, arg1, mem_idx);                                \
-            return 1;                                                         \
+            ret = 1;                                                          \
         }                                                                     \
     }                                                                         \
-    return 0;                                                                 \
+    arg1 = (0) | ((env->llbit) & 1);                                          \
+    return ret;                                                               \
 }
+// FIXME:   A return value is not required from the above function.
+//          Atomic load functions for user mode are also required to be
+//          fixed before submit to upstream.
+
 HELPER_ST_ATOMIC(sc, lw, sw, 0x3)
 #ifdef TARGET_MIPS64
 HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
@@ -4595,6 +4714,7 @@ void helper_mtc0_tcrestart (target_ulong arg1)
     env->active_tc.PC = arg1;
     env->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
     env->lladdr = 0ULL;
+    env->llbit = 0;
     /* MIPS16 not implemented. */
 }
 
@@ -4607,11 +4727,13 @@ void helper_mttc0_tcrestart (target_ulong arg1)
         other->active_tc.PC = arg1;
         other->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     } else {
         other->tcs[other_tc].PC = arg1;
         other->tcs[other_tc].CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     }
 }
@@ -4766,7 +4888,7 @@ void helper_mtc0_entryhi (target_ulong arg1)
     target_ulong old, val;
 
     /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
+    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0x4FF);
 #if defined(TARGET_MIPS64)
     val &= env->SEGMask;
 #endif
@@ -4917,7 +5039,6 @@ target_ulong helper_mftc0_configx(target_ulong idx)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
     CPUState *other = mips_cpu_map_tc(&other_tc);
-
     switch (idx) {
     case 0: return other->CP0_Config0;
     case 1: return other->CP0_Config1;
@@ -5258,18 +5379,40 @@ static void r4k_fill_tlb (int idx)
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+
+#ifdef SV_SUPPORT
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
+    sv_log("%08x ", env->CP0_PageMask);
+    sv_log("%08x ", env->CP0_EntryHi);
+    sv_log("%08x ", env->CP0_EntryLo1);
+    sv_log("%08x\n", env->CP0_EntryLo0);
+#endif
 }
 
 void r4k_helper_tlbwi (void)
 {
     int idx;
 
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWI ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBWI ", env->cpu_model_str);
+#endif
+#endif
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-
-    /* Discard cached TLB entries.  We could avoid doing this if the
-       tlbwi is just upgrading access permissions on the current entry;
-       that might be a further win.  */
-    r4k_mips_tlb_flush_extra (env, env->tlb->nb_tlb);
 
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(idx);
@@ -5277,6 +5420,13 @@ void r4k_helper_tlbwi (void)
 
 void r4k_helper_tlbwr (void)
 {
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBWR ", env->cpu_model_str);
+#endif
+#endif
     int r = cpu_mips_get_random(env);
 
     r4k_invalidate_tlb(env, r, 1);
@@ -5323,6 +5473,16 @@ void r4k_helper_tlbp (void)
 
         env->CP0_Index |= 0x80000000;
     }
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBP ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBP ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
+    sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
+    sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
+#endif
 }
 
 void r4k_helper_tlbr (void)
@@ -5347,6 +5507,21 @@ void r4k_helper_tlbr (void)
                         (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s: TLBR ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log(" G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID tlb=0x%08x ", tlb->ASID);
+    sv_log("EnHi=0x%08x\n", env->CP0_EntryHi & 0xff);
+#endif
 }
 
 void helper_tlbwi(void)
@@ -5439,7 +5614,7 @@ void helper_eret (void)
     }
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+    env->llbit = 0;
 }
 
 void helper_deret (void)
@@ -5450,7 +5625,7 @@ void helper_deret (void)
     env->hflags &= MIPS_HFLAG_DM;
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+//  A DERET placed between an LL and SC instruction does not cause the SC to fail.
 }
 #endif /* !CONFIG_USER_ONLY */
 

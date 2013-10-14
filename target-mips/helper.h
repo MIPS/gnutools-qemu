@@ -26,6 +26,10 @@ DEF_HELPER_0(avp_fail, void)
 #endif
 #endif
 
+#ifdef SV_SUPPORT
+DEF_HELPER_3(trace_mem_access, void, tl, tl, i32)
+#endif
+
 DEF_HELPER_2(raise_exception_err, void, i32, int)
 DEF_HELPER_1(raise_exception, void, i32)
 

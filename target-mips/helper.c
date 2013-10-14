@@ -100,6 +100,46 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
+#ifdef SV_SUPPORT
+/* MIPS32/MIPS64 R4000-style MMU emulation */
+int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
+                     target_ulong address, int rw, int access_type)
+{
+    uint8_t ASID = env->CP0_EntryHi & 0xFF;
+    int i;
+
+    for (i = 0; i < env->tlb->tlb_in_use; i++) {
+        r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
+        /* 1k pages are not supported. */
+        target_ulong mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
+        target_ulong tag = address & ~mask;
+        target_ulong VPN = tlb->VPN & ~mask;
+#if defined(TARGET_MIPS64)
+        tag &= env->SEGMask;
+#endif
+
+        /* Check ASID, virtual page number & size */
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
+            /* TLB match */
+            int n = !!(address & mask & ~(mask >> 1));
+            /* Check access rights */
+            if (!(n ? tlb->V1 : tlb->V0))
+                return TLBRET_INVALID;
+            if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
+                *physical = tlb->PFN[n] | (address & (mask >> 1));
+                *prot = PAGE_READ;
+                if (n ? tlb->D1 : tlb->D0)
+                    *prot |= PAGE_WRITE;
+                *cca = n? tlb->C1 : tlb->C0;
+                return TLBRET_MATCH;
+            }
+            return TLBRET_DIRTY;
+        }
+    }
+    return TLBRET_NOMATCH;
+}
+#endif
+
 static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
@@ -242,8 +282,22 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
     env->CP0_BadVAddr = address;
     env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
                        ((address >> 9) & 0x007ffff0);
+#if defined(SV_SUPPORT)
+    if (exception != EXCP_AdES && exception != EXCP_AdEL) {
+        /* "MIPS Architecture for Programmers, Volume III: The MIPS32 and microMIPS
+           Privileged Resource Architecture", Revision 5.03 Sept. 9, 2013
+           - according to the manual, on Address Error Exception ContextVPN2,
+           EntryHiVPN2 values are unpredictable, so in general it shouldn't
+           matter whether these registers are changed or not in the simulator.
+           However, in IASim EntryHiVPN2 doesn't seem to be changed,
+           thus we modify qemu to work in the same way to make diff tests pass.
+        */
+#endif
     env->CP0_EntryHi =
         (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+#if defined(SV_SUPPORT)
+    }
+#endif
 #if defined(TARGET_MIPS64)
     env->CP0_EntryHi &= env->SEGMask;
     env->CP0_XContext = (env->CP0_XContext & ((~0ULL) << (env->SEGBITS - 7))) |
@@ -405,7 +459,13 @@ void do_interrupt (CPUState *env)
     target_ulong offset;
     int cause = -1;
     const char *name;
-
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_EXCEPT) %s %" PRIx64, env->cpu_model_str, env->active_tc.PC);
+#else
+    sv_log("Info (MIPS32_EXCEPT) %s %x" , env->cpu_model_str, env->active_tc.PC);
+#endif
+#endif
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
         if (env->exception_index < 0 || env->exception_index > EXCP_LAST)
             name = "unknown";
@@ -644,6 +704,10 @@ void do_interrupt (CPUState *env)
                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
                 env->CP0_DEPC);
     }
+#ifdef SV_SUPPORT
+    sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+#endif
+
 #endif
     env->exception_index = EXCP_NONE;
 }
