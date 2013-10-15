@@ -6855,7 +6855,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
  *  MSA
  */
 
-#define DEBUG_MSACSR 1
+#define DEBUG_MSACSR 0
 
 /* Data format and vector length unpacking */
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
@@ -7947,35 +7947,36 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 #define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
 
-void helper_shf_b(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
 {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
     wr_t wx, *pwx = &wx;
 
-    ALL_B_ELEMENTS(i, wrlen) {
+    switch (df) {
+    case DF_BYTE:
+      ALL_B_ELEMENTS(i, wrlen) {
         B(pwx, i) = B(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_h(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_H_ELEMENTS(i, wrlen) {
+    case DF_HALF:
+      ALL_H_ELEMENTS(i, wrlen) {
         H(pwx, i) = H(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_W_ELEMENTS(i, wrlen) {
+    case DF_WORD:
+      ALL_W_ELEMENTS(i, wrlen) {
         W(pwx, i) = W(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
 
     helper_move_v(pwd, &wx, wrlen);
 }
@@ -8558,8 +8559,8 @@ int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8573,8 +8574,8 @@ int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8587,8 +8588,8 @@ int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8602,8 +8603,8 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8745,7 +8746,7 @@ static void check_msacsr_cause(void)
 #define CLEAR_IS_INEXACT   2
 #define RECIPROCAL_INEXACT 4
 
-static int update_msacsr(int action)
+static int update_msacsr(int action, int denormal)
 {
     int ieee_ex;
 
@@ -8754,6 +8755,14 @@ static int update_msacsr(int action)
     int enable;
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+
+    /* QEMU softfloat does not signal all underflow cases */
+    if (denormal) {
+#if DEBUG_MSACSR
+      puts("FORCING UNDERFLOW");
+#endif
+      ieee_ex |= float_flag_underflow;
+    }
 
 #if DEBUG_MSACSR
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
@@ -8801,7 +8810,7 @@ static int update_msacsr(int action)
     /* Clear Exact Underflow when Underflow (U) is not enabled */
     if ((c & FP_UNDERFLOW) != 0 && (enable & FP_UNDERFLOW) == 0 &&
         (c & FP_INEXACT) == 0) {
-      c = c ^ FP_UNDERFLOW;
+      c &= ~FP_UNDERFLOW;
     }
 
     /* Reciprocal operations set only Inexact when valid and not
@@ -8838,6 +8847,14 @@ static int update_msacsr(int action)
     return c;
 }
 
+#define float16_is_zero(ARG) 0
+#define float16_is_zero_or_denormal(ARG) 0
+
+#define IS_DENORMAL(ARG, BITS)                                   \
+  (!float ## BITS ## _is_zero(ARG)                               \
+   && float ## BITS ## _is_zero_or_denormal(ARG))                \
+  
+
 #define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                            \
   do {                                                                  \
     int c;                                                              \
@@ -8847,7 +8864,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8870,7 +8887,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8888,7 +8905,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8919,7 +8936,7 @@ static int update_msacsr(int action)
                                     & (~float_flag_inexact),            \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8937,7 +8954,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8946,7 +8963,7 @@ static int update_msacsr(int action)
     }                                                                   \
   } while (0)
 
-#define MSA_FLOAT_BINOP_INEXACT(DEST, OP, ARG1, ARG2, BITS)             \
+#define MSA_FLOAT_MAXOP(DEST, OP, ARG1, ARG2, BITS)                     \
   do {                                                                  \
     int c;                                                              \
     int cause;                                                          \
@@ -8955,7 +8972,28 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(RECIPROCAL_INEXACT);                              \
+    c = update_msacsr(0, 0);                                            \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
+    }                                                                   \
+  } while (0)
+
+#define MSA_FLOAT_RECIPROCAL(DEST, ARG, BITS)                           \
+  do {                                                                  \
+    int c;                                                              \
+    int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
+                                     &env->active_msa.fp_status);       \
+    c = update_msacsr(float ## BITS ## _is_infinity(ARG) ||             \
+                      float ## BITS ## _is_quiet_nan(DEST)?             \
+                      0 : RECIPROCAL_INEXACT,                           \
+                      IS_DENORMAL(DEST, BITS));                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8973,7 +9011,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -9319,9 +9357,9 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                                                                 \
   uint## BITS ##_t xs, xt, xd;                                  \
                                                                 \
-  MSA_FLOAT_BINOP(xs, F,  S,  T, BITS);                         \
-  MSA_FLOAT_BINOP(xt, G,  S,  T, BITS);                         \
-  MSA_FLOAT_BINOP(xd, F, as, at, BITS);                         \
+  MSA_FLOAT_MAXOP(xs, F,  S,  T, BITS);                         \
+  MSA_FLOAT_MAXOP(xt, G,  S,  T, BITS);                         \
+  MSA_FLOAT_MAXOP(xd, F, as, at, BITS);                         \
                                                                 \
   X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
 
@@ -9371,13 +9409,13 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
             }
             else {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9385,13 +9423,13 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
             }
             else {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -9451,13 +9489,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
             }
             else {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9465,13 +9503,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
             }
             else {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9517,7 +9555,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
                                                                         \
-    c = update_msacsr(CLEAR_IS_INEXACT);                                \
+    c = update_msacsr(CLEAR_IS_INEXACT, 0);                             \
                                                                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
@@ -10539,6 +10577,9 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     a = float32_scalbn(a, 15 STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
       return (int32)a < 0 ? q_min : q_max;
@@ -10548,6 +10589,9 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     q_val = float32_to_int32(a STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_invalid) {
       set_float_exception_flags(ieee_ex & (~float_flag_invalid),
                                 &env->active_msa.fp_status);
@@ -10585,6 +10629,9 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     a = float64_scalbn(a, 31 STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
       return (int64)a < 0 ? q_min : q_max;
@@ -10594,6 +10641,9 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     q_val = float64_to_int64(a STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_invalid) {
       set_float_exception_flags(ieee_ex & (~float_flag_invalid),
                                 &env->active_msa.fp_status);
@@ -10719,13 +10769,13 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
+            MSA_FLOAT_RECIPROCAL(W(pwx, i), W(pws, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
+            MSA_FLOAT_RECIPROCAL(D(pwx, i), D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10751,15 +10801,22 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-           MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
-           MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwx, i), 32);
+          MSA_FLOAT_RECIPROCAL(W(pwx, i), 
+                               float32_sqrt(W(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               32);
+
+          printf("frsqrt.w 0x%08x <-- 0x%08x\n", W(pwx, i), W(pws, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwx, i), 64);
+          MSA_FLOAT_RECIPROCAL(D(pwx, i), 
+                               float64_sqrt(D(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10921,4 +10978,22 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     }
 
     // helper_raise_exception(EXCP_RI);
+}
+
+
+/*
+ *  MIPS R6 DLSA and LSA
+ */
+
+#define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
+
+uint64_t helper_dlsa(uint64_t rt, uint64_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
+}
+
+
+uint32_t helper_lsa(uint32_t rt, uint32_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
 }

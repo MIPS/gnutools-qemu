@@ -1935,35 +1935,38 @@ static void gen_clei_u_df(CPUState *env, DisasContext *ctx) {
 }
 
 static void gen_ld_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = s5_rs_wd */
+    /* func_type = mi10_rs_wd */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s10 = (ctx->opcode >> 16) & 0x3ff /* s10 [25:16] */;
+    s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t df = (ctx->opcode >> 0) & 0x3 /* df [1:0] */;
+
+    int16_t offset = s10 << df;
 
     check_msa_access(env, ctx, wd, wd, wd);
 
-    TCGv_i32 twd = tcg_const_i32(wd);
-
-    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
+    /* 
+     *  set element granularity to 8 bits (df = 0) because the load
+     *  is implemented using tcg_gen_qemu_ld8u()
+     */
+    df = 0;
     int df_bits = 8 * (1 << df);
-    int16_t offset = s5 * (wrlen/8);
 
     int i;
     TCGv td = tcg_temp_new();
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv_i32 twd = tcg_const_i32(wd);
 
     for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
-        tcg_gen_qemu_ld32s(td, taddr, ctx->mem_idx);
+        gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
+        tcg_gen_qemu_ld8u(td, taddr, ctx->mem_idx);
         gen_helper_store_wr_modulo(td, twd, tdf, ti);
         tcg_temp_free_i32(ti);
     }
@@ -1977,36 +1980,39 @@ static void gen_ld_df(CPUState *env, DisasContext *ctx) {
 }
 
 static void gen_st_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = s5_rs_wd */
+    /* func_type = mi10_rs_wd */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
-    s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
+    int64_t s10 = (ctx->opcode >> 16) & 0x3ff /* s10 [25:16] */;
+    s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t df = (ctx->opcode >> 0) & 0x3 /* df [1:0] */;
+
+    int16_t offset = s10 << df;
 
     check_msa_access(env, ctx, wd, -1, -1);
 
-    TCGv_i32 twd = tcg_const_i32(wd);
-
-    // set element granularity to 32 bits, in line with tcg_gen_qemu_st32()
-    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
+    /* 
+     *  set element granularity to 8 bits (df = 0) because the store
+     *  is implemented using tcg_gen_qemu_st8()
+     */
+    df = 0;
     int df_bits = 8 * (1 << df);
-    int16_t offset = s5 * (wrlen/8);
 
     int i;
     TCGv td = tcg_temp_new();
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv_i32 twd = tcg_const_i32(wd);
 
     for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
-        gen_base_offset_addr(ctx, taddr, rs, offset + i*df_bits/8);
-        tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
+        gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
+        tcg_gen_qemu_st8(td, taddr, ctx->mem_idx);
         tcg_temp_free_i32(ti);
     }
 
@@ -2014,112 +2020,6 @@ static void gen_st_df(CPUState *env, DisasContext *ctx) {
     tcg_temp_free(td);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
-
-    update_msa_modify(env, ctx, wd);
-}
-
-static void gen_ldx_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_rt_rs_wd */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
-    uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, wd, -1, -1);
-
-    TCGv trt = tcg_temp_new();
-    TCGv trs = tcg_temp_new();
-    TCGv_i32 twd = tcg_const_i32(wd);
-
-    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    if (df != 2) df = 2; /* FIXME: use df not 'w' format */
-    int df_bits = 8 * (1 << df);
-
-    gen_load_gpr(trt, rt);
-    gen_load_gpr(trs, rs);
-    TCGv taddr = tcg_temp_new();
-    gen_op_addr_add(ctx, taddr, trs, trt);
-
-    int i;
-    TCGv td = tcg_temp_new();
-    TCGv telemoff  = tcg_temp_new(); /* element offset */
-    TCGv telemaddr = tcg_temp_new(); /* element addr */
-    TCGv_i32 tdf = tcg_const_i32(df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        TCGv_i32 ti = tcg_const_i32(i);
-        tcg_gen_movi_tl(telemoff, i*df_bits/8);
-        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
-        tcg_gen_qemu_ld32s(td, telemaddr, ctx->mem_idx);
-        gen_helper_store_wr_modulo(td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
-
-    tcg_temp_free(trt);
-    tcg_temp_free(trs);
-    tcg_temp_free_i32(twd);
-    tcg_temp_free(td);
-    tcg_temp_free(taddr);
-    tcg_temp_free_i32(tdf);
-    tcg_temp_free(telemoff);
-    tcg_temp_free(telemaddr);
-
-    update_msa_modify(env, ctx, wd);
-}
-
-static void gen_stx_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_rt_rs_wd */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
-    uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, wd, -1, -1);
-
-    TCGv trt = tcg_temp_new();
-    TCGv trs = tcg_temp_new();
-    TCGv_i32 twd = tcg_const_i32(wd);
-
-    // set element granularity to 32 bits, in line with tcg_gen_qemu_ld32s()
-    if (df != 2) df = 2; /* FIXME: use df not 'w' format  */
-    int df_bits = 8 * (1 << df);
-
-    gen_load_gpr(trt, rt);
-    gen_load_gpr(trs, rs);
-    TCGv taddr = tcg_temp_new();
-    gen_op_addr_add(ctx, taddr, trs, trt);
-
-    int i;
-    TCGv td = tcg_temp_new();
-    TCGv telemoff  = tcg_temp_new(); /* element offset */
-    TCGv telemaddr = tcg_temp_new(); /* element addr */
-    TCGv_i32 tdf = tcg_const_i32(df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_modulo_i64(td, twd, tdf, ti);
-        tcg_gen_movi_tl(telemoff, i*df_bits/8);
-        gen_op_addr_add(ctx, telemaddr, taddr, telemoff);
-        tcg_gen_qemu_st32(td, telemaddr, ctx->mem_idx);
-        tcg_temp_free_i32(ti);
-    }
-
-    tcg_temp_free(trt);
-    tcg_temp_free(trs);
-    tcg_temp_free_i32(twd);
-    tcg_temp_free(td);
-    tcg_temp_free(taddr);
-    tcg_temp_free_i32(tdf);
-    tcg_temp_free(telemoff);
-    tcg_temp_free(telemaddr);
 
     update_msa_modify(env, ctx, wd);
 }
@@ -4728,159 +4628,106 @@ static void gen_bseli_b(CPUState *env, DisasContext *ctx) {
     update_msa_modify(env, ctx, wd);
 }
 
-static void gen_shf_b(CPUState *env, DisasContext *ctx) {
-    /* func_type = i8_ws_wd */
+static void gen_shf_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_i8_ws_wd */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
 
+    uint8_t df = (ctx->opcode >> 24) & 0x3 /* df [25:24] */;
     uint8_t i8 = (ctx->opcode >> 16) & 0xff /* i8 [23:16] */;
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+
+    /* check df: double format not allowed */
+    if (df == 3) {
+        generate_exception(ctx, EXCP_RI);
+    }
 
     check_msa_access(env, ctx, ws, ws, wd);
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
     TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
 
-    gen_helper_shf_b(tpwd, tpws, ti8, twrlen);
+    gen_helper_shf_df(tpwd, tpws, ti8, twrlen_df);
 
     tcg_temp_free_i64(tpws);
     tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
-    tcg_temp_free_i32(ti8);
-
-    update_msa_modify(env, ctx, wd);
-}
-
-static void gen_shf_h(CPUState *env, DisasContext *ctx) {
-    /* func_type = i8_ws_wd */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-
-    uint8_t i8 = (ctx->opcode >> 16) & 0xff /* i8 [23:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, ws, ws, wd);
-
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
-    TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
-
-    gen_helper_shf_h(tpwd, tpws, ti8, twrlen);
-
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
-    tcg_temp_free_i32(ti8);
-
-    update_msa_modify(env, ctx, wd);
-}
-
-static void gen_shf_w(CPUState *env, DisasContext *ctx) {
-    /* func_type = i8_ws_wd */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-
-    uint8_t i8 = (ctx->opcode >> 16) & 0xff /* i8 [23:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, ws, ws, wd);
-
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
-    TCGv_i32 ti8 = tcg_const_i32(i8); // FIXME
-
-    gen_helper_shf_w(tpwd, tpws, ti8, twrlen);
-
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen);
+    tcg_temp_free_i32(twrlen_df);
     tcg_temp_free_i32(ti8);
 
     update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
-    /* func_type = s10_wd_branch */
+    /* func_type = s16_wt_branch */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
 
-    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
+    int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
+    s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wd, wd, -1);
+    check_msa_access(env, ctx, wt, -1, -1);
 
-    TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  =
-tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 ts16 = tcg_const_i32(s16);
+    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
-    gen_helper_bnz_v(tbcond, tpwd, twrlen);
+    gen_helper_bnz_v(tbcond, tpwt, twrlen);
 
-    int64_t offset = (s10 << 54) >> 52;
+    int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+
     tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
-    tcg_temp_free_i32(ts10);
-    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(ts16);
+    tcg_temp_free_i64(tpwt);
     tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bz_v(CPUState *env, DisasContext *ctx) {
-    /* func_type = s10_wd_branch */
+    /* func_type = s16_wt_branch */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
 
-    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
+    int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
+    s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wd, wd, -1);
+    check_msa_access(env, ctx, wt, -1, -1);
 
-    TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  =
-tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 ts16 = tcg_const_i32(s16);
+    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
-    gen_helper_bz_v(tbcond, tpwd, twrlen);
+    gen_helper_bz_v(tbcond, tpwt, twrlen);
 
-    int64_t offset = (s10 << 54) >> 52;
+    int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+
     tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
-    tcg_temp_free_i32(ts10);
-    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(ts16);
+    tcg_temp_free_i64(tpwt);
     tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_fill_df(CPUState *env, DisasContext *ctx) {
@@ -5271,77 +5118,77 @@ static void gen_insve_df(CPUState *env, DisasContext *ctx) {
 }
 
 static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_s10_wd_branch */
+    /* func_type = df_s16_wt_branch */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
+    int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
+    s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wd, wd, -1);
+    check_msa_access(env, ctx, wt, -1, -1);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
-    TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 ts16 = tcg_const_i32(s16);
+    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
 
-    gen_helper_bnz_df(tbcond, tpwd, tdf, twrlen);
+    gen_helper_bnz_df(tbcond, tpwt, tdf, twrlen);
 
-    int64_t offset = (s10 << 54) >> 52;
+    int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+
     tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
-    tcg_temp_free_i32(ts10);
-    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(ts16);
+    tcg_temp_free_i64(tpwt);
     tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_bz_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_s10_wd_branch */
+    /* func_type = df_s16_wt_branch */
 
     /* Implementation fixed to 128-bit vector registers */
     int __attribute__((unused)) wrlen = 128;
 
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
+    int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
+    s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wd, wd, -1);
+    check_msa_access(env, ctx, wt, -1, -1);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
-    TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 ts16 = tcg_const_i32(s16);
+    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
 
     TCGv_i32 twrlen = tcg_const_i32(wrlen);
 
     TCGv tbcond = tcg_temp_new();
 
-    gen_helper_bz_df(tbcond, tpwd, tdf, twrlen);
+    gen_helper_bz_df(tbcond, tpwt, tdf, twrlen);
 
-    int64_t offset = (s10 << 54) >> 52;
+    int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
+
     tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
     tcg_temp_free(tbcond);
     tcg_temp_free_i32(tdf);
-    tcg_temp_free_i32(ts10);
-    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(ts16);
+    tcg_temp_free_i64(tpwt);
     tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 }
 
 static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
@@ -5353,6 +5200,7 @@ static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
 
     uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
     int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+    s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
     check_msa_access(env, ctx, wd, wd, wd);
@@ -6899,6 +6747,68 @@ static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
     update_msa_modify(env, ctx, wd);
 }
 
+static void gen_ftrunc_s_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_ws_wd_p */
+
+    /* Implementation fixed to 128-bit vector registers */
+    int __attribute__((unused)) wrlen = 128;
+
+
+    uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
+
+
+    /* adjust df value for floating-point instruction */
+    df = df + 2;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_helper_ftrunc_s_df(tpwd, tpws, twrlen_df);
+
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
+}
+
+static void gen_ftrunc_u_df(CPUState *env, DisasContext *ctx) {
+    /* func_type = df_ws_wd_p */
+
+    /* Implementation fixed to 128-bit vector registers */
+    int __attribute__((unused)) wrlen = 128;
+
+
+    uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
+
+
+    /* adjust df value for floating-point instruction */
+    df = df + 2;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+
+    check_msa_access(env, ctx, ws, ws, wd);
+
+    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
+    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+
+    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+
+    gen_helper_ftrunc_u_df(tpwd, tpws, twrlen_df);
+
+    tcg_temp_free_i64(tpws);
+    tcg_temp_free_i64(tpwd);
+    tcg_temp_free_i32(twrlen_df);
+
+    update_msa_modify(env, ctx, wd);
+}
+
 static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
     /* func_type = df_ws_wd_p */
 
@@ -7302,68 +7212,6 @@ static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
     update_msa_modify(env, ctx, wd);
 }
 
-static void gen_ftrunc_s_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_ws_wd_p */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-
-    uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
-
-
-    /* adjust df value for floating-point instruction */
-    df = df + 2;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, ws, ws, wd);
-
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
-
-    gen_helper_ftrunc_s_df(tpwd, tpws, twrlen_df);
-
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
-}
-
-static void gen_ftrunc_u_df(CPUState *env, DisasContext *ctx) {
-    /* func_type = df_ws_wd_p */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
-
-    uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
-
-
-    /* adjust df value for floating-point instruction */
-    df = df + 2;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-    check_msa_access(env, ctx, ws, ws, wd);
-
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
-
-    gen_helper_ftrunc_u_df(tpwd, tpws, twrlen_df);
-
-    tcg_temp_free_i64(tpws);
-    tcg_temp_free_i64(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
-}
-
 static void gen_ctcmsa(CPUState *env, DisasContext *ctx) {
     /* func_type = rs_cd */
 
@@ -7434,5 +7282,75 @@ static void gen_move_v(CPUState *env, DisasContext *ctx) {
     tcg_temp_free_i32(twrlen);
 
     update_msa_modify(env, ctx, wd);
+}
+
+static void gen_lsa(CPUState *env, DisasContext *ctx) {
+    /* func_type = rs_rt_rd_u2 */
+
+    /* Implementation fixed to 128-bit vector registers */
+    int __attribute__((unused)) wrlen = 128;
+
+
+    uint8_t rs = (ctx->opcode >> 21) & 0x1f /* rs [25:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t rd = (ctx->opcode >> 11) & 0x1f /* rd [15:11] */;
+    uint8_t u2 = (ctx->opcode >> 6) & 0x3 /* u2 [7:6] */;
+
+
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
+    }
+
+    TCGv_i32 tu2 = tcg_const_i32(u2);
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv telm = tcg_temp_new();
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    gen_helper_lsa(telm, trt, trs, tu2);
+    gen_store_gpr(telm, rd);
+
+    tcg_temp_free(telm);
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+    tcg_temp_free(tu2);
+}
+
+static void gen_dlsa(CPUState *env, DisasContext *ctx) {
+    /* func_type = rs_rt_rd_u2 */
+
+    /* Implementation fixed to 128-bit vector registers */
+    int __attribute__((unused)) wrlen = 128;
+
+
+    uint8_t rs = (ctx->opcode >> 21) & 0x1f /* rs [25:21] */;
+    uint8_t rt = (ctx->opcode >> 16) & 0x1f /* rt [20:16] */;
+    uint8_t rd = (ctx->opcode >> 11) & 0x1f /* rd [15:11] */;
+    uint8_t u2 = (ctx->opcode >> 6) & 0x3 /* u2 [7:6] */;
+
+#if !defined(TARGET_MIPS64)
+    /* dlsa valid only for MIPS64 */
+    generate_exception(ctx, EXCP_RI);
+#endif
+
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+      generate_exception(ctx, EXCP_RI);
+    }
+
+    TCGv_i32 tu2 = tcg_const_i32(u2);
+    TCGv trt = tcg_temp_new();
+    TCGv trs = tcg_temp_new();
+    TCGv telm = tcg_temp_new();
+
+    gen_load_gpr(trt, rt);
+    gen_load_gpr(trs, rs);
+    gen_helper_dlsa(telm, trt, trs, tu2);
+    gen_store_gpr(telm, rd);
+
+    tcg_temp_free(telm);
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+    tcg_temp_free(tu2);
 }
 
