@@ -306,7 +306,12 @@ mips_mipssim_init (ram_addr_t ram_size,
         bios_name = BIOS_FILENAME;
 #ifdef SV_SUPPORT
     /* Use -bios to load test.hex for SV against IASim */
-    bios_size = load_mips_hex(bios_name);
+    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+    if (filename) {
+        bios_size = load_mips_hex(filename);
+    } else {
+        bios_size = -1;
+    }
     if (bios_size < 0 && !kernel_filename) {
 #else
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
