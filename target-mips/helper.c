@@ -94,7 +94,7 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
             if (rw == 0 && (n ? tlb->RI1 : tlb->RI0))
                 return TLBRET_RI; // TODO: MIPS16 PC-relative special case
             if (rw != 1 || (n ? tlb->D1 : tlb->D0)) {
-                *physical = tlb->PFN[n] | (address & (mask >> 1));
+                *physical = (tlb->PFN[n] << 12) | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
                     *prot |= PAGE_WRITE;
