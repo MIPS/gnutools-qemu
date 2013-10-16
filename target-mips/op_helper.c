@@ -5374,11 +5374,11 @@ static void r4k_fill_tlb (int idx)
     tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
     tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-    tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
+    tlb->PFN[0] = env->CP0_EntryLo0 >> 6;
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-    tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+    tlb->PFN[1] = env->CP0_EntryLo1 >> 6;
 
 #ifdef SV_SUPPORT
     sv_log("FILL TLB index %d, ", idx);
@@ -5504,9 +5504,9 @@ void r4k_helper_tlbr (void)
     env->CP0_EntryHi = tlb->VPN | tlb->ASID;
     env->CP0_PageMask = tlb->PageMask;
     env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+                        (tlb->C0 << 3) | (tlb->PFN[0] << 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                        (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+                        (tlb->C1 << 3) | (tlb->PFN[1] << 6);
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
