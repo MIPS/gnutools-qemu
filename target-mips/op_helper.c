@@ -5612,7 +5612,7 @@ static void r4k_fill_tlb (int idx, bool guest)
             mask = -1;
         }
 
-        tlb->VPN = env->CP0_EntryHi & ((~mask) << 1);
+        tlb->VPN = env->CP0_EntryHi & ((~mask) << (TARGET_PAGE_BITS + 1));
 #if defined(TARGET_MIPS64)
         tlb->VPN &= env->SEGMask;
 #endif
@@ -5631,11 +5631,11 @@ static void r4k_fill_tlb (int idx, bool guest)
         tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
         tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
         tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-        tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) << 12) & ~mask;
+        tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) & ~mask;
         tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
         tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
         tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-        tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) << 12) & ~mask;
+        tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) & ~mask;
 
         tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
                 (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
@@ -5656,8 +5656,8 @@ static void r4k_fill_tlb (int idx, bool guest)
         sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
         sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
         sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
-        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0] << TARGET_PAGE_BITS);
+        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1] << TARGET_PAGE_BITS);
         sv_log("mask 0x%08x ", tlb->PageMask);
         sv_log("G %x ", tlb->G);
         sv_log("V0 %x ", tlb->V0);
@@ -5691,7 +5691,7 @@ static void r4k_fill_tlb (int idx, bool guest)
             mask = -1;
         }
 
-        tlb->VPN = env->Guest.CP0_EntryHi & ((~mask) << 1);
+        tlb->VPN = env->Guest.CP0_EntryHi & ((~mask) << (TARGET_PAGE_BITS + 1));
     #if defined(TARGET_MIPS64)
         tlb->VPN &= env->SEGMask;
     #endif
@@ -5701,11 +5701,11 @@ static void r4k_fill_tlb (int idx, bool guest)
         tlb->V0 = (env->Guest.CP0_EntryLo0 & 2) != 0;
         tlb->D0 = (env->Guest.CP0_EntryLo0 & 4) != 0;
         tlb->C0 = (env->Guest.CP0_EntryLo0 >> 3) & 0x7;
-        tlb->PFN[0] = ((env->Guest.CP0_EntryLo0 >> 6) << 12) & ~mask;
+        tlb->PFN[0] = (env->Guest.CP0_EntryLo0 >> 6) & ~mask;
         tlb->V1 = (env->Guest.CP0_EntryLo1 & 2) != 0;
         tlb->D1 = (env->Guest.CP0_EntryLo1 & 4) != 0;
         tlb->C1 = (env->Guest.CP0_EntryLo1 >> 3) & 0x7;
-        tlb->PFN[1] = ((env->Guest.CP0_EntryLo1 >> 6) << 12) & ~mask;
+        tlb->PFN[1] = (env->Guest.CP0_EntryLo1 >> 6) & ~mask;
 
         tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
                 (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
@@ -5726,8 +5726,8 @@ static void r4k_fill_tlb (int idx, bool guest)
         sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
         sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
         sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
-        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0] << TARGET_PAGE_BITS);
+        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1] << TARGET_PAGE_BITS);
         sv_log("mask 0x%08x ", tlb->PageMask);
         sv_log("G %x ", tlb->G);
         sv_log("V0 %x ", tlb->V0);
@@ -5971,9 +5971,9 @@ void r4k_helper_tlbr (void)
     *CP0_EntryHi = tlb->VPN | tlb->ASID;
     *CP0_PageMask = tlb->PageMask;
     *CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                    (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+                    (tlb->C0 << 3) | (tlb->PFN[0] << 6);
     *CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                    (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+                    (tlb->C1 << 3) | (tlb->PFN[1] << 6);
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
@@ -6016,9 +6016,9 @@ void r4k_helper_tlbgr (void)
     env->Guest.CP0_EntryHi = tlb->VPN | tlb->ASID;
     env->Guest.CP0_PageMask = tlb->PageMask;
     env->Guest.CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                              (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+                              (tlb->C0 << 3) | (tlb->PFN[0] << 6);
     env->Guest.CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                              (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+                              (tlb->C1 << 3) | (tlb->PFN[1] << 6);
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: Guest - TLBR ", env->cpu_model_str);

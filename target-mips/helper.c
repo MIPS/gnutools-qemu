@@ -95,7 +95,7 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                 return TLBRET_INVALID;
             }*/
             if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
-                *physical = tlb->PFN[n] | (address & (mask >> 1));
+                *physical = (tlb->PFN[n] << TARGET_PAGE_BITS) | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
                     *prot |= PAGE_WRITE;
@@ -135,7 +135,7 @@ int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *pro
             if (!(n ? tlb->V1 : tlb->V0))
                 return TLBRET_INVALID;
             if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
-                *physical = tlb->PFN[n] | (address & (mask >> 1));
+                *physical = (tlb->PFN[n] << TARGET_PAGE_BITS) | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
                     *prot |= PAGE_WRITE;
