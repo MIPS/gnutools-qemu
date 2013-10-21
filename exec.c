@@ -61,6 +61,11 @@
 //#define DEBUG_FLUSH
 //#define DEBUG_TLB
 //#define DEBUG_UNASSIGNED
+#ifdef PAE_TEST
+#ifndef DEBUG_UNASSIGNED
+#define DEBUG_UNASSIGNED
+#endif
+#endif
 
 /* make various TB consistency checks */
 //#define DEBUG_TB_CHECK
