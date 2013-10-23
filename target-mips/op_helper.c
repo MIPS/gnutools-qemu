@@ -50,6 +50,97 @@ void helper_avp_fail(void)
 #endif
 #endif
 
+#ifdef SV_SUPPORT
+int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
+{
+    // this function doesn't care of kernel/super/user mode as it is a debug only function.
+    // FIXME: MIPS64
+    target_phys_addr_t physical;
+    int prot;
+    int cca = 2;// uncached by default
+
+    if (vaddr <= (int32_t)0x7FFFFFFFUL) {
+        /* useg */
+        if ((env->CP0_Status) & (1 << CP0St_ERL)) {
+            cca = 2;
+        }
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From KU field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_KU) & 0x7;
+        }
+    }
+    else if (vaddr < (int32_t)0xA0000000UL) {
+        /* kseg0 */
+        //From K0 field of Config Register
+        cca = (env->CP0_Config0) & 0x7;
+    }
+    else if (vaddr < (int32_t)0xC0000000UL) {
+        /* kseg1 */
+        cca = 2; // Uncached
+    }
+    else if (vaddr < (int32_t)0xE0000000UL) {
+        /* sseg (kseg2) */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    else {
+        /* kseg3 */
+        //tlb based
+        if (env->tlb->map_address == &r4k_map_address) {
+            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
+        }
+        //fixed mapping
+        else if (env->tlb->map_address == &fixed_mmu_map_address) {
+            //From K23 field of Config Register
+            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
+        }
+    }
+    return cca;
+}
+
+void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_size)
+{
+    sv_log("%s : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
+            env->cpu_model_str,
+            (rw_size >> 16)? "Write":"Read",
+            addr,
+            (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
+            cpu_mips_cacheability(env, addr, rw_size >> 16)
+            );
+
+    switch(rw_size & 0xffff)
+    {
+    case 1:
+        sv_log("------%02x\n", (uint8_t) val);
+        break;
+    case 2:
+        sv_log("----%04x\n", (uint16_t) val);
+        break;
+    case 4:
+        sv_log("%08x\n", (uint32_t) val);
+        break;
+    case 8:
+        sv_log("%016lx", (uint64_t) val);
+        break;
+    default:
+        sv_log("\n");
+        break;
+    }
+}
+#endif
+
 static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
@@ -167,6 +258,7 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     insn##_raw(addr, val);                                              \
 }
 #else
+#ifndef SV_SUPPORT
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
 {                                                                       \
@@ -178,6 +270,25 @@ static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
     case 2: insn##_user(addr, val); break;                              \
     }                                                                   \
 }
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(target_ulong addr, type val, int mem_idx)  \
+{                                                                       \
+    switch (mem_idx)                                                    \
+    {                                                                   \
+    case 0: insn##_kernel(addr, val); break;                            \
+    case 1: insn##_super(addr, val); break;                             \
+    default:                                                            \
+    case 2: insn##_user(addr, val); break;                              \
+    }                                                                   \
+    if (sizeof(val) == sizeof(uint8_t))                                 \
+        helper_trace_mem_access(val, addr, 0x10001);                    \
+    else if (sizeof(val) == sizeof(uint32_t))                           \
+        helper_trace_mem_access(val, addr, 0x10004);                    \
+    else if (sizeof(val) == sizeof(uint64_t))                           \
+        helper_trace_mem_access(val, addr, 0x10008);                    \
+}
+#endif
 #endif
 HELPER_ST(sb, stb, uint8_t)
 HELPER_ST(sw, stl, uint32_t)
@@ -2116,6 +2227,11 @@ static inline target_ulong dsp_extp(uint64_t acc_value, uint32_t size,
 
     if (pos < size) {
         set_DSPCONTROL_14(1);
+#ifdef SV_SUPPORT
+        /* Manual says - unpredictable value. 
+           Behave like IASim and return 0. */
+        acc_value = 0;
+#endif
     } else {
         set_DSPCONTROL_14(0);
         if (do_dp) {
@@ -3582,8 +3698,8 @@ static inline target_phys_addr_t do_translate_address(target_ulong address, int 
 target_ulong helper_##name(target_ulong arg, int mem_idx)                     \
 {                                                                             \
     env->lladdr = do_translate_address(arg, 0);                               \
-    env->llval = do_##insn(arg, mem_idx);                                     \
-    return env->llval;                                                        \
+    env->llbit = 1;                                                           \
+    return do_##insn(arg, mem_idx);                                           \
 }
 HELPER_LD_ATOMIC(ll, lw)
 #ifdef TARGET_MIPS64
@@ -3594,21 +3710,24 @@ HELPER_LD_ATOMIC(lld, ld)
 #define HELPER_ST_ATOMIC(name, ld_insn, st_insn, almask)                      \
 target_ulong helper_##name(target_ulong arg1, target_ulong arg2, int mem_idx) \
 {                                                                             \
-    target_long tmp;                                                          \
-                                                                              \
+    int ret = 0;                                                              \
     if (arg2 & almask) {                                                      \
         env->CP0_BadVAddr = arg2;                                             \
         helper_raise_exception(EXCP_AdES);                                    \
     }                                                                         \
     if (do_translate_address(arg2, 1) == env->lladdr) {                       \
-        tmp = do_##ld_insn(arg2, mem_idx);                                    \
-        if (tmp == env->llval) {                                              \
+        if (env->llbit) {                                                     \
             do_##st_insn(arg2, arg1, mem_idx);                                \
-            return 1;                                                         \
+            ret = 1;                                                          \
         }                                                                     \
     }                                                                         \
-    return 0;                                                                 \
+    arg1 = (0) | ((env->llbit) & 1);                                          \
+    return ret;                                                               \
 }
+// FIXME:   A return value is not required from the above function.
+//          Atomic load functions for user mode are also required to be
+//          fixed before submit to upstream.
+
 HELPER_ST_ATOMIC(sc, lw, sw, 0x3)
 #ifdef TARGET_MIPS64
 HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
@@ -4595,6 +4714,7 @@ void helper_mtc0_tcrestart (target_ulong arg1)
     env->active_tc.PC = arg1;
     env->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
     env->lladdr = 0ULL;
+    env->llbit = 0;
     /* MIPS16 not implemented. */
 }
 
@@ -4607,11 +4727,13 @@ void helper_mttc0_tcrestart (target_ulong arg1)
         other->active_tc.PC = arg1;
         other->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     } else {
         other->tcs[other_tc].PC = arg1;
         other->tcs[other_tc].CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
+        other->llbit = 0;
         /* MIPS16 not implemented. */
     }
 }
@@ -4766,7 +4888,7 @@ void helper_mtc0_entryhi (target_ulong arg1)
     target_ulong old, val;
 
     /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
+    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0x4FF);
 #if defined(TARGET_MIPS64)
     val &= env->SEGMask;
 #endif
@@ -4917,7 +5039,6 @@ target_ulong helper_mftc0_configx(target_ulong idx)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
     CPUState *other = mips_cpu_map_tc(&other_tc);
-
     switch (idx) {
     case 0: return other->CP0_Config0;
     case 1: return other->CP0_Config1;
@@ -5258,18 +5379,40 @@ static void r4k_fill_tlb (int idx)
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+
+#ifdef SV_SUPPORT
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
+    sv_log("%08x ", env->CP0_PageMask);
+    sv_log("%08x ", env->CP0_EntryHi);
+    sv_log("%08x ", env->CP0_EntryLo1);
+    sv_log("%08x\n", env->CP0_EntryLo0);
+#endif
 }
 
 void r4k_helper_tlbwi (void)
 {
     int idx;
 
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWI ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBWI ", env->cpu_model_str);
+#endif
+#endif
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-
-    /* Discard cached TLB entries.  We could avoid doing this if the
-       tlbwi is just upgrading access permissions on the current entry;
-       that might be a further win.  */
-    r4k_mips_tlb_flush_extra (env, env->tlb->nb_tlb);
 
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(idx);
@@ -5277,6 +5420,13 @@ void r4k_helper_tlbwi (void)
 
 void r4k_helper_tlbwr (void)
 {
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBWR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBWR ", env->cpu_model_str);
+#endif
+#endif
     int r = cpu_mips_get_random(env);
 
     r4k_invalidate_tlb(env, r, 1);
@@ -5323,6 +5473,16 @@ void r4k_helper_tlbp (void)
 
         env->CP0_Index |= 0x80000000;
     }
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBP ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBP ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
+    sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
+    sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
+#endif
 }
 
 void r4k_helper_tlbr (void)
@@ -5347,6 +5507,21 @@ void r4k_helper_tlbr (void)
                         (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: TLBR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s: TLBR ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log(" G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID tlb=0x%08x ", tlb->ASID);
+    sv_log("EnHi=0x%08x\n", env->CP0_EntryHi & 0xff);
+#endif
 }
 
 void helper_tlbwi(void)
@@ -5439,7 +5614,7 @@ void helper_eret (void)
     }
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+    env->llbit = 0;
 }
 
 void helper_deret (void)
@@ -5450,7 +5625,7 @@ void helper_deret (void)
     env->hflags &= MIPS_HFLAG_DM;
     compute_hflags(env);
     debug_post_eret();
-    env->lladdr = 1;
+//  A DERET placed between an LL and SC instruction does not cause the SC to fail.
 }
 #endif /* !CONFIG_USER_ONLY */
 
@@ -6680,7 +6855,7 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
  *  MSA
  */
 
-#define DEBUG_MSACSR 1
+#define DEBUG_MSACSR 0
 
 /* Data format and vector length unpacking */
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
@@ -7772,35 +7947,36 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 #define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
 
-void helper_shf_b(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
+void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
 {
+    uint32_t df = DF(wrlen_df);
+    uint32_t wrlen = WRLEN(wrlen_df);
+
     wr_t wx, *pwx = &wx;
 
-    ALL_B_ELEMENTS(i, wrlen) {
+    switch (df) {
+    case DF_BYTE:
+      ALL_B_ELEMENTS(i, wrlen) {
         B(pwx, i) = B(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_h(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_H_ELEMENTS(i, wrlen) {
+    case DF_HALF:
+      ALL_H_ELEMENTS(i, wrlen) {
         H(pwx, i) = H(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
 
-    helper_move_v(pwd, &wx, wrlen);
-}
-
-void helper_shf_w(void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    wr_t wx, *pwx = &wx;
-
-    ALL_W_ELEMENTS(i, wrlen) {
+    case DF_WORD:
+      ALL_W_ELEMENTS(i, wrlen) {
         W(pwx, i) = W(pws, SHF_POS(i, imm));
-    } DONE_ALL_ELEMENTS;
+      } DONE_ALL_ELEMENTS;
+      break;
+
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
 
     helper_move_v(pwd, &wx, wrlen);
 }
@@ -8383,8 +8559,8 @@ int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8398,8 +8574,8 @@ int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest + q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8412,8 +8588,8 @@ int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_max  = DF_MAX_INT(df);
     int64_t q_min  = DF_MIN_INT(df);
 
-    q_prod = (arg1 * arg2) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8427,8 +8603,8 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
     int64_t q_min  = DF_MIN_INT(df);
     int64_t r_bit  = 1 << (DF_BITS(df) - 2);
 
-    q_prod = (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-    q_ret = dest - q_prod;
+    q_prod = arg1 * arg2;
+    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod + r_bit) >> (DF_BITS(df) - 1);
 
     return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
 }
@@ -8570,7 +8746,7 @@ static void check_msacsr_cause(void)
 #define CLEAR_IS_INEXACT   2
 #define RECIPROCAL_INEXACT 4
 
-static int update_msacsr(int action)
+static int update_msacsr(int action, int denormal)
 {
     int ieee_ex;
 
@@ -8579,6 +8755,14 @@ static int update_msacsr(int action)
     int enable;
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+
+    /* QEMU softfloat does not signal all underflow cases */
+    if (denormal) {
+#if DEBUG_MSACSR
+      puts("FORCING UNDERFLOW");
+#endif
+      ieee_ex |= float_flag_underflow;
+    }
 
 #if DEBUG_MSACSR
     if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
@@ -8626,7 +8810,7 @@ static int update_msacsr(int action)
     /* Clear Exact Underflow when Underflow (U) is not enabled */
     if ((c & FP_UNDERFLOW) != 0 && (enable & FP_UNDERFLOW) == 0 &&
         (c & FP_INEXACT) == 0) {
-      c = c ^ FP_UNDERFLOW;
+      c &= ~FP_UNDERFLOW;
     }
 
     /* Reciprocal operations set only Inexact when valid and not
@@ -8663,6 +8847,14 @@ static int update_msacsr(int action)
     return c;
 }
 
+#define float16_is_zero(ARG) 0
+#define float16_is_zero_or_denormal(ARG) 0
+
+#define IS_DENORMAL(ARG, BITS)                                   \
+  (!float ## BITS ## _is_zero(ARG)                               \
+   && float ## BITS ## _is_zero_or_denormal(ARG))                \
+  
+
 #define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                            \
   do {                                                                  \
     int c;                                                              \
@@ -8672,7 +8864,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8695,7 +8887,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW);                              \
+    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8713,7 +8905,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8744,7 +8936,7 @@ static int update_msacsr(int action)
                                     & (~float_flag_inexact),            \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8762,7 +8954,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8771,7 +8963,7 @@ static int update_msacsr(int action)
     }                                                                   \
   } while (0)
 
-#define MSA_FLOAT_BINOP_INEXACT(DEST, OP, ARG1, ARG2, BITS)             \
+#define MSA_FLOAT_MAXOP(DEST, OP, ARG1, ARG2, BITS)                     \
   do {                                                                  \
     int c;                                                              \
     int cause;                                                          \
@@ -8780,7 +8972,28 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(RECIPROCAL_INEXACT);                              \
+    c = update_msacsr(0, 0);                                            \
+    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
+    cause = c & enable;                                                 \
+                                                                        \
+    if (cause) {                                                        \
+      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
+    }                                                                   \
+  } while (0)
+
+#define MSA_FLOAT_RECIPROCAL(DEST, ARG, BITS)                           \
+  do {                                                                  \
+    int c;                                                              \
+    int cause;                                                          \
+    int enable;                                                         \
+                                                                        \
+    set_float_exception_flags(0, &env->active_msa.fp_status);           \
+    DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
+                                     &env->active_msa.fp_status);       \
+    c = update_msacsr(float ## BITS ## _is_infinity(ARG) ||             \
+                      float ## BITS ## _is_quiet_nan(DEST)?             \
+                      0 : RECIPROCAL_INEXACT,                           \
+                      IS_DENORMAL(DEST, BITS));                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -8798,7 +9011,7 @@ static int update_msacsr(int action)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0);                                               \
+    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -9144,9 +9357,9 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
                                                                 \
   uint## BITS ##_t xs, xt, xd;                                  \
                                                                 \
-  MSA_FLOAT_BINOP(xs, F,  S,  T, BITS);                         \
-  MSA_FLOAT_BINOP(xt, G,  S,  T, BITS);                         \
-  MSA_FLOAT_BINOP(xd, F, as, at, BITS);                         \
+  MSA_FLOAT_MAXOP(xs, F,  S,  T, BITS);                         \
+  MSA_FLOAT_MAXOP(xt, G,  S,  T, BITS);                         \
+  MSA_FLOAT_MAXOP(xd, F, as, at, BITS);                         \
                                                                 \
   X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
 
@@ -9196,13 +9409,13 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
             }
             else {
-                MSA_FLOAT_BINOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9210,13 +9423,13 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
             }
             else {
-                MSA_FLOAT_BINOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
             }
         } DONE_ALL_ELEMENTS;
         break;
@@ -9276,13 +9489,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
             }
             else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
             }
             else {
-                MSA_FLOAT_BINOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
+                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9290,13 +9503,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
             if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
             }
             else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
             }
             else {
-                MSA_FLOAT_BINOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
+                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
             }
          } DONE_ALL_ELEMENTS;
         break;
@@ -9342,7 +9555,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
                                                                         \
-    c = update_msacsr(CLEAR_IS_INEXACT);                                \
+    c = update_msacsr(CLEAR_IS_INEXACT, 0);                             \
                                                                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
@@ -10364,6 +10577,9 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     a = float32_scalbn(a, 15 STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
       return (int32)a < 0 ? q_min : q_max;
@@ -10373,6 +10589,9 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     q_val = float32_to_int32(a STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_invalid) {
       set_float_exception_flags(ieee_ex & (~float_flag_invalid),
                                 &env->active_msa.fp_status);
@@ -10410,6 +10629,9 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     a = float64_scalbn(a, 31 STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
       return (int64)a < 0 ? q_min : q_max;
@@ -10419,6 +10641,9 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     q_val = float64_to_int64(a STATUS_VAR);
 
     ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
+                              &env->active_msa.fp_status);
+
     if (ieee_ex & float_flag_invalid) {
       set_float_exception_flags(ieee_ex & (~float_flag_invalid),
                                 &env->active_msa.fp_status);
@@ -10544,13 +10769,13 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pws, i), 32);
+            MSA_FLOAT_RECIPROCAL(W(pwx, i), W(pws, i), 32);
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pws, i), 64);
+            MSA_FLOAT_RECIPROCAL(D(pwx, i), D(pws, i), 64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10576,15 +10801,22 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
     switch (df) {
     case DF_WORD:
         ALL_W_ELEMENTS(i, wrlen) {
-           MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
-           MSA_FLOAT_BINOP_INEXACT(W(pwx, i), div, FLOAT_ONE32, W(pwx, i), 32);
+          MSA_FLOAT_RECIPROCAL(W(pwx, i), 
+                               float32_sqrt(W(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               32);
+
+          printf("frsqrt.w 0x%08x <-- 0x%08x\n", W(pwx, i), W(pws, i));
+
          } DONE_ALL_ELEMENTS;
         break;
 
     case DF_DOUBLE:
         ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
-            MSA_FLOAT_BINOP_INEXACT(D(pwx, i), div, FLOAT_ONE64, D(pwx, i), 64);
+          MSA_FLOAT_RECIPROCAL(D(pwx, i), 
+                               float64_sqrt(D(pws, i), 
+                                            &env->active_msa.fp_status), 
+                               64);
         } DONE_ALL_ELEMENTS;
         break;
 
@@ -10746,4 +10978,22 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
     }
 
     // helper_raise_exception(EXCP_RI);
+}
+
+
+/*
+ *  MIPS R6 DLSA and LSA
+ */
+
+#define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
+
+uint64_t helper_dlsa(uint64_t rt, uint64_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
+}
+
+
+uint32_t helper_lsa(uint32_t rt, uint32_t rs, uint32_t u2)
+{
+  return LSA(rs, rt, u2);
 }

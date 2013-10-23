@@ -328,6 +328,7 @@ struct CPUMIPSState {
     target_ulong CP0_EntryLo0;
     target_ulong CP0_EntryLo1;
     target_ulong CP0_Context;
+    target_ulong CP0_ContextConfig;
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
@@ -473,6 +474,7 @@ struct CPUMIPSState {
 #define CP0C3_RXI  12
 #define CP0C3_DSP2P 11
 #define CP0C3_DSPP 10
+#define CP0C3_CTXTC 9
 #define CP0C3_LPA  7
 #define CP0C3_VEIC 6
 #define CP0C3_VInt 5
@@ -488,6 +490,7 @@ struct CPUMIPSState {
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
     target_ulong lladdr;
+    target_ulong llbit;
     target_ulong llval;
     target_ulong llnewval;
     target_ulong llreg;
@@ -748,6 +751,14 @@ int cpu_mips_exec(CPUMIPSState *s);
 CPUMIPSState *cpu_mips_init(const char *cpu_model);
 //~ uint32_t cpu_mips_get_clock (void);
 int cpu_mips_signal_handler(int host_signum, void *pinfo, void *puc);
+
+#if defined(SV_SUPPORT)
+void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
+                    int flags);
+int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw);
+int r4k_map_address_debug(CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
+                     target_ulong address, int rw, int access_type);
+#endif
 
 /* mips_timer.c */
 uint32_t cpu_mips_get_random (CPUState *env);
