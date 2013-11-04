@@ -14,8 +14,14 @@
 #define TARGET_VIRT_ADDR_SPACE_BITS 42
 #else
 #define TARGET_LONG_BITS 32
-#define TARGET_PHYS_ADDR_SPACE_BITS 36
+#define TARGET_PHYS_ADDR_SPACE_BITS 40
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
+#endif
+
+#if TARGET_PHYS_ADDR_SPACE_BITS > 36
+#define XPA_ADDITIONAL_BITS (TARGET_PHYS_ADDR_SPACE_BITS-36)
+#else
+#define XPA_ADDITIONAL_BITS 0
 #endif
 
 /* Masks used to mark instructions to indicate which ISA level they
