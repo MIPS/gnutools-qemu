@@ -86,6 +86,16 @@ DEF_HELPER_1(dmfc0_tcschedule, tl, env)
 DEF_HELPER_1(dmfc0_tcschefback, tl, env)
 DEF_HELPER_1(dmfc0_lladdr, tl, env)
 DEF_HELPER_2(dmfc0_watchlo, tl, env, i32)
+#else
+DEF_HELPER_0(mfhc0_entrylo0, tl)
+DEF_HELPER_0(mfhc0_entrylo1, tl)
+DEF_HELPER_0(mfhc0_taglo, tl)
+DEF_HELPER_0(mfhc0_lladdr, tl)
+
+DEF_HELPER_1(mthc0_entrylo0, void, tl)
+DEF_HELPER_1(mthc0_entrylo1, void, tl)
+DEF_HELPER_1(mthc0_taglo, void, tl)
+DEF_HELPER_1(mthc0_lladdr, void, tl)
 #endif /* TARGET_MIPS64 */
 
 DEF_HELPER_2(mtc0_index, void, env, tl)
