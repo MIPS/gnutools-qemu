@@ -484,6 +484,7 @@ struct CPUMIPSState {
 #define CP0C3_SM   1
 #define CP0C3_TL   0
     int32_t CP0_Config4;
+#define CP0C4_IE   (0x3 << 29)
 #define CP0C4_M    31
     int32_t CP0_Config5;
 #define CP0C5_MSAEn  27
