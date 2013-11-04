@@ -46,8 +46,7 @@ struct r4k_tlb_t {
     uint_fast16_t RI0:1;
     uint_fast16_t RI1:1;
     uint_fast16_t EHINV:1;
-    target_ulong PFN[2];
-    
+    uint64_t PFN[2];
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -314,8 +313,8 @@ struct CPUMIPSState {
 #define CP0VPEOpt_DWX2	2
 #define CP0VPEOpt_DWX1	1
 #define CP0VPEOpt_DWX0	0
-    target_ulong CP0_EntryLo0;
-    target_ulong CP0_EntryLo1;
+    uint64_t CP0_EntryLo0;
+    uint64_t CP0_EntryLo1;
 #define CP0EnLo_C  3
 #if defined(TARGET_MIPS64)
 # define CP0EnLo_RI 63
@@ -332,6 +331,7 @@ struct CPUMIPSState {
     int32_t CP0_PageGrain;
 #define CP0PG_RIE 31
 #define CP0PG_XIE 30
+#define CP0PG_ELPA 29
 #define CP0PG_IEC 27
     int32_t CP0_Wired;
     int32_t CP0_SRSConf0_rw_bitmask;
@@ -370,6 +370,7 @@ struct CPUMIPSState {
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
 #define CP0EnHi_EHINV 10
+#define CP0EntryHiEHINV 10
     int32_t CP0_Compare;
     int32_t CP0_Status;
 #define CP0St_CU3   31
@@ -496,16 +497,18 @@ struct CPUMIPSState {
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
 #define CP0C5_SBRI 6
+#define CP0C5_MVH    5
+#define CP0C5_LLB    4
 #define CP0C5_UFR        2
 #define CP0C5_NFExists   0
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
-    target_ulong lladdr;
+    uint64_t lladdr;
     target_ulong llval;
     target_ulong llnewval;
     target_ulong llreg;
-    target_ulong CP0_LLAddr_rw_bitmask;
+    uint64_t CP0_LLAddr_rw_bitmask;
     int CP0_LLAddr_shift;
     target_ulong CP0_WatchLo[8];
     int32_t CP0_WatchHi[8];
@@ -532,7 +535,7 @@ struct CPUMIPSState {
 #define CP0DB_DSS  0
     target_ulong CP0_DEPC;
     int32_t CP0_Performance0;
-    int32_t CP0_TagLo;
+    uint64_t CP0_TagLo;
     int32_t CP0_DataLo;
     int32_t CP0_TagHi;
     int32_t CP0_DataHi;

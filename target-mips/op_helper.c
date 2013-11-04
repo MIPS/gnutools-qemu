@@ -1227,7 +1227,7 @@ static void mtc0_entrylo_common(int isR6, target_ulong * CP0_EntryLo, target_ulo
 
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
+    /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
     mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
@@ -1242,6 +1242,65 @@ void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
     uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
     mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
                         &env->CP0_EntryLo0, arg1, rxie, 0);
+}
+#endif
+
+#ifndef TARGET_MIPS64
+static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
+{
+    if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+        val &= (1 << XPA_ADDITIONAL_BITS) - 1;
+        *reg = ((uint64_t)val << 32) | (*reg & 0x00000000ffffffffULL);
+    }
+}
+
+static inline target_ulong xpa_mfhc0(const uint64_t * reg)
+{
+    if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+        return *reg >> 32;
+    } else {
+        return 0;
+    }    
+}
+
+void helper_mthc0_entrylo0 (target_ulong arg1)
+{
+    xpa_mthc0(&env->CP0_EntryLo0, arg1);
+}
+
+target_ulong helper_mfhc0_entrylo0 (void)
+{
+    return xpa_mfhc0(&env->CP0_EntryLo0);
+}
+
+void helper_mthc0_entrylo1 (target_ulong arg1)
+{
+    xpa_mthc0(&env->CP0_EntryLo1, arg1);
+}
+
+target_ulong helper_mfhc0_entrylo1 (void)
+{
+    return xpa_mfhc0(&env->CP0_EntryLo1);
+}
+
+void helper_mthc0_taglo(target_ulong arg1)
+{
+    xpa_mthc0(&env->CP0_TagLo, arg1);
+}
+
+target_ulong helper_mfhc0_taglo(void)
+{
+    return xpa_mfhc0(&env->CP0_TagLo);
+}
+
+void helper_mthc0_lladdr (target_ulong arg1)
+{
+    xpa_mthc0(&env->lladdr, arg1);
+}
+
+target_ulong helper_mfhc0_lladdr (void)
+{
+    return xpa_mfhc0(&env->lladdr);
 }
 #endif
 
@@ -1407,7 +1466,7 @@ void helper_mttc0_tcschefback(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
+    /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
     mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
@@ -1445,7 +1504,7 @@ void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 {
     /* SmartMIPS not implemented */
-    /* Large physaddr (PABITS) not implemented */
+    /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
                          (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
@@ -1508,6 +1567,10 @@ void helper_mtc0_entryhi(CPUMIPSState *env, target_ulong arg1)
     }
 
     /* 1k pages not implemented */
+    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
+    if (((env->CP0_Config4 >> CP0C4_IE) & 0x3) >= 2) {
+        val |= arg1 & (1 << CP0EntryHiEHINV);
+    }
 #if defined(TARGET_MIPS64)
     if ((arg1 >> 62) == 0x2) {
         mask &= ~(0x3ull << 62); // reserved value
@@ -2053,6 +2116,10 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
     uint64_t mask = (uint32_t)env->CP0_PageMask >> (TARGET_PAGE_BITS + 1);
+    // if mask is invalid then set all bits to 1
+    if (mask & (mask + 1)) {
+        mask = -1;
+    }
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
@@ -2061,7 +2128,7 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
         return;
     }
     tlb->EHINV = 0;
-    tlb->VPN = env->CP0_EntryHi & (~mask << 1);
+    tlb->VPN = env->CP0_EntryHi & (~mask << (TARGET_PAGE_BITS + 1));
 #if defined(TARGET_MIPS64)
     tlb->VPN &= env->SEGMask;
 #endif
@@ -2073,13 +2140,23 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
     tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
     tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
+#if defined(TARGET_MIPS64)
     tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) & ~mask);
+#else
+    tlb->PFN[0] = ((env->CP0_EntryLo0 & 0x3fffffff) >> 6 | /* PFN */
+                   (env->CP0_EntryLo0 >> 32) << 24) & ~mask; /* PFNX */
+#endif
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
+#if defined(TARGET_MIPS64)
     tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) & ~mask);
+#else
+    tlb->PFN[1] = ((env->CP0_EntryLo1 & 0x3fffffff) >> 6 | /* PFN */
+                   (env->CP0_EntryLo1 >> 32) << 24) & ~mask; /* PFNX */
+#endif
 
 #ifdef MIPSSIM_COMPAT
     sv_log("FILL TLB index %d, ", idx);
@@ -2271,6 +2348,7 @@ void r4k_helper_tlbr(CPUMIPSState *env)
     } else {
         env->CP0_EntryHi = tlb->VPN | tlb->ASID;
         env->CP0_PageMask = tlb->PageMask;
+#if defined(TARGET_MIPS64)
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
                         ((target_ulong)tlb->RI1 << CP0EnLo_RI) | 
                         ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
@@ -2279,6 +2357,20 @@ void r4k_helper_tlbr(CPUMIPSState *env)
                         ((target_ulong)tlb->RI1 << CP0EnLo_RI) | 
                         ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
                         (tlb->C1 << 3) | (tlb->PFN[1] << 6);
+#else
+        env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
+                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
+                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
+                        (tlb->C0 << 3) | 
+                        ((tlb->PFN[0] & ((1 << 24) - 1)) << 6) | /* PFN */
+                        ((tlb->PFN[0] >> 24) << 32); /* PFNX */
+        env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
+                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
+                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
+                        (tlb->C1 << 3) | 
+                        ((tlb->PFN[1] & ((1 << 24) - 1)) << 6) | /* PFN */
+                        ((tlb->PFN[1] >> 24) << 32); /* PFNX */
+#endif
     }
 #ifdef MIPSSIM_COMPAT
 #if defined(TARGET_MIPS64)
