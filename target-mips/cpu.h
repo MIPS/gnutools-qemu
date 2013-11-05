@@ -867,7 +867,7 @@ enum {
     EXCP_DSPDIS,
     EXCP_MSADIS,
     EXCP_MSAFPE,
-
+    EXCP_GUESTEXIT, /* VZ ASE */
     EXCP_LAST
 };
 /* Dummy exception for conditional stores.  */

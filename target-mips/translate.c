@@ -356,6 +356,7 @@ enum {
 enum {
     OPC_MFC0     = (0x00 << 21) | OPC_CP0,
     OPC_DMFC0    = (0x01 << 21) | OPC_CP0,
+    OPC_V        = (0x03 << 21) | OPC_CP0,
     OPC_MTC0     = (0x04 << 21) | OPC_CP0,
     OPC_DMTC0    = (0x05 << 21) | OPC_CP0,
     OPC_MFTR     = (0x08 << 21) | OPC_CP0,
@@ -366,6 +367,15 @@ enum {
     OPC_C0       = (0x10 << 21) | OPC_CP0,
     OPC_C0_FIRST = (0x10 << 21) | OPC_CP0,
     OPC_C0_LAST  = (0x1F << 21) | OPC_CP0,
+};
+
+/* VZ opcodes */
+#define MASK_V(op) (MASK_CP0(op) | (op & 0x7F8))
+enum {
+    OPC_MFGC0    = (0x0 << 8) | OPC_V,
+    OPC_MTGC0    = (0x2 << 8) | OPC_V,
+    OPC_MFHGC0   = (0x4 << 8) | OPC_V,
+    OPC_MTHGC0   = (0x6 << 8) | OPC_V,
 };
 
 /* MFMC0 opcodes */
@@ -392,6 +402,7 @@ enum {
     OPC_ERET     = 0x18 | OPC_C0,
     OPC_DERET    = 0x1F | OPC_C0,
     OPC_WAIT     = 0x20 | OPC_C0,
+    OPC_HYPCALL  = 0x28 | OPC_C0,
 };
 
 /* Coprocessor 1 (rs field) */
@@ -3856,6 +3867,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
+    int guest_mode = !!(env->hflags & MIPS_HFLAG_GUEST);
 
     if (sel != 0)
         check_insn(env, ctx, ISA_MIPS32);
@@ -3864,7 +3876,12 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 0:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Index));
+            if (guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Index));
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Index));
+            }
             rn = "Index";
             break;
         case 1:
@@ -3934,9 +3951,16 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 2:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryLo0));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "EntryLo0";
+            if(guest_mode == 0) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryLo0));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "EntryLo0";
+            }
+            else {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryLo0));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Guest.EntryLo0";
+            }
             break;
         case 1:
             check_insn(env, ctx, ASE_MT);
@@ -3980,9 +4004,16 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 3:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryLo1));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "EntryLo1";
+            if(guest_mode == 0) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryLo1));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "EntryLo1";
+            }
+            else {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryLo1));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Guest.EntryLo1";
+            }
             break;
         default:
             goto die;
@@ -3991,9 +4022,16 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 4:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_Context));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "Context";
+            if(guest_mode == 0 ) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_Context));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Context";
+            }
+            else {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_Context));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Guest.Context";
+            }
             break;
         case 1:
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_ContextConfig));
@@ -4006,8 +4044,14 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 5:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageMask));
-            rn = "PageMask";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageMask));
+                rn = "PageMask";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageMask));
+                rn = "Guest.PageMask";
+            }
             break;
         case 1:
             check_insn(env, ctx, ISA_MIPS32R2);
@@ -4098,11 +4142,32 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 10:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryHi));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "EntryHi";
+            if(guest_mode == 0) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_EntryHi));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "EntryHi";
+            }
+            else {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryHi));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Guest.EntryHi";
+            }
             break;
-
+        case 4:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_GuestCtl1));
+            rn = "GuestCtl1";
+            break;
+        case 5:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_GuestCtl2));
+            rn = "GuestCtl2";
+            break;
+        case 6:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_GuestCtl3));
+            rn = "GuestCtl3";
+            break;
         default:
             goto die;
         }
@@ -4110,8 +4175,19 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 11:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Compare));
-            rn = "Compare";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Compare));
+                rn = "Compare";
+            }
+            else {
+                if (!(env->CP0_GuestCtl0 & CP0GuestCtl0_GT)) {
+                    generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+                }
+                else {
+                    gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Compare));
+                }
+                rn = "Guest.Compare";
+            }
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -4121,8 +4197,14 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 12:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Status));
-            rn = "Status";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Status));
+                rn = "Status";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Status));
+                rn = "Guest.Status";
+            }
             break;
         case 1:
             check_insn(env, ctx, ISA_MIPS32R2);
@@ -4139,6 +4221,15 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_SRSMap));
             rn = "SRSMap";
             break;
+        case 6:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_GuestCtl0));
+            rn = "GuestCtl0";
+            break;
+        case 7:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_GTOffset));
+            rn = "GTOffset";
         default:
             goto die;
        }
@@ -4182,37 +4273,85 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 16:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config0));
-            rn = "Config";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config0));
+                rn = "Config";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config0));
+                rn = "Guest.Config";
+            }
             break;
         case 1:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config1));
-            rn = "Config1";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config1));
+                rn = "Config1";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config1));
+                rn = "Guest.Config1";
+            }
             break;
         case 2:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config2));
-            rn = "Config2";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config2));
+                rn = "Config2";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config2));
+                rn = "Guest.Config2";
+            }
             break;
         case 3:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config3));
-            rn = "Config3";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config3));
+                rn = "Config3";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config3));
+                rn = "Guest.Config3";
+            }
             break;
         case 4:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
-            rn = "Config4";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config4));
+                rn = "Config4";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config4));
+                rn = "Guest.Config4";
+            }
             break;
         case 5:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config5));
-            rn = "Config5";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config5));
+                rn = "Config5";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config5));
+                rn = "Guest.Config5";
+            }
             break;
         /* 6,7 are implementation dependent */
         case 6:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
-            rn = "Config6";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config6));
+                rn = "Config6";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config6));
+                rn = "Guest.Config6";
+            }
             break;
         case 7:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config7));
-            rn = "Config7";
+            if(guest_mode == 0) {
+                gen_mfc0_load32(arg, offsetof(CPUState, CP0_Config7));
+                rn = "Config7";
+            }
+            else {
+                gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config7));
+                rn = "Guest.Config7";
+            }
             break;
         default:
             goto die;
@@ -4451,6 +4590,266 @@ die:
 #endif
 }
 
+static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (sel != 0)
+        check_insn(env, ctx, ISA_MIPS32);
+
+    switch (reg) {
+    case 0:
+        switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Index));
+            rn = "Guest.Index";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 1:
+        switch (sel) {
+        case 0:
+            gen_helper_mfc0_random(arg);
+            rn = "Guest.Random";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 2:
+        switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryLo0));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.EntryLo0";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryLo1));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.EntryLo1";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 4:
+        switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_Context));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.Context";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 5:
+        switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageMask));
+            rn = "Guest.PageMask";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 6:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 7:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 8:
+        switch (sel) {
+        default:
+            goto die;
+       }
+        break;
+    case 9:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 10:
+        switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EntryHi));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.EntryHi";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 11:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 12:
+        switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Status));
+            rn = "Guest.Status";
+            break;
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_IntCtl));
+            rn = "Guest.IntCtl";
+            break;
+        case 2:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_SRSCtl));
+            rn = "Guest.SRSCtl";
+            break;
+        case 3:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_SRSMap));
+            rn = "Guest.SRSMap";
+            break;
+        default:
+            goto die;
+       }
+        break;
+    case 13:
+        switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Cause));
+            rn = "Guest.Cause";
+            break;
+        default:
+            goto die;
+       }
+        break;
+    case 14:
+        switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EPC));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "EPC";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 15:
+        switch (sel) {
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_EBase));
+            rn = "Guest.EBase";
+            break;
+        default:
+            goto die;
+       }
+        break;
+    case 16:
+        switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config0));
+            rn = "Guest.Config";
+            break;
+        case 1:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config1));
+            rn = "Guest.Config1";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config2));
+            rn = "Guest.Config2";
+            break;
+        case 3:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config3));
+            rn = "Guest.Config3";
+            break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config4));
+            rn = "Guest.Config4";
+            break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config5));
+            rn = "Guest.Config5";
+            break;
+        /* 6,7 are implementation dependent */
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config6));
+            rn = "Guest.Config6";
+            break;
+        case 7:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config7));
+            rn = "Guest.Config7";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 18:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 19:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 20:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 21:
+       /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    default:
+       goto die;
+    }
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mfgc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+die:
+    LOG_DISAS("mfgc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
+    generate_exception(ctx, EXCP_RI);
+#else
+#ifdef SV_SUPPORT
+    sv_log("MFGC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
+    exit(127);
+#else
+    tcg_gen_movi_tl(arg, 0);
+#endif
+#endif
+}
 static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -4683,7 +5082,18 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mtc0_entryhi(arg);
             rn = "EntryHi";
             break;
-
+        case 4:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl1));
+            rn = "GuestCtl1";
+            break;
+        case 5:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl2));
+            rn = "GuestCtl2";
+            break;
+        case 6:
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl3));
+            rn = "GuestCtl3";
+            break;
         default:
             goto die;
         }
@@ -4729,6 +5139,19 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             /* Stop translation as we may have switched the execution mode */
             ctx->bstate = BS_STOP;
             rn = "SRSMap";
+            break;
+        case 6:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl0));
+            /* Stop translation as we may have switched the execution mode */
+//            ??????? FIXME: VZ
+            ctx->bstate = BS_STOP;
+            rn = "GuestCtl0";
+            break;
+        case 7:
+            check_insn(env, ctx, ASE_VZ);
+            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GTOffset));
+            rn = "GTOffset";
             break;
         default:
             goto die;
@@ -5052,6 +5475,341 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+
+#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
+    generate_exception(ctx, EXCP_RI);
+#else
+    reg += 0; /* null */
+#endif
+}
+
+static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (sel != 0)
+        check_insn(env, ctx, ISA_MIPS32);
+
+    if (use_icount)
+        gen_io_start();
+
+    switch (reg) {
+    case 0:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_index(arg);
+            rn = "Guest.Index";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 1:
+        switch (sel) {
+        case 0:
+            /* ignored */
+            rn = "Random";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_entrylo0(arg);
+            rn = "Guest.EntryLo0";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_entrylo1(arg);
+            rn = "Guest.EntryLo1";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 4:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_context(arg);
+            rn = "Guest.Context";
+            break;
+        case 1:
+            gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
+            rn = "Guest.ContextConfig";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 5:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_pagemask(arg);
+            rn = "Guest.PageMask";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 6:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 7:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 8:
+        /* ignored */
+        rn = "BadVAddr";
+        break;
+    case 9:
+        switch (sel) {
+        case 0:
+            /* Root-mode writes to Guest.Count are ignored. */
+            rn = "Guest.Count";
+            break;
+        /* 6,7 are implementation dependent */
+        default:
+            goto die;
+        }
+        break;
+    case 10:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_entryhi(arg);
+            rn = "Guest.EntryHi";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 11:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 12:
+        switch (sel) {
+        case 0:
+            save_cpu_state(ctx, 1);
+            gen_helper_mtgc0_status(arg);
+            /* BS_STOP isn't good enough here, hflags may have changed. */
+            gen_save_pc(ctx->pc + 4);
+            ctx->bstate = BS_EXCP;
+            rn = "Guest.Status";
+            break;
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtgc0_intctl(arg);
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
+            rn = "Guest.IntCtl";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 13:
+        switch (sel) {
+        case 0:
+            save_cpu_state(ctx, 1);
+            gen_helper_mtgc0_cause(arg);
+            rn = "Guest.Cause";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 14:
+        switch (sel) {
+        case 0:
+            gen_mtc0_store64(arg, offsetof(CPUState, Guest.CP0_EPC));
+            rn = "Guest.EPC";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 15:
+        switch (sel) {
+        case 0:
+            /* ignored */
+            rn = "PRid";
+            break;
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtgc0_ebase(arg);
+            rn = "Guest.EBase";
+            break;
+        default:
+            goto die;
+        }
+        break;
+    case 16:
+        switch (sel) {
+        case 0:
+            gen_helper_mtgc0_config0(arg);
+            rn = "Guest.Config";
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
+            break;
+        case 1:
+            /* ignored, read only */
+            rn = "Guest.Config1";
+            break;
+        case 2:
+            gen_helper_mtgc0_config2(arg);
+            rn = "Guest.Config2";
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
+            break;
+        case 3:
+            /* ignored, read only */
+            rn = "Guest.Config3";
+            break;
+        case 4:
+            /* currently ignored */
+            rn = "Guest.Config4";
+            break;
+        case 5:
+            gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_Config5));
+            rn = "Guest.Config5";
+            break;
+        /* 6,7 are implementation dependent */
+        case 6:
+            /* ignored */
+            rn = "Guest.Config6";
+            break;
+        case 7:
+            /* ignored */
+            rn = "Guest.Config7";
+            break;
+        default:
+            rn = "Invalid config selector";
+            goto die;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 18:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 19:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 20:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 21:
+       /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 22:
+        /* ignored */
+        rn = "Diagnostic"; /* implementation dependent */
+        break;
+    case 23:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 24:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 25:
+        switch (sel) {
+        default:
+            goto die;
+        }
+       break;
+    case 26:
+        /* ignored */
+        rn = "ECC";
+        break;
+    case 27:
+        switch (sel) {
+        case 0 ... 3:
+            /* ignored */
+            rn = "CacheErr";
+            break;
+        default:
+            goto die;
+        }
+       break;
+    case 28:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 29:
+        switch (sel) {
+        default:
+            rn = "invalid sel";
+            goto die;
+        }
+       break;
+    case 30:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        break;
+    case 31:
+        switch (sel) {
+        default:
+            goto die;
+        }
+        /* Stop translation as we may have switched the execution mode */
+        ctx->bstate = BS_STOP;
+        break;
+    default:
+       goto die;
+    }
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mtgc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    /* For simplicity assume that all writes can cause interrupts.  */
+    if (use_icount) {
+        gen_io_end();
+        ctx->bstate = BS_STOP;
+    }
+    return;
+
+die:
+    LOG_DISAS("mtgc0 %s (reg %d sel %d)\n", rn, reg, sel);
 
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
@@ -6676,10 +7434,47 @@ die:
 static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int rd)
 {
     const char *opn = "ldst";
+    int guest = !!(env->hflags & MIPS_HFLAG_GUEST);
 
     check_cp0_enabled(ctx);
 
     switch (opc) {
+    case OPC_V:
+        {
+            uint32_t opc1;
+            guest = 1;
+            opc1 = MASK_V(ctx->opcode);
+            switch(opc1)
+            {
+            case OPC_MFGC0:
+                if (rt == 0) {
+                    /* Treat as NOP. */
+                    return;
+                }
+                gen_mfgc0(env, ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+                opn = "mfgc0";
+                break;
+            case OPC_MTGC0:
+                {
+                    TCGv t0 = tcg_temp_new();
+
+                    gen_load_gpr(t0, rt);
+                    gen_mtgc0(env, ctx, t0, rd, ctx->opcode & 0x7);
+                    tcg_temp_free(t0);
+                }
+                opn = "mtgc0";
+                break;
+            case OPC_MFHGC0:
+                sv_log("OPC_MFHGC0 %x\n", opc1);
+                break;
+            case OPC_MTHGC0:
+                sv_log("OPC_MTHGC0 %x\n", opc1);
+                break;
+            default:
+                break;
+            }
+        }
+        break;
     case OPC_MFC0:
         if (rt == 0) {
             /* Treat as NOP. */
@@ -6785,6 +7580,12 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         save_cpu_state(ctx, 1);
         ctx->pc -= 4;
         gen_helper_wait();
+        ctx->bstate = BS_EXCP;
+        break;
+    case OPC_HYPCALL:
+        opn = "hypcall";
+        check_insn(env, ctx, ASE_VZ);
+        gen_helper_hypcall();
         ctx->bstate = BS_EXCP;
         break;
     default:
@@ -13116,6 +13917,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         case OPC_DMFC0:
         case OPC_DMTC0:
 #endif
+        case OPC_V:
 #ifndef CONFIG_USER_ONLY
             gen_cp0(env, ctx, op1, rt, rd);
 #endif /* !CONFIG_USER_ONLY */

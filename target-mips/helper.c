@@ -692,6 +692,12 @@ void do_interrupt (CPUState *env)
         set_hflags_for_handler(env);
         env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
         break;
+    case EXCP_GUESTEXIT:
+        cause = 27;
+        env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
+        env->CP0_GuestCtl0 |= (env->error_code << CP0GuestCtl0_GExcCode);
+        goto set_EPC;
+        break;
     default:
         qemu_log("Invalid MIPS exception %d. Exiting\n", env->exception_index);
         printf("Invalid MIPS exception %d. Exiting\n", env->exception_index);
