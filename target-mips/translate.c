@@ -14950,6 +14950,20 @@ void cpu_reset (CPUMIPSState *env)
     env->tlb->tlb_in_use = env->tlb->nb_tlb;
     env->CP0_Wired = 0;
     env->CP0_EBase = 0x80000000 | (env->cpu_index & 0x3FF);
+
+    if (env->CP0_Config3 & (1 << CP0C3_VZ)) {
+        // FIXME: VZ
+        env->CP0_GuestCtl0 = 0x0c4c00fc;
+        env->Guest.CP0_Config0 = 0x80048482;
+        env->Guest.CP0_Config1 = 0xfea35193;
+        env->Guest.CP0_Config2 = 0x80000000;
+        env->Guest.CP0_Config3 = 0x8e003e28;
+        env->Guest.CP0_Config4 = 0xc01c0000;
+        env->Guest.CP0_Config5 = 0x10000000;
+        env->Guest.CP0_EBase = 0x80000000 | (env->cpu_index & 0x3FF);
+        env->Guest.CP0_IntCtl = 0xe0000000;
+    }
+
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
     /* vectored interrupts not implemented, timer on int 7,
        no performance counters. */
