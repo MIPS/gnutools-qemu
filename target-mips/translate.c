@@ -13689,15 +13689,49 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     int i;
     static CPUState env_prev;
     static CPUMIPSMVPContext mvp_prev;
+#define PRINT_TRACE_CTXT() do { \
+        sv_log("%s : %s(%s%d) - ", \
+            env->cpu_model_str, \
+            (env->hflags & MIPS_HFLAG_GUEST)? "Guest": "Root", \
+            (env->hflags & MIPS_HFLAG_KSU)? ((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM)? "Supv":"User" : "Kern", \
+            (env->hflags & MIPS_HFLAG_GUEST)? (env->Guest.CP0_Status >> CP0St_ERL) & 1: (env->CP0_Status >> CP0St_ERL) & 1); \
+    } while(0)
 
 #define CHK_CP0_REG(REG, NAME) do { \
-        if(env_prev.REG != env->REG) \
-            sv_log("%s : Write " NAME " = " TARGET_FMT_lx "\n", env->cpu_model_str, env->REG); \
+        if(env_prev.REG != env->REG) { \
+            PRINT_TRACE_CTXT(); \
+            sv_log("Write " NAME " = " TARGET_FMT_lx "\n", \
+                (target_ulong) env->REG); \
+        } \
     } while(0)
+
+#define CHK_ROOT_CP0_REG(REG, NAME)  CHK_CP0_REG(REG, "Root."NAME)
+#define CHK_GUEST_CP0_REG(REG, NAME)  CHK_CP0_REG(REG, "Guest."NAME)
+
+    //VZ
+    CHK_CP0_REG(Guest.CP0_Index,           "Guest.C0IDX  ");
+    CHK_CP0_REG(Guest.CP0_EntryLo0,        "Guest.C0ENLO0");
+    CHK_CP0_REG(Guest.CP0_EntryLo1,        "Guest.C0ENLO1");
+    CHK_CP0_REG(Guest.CP0_EntryHi,         "Guest.C0ENHI ");
+
+    CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
+    CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
+    CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
+    CHK_CP0_REG(Guest.CP0_Status,          "Guest.C0STAT ");
+    CHK_CP0_REG(Guest.CP0_Cause,           "Guest.C0CAUS ");
+    CHK_CP0_REG(Guest.CP0_EPC,             "Guest.C0EPC  ");
+    CHK_CP0_REG(Guest.CP0_EBase,           "Guest.C0EBASE");
+
+    CHK_CP0_REG(Guest.CP0_Config0,         "Guest.C0CONFIG");
+    CHK_CP0_REG(Guest.CP0_Config1,         "Guest.C0CONFIG1");
+    CHK_CP0_REG(Guest.CP0_Config2,         "Guest.C0CONFIG2");
+    CHK_CP0_REG(Guest.CP0_Config3,         "Guest.C0CONFIG3");
+    CHK_CP0_REG(Guest.CP0_Config4,         "Guest.C0CONFIG4");
+    CHK_CP0_REG(Guest.CP0_Config5,         "Guest.C0CONFIG5");
 
     //cp0 registers
     //0
-    CHK_CP0_REG(CP0_Index,                 "C0IDX       ");
+    CHK_ROOT_CP0_REG(CP0_Index,                 "C0IDX       ");
 
     /*
     //CP0_MVPControl
@@ -13716,152 +13750,159 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //1
     //CHK_CP0_REG(CP0_Random,                "C0RAND      ");
-    CHK_CP0_REG(CP0_VPEControl,            "C0VPECTL    ");
-    CHK_CP0_REG(CP0_VPEConf0,              "C0VPECONF0  ");
-    CHK_CP0_REG(CP0_VPEConf1,              "C0VPECONF1  ");
-    CHK_CP0_REG(CP0_YQMask,                "C0YQMASK    ");
-    CHK_CP0_REG(CP0_VPESchedule,           "C0VPESCHED  ");
-    CHK_CP0_REG(CP0_VPEScheFBack,          "C0VPESCHEDFB");
-    CHK_CP0_REG(CP0_VPEOpt,                "C0VPEOPT    ");
+    CHK_ROOT_CP0_REG(CP0_VPEControl,            "C0VPECTL    ");
+    CHK_ROOT_CP0_REG(CP0_VPEConf0,              "C0VPECONF0  ");
+    CHK_ROOT_CP0_REG(CP0_VPEConf1,              "C0VPECONF1  ");
+    CHK_ROOT_CP0_REG(CP0_YQMask,                "C0YQMASK    ");
+    CHK_ROOT_CP0_REG(CP0_VPESchedule,           "C0VPESCHED  ");
+    CHK_ROOT_CP0_REG(CP0_VPEScheFBack,          "C0VPESCHEDFB");
+    CHK_ROOT_CP0_REG(CP0_VPEOpt,                "C0VPEOPT    ");
 
     //2
-    CHK_CP0_REG(CP0_EntryLo0,              "C0ENLO0     ");
-    CHK_CP0_REG(active_tc.CP0_TCStatus,    "C0TCSTAT    ");
-    CHK_CP0_REG(active_tc.CP0_TCBind,      "C0TCBIND    ");
+    CHK_ROOT_CP0_REG(CP0_EntryLo0,              "C0ENLO0     ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCStatus,    "C0TCSTAT    ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCBind,      "C0TCBIND    ");
     // TCRestart missing
-    CHK_CP0_REG(active_tc.CP0_TCHalt,      "C0TCHALT    ");
-    CHK_CP0_REG(active_tc.CP0_TCContext,   "C0TCCTXT    ");
-    CHK_CP0_REG(active_tc.CP0_TCSchedule,  "C0TCSCHED   ");
-    CHK_CP0_REG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCHalt,      "C0TCHALT    ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCContext,   "C0TCCTXT    ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCSchedule,  "C0TCSCHED   ");
+    CHK_ROOT_CP0_REG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
 
     //3
-    CHK_CP0_REG(CP0_EntryLo1,              "C0ENLO1     ");
+    CHK_ROOT_CP0_REG(CP0_EntryLo1,              "C0ENLO1     ");
 
     //4
-    CHK_CP0_REG(CP0_Context,               "C0CTXT      ");
-    CHK_CP0_REG(CP0_ContextConfig,         "C0CTXTCFG   ");
+    CHK_ROOT_CP0_REG(CP0_Context,               "C0CTXT      ");
+    CHK_ROOT_CP0_REG(CP0_ContextConfig,         "C0CTXTCFG   ");
 
     //5
-    CHK_CP0_REG(CP0_PageMask,              "C0PMASK     ");
-    CHK_CP0_REG(CP0_PageGrain,             "C0PGRAIN    ");
+    CHK_ROOT_CP0_REG(CP0_PageMask,              "C0PMASK     ");
+    CHK_ROOT_CP0_REG(CP0_PageGrain,             "C0PGRAIN    ");
 
     //6
-    CHK_CP0_REG(CP0_Wired,                 "C0WIRED     ");
-    CHK_CP0_REG(CP0_SRSConf0,              "C0SRSCONF   ");
-    CHK_CP0_REG(CP0_SRSConf1,              "C0SRSCONF1  ");
-    CHK_CP0_REG(CP0_SRSConf2,              "C0SRSCONF2  ");
-    CHK_CP0_REG(CP0_SRSConf3,              "C0SRSCONF3  ");
-    CHK_CP0_REG(CP0_SRSConf4,              "C0SRSCONF4  ");
+    CHK_ROOT_CP0_REG(CP0_Wired,                 "C0WIRED     ");
+    CHK_ROOT_CP0_REG(CP0_SRSConf0,              "C0SRSCONF   ");
+    CHK_ROOT_CP0_REG(CP0_SRSConf1,              "C0SRSCONF1  ");
+    CHK_ROOT_CP0_REG(CP0_SRSConf2,              "C0SRSCONF2  ");
+    CHK_ROOT_CP0_REG(CP0_SRSConf3,              "C0SRSCONF3  ");
+    CHK_ROOT_CP0_REG(CP0_SRSConf4,              "C0SRSCONF4  ");
 
     //7
-    CHK_CP0_REG(CP0_HWREna,                "C0HWRENA    ");
+    CHK_ROOT_CP0_REG(CP0_HWREna,                "C0HWRENA    ");
 
     //8
-    CHK_CP0_REG(CP0_BadVAddr,              "C0BVA       ");
+    CHK_ROOT_CP0_REG(CP0_BadVAddr,              "C0BVA       ");
 
     //9
-    // CHK_CP0_REG(CP0_Count,                 "C0COUNT     ");
+    // CHK_ROOT_CP0_REG(CP0_Count,                 "C0COUNT     ");
 
     //10
-    CHK_CP0_REG(CP0_EntryHi,               "C0ENHI      ");
+    CHK_ROOT_CP0_REG(CP0_EntryHi,               "C0ENHI      ");
+    CHK_ROOT_CP0_REG(CP0_GuestCtl1,             "C0GUESTCTL1 ");
+    CHK_ROOT_CP0_REG(CP0_GuestCtl2,             "C0GUESTCTL2 ");
+    CHK_ROOT_CP0_REG(CP0_GuestCtl3,             "C0GUESTCTL3 ");
 
     //11
-    CHK_CP0_REG(CP0_Compare,               "C0COMP      ");
+    CHK_ROOT_CP0_REG(CP0_Compare,               "C0COMP      ");
 
     //12
-    CHK_CP0_REG(CP0_Status,                "C0STAT      ");
-    CHK_CP0_REG(CP0_IntCtl,                "C0INTCTL    ");
-    CHK_CP0_REG(CP0_SRSCtl,                "C0SRSCTL    ");
-    CHK_CP0_REG(CP0_SRSMap,                "C0SRSMAP    ");
+    CHK_ROOT_CP0_REG(CP0_Status,                "C0STAT      ");
+    CHK_ROOT_CP0_REG(CP0_IntCtl,                "C0INTCTL    ");
+    CHK_ROOT_CP0_REG(CP0_SRSCtl,                "C0SRSCTL    ");
+    CHK_ROOT_CP0_REG(CP0_SRSMap,                "C0SRSMAP    ");
+    CHK_ROOT_CP0_REG(CP0_GuestCtl0,             "C0GUESTCTL0 ");
 
     //13
-    CHK_CP0_REG(CP0_Cause,                 "C0CAUS      ");
+    CHK_ROOT_CP0_REG(CP0_Cause,                 "C0CAUS      ");
 
     //14
-    CHK_CP0_REG(CP0_EPC,                   "C0EPC       ");
+    CHK_ROOT_CP0_REG(CP0_EPC,                   "C0EPC       ");
 
     //15
-    CHK_CP0_REG(CP0_PRid,                  "C0PRID      ");
-    CHK_CP0_REG(CP0_EBase,                 "C0EBASE     ");
+    CHK_ROOT_CP0_REG(CP0_PRid,                  "C0PRID      ");
+    CHK_ROOT_CP0_REG(CP0_EBase,                 "C0EBASE     ");
 
     //16
-    CHK_CP0_REG(CP0_Config0,               "C0CONFIG    ");
-    CHK_CP0_REG(CP0_Config1,               "C0CONFIG1   ");
-    CHK_CP0_REG(CP0_Config2,               "C0CONFIG2   ");
-    CHK_CP0_REG(CP0_Config3,               "C0CONFIG3   ");
-    CHK_CP0_REG(CP0_Config4,               "C0CONFIG4   ");
-    CHK_CP0_REG(CP0_Config5,               "C0CONFIG5   ");
+    CHK_ROOT_CP0_REG(CP0_Config0,               "C0CONFIG    ");
+    CHK_ROOT_CP0_REG(CP0_Config1,               "C0CONFIG1   ");
+    CHK_ROOT_CP0_REG(CP0_Config2,               "C0CONFIG2   ");
+    CHK_ROOT_CP0_REG(CP0_Config3,               "C0CONFIG3   ");
+    CHK_ROOT_CP0_REG(CP0_Config4,               "C0CONFIG4   ");
+    CHK_ROOT_CP0_REG(CP0_Config5,               "C0CONFIG5   ");
     //MSA
-    CHK_CP0_REG(CP0_Config6,               "C0CONFIG6   ");
-    CHK_CP0_REG(CP0_Config7,               "C0CONFIG7   ");
+    CHK_ROOT_CP0_REG(CP0_Config6,               "C0CONFIG6   ");
+    CHK_ROOT_CP0_REG(CP0_Config7,               "C0CONFIG7   ");
 
     //17
-    CHK_CP0_REG(lladdr,                    "C0LLA       ");
+    CHK_ROOT_CP0_REG(lladdr,                    "C0LLA       ");
     if(env_prev.llbit != env->llbit) {
-        sv_log("%s : Write C0LL         = %u\n", env->cpu_model_str, env->llbit);
+        PRINT_TRACE_CTXT();
+        sv_log("Write C0LL         = %u\n", (unsigned) env->llbit);
     }
     //...
 
     //18
     /*
-    CHK_CP0_REG(CP0_WatchLo[0],            "C0WATCHLO   ");
-    CHK_CP0_REG(CP0_WatchLo[1],            "C0WATCHLO1  ");
-    CHK_CP0_REG(CP0_WatchLo[2],            "C0WATCHLO2  ");
-    CHK_CP0_REG(CP0_WatchLo[3],            "C0WATCHLO3  ");
-    CHK_CP0_REG(CP0_WatchLo[4],            "C0WATCHLO4  ");
-    CHK_CP0_REG(CP0_WatchLo[5],            "C0WATCHLO5  ");
-    CHK_CP0_REG(CP0_WatchLo[6],            "C0WATCHLO6  ");
-    CHK_CP0_REG(CP0_WatchLo[7],            "C0WATCHLO7  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[0],            "C0WATCHLO   ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[1],            "C0WATCHLO1  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[2],            "C0WATCHLO2  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[3],            "C0WATCHLO3  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[4],            "C0WATCHLO4  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[5],            "C0WATCHLO5  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[6],            "C0WATCHLO6  ");
+    CHK_ROOT_CP0_REG(CP0_WatchLo[7],            "C0WATCHLO7  ");
     */
 
     //19
     /*
-    CHK_CP0_REG(CP0_WatchHi[0],            "C0WATCHHI   ");
-    CHK_CP0_REG(CP0_WatchHi[1],            "C0WATCHHI1  ");
-    CHK_CP0_REG(CP0_WatchHi[2],            "C0WATCHHI2  ");
-    CHK_CP0_REG(CP0_WatchHi[3],            "C0WATCHHI3  ");
-    CHK_CP0_REG(CP0_WatchHi[4],            "C0WATCHHI4  ");
-    CHK_CP0_REG(CP0_WatchHi[5],            "C0WATCHHI5  ");
-    CHK_CP0_REG(CP0_WatchHi[6],            "C0WATCHHI6  ");
-    CHK_CP0_REG(CP0_WatchHi[7],            "C0WATCHHI7  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[0],            "C0WATCHHI   ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[1],            "C0WATCHHI1  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[2],            "C0WATCHHI2  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[3],            "C0WATCHHI3  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[4],            "C0WATCHHI4  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[5],            "C0WATCHHI5  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[6],            "C0WATCHHI6  ");
+    CHK_ROOT_CP0_REG(CP0_WatchHi[7],            "C0WATCHHI7  ");
     */
     //20 for 64bit
-    CHK_CP0_REG(CP0_XContext,              "C0XCTXT     ");
+    CHK_ROOT_CP0_REG(CP0_XContext,              "C0XCTXT     ");
     //CP0_Framemask???
 
     //23
-    CHK_CP0_REG(CP0_Debug,                 "C0DEBUG     ");
+    CHK_ROOT_CP0_REG(CP0_Debug,                 "C0DEBUG     ");
 
     //24
-    CHK_CP0_REG(CP0_DEPC,                  "C0DEPC      ");
+    CHK_ROOT_CP0_REG(CP0_DEPC,                  "C0DEPC      ");
 
     //25
-    CHK_CP0_REG(CP0_Performance0,          "C0PERF0CTL  ");
+    CHK_ROOT_CP0_REG(CP0_Performance0,          "C0PERF0CTL  ");
 
     //28
-    CHK_CP0_REG(CP0_TagLo,                 "C0TAGLO     ");
-    CHK_CP0_REG(CP0_DataLo,                "C0DATALO    ");
+    CHK_ROOT_CP0_REG(CP0_TagLo,                 "C0TAGLO     ");
+    CHK_ROOT_CP0_REG(CP0_DataLo,                "C0DATALO    ");
 
     //29
-    CHK_CP0_REG(CP0_TagHi,                 "C0TAGHI     ");
-    CHK_CP0_REG(CP0_DataHi,                "C0DATAHI    ");
+    CHK_ROOT_CP0_REG(CP0_TagHi,                 "C0TAGHI     ");
+    CHK_ROOT_CP0_REG(CP0_DataHi,                "C0DATAHI    ");
 
     //30
-    CHK_CP0_REG(CP0_ErrorEPC,              "C0ErrorEPC  ");
+    CHK_ROOT_CP0_REG(CP0_ErrorEPC,              "C0ErrorEPC  ");
 
     //31
-    CHK_CP0_REG(CP0_DESAVE,                "C0DESAVE    ");
+    CHK_ROOT_CP0_REG(CP0_DESAVE,                "C0DESAVE    ");
 
     //GPRs
     for (i = 0; i < 32; i++) {
         if(env_prev.active_tc.gpr[i] != env->active_tc.gpr[i]) {
-            sv_log("%s : Write GPR[%2d]      = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.gpr[i]);
+            PRINT_TRACE_CTXT();
+            sv_log("Write GPR[%2d]      = " TARGET_FMT_lx "\n",
+                    i, env->active_tc.gpr[i]);
         }
     }
 
     //FPU
     if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
-        sv_log("%s : Write C1FCSR           = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_fpu.fcr31);
+        sv_log("%s : Write C1FCSR           = %08x\n", env->cpu_model_str, env->active_fpu.fcr31);
     }
 
     //FPR
@@ -13873,7 +13914,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //MSA
     if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
-        sv_log("%s : Write msa_csr      = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_msa.msacsr);
+        sv_log("%s : Write msa_csr      = %8x\n", env->cpu_model_str, env->active_msa.msacsr);
     }
 
     for (i = 0; i < 32; i++) {
@@ -13886,17 +13927,21 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     }
 
     //DSP
-    CHK_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
+    CHK_ROOT_CP0_REG(active_tc.DSPControl,    "DSPCTL      ");
 
-    CHK_CP0_REG(active_tc.HI[0], "HI          ");
-    CHK_CP0_REG(active_tc.LO[0], "LO          ");
+    CHK_ROOT_CP0_REG(active_tc.HI[0], "HI          ");
+    CHK_ROOT_CP0_REG(active_tc.LO[0], "LO          ");
 
     for (i = 1; i < MIPS_DSP_ACC; i++) {
         if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {
-            sv_log("%s : Write HI%x         = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.HI[i]);
+            sv_log("%s : %s - Write HI%x         = " TARGET_FMT_lx "\n", env->cpu_model_str,
+                    (env->hflags & MIPS_HFLAG_GUEST)? "Guest": "Root",
+                    i, env->active_tc.HI[i]);
         }
         if(env_prev.active_tc.LO[i] != env->active_tc.LO[i]) {
-            sv_log("%s : Write LO%x         = " TARGET_FMT_lx "\n", env->cpu_model_str, i, env->active_tc.LO[i]);
+            sv_log("%s : %s - Write LO%x         = " TARGET_FMT_lx "\n", env->cpu_model_str,
+                    (env->hflags & MIPS_HFLAG_GUEST)? "Guest": "Root",
+                    i, env->active_tc.LO[i]);
         }
     }
 
