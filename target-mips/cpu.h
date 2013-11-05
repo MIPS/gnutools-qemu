@@ -146,6 +146,7 @@ struct CPUMIPSFPUContext {
     /* fpu implementation/revision register (fir) */
     uint32_t fcr0;
 #define FCR0_CR2 28
+#define FCR0_HAS2008 23
 #define FCR0_F64 22
 #define FCR0_L 21
 #define FCR0_W 20
@@ -269,6 +270,79 @@ struct TCState {
     int32_t CP0_Debug_tcstatus;
 };
 
+// VZ
+typedef struct CPUMIPSPrvState_t {
+    int32_t CP0_Index;
+    /* CP0_MVP* are per MVP registers. */
+    int32_t CP0_Random;
+    int32_t CP0_VPEControl;
+    int32_t CP0_VPEConf0;
+    int32_t CP0_VPEConf1;
+    target_ulong CP0_YQMask;
+    target_ulong CP0_VPESchedule;
+    target_ulong CP0_VPEScheFBack;
+    int32_t CP0_VPEOpt;
+    target_ulong CP0_EntryLo0;
+    target_ulong CP0_EntryLo1;
+    target_ulong CP0_Context;
+    target_ulong CP0_ContextConfig;
+    int32_t CP0_PageMask;
+    int32_t CP0_PageGrain;
+    int32_t CP0_Wired;
+    int32_t CP0_SRSConf0_rw_bitmask;
+    int32_t CP0_SRSConf0;
+    int32_t CP0_SRSConf1_rw_bitmask;
+    int32_t CP0_SRSConf1;
+    int32_t CP0_SRSConf2_rw_bitmask;
+    int32_t CP0_SRSConf2;
+    int32_t CP0_SRSConf3_rw_bitmask;
+    int32_t CP0_SRSConf3;
+    int32_t CP0_SRSConf4_rw_bitmask;
+    int32_t CP0_SRSConf4;
+    int32_t CP0_HWREna;
+    target_ulong CP0_BadVAddr;
+    int32_t CP0_Count;
+    target_ulong CP0_EntryHi;
+    int32_t CP0_Compare;
+    int32_t CP0_Status;
+    int32_t CP0_IntCtl;
+    int32_t CP0_SRSCtl;
+    int32_t CP0_SRSMap;
+    int32_t CP0_Cause;
+    target_ulong CP0_EPC;
+    int32_t CP0_PRid;
+    int32_t CP0_EBase;
+    int32_t CP0_Config0;
+    int32_t CP0_Config1;
+    int32_t CP0_Config2;
+    int32_t CP0_Config3;
+    int32_t CP0_Config4;
+    int32_t CP0_Config5;
+    int32_t CP0_Config6;
+    int32_t CP0_Config7;
+    /* XXX: Maybe make LLAddr per-TC? */
+    target_ulong lladdr;
+    target_ulong llbit;
+    target_ulong llval;
+    target_ulong llnewval;
+    target_ulong llreg;
+    target_ulong CP0_LLAddr_rw_bitmask;
+    int CP0_LLAddr_shift;
+    target_ulong CP0_WatchLo[8];
+    int32_t CP0_WatchHi[8];
+    target_ulong CP0_XContext;
+    int32_t CP0_Framemask;
+    int32_t CP0_Debug;
+    target_ulong CP0_DEPC;
+    int32_t CP0_Performance0;
+    int32_t CP0_TagLo;
+    int32_t CP0_DataLo;
+    int32_t CP0_TagHi;
+    int32_t CP0_DataHi;
+    target_ulong CP0_ErrorEPC;
+    int32_t CP0_DESAVE;
+} CPUMIPSPrvState;
+
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
@@ -282,6 +356,9 @@ struct CPUMIPSState {
     uint32_t PABITS;
     target_ulong SEGMask;
     target_ulong PAMask;
+
+    // VZ-ASE
+    CPUMIPSPrvState Guest;
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
@@ -365,6 +442,22 @@ struct CPUMIPSState {
     target_ulong CP0_BadVAddr;
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
+#define CP0EntryHiVPN2  13
+#define CP0EntryHiVPN2X 11
+#define CP0EntryHiEHINV 10
+#define CP0EntryHiASIDX 8
+#define CP0EntryHiASID  0
+    int32_t CP0_GuestCtl1;
+#define CP0GuestCtl1_EID 24
+#define CP0GUestCtl1_RID 16
+#define CP0GuestCtl1_ID  0
+    int32_t CP0_GuestCtl2;
+#define CP0GuestCtl2_HC     24
+#define CP0GuestCtl2_VIP    10
+#define CP0GuestCtl2_GRIPL  24
+#define CP0GuestCtl2_GEICSS 18
+#define CP0GuestCtl2_GVEC   0
+    int32_t CP0_GuestCtl3;
     int32_t CP0_Compare;
     int32_t CP0_Status;
 #define CP0St_CU3   31
@@ -399,6 +492,34 @@ struct CPUMIPSState {
 #define CP0SRSCtl_PSS 6
 #define CP0SRSCtl_CSS 0
     int32_t CP0_SRSMap;
+    int32_t CP0_GuestCtl0;
+#define CP0GuestCtl0_GM 31
+#define CP0GuestCtl0_RI 30
+#define CP0GuestCtl0_MC 29
+#define CP0GuestCtl0_CP0 28
+#define CP0GuestCtl0_AT 26
+#define CP0GuestCtl0_GT 25
+#define CP0GuestCtl0_CG 24
+#define CP0GuestCtl0_CF 23
+#define CP0GuestCtl0_G1 22
+#define CP0GuestCtl0_G0E 19
+#define CP0GuestCtl0_PT 18
+#define CP0GuestCtl0_ASE 16
+#define CP0GuestCtl0_PIP 10
+#define CP0GuestCtl0_RAD 9
+#define CP0GuestCtl0_DRG 8
+#define CP0GuestCtl0_G2 7
+#define CP0GuestCtl0_GExcCode 2
+#define CP0GuestCtl0_SFC2 1
+#define CP0GuestCtl0_SFC1 0
+#define GPSI 0x00
+#define GSFC 0x01
+#define HC   0x02
+#define GRR  0x03
+#define GVA  0x08
+#define GHFC 0x09
+#define GPA  0x0a
+    int32_t CP0_GTOffset;
 #define CP0SRSMap_SSV7 28
 #define CP0SRSMap_SSV6 24
 #define CP0SRSMap_SSV5 20
@@ -415,6 +536,7 @@ struct CPUMIPSState {
 #define CP0Ca_PCI  26
 #define CP0Ca_IV   23
 #define CP0Ca_WP   22
+#define CP0Ca_RIPL  10
 #define CP0Ca_IP    8
 #define CP0Ca_IP_mask 0x0000FF00
 #define CP0Ca_EC    2
@@ -483,7 +605,17 @@ struct CPUMIPSState {
 #define CP0C3_SM   1
 #define CP0C3_TL   0
     int32_t CP0_Config4;
-#define CP0C4_M    31
+#define CP0C4_M             31
+#define CP0C4_IE            29
+#define CP0C4_AE            28
+#define CP0C4_VTLBSizeExt   24
+#define CP0C4_KScrExist     16
+#define CP0C4_MMUExtDef     14
+    /* Definition Depends on MMUExtDef */
+#define CP0C4_FTLBPageSize  8
+#define CP0C4_FTLBWays      4
+#define CP0C4_FTLBSets      0
+#define CP0C4_MMUSizeExt    0
     int32_t CP0_Config5;
 #define CP0C5_MSAEn  27
     int32_t CP0_Config6;
@@ -574,6 +706,8 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_BDS32  0x20000 /* branch requires 32-bit delay slot  */
 #define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
+    /* VZ ASE */
+#define MIPS_HFLAG_GUEST  0x100000 /* Guest Mode */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
@@ -788,6 +922,7 @@ static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
     *pc = env->active_tc.PC;
     *cs_base = 0;
     *flags = env->hflags & (MIPS_HFLAG_TMASK | MIPS_HFLAG_BMASK);
+    *flags |= env->hflags & (0x100000); //VZ_ASE
 }
 
 static inline void cpu_set_tls(CPUState *env, target_ulong newtls)

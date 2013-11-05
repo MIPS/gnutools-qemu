@@ -112,8 +112,11 @@ int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
 
 void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_size)
 {
-    sv_log("%s : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
+    sv_log("%s : %s(%s%d) - Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
             env->cpu_model_str,
+            (env->hflags & MIPS_HFLAG_GUEST)? "Guest":"Root",
+            (env->hflags & MIPS_HFLAG_KSU)? ((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM)? "Supv" : "User" : "Kern",
+            (env->hflags & MIPS_HFLAG_GUEST)? (env->Guest.CP0_Status >> CP0St_ERL) & 1 : (env->CP0_Status >> CP0St_ERL) & 1,
             (rw_size >> 16)? "Write":"Read",
             addr,
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
@@ -141,11 +144,35 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
 }
 #endif
 
+static bool isGuestMode(void)
+{
+    if (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GM) &&
+            !(env->CP0_Debug & (1 << CP0DB_DM)) &&
+            !(env->CP0_Status & (1 << CP0St_ERL)) &&
+            !(env->CP0_Status & (1 << CP0St_EXL)) ) {
+        return true;
+    }
+    return false;
+}
+
+static bool isRootMode(void)
+{
+    if ( !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GM)) ||
+            ((env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GM)) &&
+                    (env->CP0_Debug & (1 << CP0DB_DM)) &&
+                    !(env->CP0_Status & (1 << CP0St_ERL)) &&
+                    !(env->CP0_Status & (1 << CP0St_EXL))) )
+    {
+        return true;
+    }
+    return false;
+}
+
 static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP);
+                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_GUEST);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -190,6 +217,16 @@ static inline void compute_hflags(CPUState *env)
         if (env->CP0_Status & (1 << CP0St_CU3)) {
             env->hflags |= MIPS_HFLAG_COP1X;
         }
+    }
+    if (isGuestMode()) {
+        sv_log("Switching GUESTMODE\n");
+        env->hflags |= MIPS_HFLAG_GUEST;
+        tlb_flush (env, 1);
+    }
+    if (isRootMode()) {
+        sv_log("Switching ROOTMODE\n");
+        env->hflags &= ~MIPS_HFLAG_GUEST;
+        tlb_flush (env, 1);
     }
 }
 
