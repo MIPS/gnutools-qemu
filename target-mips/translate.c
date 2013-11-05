@@ -396,9 +396,17 @@ enum {
 enum {
     OPC_TLBR     = 0x01 | OPC_C0,
     OPC_TLBWI    = 0x02 | OPC_C0,
+    OPC_TLBINV   = 0x03 | OPC_C0,
+    OPC_TLBINVF  = 0x04 | OPC_C0,
     OPC_TLBWR    = 0x06 | OPC_C0,
     OPC_TLBP     = 0x08 | OPC_C0,
-    OPC_RFE      = 0x10 | OPC_C0,
+    OPC_TLBGR    = 0x09 | OPC_C0,
+    OPC_TLBGWI   = 0x0A | OPC_C0,
+    OPC_TLBGINV  = 0x0B | OPC_C0,
+    OPC_TLBGINVF = 0x0C | OPC_C0,
+    OPC_TLBGWR   = 0x0E | OPC_C0,
+//    OPC_RFE      = 0x10 | OPC_C0,
+    OPC_TLBGP    = 0x10 | OPC_C0,
     OPC_ERET     = 0x18 | OPC_C0,
     OPC_DERET    = 0x1F | OPC_C0,
     OPC_WAIT     = 0x20 | OPC_C0,
@@ -7555,6 +7563,30 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
             goto die;
         gen_helper_tlbr();
         break;
+    case OPC_TLBGWI:
+        // FIXME: VZ
+        opn = "tlbgwi";
+        if (!env->guest_tlb->helper_tlbwi)
+            goto die;
+        gen_helper_tlbgwi();
+        break;
+    case OPC_TLBGWR:
+        // FIXME: VZ
+        sv_log("OPC_TLBGWR %x\n", ctx->opcode);
+        opn = "tlbgwr";
+        break;
+    case OPC_TLBGP:
+        sv_log("OPC_TLBGP %x\n", ctx->opcode);
+        opn = "tlbgp";
+        if (!env->guest_tlb->helper_tlbp)
+            goto die;
+        gen_helper_tlbgp();
+        break;
+    case OPC_TLBGR:
+        // FIXME: VZ
+        sv_log("OPC_TLBGR %x\n", ctx->opcode);
+        opn = "tlbgr";
+        break;
     case OPC_ERET:
         opn = "eret";
         check_insn(env, ctx, ISA_MIPS2);
@@ -14242,6 +14274,9 @@ gen_intermediate_code_internal (CPUState *env, TranslationBlock *tb,
         ctx.mem_idx = MIPS_HFLAG_UM;
 #else
         ctx.mem_idx = ctx.hflags & MIPS_HFLAG_KSU;
+        if (ctx.hflags & MIPS_HFLAG_GUEST) {
+            ctx.mem_idx += 3;
+        }
 #endif
     num_insns = 0;
     max_insns = tb->cflags & CF_COUNT_MASK;

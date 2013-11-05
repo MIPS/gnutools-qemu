@@ -5562,47 +5562,164 @@ static void r4k_mips_tlb_flush_extra (CPUState *env, int first)
     }
 }
 
-static void r4k_fill_tlb (int idx)
+static void r4k_fill_tlb (int idx, bool guest)
 {
     r4k_tlb_t *tlb;
+    int32_t k;
 
-    /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
-    tlb = &env->tlb->mmu.r4k.tlb[idx];
-    tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+    if(!guest) {
+        /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
+        tlb = &env->tlb->mmu.r4k.tlb[idx];
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            tlb->hardware_invalid = 0;
+            if (env->CP0_EntryHi >> CP0EntryHiEHINV & 1) {
+                tlb->hardware_invalid = 1;
+                sv_log("INV");
+            }
+        }
+        tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
 #if defined(TARGET_MIPS64)
-    tlb->VPN &= env->SEGMask;
+        tlb->VPN &= env->SEGMask;
 #endif
-    tlb->ASID = env->CP0_EntryHi & 0xFF;
-    tlb->PageMask = env->CP0_PageMask;
-    tlb->G = env->CP0_EntryLo0 & env->CP0_EntryLo1 & 1;
-    tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
-    tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
-    tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-    tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
-    tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
-    tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
-    tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-    tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+        tlb->ASID = env->CP0_EntryHi & 0xFF;
+//        tlb->PageMask = env->CP0_PageMask;
+        tlb->PageMask = env->CP0_PageMask;
 
-#ifdef SV_SUPPORT
-    sv_log("FILL TLB index %d, ", idx);
-    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
-    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
-    sv_log("mask 0x%08x ", tlb->PageMask);
-    sv_log("G %x ", tlb->G);
-    sv_log("V0 %x ", tlb->V0);
-    sv_log("V1 %x ", tlb->V1);
-    sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->D1);
-    sv_log("ASID %08x\n", tlb->ASID);
+        // FIXME - quick and ugly
+        if (tlb->PageMask != 0 && (tlb->PageMask & (tlb->PageMask + 1))) {
+            k = 1;
+            while (tlb->PageMask >>= 1) {
+                k++;
+            }
+            tlb->PageMask = (1 << k) - 1;
+        }
+////////////////// LEON's fix
+        if ((env->CP0_GuestCtl0 & CP0GuestCtl0_G1) &&
+                !(env->CP0_GuestCtl0 & CP0GuestCtl0_RAD) &&
+                !(env->hflags & MIPS_HFLAG_GUEST) &&
+                (env->CP0_GuestCtl1 & CP0GUestCtl1_RID) ) {
+            tlb->G = 1;
+        }
+        else {
+            tlb->G = env->CP0_EntryLo0 & env->CP0_EntryLo1 & 1;
+        }
+        tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
+        tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
+        tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
+//        tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
+        tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) << 12) & ~(tlb->PageMask >> 1);
+        tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
+        tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
+        tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
+//        tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+        tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) << 12) & ~(tlb->PageMask >> 1);
 
-    sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
-    sv_log("%08x ", env->CP0_PageMask);
-    sv_log("%08x ", env->CP0_EntryHi);
-    sv_log("%08x ", env->CP0_EntryLo1);
-    sv_log("%08x\n", env->CP0_EntryLo0);
+        tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
+                (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff:
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
+        tlb->isGuestCtx = (env->hflags & MIPS_HFLAG_GUEST)? 1: 0;
+
+        if((env->CP0_Config3 & (1 << CP0C3_VZ)) && (
+                env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_G1)) &&
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_RAD)) ) {
+            // force G bit on guest entries written to root TLB
+            if(tlb->isGuestCtx == 0 && tlb->GuestID != 0) {
+                tlb->G = 1;
+            }
+        }
+#ifdef MIPSSIM_COMPAT
+        sv_log("FILL TLB index %d, ", idx);
+        sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+        sv_log("mask 0x%08x ", tlb->PageMask);
+        sv_log("G %x ", tlb->G);
+        sv_log("V0 %x ", tlb->V0);
+        sv_log("V1 %x ", tlb->V1);
+        sv_log("D0 %x ", tlb->D0);
+        sv_log("D1 %x ", tlb->D1);
+        sv_log("ASID 0x%04x ", tlb->ASID);
+        sv_log("GuestID 0x%04x\n", tlb->GuestID);
+
+        sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
+        sv_log("%08x ", env->CP0_PageMask);
+        sv_log(TARGET_FMT_lx" ", env->CP0_EntryHi);
+        sv_log(TARGET_FMT_lx" ", env->CP0_EntryLo1);
+        sv_log(TARGET_FMT_lx"\n", env->CP0_EntryLo0);
 #endif
+    }
+    else {
+        /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
+        tlb = &env->tlb->mmu.r4k.tlb[idx];
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            tlb->hardware_invalid = 0;
+            if (env->Guest.CP0_EntryHi >> CP0EntryHiEHINV & 1) {
+                tlb->hardware_invalid = 1;
+                sv_log("INV");
+            }
+        }
+        tlb->VPN = env->Guest.CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+    #if defined(TARGET_MIPS64)
+        tlb->VPN &= env->SEGMask;
+    #endif
+        tlb->ASID = env->Guest.CP0_EntryHi & 0xFF;
+//        tlb->PageMask = env->Guest.CP0_PageMask;
+        tlb->PageMask = env->Guest.CP0_PageMask;
+
+        // FIXME - quick and ugly
+        if (tlb->PageMask != 0 && (tlb->PageMask & (tlb->PageMask + 1))) {
+            k = 1;
+            while (tlb->PageMask >>= 1) {
+                k++;
+            }
+            tlb->PageMask = (1 << k) - 1;
+        }
+        tlb->G = env->Guest.CP0_EntryLo0 & env->Guest.CP0_EntryLo1 & 1;
+        tlb->V0 = (env->Guest.CP0_EntryLo0 & 2) != 0;
+        tlb->D0 = (env->Guest.CP0_EntryLo0 & 4) != 0;
+        tlb->C0 = (env->Guest.CP0_EntryLo0 >> 3) & 0x7;
+//        tlb->PFN[0] = (env->Guest.CP0_EntryLo0 >> 6) << 12;
+        tlb->PFN[0] = ((env->Guest.CP0_EntryLo0 >> 6) << 12) & ~(tlb->PageMask >> 1);
+        tlb->V1 = (env->Guest.CP0_EntryLo1 & 2) != 0;
+        tlb->D1 = (env->Guest.CP0_EntryLo1 & 4) != 0;
+        tlb->C1 = (env->Guest.CP0_EntryLo1 >> 3) & 0x7;
+//        tlb->PFN[1] = (env->Guest.CP0_EntryLo1 >> 6) << 12;
+        tlb->PFN[1] = ((env->Guest.CP0_EntryLo1 >> 6) << 12) & ~(tlb->PageMask >> 1);
+
+        tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
+                (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff:
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
+        tlb->isGuestCtx = (env->hflags & MIPS_HFLAG_GUEST)? 1: 0;
+
+//        if((env->CP0_Config3 & (1 << CP0C3_VZ)) && (
+//                env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_G1)) &&
+//                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_RAD)) ) {
+//            // force G bit on guest entries written to root TLB
+//            if(tlb->isGuestCtx == 0 && tlb->GuestID != 0) {
+//                tlb->G = 1;
+//            }
+//        }
+    #ifdef MIPSSIM_COMPAT
+        sv_log("FILL TLB index %d, ", idx);
+        sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+        sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
+        sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+        sv_log("mask 0x%08x ", tlb->PageMask);
+        sv_log("G %x ", tlb->G);
+        sv_log("V0 %x ", tlb->V0);
+        sv_log("V1 %x ", tlb->V1);
+        sv_log("D0 %x ", tlb->D0);
+        sv_log("D1 %x ", tlb->D1);
+        sv_log("ASID 0x%04x ", tlb->ASID);
+        sv_log("GuestID 0x%04x\n", tlb->GuestID);
+
+        sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
+        sv_log("%08x ", env->Guest.CP0_PageMask);
+        sv_log(TARGET_FMT_lx" ", env->Guest.CP0_EntryHi);
+        sv_log(TARGET_FMT_lx" ", env->Guest.CP0_EntryLo1);
+        sv_log(TARGET_FMT_lx"\n", env->Guest.CP0_EntryLo0);
+    #endif
+    }
 }
 
 void r4k_helper_tlbwi (void)
@@ -5619,7 +5736,25 @@ void r4k_helper_tlbwi (void)
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
 
     r4k_invalidate_tlb(env, idx, 0);
-    r4k_fill_tlb(idx);
+    r4k_fill_tlb(idx, false);
+}
+
+void r4k_helper_tlbgwi (void)
+{
+    int idx;
+
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBGWI ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBGWI ", env->cpu_model_str);
+#endif
+#endif
+    idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+    idx = env->tlb->nb_tlb - idx - 1;
+    sv_log("guest idx = %d, nb_tlb=%d\n", idx, env->tlb->nb_tlb);
+    r4k_invalidate_tlb(env, idx, 0);
+    r4k_fill_tlb(idx, true);
 }
 
 void r4k_helper_tlbwr (void)
@@ -5634,7 +5769,7 @@ void r4k_helper_tlbwr (void)
     int r = cpu_mips_get_random(env);
 
     r4k_invalidate_tlb(env, r, 1);
-    r4k_fill_tlb(r);
+    r4k_fill_tlb(r, false);
 }
 
 void r4k_helper_tlbp (void)
@@ -5677,6 +5812,9 @@ void r4k_helper_tlbp (void)
 
         env->CP0_Index |= 0x80000000;
     }
+    if (tlb->hardware_invalid) {
+        env->CP0_Index |= 0x80000000;
+    }
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s TLBP ", env->cpu_model_str);
@@ -5686,6 +5824,61 @@ void r4k_helper_tlbp (void)
     sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
     sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
     sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
+#endif
+}
+
+void r4k_helper_tlbgp (void)
+{
+    r4k_tlb_t *tlb;
+    target_ulong mask;
+    target_ulong tag;
+    target_ulong VPN;
+    uint8_t ASID;
+    int i;
+
+    ASID = env->Guest.CP0_EntryHi & 0xFF;
+    for (i = 0; i < env->tlb->nb_tlb; i++) {
+        tlb = &env->tlb->mmu.r4k.tlb[i];
+        /* 1k pages are not supported. */
+        mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
+        tag = env->Guest.CP0_EntryHi & ~mask;
+        VPN = tlb->VPN & ~mask;
+        /* Check ASID, virtual page number & size */
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
+            /* TLB match */
+            env->Guest.CP0_Index = i;
+            break;
+        }
+    }
+    if (i == env->tlb->nb_tlb) {
+        /* No match.  Discard any shadow entries, if any of them match.  */
+        for (i = env->tlb->nb_tlb; i < env->tlb->tlb_in_use; i++) {
+            tlb = &env->tlb->mmu.r4k.tlb[i];
+            /* 1k pages are not supported. */
+            mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
+            tag = env->Guest.CP0_EntryHi & ~mask;
+            VPN = tlb->VPN & ~mask;
+            /* Check ASID, virtual page number & size */
+            if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
+                r4k_mips_tlb_flush_extra (env, i);
+                break;
+            }
+        }
+
+        env->Guest.CP0_Index |= 0x80000000;
+    }
+    if (tlb->hardware_invalid) {
+        env->Guest.CP0_Index |= 0x80000000;
+    }
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s TLBGP ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s TLBGP ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
+    sv_log("P %d ", (env->Guest.CP0_Index & 0x80000000) >> 31);
+    sv_log("Index %d\n", env->Guest.CP0_Index & 0x7FFFFFFF);
 #endif
 }
 
@@ -5724,13 +5917,18 @@ void r4k_helper_tlbr (void)
     sv_log("D0 %x ", tlb->D0);
     sv_log("D1 %x ", tlb->D1);
     sv_log("ASID tlb=0x%08x ", tlb->ASID);
-    sv_log("EnHi=0x%08x\n", env->CP0_EntryHi & 0xff);
+    sv_log("EnHi=0x%08x\n", (unsigned) env->CP0_EntryHi & 0xff);
 #endif
 }
 
 void helper_tlbwi(void)
 {
     env->tlb->helper_tlbwi();
+}
+
+void helper_tlbgwi(void)
+{
+    env->guest_tlb->helper_tlbwi();
 }
 
 void helper_tlbwr(void)
@@ -5741,6 +5939,11 @@ void helper_tlbwr(void)
 void helper_tlbp(void)
 {
     env->tlb->helper_tlbp();
+}
+
+void helper_tlbgp(void)
+{
+    env->guest_tlb->helper_tlbp();
 }
 
 void helper_tlbr(void)

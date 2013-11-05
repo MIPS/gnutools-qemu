@@ -37,6 +37,9 @@ struct r4k_tlb_t {
     uint_fast16_t D0:1;
     uint_fast16_t D1:1;
     target_ulong PFN[2];
+    uint_fast16_t hardware_invalid:1;
+    uint_fast8_t GuestID; // VZ ASE
+    uint_fast16_t isGuestCtx:1; // VZ ASE
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -176,7 +179,7 @@ struct CPUMIPSFPUContext {
 #define FP_UNIMPLEMENTED  32
 };
 
-#define NB_MMU_MODES 3
+#define NB_MMU_MODES 6
 
 typedef struct CPUMIPSMVPContext CPUMIPSMVPContext;
 struct CPUMIPSMVPContext {
@@ -724,6 +727,7 @@ struct CPUMIPSState {
     CPUMIPSMVPContext *mvp;
 #if !defined(CONFIG_USER_ONLY)
     CPUMIPSTLBContext *tlb;
+    CPUMIPSTLBContext *guest_tlb;
 #endif
 
     const mips_def_t *cpu_model;
@@ -742,6 +746,11 @@ void r4k_helper_tlbwi (void);
 void r4k_helper_tlbwr (void);
 void r4k_helper_tlbp (void);
 void r4k_helper_tlbr (void);
+
+void r4k_helper_tlbgwi (void);
+void r4k_helper_tlbgwr (void);
+void r4k_helper_tlbgp (void);
+void r4k_helper_tlbgr (void);
 
 void cpu_unassigned_access(CPUState *env, target_phys_addr_t addr,
                            int is_write, int is_exec, int unused, int size);
@@ -765,6 +774,8 @@ void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 #define MMU_USER_IDX 2
 static inline int cpu_mmu_index (CPUState *env)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST)
+        return (env->hflags & MIPS_HFLAG_KSU) + 3;
     return env->hflags & MIPS_HFLAG_KSU;
 }
 

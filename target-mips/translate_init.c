@@ -1354,11 +1354,18 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->tlb->helper_tlbp = r4k_helper_tlbp;
     env->tlb->helper_tlbr = r4k_helper_tlbr;
+
+    env->guest_tlb->map_address = &r4k_map_address;
+    env->guest_tlb->helper_tlbwi = r4k_helper_tlbgwi;
+    env->guest_tlb->helper_tlbwr = r4k_helper_tlbwr;
+    env->guest_tlb->helper_tlbp = r4k_helper_tlbgp;
+    env->guest_tlb->helper_tlbr = r4k_helper_tlbr;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
     env->tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
+    env->guest_tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
 
     switch (def->mmu_type) {
         case MMU_TYPE_NONE:

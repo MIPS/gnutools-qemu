@@ -27,6 +27,7 @@
 #include "cpu.h"
 
 enum {
+    TLBRET_GUESTEXIT = -10,
     TLBRET_DIRTY = -4,
     TLBRET_INVALID = -3,
     TLBRET_NOMATCH = -2,
@@ -81,12 +82,18 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 #endif
 
         /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && !tlb->hardware_invalid) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
-            if (!(n ? tlb->V1 : tlb->V0))
+            if (!(n ? tlb->V1 : tlb->V0)) {
+                sv_log("tlb v0 v1 invalid %d vpn %x tag %x\n", i, (unsigned) VPN, (unsigned) tag);
                 return TLBRET_INVALID;
+            }
+            /*else if (tlb->hardware_invalid) {
+                sv_log("tlb hardware_invalid\n");
+                return TLBRET_INVALID;
+            }*/
             if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
                 *physical = tlb->PFN[n] | (address & (mask >> 1));
                 *prot = PAGE_READ;
@@ -94,9 +101,11 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                     *prot |= PAGE_WRITE;
                 return TLBRET_MATCH;
             }
+            sv_log("tlb dirty %d\n", i);
             return TLBRET_DIRTY;
         }
     }
+    sv_log("tlb nomatch\n");
     return TLBRET_NOMATCH;
 }
 
@@ -119,7 +128,7 @@ int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *pro
 #endif
 
         /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && !tlb->hardware_invalid) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
@@ -145,6 +154,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
                                 int rw, int access_type)
 {
     /* User mode can only access useg/xuseg */
+    int guest_mode = !!(env->hflags & MIPS_HFLAG_GUEST);
     int user_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM;
     int supervisor_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM;
     int kernel_mode = !user_mode && !supervisor_mode;
@@ -154,11 +164,96 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
     int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
 #endif
     int ret = TLBRET_MATCH;
-
+    *physical = address;
 #if 0
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
+    int GuestID = -1;
+    if (guest_mode) {
+//        sv_log("guest mode translation\n");
+        target_phys_addr_t gpa;
 
+        if (!(env->CP0_GuestCtl0 >> CP0GuestCtl0_RAD)) {
+            GuestID = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
+        }
+        // Lookup to Config0 CP0C0_MT
+        if (address <= (int32_t)0x7FFFFFFFUL) {
+            /* useg */
+            if (env->Guest.CP0_Status & (1 << CP0St_ERL)) {
+                gpa = address & 0xFFFFFFFF;
+                *prot = PAGE_READ | PAGE_WRITE;
+            } else {
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+            }
+        } else if (address < (int32_t)0xA0000000UL) {
+            /* kseg0 */
+            if (kernel_mode) {
+                gpa = address - (int32_t)0x80000000UL;
+                *prot = PAGE_READ | PAGE_WRITE;
+            } else {
+                ret = TLBRET_BADADDR;
+            }
+        } else if (address < (int32_t)0xC0000000UL) {
+            /* kseg1 */
+            if (kernel_mode) {
+                gpa = address - (int32_t)0xA0000000UL;
+                *prot = PAGE_READ | PAGE_WRITE;
+            } else {
+                ret = TLBRET_BADADDR;
+            }
+        } else if (address < (int32_t)0xE0000000UL) {
+            /* sseg (kseg2) */
+            if (supervisor_mode || kernel_mode) {
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+            } else {
+                ret = TLBRET_BADADDR;
+            }
+        } else {
+            /* kseg3 */
+            /* XXX: debug segment is not emulated */
+            if (kernel_mode) {
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+            } else {
+                ret = TLBRET_BADADDR;
+            }
+        }
+        if (ret != TLBRET_MATCH) {
+            // guest exception
+            sv_log("guest exception %d\n", ret);
+            return ret;
+        }
+        //root tlb lookup with ignoring root asid
+        //guestid = n
+        //root tlb
+//        int GExcCode = if(ret)
+//        sv_log("GVA->GPA done\n");
+        ret = env->tlb->map_address(env, physical, prot, gpa, rw, access_type);
+        if (ret != TLBRET_MATCH) {
+#if 0
+            // root exception
+            // switch to root mode?
+            // clear GM bit
+            env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
+            env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
+            // clear GExcCode bits
+            env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
+            if(ret == TLBRET_NOMATCH) {
+                env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
+            }
+            else {
+                env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
+            }
+            env->hflags &= ~MIPS_HFLAG_GUEST;
+//            env->hflags |= MIPS_HFLAG_ROOT;
+#endif
+            sv_log("root exception (%x) %x %d\n", env->hflags & MIPS_HFLAG_GUEST, (unsigned) address, ret);
+            *physical = gpa;
+            ret += TLBRET_GUESTEXIT;
+        }
+        return ret;
+    }
+    else
+    {
     if (address <= (int32_t)0x7FFFFFFFUL) {
         /* useg */
         if (env->CP0_Status & (1 << CP0St_ERL)) {
@@ -232,6 +327,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         } else {
             ret = TLBRET_BADADDR;
         }
+    }
     }
 #if 0
     qemu_log(TARGET_FMT_lx " %d %d => " TARGET_FMT_lx " %d (%d)\n",
@@ -355,7 +451,34 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
     } else if (ret < 0)
 #endif
     {
-        raise_mmu_exception(env, address, rw, ret);
+        if (ret < TLBRET_GUESTEXIT)
+        {
+            env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
+            env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
+            // clear GExcCode bits
+            env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
+            if(ret == TLBRET_NOMATCH + TLBRET_GUESTEXIT) {
+                env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
+            }
+            else {
+                env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
+            }
+            env->hflags &= ~MIPS_HFLAG_GUEST;
+//            env->hflags |= MIPS_HFLAG_ROOT;
+            ret -= TLBRET_GUESTEXIT;
+            tlb_flush (env, 1);
+        }
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            sv_log("memory failed at %x %d %d\n", (unsigned) physical, rw, ret);
+//            address = physical;
+//            sv_log("address  = %x\n", address);
+//            sv_log("c0bva  = %x\n", env->CP0_BadVAddr);
+//            sv_log("c0ctxt = %x\n", env->CP0_Context);
+//            sv_log("c0guestctl0 = %x\n", env->CP0_GuestCtl0);
+        }
+        // physical contains erorr address
+        sv_log("cpu_mips_handle_mmu_fault - calling raise_mmu_exception\n");
+        raise_mmu_exception(env, physical, rw, ret);
         ret = 1;
     }
 
@@ -461,11 +584,32 @@ void do_interrupt (CPUState *env)
     const char *name;
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_EXCEPT) %s %" PRIx64, env->cpu_model_str, env->active_tc.PC);
+    sv_log("Info (MIPS64_EXCEPT) %s: %s - %" PRIx64,
+            env->cpu_model_str,
+            (env->hflags & MIPS_HFLAG_GUEST)? "Guest": "Root",
+            env->active_tc.PC);
 #else
-    sv_log("Info (MIPS32_EXCEPT) %s %x" , env->cpu_model_str, env->active_tc.PC);
+    sv_log("Info (MIPS32_EXCEPT) %s: %s - %x" ,
+            env->cpu_model_str,
+            (env->hflags & MIPS_HFLAG_GUEST)? "Guest": "Root",
+            env->active_tc.PC);
 #endif
 #endif
+    //take exception as root by now
+    //FIXME: VZ
+    if( /*((env->exception_index == EXCP_AdES ||
+            env->exception_index == EXCP_AdEL ||
+            env->exception_index == EXCP_TLBS ||
+            env->exception_index == EXCP_TLBL ||
+            env->exception_index == EXCP_LTLBL) && !(env->hflags & MIPS_HFLAG_GUEST)) ||*/
+            (env->exception_index == EXCP_GUESTEXIT) )
+    {
+        sv_log("VZ_ASE FIXME treat as ROOT\n");
+        env->hflags &= ~MIPS_HFLAG_GUEST;
+//        env->hflags |= MIPS_HFLAG_ROOT;
+        tlb_flush (env, 1);
+    }
+
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
         if (env->exception_index < 0 || env->exception_index > EXCP_LAST)
             name = "unknown";

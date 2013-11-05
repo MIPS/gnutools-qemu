@@ -501,8 +501,10 @@ FOP_PROTO(ngt)
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_0(tlbwi, void)
+DEF_HELPER_0(tlbgwi, void)
 DEF_HELPER_0(tlbwr, void)
 DEF_HELPER_0(tlbp, void)
+DEF_HELPER_0(tlbgp, void)
 DEF_HELPER_0(tlbr, void)
 DEF_HELPER_0(di, tl)
 DEF_HELPER_0(ei, tl)
