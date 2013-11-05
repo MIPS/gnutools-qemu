@@ -2642,7 +2642,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"remu",    "d,v,I",	0,    (int) M_REMU_3I,	INSN_MACRO,		0,		I1	},
 {"rdhwr",   "t,K",	0x7c00003b, 0xffe007ff, WR_t,			0,		I33	},
 {"rdpgpr",  "d,w",	0x41400000, 0xffe007ff, WR_d,			0,		I33	},
-{"rfe",     "",		0x42000010, 0xffffffff,	0,			0,		I1|T3	},
+//{"rfe",     "",		0x42000010, 0xffffffff,	0,			0,		I1|T3	}, // FIXME VZ
 {"rnas.qh", "X,Q",	0x78200025, 0xfc20f83f,	WR_D|RD_T|FP_D,		RD_MACC,	MX	},
 {"rnau.ob", "X,Q",	0x78000021, 0xfc20f83f,	WR_D|RD_T|FP_D,		RD_MACC,	MX|SB1	},
 {"rnau.qh", "X,Q",	0x78200021, 0xfc20f83f,	WR_D|RD_T|FP_D,		RD_MACC,	MX	},
@@ -3004,6 +3004,20 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"mfc3",    "t,G,H",    0x4c000000, 0xffe007f8, LCD|WR_t|RD_C3, 	0,		I32     },
 {"mtc3",    "t,G",	0x4c800000, 0xffe007ff,	COD|RD_t|WR_C3|WR_CC,	0,		I1	},
 {"mtc3",    "t,G,H",    0x4c800000, 0xffe007f8, COD|RD_t|WR_C3|WR_CC,   0,		I32     },
+
+/* VZ ASE FIXME */
+{"mfgc0",   "t,G",      0x40600000, 0xFFE007FF, LCD|WR_t|RD_C0, 0,  I33     }, // FIXME MIPS32 release 5
+{"mfgc0",   "t,+D",     0x40600000, 0xffe007f8, LCD|WR_t|RD_C0, 0,  I33     },
+{"mfgc0",   "t,G,H",    0x40600000, 0xffe007f8, LCD|WR_t|RD_C0, 0,  I33     },
+{"mtgc0",   "t,G",      0x40600200, 0xffe007ff, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"mtgc0",   "t,+D",     0x40600200, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"mtgc0",   "t,G,H",    0x40600200, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"hypcall", "",         0x42000028, 0xFFE007FF, TRAP,      0,      I33   }, // FIXME
+{"tlbgp",   "",         0x42000010, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbgr",   "",         0x42000009, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbgwi",  "",         0x4200000A, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbgwr",  "",         0x4200000E, 0xffffffff, INSN_TLB,  0,      I33      },
+
 
 /* No hazard protection on coprocessor instructions--they shouldn't
    change the state of the processor and if they do it's up to the

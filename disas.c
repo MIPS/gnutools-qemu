@@ -291,8 +291,11 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong ins
 
     uint32_t opcode;
 
-    fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
+    fprintf(out, "%s : %s(%s%d) - " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
             env->cpu_model_str,
+            (env->hflags & 0x100000)? "Guest":"Root",
+            (env->hflags & MIPS_HFLAG_KSU)? ((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM)? "Supv" : "User" : "Kern",
+            (env->hflags & MIPS_HFLAG_GUEST)? (env->Guest.CP0_Status >> CP0St_ERL) & 1 : (env->CP0_Status >> CP0St_ERL) & 1,
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
             cpu_mips_cacheability(env, pc, 0)
