@@ -5020,7 +5020,22 @@ void helper_mttc0_entryhi(target_ulong arg1)
 
 void helper_mtc0_compare (target_ulong arg1)
 {
-    cpu_mips_store_compare(env, arg1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (env->CP0_GuestCtl0 & CP0GuestCtl0_GT) {
+            cpu_mips_store_compare_guest(env, arg1);
+        }
+        else {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+    }
+    else {
+        cpu_mips_store_compare(env, arg1);
+    }
+}
+
+void helper_mtgc0_compare (target_ulong arg1)
+{
+    cpu_mips_store_compare_guest(env, arg1);
 }
 
 void helper_mtc0_status (target_ulong arg1)
@@ -5148,6 +5163,13 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
         cpu->Guest.CP0_Cause = (cpu->Guest.CP0_Cause & ~mask) | (arg1 & mask);
 
         /* The value of Guest.Cause/DC has no direct effect on the calculation of the guest time value. */
+
+        /* Set/reset software interrupts */
+        for (i = 0 ; i < 2 ; i++) {
+            if ((old ^ cpu->Guest.CP0_Cause) & (1 << (CP0Ca_IP + i))) {
+                cpu_mips_soft_irq(cpu, i, cpu->Guest.CP0_Cause & (1 << (CP0Ca_IP + i)));
+            }
+        }
     }
     else {
         old = cpu->CP0_Cause;

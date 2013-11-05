@@ -44,6 +44,30 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
     }
 }
 
+static void cpu_mips_guest_irq_request(void *opaque, int irq, int level)
+{
+    CPUState *env = (CPUState *)opaque;
+    if (irq < 0 || irq > 7)
+         return;
+
+    if (level){
+        env->Guest.CP0_Cause |= 1 << (irq + CP0Ca_IP);
+    }
+    else {
+        env->Guest.CP0_Cause &= ~(1 << (irq + CP0Ca_IP));
+    }
+
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        // only initiate when running in guest mode
+        if (env->Guest.CP0_Cause & CP0Ca_IP_mask) {
+            cpu_interrupt(env, CPU_INTERRUPT_HARD);
+        } else {
+            cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+        }
+    }
+}
+
+
 void cpu_mips_irq_init_cpu(CPUState *env)
 {
     qemu_irq *qi;
@@ -52,6 +76,12 @@ void cpu_mips_irq_init_cpu(CPUState *env)
     qi = qemu_allocate_irqs(cpu_mips_irq_request, env, 8);
     for (i = 0; i < 8; i++) {
         env->irq[i] = qi[i];
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_VZ)) {
+        qi = qemu_allocate_irqs(cpu_mips_guest_irq_request, env, 8);
+        for (i = 0; i < 8; i++) {
+            env->guest_irq[i] = qi[i];
+        }
     }
 }
 

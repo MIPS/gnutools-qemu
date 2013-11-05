@@ -4689,6 +4689,20 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 9:
         switch (sel) {
+        case 0:
+            /* Mark as an IO operation because we read the time.  */
+            if (use_icount)
+                gen_io_start();
+            gen_helper_mfgc0_count(arg);
+            if (use_icount) {
+                gen_io_end();
+            }
+            /* Break the TB to be able to take timer interrupts immediately
+               after reading count.  */
+            ctx->bstate = BS_STOP;
+            rn = "Guest.Count";
+            break;
+        /* 6,7 are implementation dependent */
         default:
             goto die;
         }
@@ -5605,6 +5619,10 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 11:
         switch (sel) {
+        case 0:
+            gen_helper_mtgc0_compare(arg);
+            rn = "Compare";
+            break;
         default:
             goto die;
         }

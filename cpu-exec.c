@@ -375,6 +375,13 @@ int cpu_exec(CPUState *env)
                         do_interrupt(env);
                         next_tb = 0;
                     }
+                    else if ((env->hflags & MIPS_HFLAG_GUEST) &&
+                            cpu_mips_hw_guest_interrupts_pending(env)) {
+                        env->exception_index = EXCP_EXT_INTERRUPT;
+                        env->error_code = 0;
+                        do_interrupt(env);
+                        next_tb = 0;
+                    }
 #elif defined(TARGET_SPARC)
                     if (interrupt_request & CPU_INTERRUPT_HARD) {
                         if (cpu_interrupts_enabled(env) &&

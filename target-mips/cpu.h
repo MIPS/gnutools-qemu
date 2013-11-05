@@ -732,7 +732,9 @@ struct CPUMIPSState {
 
     const mips_def_t *cpu_model;
     void *irq[8];
+    void *guest_irq[8];
     struct QEMUTimer *timer; /* Internal timer */
+    struct QEMUTimer *guest_timer; /* Internal Guest timer */
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -819,6 +821,66 @@ static inline int cpu_mips_hw_interrupts_pending(CPUState *env)
            lines are individual masks.  */
         r = pending & status;
     }
+    return r;
+}
+
+static inline int cpu_mips_hw_guest_interrupts_pending(CPUState *env)
+{
+    int r;
+    int32_t irq;
+    int guest_timer_intterrupt;
+
+    if ( (env->Guest.CP0_Config3 & (1 << CP0C3_VEIC)) &&
+            (env->Guest.CP0_IntCtl & (0x1f << CP0IntCtl_VS)) &&
+            (env->Guest.CP0_Cause & (1 << CP0Ca_IV)) &&
+            !(env->Guest.CP0_Status & (1 << CP0St_BEV)) ) {
+        // Guest in EIC mode
+        if( ((env->Guest.CP0_Cause & (0xFC00)) >> CP0Ca_RIPL) >
+            ((env->CP0_GuestCtl2 & 0x3F000000) >> CP0GuestCtl2_GRIPL) ) {
+            irq = ((env->Guest.CP0_Cause & (0xFC00)) >> CP0Ca_RIPL);
+        }
+        else {
+            irq = ((env->CP0_GuestCtl2 & 0x3F000000) >> CP0GuestCtl2_GRIPL);
+            env->CP0_GuestCtl2 &= ~(0x3F000000);
+        }
+        r = irq << 2 | ((env->Guest.CP0_Cause >> CP0Ca_IP) & 3);
+    }
+    else {
+        // Guest in non-EIC mode
+        irq = (env->CP0_Cause >> CP0Ca_IP) & 0x3f;
+        if (!(env->CP0_GuestCtl0 & CP0GuestCtl0_PT)) {
+            if (env->CP0_GuestCtl0 & CP0GuestCtl0_G2) {
+                r = (env->CP0_GuestCtl2 >> CP0GuestCtl2_VIP) & 0x3f;
+            }
+            else {
+                // FIXME VZ
+//                r = Root_HW_VIP[5:0]
+                r = (env->CP0_Cause >> CP0Ca_IP) & 0x3f;
+            }
+        }
+        else {
+            if (env->CP0_GuestCtl0 & CP0GuestCtl0_G2) {
+                r = ((env->CP0_GuestCtl2 >> CP0GuestCtl2_VIP) & 0x3f) |
+                        ((irq >> 2) & ((env->CP0_GuestCtl0 >> CP0GuestCtl0_PIP) & 0x3f));
+            }
+            else {
+                // FIXME VZ
+//                r = Root_HW_VIP[5:0] OR (irq[7:2] AND Root.GuestCtl0PIP[5:0])
+                r = ((env->CP0_Cause >> CP0Ca_IP) & 0x3f) |
+                        ((irq >> 2) & ((env->CP0_GuestCtl0 >> CP0GuestCtl0_PIP) & 0x3f));
+            }
+
+        }
+    }
+    r = r << 2;
+//    env->guest_irq[(env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]
+//    env->Guest.CP0_Cause |= 1 << (irq + CP0Ca_IP);
+    r |= ((env->Guest.CP0_Cause >> (env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) & 1) << ((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
+    guest_timer_intterrupt = (env->Guest.CP0_Cause >> CP0Ca_TI) & 1;
+    guest_timer_intterrupt |= (env->Guest.CP0_Cause >> (((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) + CP0Ca_IP)) & 1;
+    r |= guest_timer_intterrupt << ((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
+//    r = r OR (PCIEvent << Guest.IntCtlIPPCI)
+    r |= env->Guest.CP0_Cause >> CP0Ca_IP & 3;
     return r;
 }
 
@@ -912,6 +974,8 @@ void cpu_mips_store_count (CPUState *env, uint32_t value);
 void cpu_mips_store_compare (CPUState *env, uint32_t value);
 void cpu_mips_start_count(CPUState *env);
 void cpu_mips_stop_count(CPUState *env);
+void cpu_mips_store_count_guest (CPUState *env, uint32_t count);
+void cpu_mips_store_compare_guest (CPUState *env, uint32_t value);
 
 /* mips_int.c */
 void cpu_mips_soft_irq(CPUState *env, int irq, int level);

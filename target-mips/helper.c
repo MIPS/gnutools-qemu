@@ -680,34 +680,73 @@ void do_interrupt (CPUState *env)
         break;
     case EXCP_EXT_INTERRUPT:
         cause = 0;
-        if (env->CP0_Cause & (1 << CP0Ca_IV))
-            offset = 0x200;
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            if (env->Guest.CP0_Cause & (1 << CP0Ca_IV))
+            {
+                offset = 0x200;
 
-        if (env->CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
-            /* Vectored Interrupts.  */
-            unsigned int spacing;
-            unsigned int vector;
-            unsigned int pending = (env->CP0_Cause & CP0Ca_IP_mask) >> 8;
+                if (env->Guest.CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
+                    sv_log("config3 = %x\n", env->Guest.CP0_Config3);
+                    /* Vectored Interrupts.  */
+                    unsigned int spacing;
+                    unsigned int vector;
+                    unsigned int pending = (env->Guest.CP0_Cause & CP0Ca_IP_mask) >> 8;
 
-            pending &= env->CP0_Status >> 8;
-            /* Compute the Vector Spacing.  */
-            spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & ((1 << 6) - 1);
-            spacing <<= 5;
+                    pending &= env->Guest.CP0_Status >> 8;
+                    /* Compute the Vector Spacing.  */
+                    spacing = (env->Guest.CP0_IntCtl >> CP0IntCtl_VS) & ((1 << 6) - 1);
+                    spacing <<= 5;
 
-            if (env->CP0_Config3 & (1 << CP0C3_VInt)) {
-                /* For VInt mode, the MIPS computes the vector internally.  */
-                for (vector = 7; vector > 0; vector--) {
-                    if (pending & (1 << vector)) {
-                        /* Found it.  */
-                        break;
+                    if (env->Guest.CP0_Config3 & (1 << CP0C3_VInt)) {
+                        /* For VInt mode, the MIPS computes the vector internally.  */
+                        for (vector = 7; vector > 0; vector--) {
+                            if (pending & (1 << vector)) {
+                                /* Found it.  */
+                                break;
+                            }
+                        }
+                    } else {
+                        /* For VEIC mode, the external interrupt controller feeds the
+                           vector throught the CP0Cause IP lines.  */
+                        vector = pending;
                     }
+                    offset = 0x200 + vector * spacing;
                 }
-            } else {
-                /* For VEIC mode, the external interrupt controller feeds the
-                   vector throught the CP0Cause IP lines.  */
-                vector = pending;
             }
-            offset = 0x200 + vector * spacing;
+        }
+        else {
+            if (env->CP0_Cause & (1 << CP0Ca_IV))
+            {
+                offset = 0x200;
+
+                if (env->CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
+                    sv_log("config3 = %x\n", env->CP0_Config3);
+                    /* Vectored Interrupts.  */
+                    unsigned int spacing;
+                    unsigned int vector;
+                    unsigned int pending = (env->CP0_Cause & CP0Ca_IP_mask) >> 8;
+
+                    pending &= env->CP0_Status >> 8;
+                    /* Compute the Vector Spacing.  */
+                    spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & ((1 << 6) - 1);
+                    spacing <<= 5;
+
+                    if (env->CP0_Config3 & (1 << CP0C3_VInt)) {
+                        /* For VInt mode, the MIPS computes the vector internally.  */
+                        for (vector = 7; vector > 0; vector--) {
+                            if (pending & (1 << vector)) {
+                                /* Found it.  */
+                                break;
+                            }
+                        }
+                    } else {
+                        /* For VEIC mode, the external interrupt controller feeds the
+                           vector throught the CP0Cause IP lines.  */
+                        vector = pending;
+                    }
+                    offset = 0x200 + vector * spacing;
+                }
+            }
         }
         goto set_EPC;
     case EXCP_LTLBL:
@@ -815,26 +854,65 @@ void do_interrupt (CPUState *env)
             offset = 0x20000100;
         }
  set_EPC:
-        if (!(env->CP0_Status & (1 << CP0St_EXL))) {
-            env->CP0_EPC = exception_resume_pc(env);
-            if (env->hflags & MIPS_HFLAG_BMASK) {
-                env->CP0_Cause |= (1 << CP0Ca_BD);
-            } else {
-                env->CP0_Cause &= ~(1 << CP0Ca_BD);
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            int32_t old = env->Guest.CP0_Status;
+            if (!(env->Guest.CP0_Status & (1 << CP0St_EXL))) {
+                env->Guest.CP0_EPC = exception_resume_pc(env);
+                if (env->hflags & MIPS_HFLAG_BMASK) {
+                    env->Guest.CP0_Cause |= (1 << CP0Ca_BD);
+                } else {
+                    env->Guest.CP0_Cause &= ~(1 << CP0Ca_BD);
+                }
+                env->Guest.CP0_Status |= (1 << CP0St_EXL);
+                env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
+                env->hflags &= ~(MIPS_HFLAG_KSU);
             }
-            env->CP0_Status |= (1 << CP0St_EXL);
-            env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
-            env->hflags &= ~(MIPS_HFLAG_KSU);
+            env->hflags &= ~MIPS_HFLAG_BMASK;
+            if (env->Guest.CP0_Status & (1 << CP0St_BEV)) {
+                env->active_tc.PC = (int32_t)0xBFC00200;
+            } else {
+                env->active_tc.PC = (int32_t)(env->Guest.CP0_EBase & ~0x3ff);
+            }
+            env->active_tc.PC += offset;
+            set_hflags_for_handler(env);
+            env->Guest.CP0_Cause = (env->Guest.CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
+            sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+
+#define CHK_BITS(POS, MASK) (((old >> (POS)) & (MASK)) != ((env->Guest.CP0_Status >> (POS)) & (MASK)))
+            if( (env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1 )
+            {
+                if( CHK_BITS(CP0St_EXL, 1) ||
+                        (CHK_BITS(CP0St_TS, 1) && ((env->Guest.CP0_Status >> CP0St_TS) & 1)) ) {
+                    sv_log("GHFC root mode exception\n");
+                    env->exception_index = EXCP_GUESTEXIT;
+                    env->error_code = GHFC;
+                    cpu_loop_exit(env);
+                    return;
+                }
+            }
         }
-        env->hflags &= ~MIPS_HFLAG_BMASK;
-        if (env->CP0_Status & (1 << CP0St_BEV)) {
-            env->active_tc.PC = (int32_t)0xBFC00200;
-        } else {
-            env->active_tc.PC = (int32_t)(env->CP0_EBase & ~0x3ff);
+        else {
+            if (!(env->CP0_Status & (1 << CP0St_EXL))) {
+                env->CP0_EPC = exception_resume_pc(env);
+                if (env->hflags & MIPS_HFLAG_BMASK) {
+                    env->CP0_Cause |= (1 << CP0Ca_BD);
+                } else {
+                    env->CP0_Cause &= ~(1 << CP0Ca_BD);
+                }
+                env->CP0_Status |= (1 << CP0St_EXL);
+                env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
+                env->hflags &= ~(MIPS_HFLAG_KSU);
+            }
+            env->hflags &= ~MIPS_HFLAG_BMASK;
+            if (env->CP0_Status & (1 << CP0St_BEV)) {
+                env->active_tc.PC = (int32_t)0xBFC00200;
+            } else {
+                env->active_tc.PC = (int32_t)(env->CP0_EBase & ~0x3ff);
+            }
+            env->active_tc.PC += offset;
+            set_hflags_for_handler(env);
+            env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
         }
-        env->active_tc.PC += offset;
-        set_hflags_for_handler(env);
-        env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
         break;
     case EXCP_GUESTEXIT:
         cause = 27;
