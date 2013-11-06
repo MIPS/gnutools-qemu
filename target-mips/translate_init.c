@@ -1384,7 +1384,7 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->guest_tlb->helper_tlbwi = r4k_helper_tlbgwi;
     env->guest_tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->guest_tlb->helper_tlbp = r4k_helper_tlbgp;
-    env->guest_tlb->helper_tlbr = r4k_helper_tlbr;
+    env->guest_tlb->helper_tlbr = r4k_helper_tlbgr;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)

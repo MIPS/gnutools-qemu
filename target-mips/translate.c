@@ -7601,9 +7601,11 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         gen_helper_tlbgp();
         break;
     case OPC_TLBGR:
-        // FIXME: VZ
         sv_log("OPC_TLBGR %x\n", ctx->opcode);
         opn = "tlbgr";
+        if (!env->guest_tlb->helper_tlbr)
+            goto die;
+        gen_helper_tlbgr();        
         break;
     case OPC_ERET:
         opn = "eret";

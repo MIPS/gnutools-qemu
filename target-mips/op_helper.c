@@ -5938,8 +5938,58 @@ void r4k_helper_tlbr (void)
     sv_log("V1 %x ", tlb->V1);
     sv_log("D0 %x ", tlb->D0);
     sv_log("D1 %x ", tlb->D1);
-    sv_log("ASID tlb=0x%08x ", tlb->ASID);
-    sv_log("EnHi=0x%08x\n", (unsigned) env->CP0_EntryHi & 0xff);
+    sv_log("EHINV %x ", tlb->hardware_invalid);
+    sv_log("ASID tlb=0x%04x ", tlb->ASID);
+    sv_log("EnHi=0x%04x ", (unsigned) env->CP0_EntryHi & 0xff);
+    sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
+    sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
+           (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
+           (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff);
+#endif
+}
+
+void r4k_helper_tlbgr (void)
+{
+    r4k_tlb_t *tlb;
+    uint8_t ASID;
+    int idx;
+
+    ASID = env->Guest.CP0_EntryHi & 0xFF;
+    idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+    idx = env->tlb->nb_tlb - idx - 1;
+    tlb = &env->tlb->mmu.r4k.tlb[idx];
+
+    /* If this will change the current ASID, flush qemu's TLB.  */
+    if (ASID != tlb->ASID)
+        cpu_mips_tlb_flush (env, 1);
+
+    r4k_mips_tlb_flush_extra(env, env->tlb->nb_tlb);
+
+    env->Guest.CP0_EntryHi = tlb->VPN | tlb->ASID;
+    env->Guest.CP0_PageMask = tlb->PageMask;
+    env->Guest.CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
+                              (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+    env->Guest.CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
+                              (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: TLBGR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s: TLBGR ", env->cpu_model_str);
+#endif
+    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log(" G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("EHINV %x ", tlb->hardware_invalid);
+    sv_log("ASID tlb=0x%04x ", tlb->ASID);
+    sv_log("EnHi=0x%04x ", (unsigned) env->CP0_EntryHi & 0xff);
+    sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
+    sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
+           (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
+           (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff);
 #endif
 }
 
@@ -5971,6 +6021,11 @@ void helper_tlbgp(void)
 void helper_tlbr(void)
 {
     env->tlb->helper_tlbr();
+}
+
+void helper_tlbgr(void)
+{
+    env->guest_tlb->helper_tlbr();
 }
 
 /* Specials */
