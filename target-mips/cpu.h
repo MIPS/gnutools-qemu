@@ -452,7 +452,7 @@ struct CPUMIPSState {
 #define CP0EntryHiASID  0
     int32_t CP0_GuestCtl1;
 #define CP0GuestCtl1_EID 24
-#define CP0GUestCtl1_RID 16
+#define CP0GuestCtl1_RID 16
 #define CP0GuestCtl1_ID  0
     int32_t CP0_GuestCtl2;
 #define CP0GuestCtl2_HC     24

@@ -168,6 +168,12 @@ static bool isRootMode(void)
     return false;
 }
 
+// Convert index from Root to Guest
+static inline int32_t convert_tlb_index(const CPUState * env, int index)
+{
+    return env->tlb->nb_tlb - index - 1;
+}
+
 static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
@@ -5616,7 +5622,7 @@ static void r4k_fill_tlb (int idx, bool guest)
         if ((env->CP0_GuestCtl0 & CP0GuestCtl0_G1) &&
                 !(env->CP0_GuestCtl0 & CP0GuestCtl0_RAD) &&
                 !(env->hflags & MIPS_HFLAG_GUEST) &&
-                (env->CP0_GuestCtl1 & CP0GUestCtl1_RID) ) {
+                (env->CP0_GuestCtl1 & CP0GuestCtl1_RID) ) {
             tlb->G = 1;
         }
         else {
@@ -5632,9 +5638,10 @@ static void r4k_fill_tlb (int idx, bool guest)
         tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) << 12) & ~mask;
 
         tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
-                (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff:
-                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
-        tlb->isGuestCtx = (env->hflags & MIPS_HFLAG_GUEST)? 1: 0;
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+
+        tlb->isGuestCtx = (env->hflags & MIPS_HFLAG_GUEST) ? 1: 0;
 
         if((env->CP0_Config3 & (1 << CP0C3_VZ)) && (
                 env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_G1)) &&
@@ -5646,6 +5653,8 @@ static void r4k_fill_tlb (int idx, bool guest)
         }
 #ifdef MIPSSIM_COMPAT
         sv_log("FILL TLB index %d, ", idx);
+        sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
+        sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
         sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
         sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
         sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
@@ -5699,9 +5708,10 @@ static void r4k_fill_tlb (int idx, bool guest)
         tlb->PFN[1] = ((env->Guest.CP0_EntryLo1 >> 6) << 12) & ~mask;
 
         tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
-                (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff:
-                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
-        tlb->isGuestCtx = (env->hflags & MIPS_HFLAG_GUEST)? 1: 0;
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
+                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+
+        tlb->isGuestCtx = 1;  // fixme: is guestCtx needed?
 
 //        if((env->CP0_Config3 & (1 << CP0C3_VZ)) && (
 //                env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_G1)) &&
@@ -5712,7 +5722,9 @@ static void r4k_fill_tlb (int idx, bool guest)
 //            }
 //        }
     #ifdef MIPSSIM_COMPAT
-        sv_log("FILL TLB index %d, ", idx);
+        sv_log("FILL TLB index %d, ", convert_tlb_index(env, idx));
+        sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
+        sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
         sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
         sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
         sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
@@ -5763,7 +5775,7 @@ void r4k_helper_tlbgwi (void)
 #endif
 #endif
     idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-    idx = env->tlb->nb_tlb - idx - 1;
+    idx = convert_tlb_index(env, idx);
     sv_log("guest idx = %d, nb_tlb=%d\n", idx, env->tlb->nb_tlb);
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(idx, true);
@@ -5858,7 +5870,7 @@ void r4k_helper_tlbgp (void)
         /* Check ASID, virtual page number & size */
         if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
             /* TLB match */
-            env->Guest.CP0_Index = i;
+            env->Guest.CP0_Index = convert_tlb_index(env, i);
             break;
         }
     }
@@ -5884,9 +5896,9 @@ void r4k_helper_tlbgp (void)
     }
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s TLBGP ", env->cpu_model_str);
+    sv_log("Info (MIPS64_TLB) %s: Guest - TLBP ", env->cpu_model_str);
 #else
-    sv_log("Info (MIPS32_TLB) %s TLBGP ", env->cpu_model_str);
+    sv_log("Info (MIPS32_TLB) %s: Guest - TLBP ", env->cpu_model_str);
 #endif
     sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
     sv_log("P %d ", (env->Guest.CP0_Index & 0x80000000) >> 31);
@@ -5934,7 +5946,7 @@ void r4k_helper_tlbr (void)
     sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
     sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
            (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
-           (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff);
+           (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
 #endif
 }
 
@@ -5946,7 +5958,7 @@ void r4k_helper_tlbgr (void)
 
     ASID = env->Guest.CP0_EntryHi & 0xFF;
     idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-    idx = env->tlb->nb_tlb - idx - 1;
+    idx = convert_tlb_index(env, idx);
     tlb = &env->tlb->mmu.r4k.tlb[idx];
 
     /* If this will change the current ASID, flush qemu's TLB.  */
@@ -5963,10 +5975,11 @@ void r4k_helper_tlbgr (void)
                               (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s: TLBGR ", env->cpu_model_str);
+    sv_log("Info (MIPS64_TLB) %s: Guest - TLBR ", env->cpu_model_str);
 #else
-    sv_log("Info (MIPS32_TLB) %s: TLBGR ", env->cpu_model_str);
+    sv_log("Info (MIPS32_TLB) %s: Guest - TLBR ", env->cpu_model_str);
 #endif
+    sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
     sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
     sv_log(" G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
@@ -5979,7 +5992,7 @@ void r4k_helper_tlbgr (void)
     sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
     sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
            (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
-           (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff);
+           (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
 #endif
 }
 
