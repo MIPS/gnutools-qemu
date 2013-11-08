@@ -5588,6 +5588,13 @@ static void r4k_fill_tlb (int idx, bool guest)
 {
     r4k_tlb_t *tlb;
     int32_t k;
+    target_ulong mask;
+
+    mask = env->CP0_PageMask >> (TARGET_PAGE_BITS + 1);
+    // if mask is invalid then set all bits to 1
+    if (mask & (mask + 1)) {
+        mask = -1;
+    }
 
     if(!guest) {
         /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
@@ -5599,23 +5606,13 @@ static void r4k_fill_tlb (int idx, bool guest)
                 sv_log("INV");
             }
         }
-        tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+        tlb->VPN = env->CP0_EntryHi & ((~mask) << 1);
 #if defined(TARGET_MIPS64)
         tlb->VPN &= env->SEGMask;
 #endif
         tlb->ASID = env->CP0_EntryHi & 0xFF;
-//        tlb->PageMask = env->CP0_PageMask;
         tlb->PageMask = env->CP0_PageMask;
 
-        // FIXME - quick and ugly
-        if (tlb->PageMask != 0 && (tlb->PageMask & (tlb->PageMask + 1))) {
-            k = 1;
-            while (tlb->PageMask >>= 1) {
-                k++;
-            }
-            tlb->PageMask = (1 << k) - 1;
-        }
-////////////////// LEON's fix
         if ((env->CP0_GuestCtl0 & CP0GuestCtl0_G1) &&
                 !(env->CP0_GuestCtl0 & CP0GuestCtl0_RAD) &&
                 !(env->hflags & MIPS_HFLAG_GUEST) &&
@@ -5628,13 +5625,11 @@ static void r4k_fill_tlb (int idx, bool guest)
         tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
         tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
         tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-//        tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
-        tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) << 12) & ~(tlb->PageMask >> 1);
+        tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) << 12) & ~mask;
         tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
         tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
         tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-//        tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
-        tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) << 12) & ~(tlb->PageMask >> 1);
+        tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) << 12) & ~mask;
 
         tlb->GuestID = (env->hflags & MIPS_HFLAG_GUEST)?
                 (env->CP0_GuestCtl1 >> CP0GUestCtl1_RID) & 0xff:
