@@ -6479,12 +6479,23 @@ static void set_pc (target_ulong error_pc)
 void helper_eret (void)
 {
     debug_pre_eret();
-    if (env->CP0_Status & (1 << CP0St_ERL)) {
-        set_pc(env->CP0_ErrorEPC);
-        env->CP0_Status &= ~(1 << CP0St_ERL);
-    } else {
-        set_pc(env->CP0_EPC);
-        env->CP0_Status &= ~(1 << CP0St_EXL);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (env->Guest.CP0_Status & (1 << CP0St_ERL)) {
+            set_pc(env->Guest.CP0_ErrorEPC);
+            env->Guest.CP0_Status &= ~(1 << CP0St_ERL);
+        } else {
+            set_pc(env->Guest.CP0_EPC);
+            env->Guest.CP0_Status &= ~(1 << CP0St_EXL);
+        }
+    }
+    else {
+        if (env->CP0_Status & (1 << CP0St_ERL)) {
+            set_pc(env->CP0_ErrorEPC);
+            env->CP0_Status &= ~(1 << CP0St_ERL);
+        } else {
+            set_pc(env->CP0_EPC);
+            env->CP0_Status &= ~(1 << CP0St_EXL);
+        }
     }
     compute_hflags(env);
     debug_post_eret();
@@ -6513,45 +6524,101 @@ void helper_deret (void)
 
 target_ulong helper_rdhwr_cpunum(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 0)))
-        return env->CP0_EBase & 0x3ff;
-    else
-        helper_raise_exception(EXCP_RI);
-
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        /* Access to CP0 registers using RDHWR when GuestCtl0CP0=0 providing
+         * Guest CP0 registers are enabled for user access by guest HWREna. */
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_HWREna & (1 << 0)) {
+            return env->Guest.CP0_EBase & 0x3ff;
+        }
+        else {
+            helper_raise_exception(EXCP_RI);
+        }
+    }
+    else {
+        if ((env->hflags & MIPS_HFLAG_CP0) ||
+            (env->CP0_HWREna & (1 << 0)))
+            return env->CP0_EBase & 0x3ff;
+        else
+            helper_raise_exception(EXCP_RI);
+    }
     return 0;
 }
 
 target_ulong helper_rdhwr_synci_step(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 1)))
-        return env->SYNCI_Step;
-    else
-        helper_raise_exception(EXCP_RI);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_HWREna & (1 << 1)) {
+            return env->SYNCI_Step;
+        }
+        else {
+            helper_raise_exception(EXCP_RI);
+        }
+    }
+    else {
+        if ((env->hflags & MIPS_HFLAG_CP0) ||
+            (env->CP0_HWREna & (1 << 1)))
+            return env->SYNCI_Step;
+        else
+            helper_raise_exception(EXCP_RI);
+    }
 
     return 0;
 }
 
 target_ulong helper_rdhwr_cc(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 2)))
-        return env->CP0_Count;
-    else
-        helper_raise_exception(EXCP_RI);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_HWREna & (1 << 2)) {
+            return (int32_t)cpu_mips_get_count(env) + env->CP0_GTOffset;
+        }
+        else {
+            helper_raise_exception(EXCP_RI);
+        }
+    }
+    else {
+        if ((env->hflags & MIPS_HFLAG_CP0) ||
+            (env->CP0_HWREna & (1 << 2)))
+            return env->CP0_Count;
+        else
+            helper_raise_exception(EXCP_RI);
+    }
 
     return 0;
 }
 
 target_ulong helper_rdhwr_ccres(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 3)))
-        return env->CCRes;
-    else
-        helper_raise_exception(EXCP_RI);
-
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_HWREna & (1 << 3)) {
+            return env->CCRes;
+        }
+        else {
+            helper_raise_exception(EXCP_RI);
+        }
+    }
+    else {
+        if ((env->hflags & MIPS_HFLAG_CP0) ||
+            (env->CP0_HWREna & (1 << 3)))
+            return env->CCRes;
+        else
+            helper_raise_exception(EXCP_RI);
+    }
     return 0;
 }
 
