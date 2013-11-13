@@ -255,6 +255,82 @@ void helper_raise_exception (uint32_t exception)
     helper_raise_exception_err(exception, 0);
 }
 
+void helper_check_gpsi_cp0 (void)
+{
+    if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_mg (void)
+{
+    if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_MG)) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_og (void)
+{
+    if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG)) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_at (void)
+{
+    if (((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) == 1) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_bg (void)
+{
+    if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_BG)) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_gt (void)
+{
+    if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_check_gpsi_cf (void)
+{
+    if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CF))) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_reserved_architecture (void)
+{
+    if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+    else if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG)) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+}
+
+void helper_reserved_implementation (void)
+{
+    if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+    /* FIX ME remove this block
+     * AVP test requires this block but it is wrong
+     */
+    else if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG)) {
+        sv_log("Wrong-------------Reserved for Implementation registers GPSI because OG\n");
+        helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    }
+    /* till here
+     */
+}
+
+
 #if !defined(CONFIG_USER_ONLY)
 static void do_restore_state (void *pc_ptr)
 {

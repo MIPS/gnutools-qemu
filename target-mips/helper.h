@@ -33,6 +33,17 @@ DEF_HELPER_3(trace_mem_access, void, tl, tl, i32)
 DEF_HELPER_2(raise_exception_err, void, i32, int)
 DEF_HELPER_1(raise_exception, void, i32)
 
+DEF_HELPER_0(check_gpsi_cp0, void)
+DEF_HELPER_0(check_gpsi_mg, void)
+DEF_HELPER_0(check_gpsi_og, void)
+DEF_HELPER_0(check_gpsi_at, void)
+DEF_HELPER_0(check_gpsi_bg, void)
+DEF_HELPER_0(check_gpsi_gt, void)
+DEF_HELPER_0(check_gpsi_cf, void)
+
+DEF_HELPER_0(reserved_architecture, void)
+DEF_HELPER_0(reserved_implementation, void)
+
 #ifdef TARGET_MIPS64
 DEF_HELPER_3(ldl, tl, tl, tl, int)
 DEF_HELPER_3(ldr, tl, tl, tl, int)
