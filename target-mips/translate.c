@@ -6116,7 +6116,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "Random";
+            rn = "Guest.Random";
             break;
         default:
             goto die;
@@ -6162,18 +6162,32 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_helper_mtgc0_pagemask(arg);
             rn = "Guest.PageMask";
             break;
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtgc0_pagegrain(arg);
+            rn = "Guest.PageGrain";
+            break;
         default:
             goto die;
         }
         break;
     case 6:
         switch (sel) {
+        case 0:
+            gen_helper_mtgc0_wired(arg);
+            rn = "Guest.Wired";
+            break;
         default:
             goto die;
         }
         break;
     case 7:
         switch (sel) {
+        case 0:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_helper_mtgc0_hwrena(arg);
+            rn = "Guest.HWREna";
+            break;
         default:
             goto die;
         }
@@ -6230,6 +6244,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             ctx->bstate = BS_STOP;
             rn = "Guest.IntCtl";
             break;
+// Fixme VZ: Shadow registers are not implemented yet.
         default:
             goto die;
         }
@@ -6257,10 +6272,6 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 15:
         switch (sel) {
-        case 0:
-            /* ignored */
-            rn = "PRid";
-            break;
         case 1:
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtgc0_ebase(arg);
@@ -6316,38 +6327,27 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 17:
         switch (sel) {
+        case 0:
+            gen_helper_mtgc0_lladdr(arg);
+            rn = "Guest.LLAddr";
+            break;
         default:
             goto die;
         }
         break;
     case 18:
         switch (sel) {
+//        case 0 ... 7:
         default:
             goto die;
         }
         break;
     case 19:
         switch (sel) {
+//        case 0 ... 7:
         default:
             goto die;
         }
-        break;
-    case 20:
-        switch (sel) {
-        default:
-            goto die;
-        }
-        break;
-    case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
-        switch (sel) {
-        default:
-            goto die;
-        }
-        break;
-    case 22:
-        /* ignored */
-        rn = "Diagnostic"; /* implementation dependent */
         break;
     case 23:
         switch (sel) {
@@ -6363,39 +6363,20 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 25:
         switch (sel) {
+//        case 0:
+//            gen_helper_mtc0_performance0(arg);
+//            rn = "Performance0";
+//            break;
         default:
-            goto die;
-        }
-       break;
-    case 26:
-        /* ignored */
-        rn = "ECC";
-        break;
-    case 27:
-        switch (sel) {
-        case 0 ... 3:
-            /* ignored */
-            rn = "CacheErr";
-            break;
-        default:
-            goto die;
-        }
-       break;
-    case 28:
-        switch (sel) {
-        default:
-            goto die;
-        }
-        break;
-    case 29:
-        switch (sel) {
-        default:
-            rn = "invalid sel";
             goto die;
         }
        break;
     case 30:
         switch (sel) {
+        case 0:
+            gen_mtc0_store64(arg, offsetof(CPUState, Guest.CP0_ErrorEPC));
+            rn = "Guest.ErrorEPC";
+            break;
         default:
             goto die;
         }
@@ -15193,6 +15174,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
     CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
     CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
+    CHK_CP0_REG(Guest.CP0_HWREna,          "Guest.C0HWRENA");
     CHK_CP0_REG(Guest.CP0_Status,          "Guest.C0STAT ");
     CHK_CP0_REG(Guest.CP0_Cause,           "Guest.C0CAUS ");
     CHK_CP0_REG(Guest.CP0_EPC,             "Guest.C0EPC  ");
@@ -15280,6 +15262,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //11
     CHK_ROOT_CP0_REG(CP0_Compare,               "C0COMP      ");
+    CHK_ROOT_CP0_REG(CP0_GuestCtl0Ext,          "C0GCTL0EXT  ");
 
     //12
     CHK_ROOT_CP0_REG(CP0_Status,                "C0STAT      ");
