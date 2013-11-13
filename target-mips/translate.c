@@ -5043,6 +5043,10 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             tcg_gen_ext32s_tl(arg, arg);
             rn = "Guest.Context";
             break;
+        case 1:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
+            rn = "Guest.ContextConfig";
+            break;
         default:
             goto die;
         }
@@ -5053,24 +5057,43 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageMask));
             rn = "Guest.PageMask";
             break;
+        case 1:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageGrain));
+            rn = "Guest.PageGrain";
+            break;
         default:
             goto die;
         }
         break;
     case 6:
         switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Wired));
+            rn = "Guest.Wired";
+            break;
         default:
             goto die;
         }
         break;
     case 7:
         switch (sel) {
+        case 0:
+            check_insn(env, ctx, ISA_MIPS32R2);
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_HWREna));
+            rn = "Guest.HWREna";
+            break;
         default:
             goto die;
         }
         break;
     case 8:
         switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_BadVAddr));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.BadVAddr";
+            break;
         default:
             goto die;
        }
@@ -5108,6 +5131,11 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 11:
         switch (sel) {
+        case 0:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Compare));
+            rn = "Guest.Compare";
+            break;
+        /* 6,7 are implementation dependent */
         default:
             goto die;
         }
@@ -5210,6 +5238,10 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 17:
         switch (sel) {
+        case 0:
+            gen_helper_mfgc0_lladdr(arg);
+            rn = "Guest.LLAddr";
+            break;
         default:
             goto die;
         }
@@ -5226,15 +5258,29 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             goto die;
         }
         break;
-    case 20:
+    case 25:
         switch (sel) {
+        case 0:
+            /*
+             * . Guest Config1PC=0, then performance counters are unimplemented
+             *   in the guest context, access is UNPREDICTABLE.
+             * . Guest Config1PC=1, the performance counters are virtually
+             *   shared by root and guest contexts.
+            */
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_Performance0));
+            rn = "Guest.Performance0";
+            break;
         default:
             goto die;
         }
         break;
-    case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
+    case 30:
         switch (sel) {
+        case 0:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_ErrorEPC));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "Guest.ErrorEPC";
+            break;
         default:
             goto die;
         }
