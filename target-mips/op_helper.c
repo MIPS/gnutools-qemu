@@ -4626,7 +4626,11 @@ target_ulong helper_mfc0_lladdr (void)
     else {
         return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
     }
+}
 
+target_ulong helper_mfgc0_lladdr (void)
+{
+    return (int32_t)(env->Guest.lladdr >> env->CP0_LLAddr_shift);
 }
 
 target_ulong helper_mfc0_watchlo (uint32_t sel)
@@ -5143,6 +5147,11 @@ void helper_mtc0_pagegrain (target_ulong arg1)
     }
 }
 
+void helper_mtgc0_pagegrain (target_ulong arg1)
+{
+    env->Guest.CP0_PageGrain = 0;
+}
+
 void helper_mtc0_wired (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -5157,6 +5166,11 @@ void helper_mtc0_wired (target_ulong arg1)
     else {
         env->CP0_Wired = arg1 % env->tlb->nb_tlb;
     }
+}
+
+void helper_mtgc0_wired (target_ulong arg1)
+{
+    env->Guest.CP0_Wired = arg1 % env->tlb->nb_tlb;
 }
 
 void helper_mtc0_srsconf0 (target_ulong arg1)
@@ -5198,6 +5212,11 @@ void helper_mtc0_hwrena (target_ulong arg1)
     else {
         env->CP0_HWREna = arg1 & 0x0000000F;
     }
+}
+
+void helper_mtgc0_hwrena (target_ulong arg1)
+{
+    env->Guest.CP0_HWREna = arg1 & 0x0000000F;
 }
 
 void helper_mtc0_count (target_ulong arg1)
@@ -5271,6 +5290,27 @@ void helper_mttc0_entryhi(target_ulong arg1)
     sync_c0_entryhi(other, other_tc);
 }
 
+void helper_mtc0_guestctl1 (target_ulong arg1)
+{
+    /* EID, 0 */
+    uint32_t mask = 0x00FF00FF;
+    env->CP0_GuestCtl1 = (env->CP0_GuestCtl1 & ~mask) | (arg1 & mask);
+}
+
+void helper_mtc0_guestctl2 (target_ulong arg1)
+{
+    // non-eic
+    uint32_t mask = 0x3C00FC1F;
+    env->CP0_GuestCtl2 = (env->CP0_GuestCtl2 & ~mask) | (arg1 & mask);
+    // fixme eic mode
+}
+
+void helper_mtc0_guestctl3 (target_ulong arg1)
+{
+    uint32_t mask = 0x0f;
+    env->CP0_GuestCtl3 = (env->CP0_GuestCtl3 & ~mask) | (arg1 & mask);
+}
+
 void helper_mtc0_compare (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -5290,6 +5330,12 @@ void helper_mtc0_compare (target_ulong arg1)
 void helper_mtgc0_compare (target_ulong arg1)
 {
     cpu_mips_store_compare_guest(env, arg1);
+}
+
+void helper_mtc0_guestctl0ext (target_ulong arg1)
+{
+    uint32_t mask = 0x3f;
+    env->CP0_GuestCtl0Ext = (env->CP0_GuestCtl0Ext & ~mask) | (arg1 & mask);
 }
 
 void helper_mtc0_status (target_ulong arg1)
@@ -5400,6 +5446,13 @@ void helper_mtc0_srsctl (target_ulong arg1)
 {
     uint32_t mask = (0xf << CP0SRSCtl_ESS) | (0xf << CP0SRSCtl_PSS);
     env->CP0_SRSCtl = (env->CP0_SRSCtl & ~mask) | (arg1 & mask);
+}
+
+void helper_mtc0_guestctl0 (target_ulong arg1)
+{
+    /* AT, CG, G1, G0E, PT, ASE, RAD, G2, GExc-Code */
+    uint32_t mask = 0xF2B0FD03;
+    env->CP0_GuestCtl0 = (env->CP0_GuestCtl0 & ~mask) | (arg1 & mask);
 }
 
 static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
@@ -5605,6 +5658,14 @@ void helper_mtc0_lladdr (target_ulong arg1)
     else {
         env->lladdr = (env->lladdr & ~mask) | (arg1 & mask);
     }
+}
+
+void helper_mtgc0_lladdr (target_ulong arg1)
+{
+    target_long mask = env->CP0_LLAddr_rw_bitmask;
+    arg1 = arg1 << env->CP0_LLAddr_shift;
+
+    env->Guest.lladdr = (env->Guest.lladdr & ~mask) | (arg1 & mask);
 }
 
 void helper_mtc0_watchlo (target_ulong arg1, uint32_t sel)
