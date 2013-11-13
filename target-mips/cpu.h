@@ -273,18 +273,10 @@ struct TCState {
     int32_t CP0_Debug_tcstatus;
 };
 
-// VZ
+// VZ-ASE
 typedef struct CPUMIPSPrvState_t {
     int32_t CP0_Index;
-    /* CP0_MVP* are per MVP registers. */
     int32_t CP0_Random;
-    int32_t CP0_VPEControl;
-    int32_t CP0_VPEConf0;
-    int32_t CP0_VPEConf1;
-    target_ulong CP0_YQMask;
-    target_ulong CP0_VPESchedule;
-    target_ulong CP0_VPEScheFBack;
-    int32_t CP0_VPEOpt;
     target_ulong CP0_EntryLo0;
     target_ulong CP0_EntryLo1;
     target_ulong CP0_Context;
@@ -292,16 +284,6 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
-    int32_t CP0_SRSConf0_rw_bitmask;
-    int32_t CP0_SRSConf0;
-    int32_t CP0_SRSConf1_rw_bitmask;
-    int32_t CP0_SRSConf1;
-    int32_t CP0_SRSConf2_rw_bitmask;
-    int32_t CP0_SRSConf2;
-    int32_t CP0_SRSConf3_rw_bitmask;
-    int32_t CP0_SRSConf3;
-    int32_t CP0_SRSConf4_rw_bitmask;
-    int32_t CP0_SRSConf4;
     int32_t CP0_HWREna;
     target_ulong CP0_BadVAddr;
     int32_t CP0_Count;
@@ -313,7 +295,6 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_SRSMap;
     int32_t CP0_Cause;
     target_ulong CP0_EPC;
-    int32_t CP0_PRid;
     int32_t CP0_EBase;
     int32_t CP0_Config0;
     int32_t CP0_Config1;
@@ -323,27 +304,11 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
-    /* XXX: Maybe make LLAddr per-TC? */
     target_ulong lladdr;
     target_ulong llbit;
-    target_ulong llval;
-    target_ulong llnewval;
-    target_ulong llreg;
-    target_ulong CP0_LLAddr_rw_bitmask;
-    int CP0_LLAddr_shift;
     target_ulong CP0_WatchLo[8];
     int32_t CP0_WatchHi[8];
-    target_ulong CP0_XContext;
-    int32_t CP0_Framemask;
-    int32_t CP0_Debug;
-    target_ulong CP0_DEPC;
-    int32_t CP0_Performance0;
-    int32_t CP0_TagLo;
-    int32_t CP0_DataLo;
-    int32_t CP0_TagHi;
-    int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
-    int32_t CP0_DESAVE;
 } CPUMIPSPrvState;
 
 typedef struct CPUMIPSState CPUMIPSState;
@@ -462,6 +427,13 @@ struct CPUMIPSState {
 #define CP0GuestCtl2_GVEC   0
     int32_t CP0_GuestCtl3;
     int32_t CP0_Compare;
+    int32_t CP0_GuestCtl0Ext; // per-VPE
+#define CP0GuestCtl0Ext_RPW 5
+#define CP0GuestCtl0Ext_CGI 4
+#define CP0GuestCtl0Ext_FCD 3
+#define CP0GuestCtl0Ext_OG  2
+#define CP0GuestCtl0Ext_BG  1
+#define CP0GuestCtl0Ext_MG  0
     int32_t CP0_Status;
 #define CP0St_CU3   31
 #define CP0St_CU2   30
