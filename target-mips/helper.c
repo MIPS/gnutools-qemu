@@ -597,16 +597,9 @@ void do_interrupt (CPUState *env)
 #endif
     //take exception as root by now
     //FIXME: VZ
-    if( /*((env->exception_index == EXCP_AdES ||
-            env->exception_index == EXCP_AdEL ||
-            env->exception_index == EXCP_TLBS ||
-            env->exception_index == EXCP_TLBL ||
-            env->exception_index == EXCP_LTLBL) && !(env->hflags & MIPS_HFLAG_GUEST)) ||*/
-            (env->exception_index == EXCP_GUESTEXIT) )
+    if( env->exception_index == EXCP_GUESTEXIT )
     {
-        sv_log("VZ_ASE FIXME treat as ROOT\n");
         env->hflags &= ~MIPS_HFLAG_GUEST;
-//        env->hflags |= MIPS_HFLAG_ROOT;
         tlb_flush (env, 1);
     }
 
@@ -878,11 +871,16 @@ void do_interrupt (CPUState *env)
             env->Guest.CP0_Cause = (env->Guest.CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
             sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
 
-#define CHK_BITS(POS, MASK) (((old >> (POS)) & (MASK)) != ((env->Guest.CP0_Status >> (POS)) & (MASK)))
-            if( (env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1 )
+            /* When GuestCtl0ExtFCD=1,
+             * then no Guest Hardware Field Change exception is triggered.*/
+            if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) )
             {
-                if( CHK_BITS(CP0St_EXL, 1) ||
-                        (CHK_BITS(CP0St_TS, 1) && ((env->Guest.CP0_Status >> CP0St_TS) & 1)) ) {
+#define CHK_CHANGES(POS, MASK) (((old >> (POS)) & (MASK)) != ((env->Guest.CP0_Status >> (POS)) & (MASK)))
+                /* . Guest Status bits: EXL when GuestCtl0MC=1
+                 * . Guest Status bits: TS (set)
+                 */
+                if ( (CHK_CHANGES(CP0St_EXL, 1) && (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_MC))) ||
+                        (CHK_CHANGES(CP0St_TS, 1) && (env->Guest.CP0_Status & (1 << CP0St_TS))) ) {
                     sv_log("GHFC root mode exception\n");
                     env->exception_index = EXCP_GUESTEXIT;
                     env->error_code = GHFC;
