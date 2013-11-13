@@ -3872,6 +3872,27 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
     tcg_gen_st_tl(arg, cpu_env, off);
 }
 
+#define MTC0_GUEST_RESERVED_ARCHITECTURE() { \
+    if (ctx->hflags & MIPS_HFLAG_GUEST) { \
+        gen_helper_reserved_architecture(); \
+        break; \
+    } \
+}
+
+#define MTC0_GUEST_RESERVED_IMPLEMENTATION() { \
+    if (ctx->hflags & MIPS_HFLAG_GUEST) { \
+        gen_helper_reserved_implementation(); \
+        break; \
+    } \
+}
+
+#define MTC0_GUEST_GPSI_ALWAYS() { \
+    if (ctx->hflags & MIPS_HFLAG_GUEST) { \
+        generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI); \
+        break; \
+    } \
+}
+
 static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -5306,9 +5327,11 @@ die:
 #endif
 #endif
 }
+
 static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
+    int guest_mode = !!(ctx->hflags & MIPS_HFLAG_GUEST);
 
     if (sel != 0)
         check_insn(env, ctx, ISA_MIPS32);
@@ -5324,16 +5347,19 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Index";
             break;
         case 1:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_mvpcontrol(arg);
             rn = "MVPControl";
             break;
         case 2:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             /* ignored */
             rn = "MVPConf0";
             break;
         case 3:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             /* ignored */
             rn = "MVPConf1";
@@ -5345,40 +5371,51 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 1:
         switch (sel) {
         case 0:
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_mg();
+            }
             /* ignored */
             rn = "Random";
             break;
         case 1:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_vpecontrol(arg);
             rn = "VPEControl";
             break;
         case 2:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_vpeconf0(arg);
             rn = "VPEConf0";
             break;
         case 3:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_vpeconf1(arg);
             rn = "VPEConf1";
             break;
         case 4:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_yqmask(arg);
             rn = "YQMask";
             break;
         case 5:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_mtc0_store64(arg, offsetof(CPUState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_mtc0_store64(arg, offsetof(CPUState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_vpeopt(arg);
             rn = "VPEOpt";
@@ -5394,36 +5431,43 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "EntryLo0";
             break;
         case 1:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tcstatus(arg);
             rn = "TCStatus";
             break;
         case 2:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tcbind(arg);
             rn = "TCBind";
             break;
         case 3:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tcrestart(arg);
             rn = "TCRestart";
             break;
         case 4:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tchalt(arg);
             rn = "TCHalt";
             break;
         case 5:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tccontext(arg);
             rn = "TCContext";
             break;
         case 6:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tcschedule(arg);
             rn = "TCSchedule";
             break;
         case 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_MT);
             gen_helper_mtc0_tcschefback(arg);
             rn = "TCScheFBack";
@@ -5449,8 +5493,16 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Context";
             break;
         case 1:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_ContextConfig));
-            rn = "ContextConfig";
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_mg();
+                gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
+                rn = "Guest.ContextConfig";
+            }
+            else {
+                gen_mtc0_store32(arg, offsetof(CPUState, CP0_ContextConfig));
+                rn = "ContextConfig";
+            }
             break;
         default:
             goto die;
@@ -5478,26 +5530,31 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Wired";
             break;
         case 1:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf0(arg);
             rn = "SRSConf0";
             break;
         case 2:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf1(arg);
             rn = "SRSConf1";
             break;
         case 3:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf2(arg);
             rn = "SRSConf2";
             break;
         case 4:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf3(arg);
             rn = "SRSConf3";
             break;
         case 5:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(arg);
             rn = "SRSConf4";
@@ -5518,6 +5575,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         }
         break;
     case 8:
+        if (guest_mode) {
+            gen_helper_check_gpsi_cp0();
+            gen_helper_check_gpsi_bg();
+        }
         /* ignored */
         rn = "BadVAddr";
         break;
@@ -5539,15 +5600,18 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "EntryHi";
             break;
         case 4:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl1));
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
+            gen_helper_mtc0_guestctl1(arg);
             rn = "GuestCtl1";
             break;
         case 5:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl2));
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
+            gen_helper_mtc0_guestctl2(arg);
             rn = "GuestCtl2";
             break;
         case 6:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl3));
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
+            gen_helper_mtc0_guestctl3(arg);
             rn = "GuestCtl3";
             break;
         default:
@@ -5559,6 +5623,11 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mtc0_compare(arg);
             rn = "Compare";
+            break;
+        case 4:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
+            gen_helper_mtc0_guestctl0ext(arg);
+            rn = "GuestCtl0Ext";
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -5583,6 +5652,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "IntCtl";
             break;
         case 2:
+            MTC0_GUEST_GPSI_ALWAYS();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsctl(arg);
             /* Stop translation as we may have switched the execution mode */
@@ -5590,6 +5660,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "SRSCtl";
             break;
         case 3:
+            MTC0_GUEST_GPSI_ALWAYS();
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mtc0_store32(arg, offsetof(CPUState, CP0_SRSMap));
             /* Stop translation as we may have switched the execution mode */
@@ -5597,14 +5668,15 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "SRSMap";
             break;
         case 6:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_VZ);
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_GuestCtl0));
+            gen_helper_mtc0_guestctl0(arg);
             /* Stop translation as we may have switched the execution mode */
-//            ??????? FIXME: VZ
             ctx->bstate = BS_STOP;
             rn = "GuestCtl0";
             break;
         case 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             check_insn(env, ctx, ASE_VZ);
             gen_mtc0_store32(arg, offsetof(CPUState, CP0_GTOffset));
             rn = "GTOffset";
@@ -5627,7 +5699,13 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 14:
         switch (sel) {
         case 0:
-            gen_mtc0_store64(arg, offsetof(CPUState, CP0_EPC));
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_mtc0_store64(arg, offsetof(CPUState, Guest.CP0_EPC));
+            }
+            else {
+                gen_mtc0_store64(arg, offsetof(CPUState, CP0_EPC));
+            }
             rn = "EPC";
             break;
         default:
@@ -5637,6 +5715,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 15:
         switch (sel) {
         case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
             /* ignored */
             rn = "PRid";
             break;
@@ -5645,6 +5724,12 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mtc0_ebase(arg);
             rn = "EBase";
             break;
+/*
+//FIXME: IASIM's behaviour
+        case 2:
+        case 3:
+            MTC0_GUEST_GPSI_ALWAYS();
+ */
         default:
             goto die;
         }
@@ -5658,6 +5743,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             ctx->bstate = BS_STOP;
             break;
         case 1:
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_cf();
+            }
             /* ignored, read only */
             rn = "Config1";
             break;
@@ -5668,23 +5757,43 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             ctx->bstate = BS_STOP;
             break;
         case 3:
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_cf();
+            }
             /* ignored, read only */
             rn = "Config3";
             break;
         case 4:
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_cf();
+            }
             /* currently ignored */
             rn = "Config4";
             break;
         case 5:
-            gen_mtc0_store32(arg, offsetof(CPUState, CP0_Config5));
-            rn = "Config5";
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_cf();
+                gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_Config5));
+                rn = "Guest.Config5";
+            }
+            else {
+                gen_mtc0_store32(arg, offsetof(CPUState, CP0_Config5));
+                rn = "Config5";
+            }
             break;
         /* 6,7 are implementation dependent */
         case 6:
+            //FIXME IASIM's behaviour
+            MTC0_GUEST_RESERVED_IMPLEMENTATION();
             /* ignored */
             rn = "Config6";
             break;
         case 7:
+            //FIXME IASIM's behaviour
+            MTC0_GUEST_RESERVED_IMPLEMENTATION();
             /* ignored */
             rn = "Config7";
             break;
@@ -5706,6 +5815,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 18:
         switch (sel) {
         case 0 ... 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_1i(mtc0_watchlo, arg, sel);
             rn = "WatchLo";
             break;
@@ -5716,6 +5826,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 19:
         switch (sel) {
         case 0 ... 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_1i(mtc0_watchhi, arg, sel);
             rn = "WatchHi";
             break;
@@ -5740,6 +5851,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
         switch (sel) {
         case 0:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_mtc0_framemask(arg);
             rn = "Framemask";
             break;
@@ -5748,12 +5860,14 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         }
         break;
     case 22:
+        MTC0_GUEST_RESERVED_ARCHITECTURE();
         /* ignored */
         rn = "Diagnostic"; /* implementation dependent */
         break;
     case 23:
         switch (sel) {
         case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
             gen_helper_mtc0_debug(arg); /* EJTAG support */
             /* BS_STOP isn't good enough here, hflags may have changed. */
             gen_save_pc(ctx->pc + 4);
@@ -5793,6 +5907,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 24:
         switch (sel) {
         case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
             /* EJTAG support */
             gen_mtc0_store64(arg, offsetof(CPUState, CP0_DEPC));
             rn = "DEPC";
@@ -5840,12 +5955,22 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         }
        break;
     case 26:
-        /* ignored */
-        rn = "ECC";
+        switch (sel) {
+        case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
+            /* ignored */
+            rn = "ECC";
+            break;
+        default:
+            goto die;
+        }
         break;
     case 27:
         switch (sel) {
-        case 0 ... 3:
+        case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
+        case 1 ... 3:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             /* ignored */
             rn = "CacheErr";
             break;
@@ -5857,15 +5982,19 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         switch (sel) {
         case 0:
         case 2:
+            MTC0_GUEST_GPSI_ALWAYS();
         case 4:
         case 6:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_mtc0_taglo(arg);
             rn = "TagLo";
             break;
         case 1:
         case 3:
+            MTC0_GUEST_GPSI_ALWAYS();
         case 5:
         case 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_mtc0_datalo(arg);
             rn = "DataLo";
             break;
@@ -5877,15 +6006,19 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         switch (sel) {
         case 0:
         case 2:
+            MTC0_GUEST_GPSI_ALWAYS();
         case 4:
         case 6:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_mtc0_taghi(arg);
             rn = "TagHi";
             break;
         case 1:
         case 3:
+            MTC0_GUEST_GPSI_ALWAYS();
         case 5:
         case 7:
+            MTC0_GUEST_RESERVED_ARCHITECTURE();
             gen_helper_mtc0_datahi(arg);
             rn = "DataHi";
             break;
@@ -5897,8 +6030,15 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 30:
         switch (sel) {
         case 0:
-            gen_mtc0_store64(arg, offsetof(CPUState, CP0_ErrorEPC));
-            rn = "ErrorEPC";
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_mtc0_store64(arg, offsetof(CPUState, Guest.CP0_ErrorEPC));
+                rn = "Guest.ErrorEPC";
+            }
+            else {
+                gen_mtc0_store64(arg, offsetof(CPUState, CP0_ErrorEPC));
+                rn = "ErrorEPC";
+            }
             break;
         default:
             goto die;
@@ -5907,10 +6047,16 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 31:
         switch (sel) {
         case 0:
+            MTC0_GUEST_GPSI_ALWAYS();
             /* EJTAG support */
             gen_mtc0_store32(arg, offsetof(CPUState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+            if (guest_mode) {
+                gen_helper_check_gpsi_cp0();
+                gen_helper_check_gpsi_og();
+            }
         default:
             goto die;
         }
@@ -5931,7 +6077,13 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
-
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        gen_helper_reserved_architecture();
+#ifdef SV_SUPPORT
+        sv_log("MTC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
+//        exit(127);
+#endif
+    }
 #ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
     generate_exception(ctx, EXCP_RI);
 #else
