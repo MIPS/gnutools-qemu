@@ -4443,6 +4443,14 @@ target_ulong helper_mfc0_mvpconf1 (void)
 
 target_ulong helper_mfc0_random (void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_MG)) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return 0;
+        }
+        // FIXME :VZ
+    }
     return (int32_t)cpu_mips_get_random(env);
 }
 
@@ -4561,10 +4569,11 @@ target_ulong helper_mftc0_tcschefback(void)
 target_ulong helper_mfc0_count (void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        if (!(env->CP0_GuestCtl0 & CP0GuestCtl0_GT)) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
             return 0;
         }
+        return (int32_t)cpu_mips_get_count(env) + env->CP0_GTOffset;
     }
     return (int32_t)cpu_mips_get_count(env);
 }
@@ -4607,7 +4616,17 @@ target_ulong helper_mftc0_status(void)
 
 target_ulong helper_mfc0_lladdr (void)
 {
-    return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG)) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        return (int32_t)(env->Guest.lladdr >> env->CP0_LLAddr_shift);
+    }
+    else {
+        return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
+    }
+
 }
 
 target_ulong helper_mfc0_watchlo (uint32_t sel)
