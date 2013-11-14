@@ -15188,28 +15188,6 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 #define CHK_ROOT_CP0_REG(REG, NAME)  CHK_CP0_REG(REG, "Root."NAME)
 #define CHK_GUEST_CP0_REG(REG, NAME)  CHK_CP0_REG(REG, "Guest."NAME)
 
-    //VZ
-    CHK_CP0_REG(Guest.CP0_Index,           "Guest.C0IDX  ");
-    CHK_CP0_REG(Guest.CP0_EntryLo0,        "Guest.C0ENLO0");
-    CHK_CP0_REG(Guest.CP0_EntryLo1,        "Guest.C0ENLO1");
-    CHK_CP0_REG(Guest.CP0_EntryHi,         "Guest.C0ENHI ");
-
-    CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
-    CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
-    CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
-    CHK_CP0_REG(Guest.CP0_HWREna,          "Guest.C0HWRENA");
-    CHK_CP0_REG(Guest.CP0_Status,          "Guest.C0STAT ");
-    CHK_CP0_REG(Guest.CP0_Cause,           "Guest.C0CAUS ");
-    CHK_CP0_REG(Guest.CP0_EPC,             "Guest.C0EPC  ");
-    CHK_CP0_REG(Guest.CP0_EBase,           "Guest.C0EBASE");
-
-    CHK_CP0_REG(Guest.CP0_Config0,         "Guest.C0CONFIG");
-    CHK_CP0_REG(Guest.CP0_Config1,         "Guest.C0CONFIG1");
-    CHK_CP0_REG(Guest.CP0_Config2,         "Guest.C0CONFIG2");
-    CHK_CP0_REG(Guest.CP0_Config3,         "Guest.C0CONFIG3");
-    CHK_CP0_REG(Guest.CP0_Config4,         "Guest.C0CONFIG4");
-    CHK_CP0_REG(Guest.CP0_Config5,         "Guest.C0CONFIG5");
-
     //cp0 registers
     //0
     CHK_ROOT_CP0_REG(CP0_Index,                 "C0IDX       ");
@@ -15426,6 +15404,28 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
                     i, env->active_tc.LO[i]);
         }
     }
+
+    //VZ
+    CHK_CP0_REG(Guest.CP0_Index,           "Guest.C0IDX  ");
+    CHK_CP0_REG(Guest.CP0_EntryLo0,        "Guest.C0ENLO0");
+    CHK_CP0_REG(Guest.CP0_EntryLo1,        "Guest.C0ENLO1");
+    CHK_CP0_REG(Guest.CP0_EntryHi,         "Guest.C0ENHI ");
+
+    CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
+    CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
+    CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
+    CHK_CP0_REG(Guest.CP0_HWREna,          "Guest.C0HWRENA");
+    CHK_CP0_REG(Guest.CP0_Status,          "Guest.C0STAT ");
+    CHK_CP0_REG(Guest.CP0_Cause,           "Guest.C0CAUS ");
+    CHK_CP0_REG(Guest.CP0_EPC,             "Guest.C0EPC  ");
+    CHK_CP0_REG(Guest.CP0_EBase,           "Guest.C0EBASE");
+
+    CHK_CP0_REG(Guest.CP0_Config0,         "Guest.C0CONFIG");
+    CHK_CP0_REG(Guest.CP0_Config1,         "Guest.C0CONFIG1");
+    CHK_CP0_REG(Guest.CP0_Config2,         "Guest.C0CONFIG2");
+    CHK_CP0_REG(Guest.CP0_Config3,         "Guest.C0CONFIG3");
+    CHK_CP0_REG(Guest.CP0_Config4,         "Guest.C0CONFIG4");
+    CHK_CP0_REG(Guest.CP0_Config5,         "Guest.C0CONFIG5");
 
     memcpy(&env_prev, env, sizeof(CPUState));
     memcpy(&mvp_prev, env->mvp, sizeof(CPUMIPSMVPContext));

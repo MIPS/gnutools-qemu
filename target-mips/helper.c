@@ -70,6 +70,10 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 {
     uint8_t ASID = env->CP0_EntryHi & 0xFF;
     int i;
+    int guestId = (env->hflags & MIPS_HFLAG_GUEST) ?
+                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
+                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+    
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
@@ -82,7 +86,8 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 #endif
 
         /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && !tlb->hardware_invalid) {
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag 
+            && !tlb->hardware_invalid && tlb->GuestID == guestId) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
@@ -116,6 +121,9 @@ int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *pro
 {
     uint8_t ASID = env->CP0_EntryHi & 0xFF;
     int i;
+    int guestId = (env->hflags & MIPS_HFLAG_GUEST) ?
+                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
+                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
@@ -128,7 +136,8 @@ int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *pro
 #endif
 
         /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && !tlb->hardware_invalid) {
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag 
+            && !tlb->hardware_invalid && tlb->GuestID == guestId) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
