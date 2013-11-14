@@ -3017,7 +3017,10 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"tlbgr",   "",         0x42000009, 0xffffffff, INSN_TLB,  0,      I33      },
 {"tlbgwi",  "",         0x4200000A, 0xffffffff, INSN_TLB,  0,      I33      },
 {"tlbgwr",  "",         0x4200000E, 0xffffffff, INSN_TLB,  0,      I33      },
-
+{"tlbinv",  "",         0x42000003, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbginv", "",         0x4200000B, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbinvf",  "",         0x42000004, 0xffffffff, INSN_TLB,  0,      I33      },
+{"tlbginvf", "",         0x4200000C, 0xffffffff, INSN_TLB,  0,      I33      },
 
 /* No hazard protection on coprocessor instructions--they shouldn't
    change the state of the processor and if they do it's up to the

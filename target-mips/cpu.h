@@ -52,6 +52,7 @@ struct CPUMIPSTLBContext {
     void (*helper_tlbwr) (void);
     void (*helper_tlbp) (void);
     void (*helper_tlbr) (void);
+    void (*helper_tlbinv) (int flush);
     union {
         struct {
             r4k_tlb_t tlb[MIPS_TLB_MAX];
@@ -720,11 +721,13 @@ void r4k_helper_tlbwi (void);
 void r4k_helper_tlbwr (void);
 void r4k_helper_tlbp (void);
 void r4k_helper_tlbr (void);
+void r4k_helper_tlbinv (int flush);
 
 void r4k_helper_tlbgwi (void);
 void r4k_helper_tlbgwr (void);
 void r4k_helper_tlbgp (void);
 void r4k_helper_tlbgr (void);
+void r4k_helper_tlbginv (int flush);
 
 void cpu_unassigned_access(CPUState *env, target_phys_addr_t addr,
                            int is_write, int is_exec, int unused, int size);

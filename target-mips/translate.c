@@ -8184,23 +8184,46 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         gen_helper_tlbgwi();
         break;
     case OPC_TLBGWR:
-        // FIXME: VZ
-        sv_log("OPC_TLBGWR %x\n", ctx->opcode);
         opn = "tlbgwr";
+        if (!env->guest_tlb->helper_tlbwr)
+            goto die;
+        gen_helper_tlbgwr();
         break;
     case OPC_TLBGP:
-        sv_log("OPC_TLBGP %x\n", ctx->opcode);
         opn = "tlbgp";
         if (!env->guest_tlb->helper_tlbp)
             goto die;
         gen_helper_tlbgp();
         break;
     case OPC_TLBGR:
-        sv_log("OPC_TLBGR %x\n", ctx->opcode);
         opn = "tlbgr";
         if (!env->guest_tlb->helper_tlbr)
             goto die;
         gen_helper_tlbgr();        
+        break;
+    case OPC_TLBINV:
+        opn = "tlbinv";
+        if (!env->tlb->helper_tlbinv)
+            goto die;
+        gen_helper_tlbinv();
+        break;
+    case OPC_TLBGINV:
+        opn = "tlbginv";
+        if (!env->guest_tlb->helper_tlbinv)
+            goto die;
+        gen_helper_tlbginv();
+        break;
+    case OPC_TLBINVF:
+        opn = "tlbinvf";
+        if (!env->tlb->helper_tlbinv)
+            goto die;
+        gen_helper_tlbinvf();
+        break;
+    case OPC_TLBGINVF:
+        opn = "tlbginvf";
+        if (!env->guest_tlb->helper_tlbinv)
+            goto die;
+        gen_helper_tlbginvf();
         break;
     case OPC_ERET:
         opn = "eret";

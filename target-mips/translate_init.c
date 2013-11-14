@@ -1379,12 +1379,15 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->tlb->helper_tlbp = r4k_helper_tlbp;
     env->tlb->helper_tlbr = r4k_helper_tlbr;
+    env->tlb->helper_tlbinv = r4k_helper_tlbinv;
 
     env->guest_tlb->map_address = &r4k_map_address;
     env->guest_tlb->helper_tlbwi = r4k_helper_tlbgwi;
     env->guest_tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->guest_tlb->helper_tlbp = r4k_helper_tlbgp;
     env->guest_tlb->helper_tlbr = r4k_helper_tlbgr;
+    env->guest_tlb->helper_tlbwr = r4k_helper_tlbgwr;
+    env->guest_tlb->helper_tlbinv = r4k_helper_tlbginv;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)

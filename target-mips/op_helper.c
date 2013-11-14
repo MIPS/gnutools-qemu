@@ -6198,6 +6198,130 @@ void r4k_helper_tlbwr (void)
     r4k_fill_tlb(r, false);
 }
 
+void r4k_helper_tlbgwr (void)
+{
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s Guest - TLBR ", env->cpu_model_str);
+#else
+    sv_log("Info (MIPS32_TLB) %s Guest - TLBR ", env->cpu_model_str);
+#endif
+#endif
+    int r = cpu_mips_get_random(env);
+    r4k_invalidate_tlb(env, r, 1);
+    r4k_fill_tlb(convert_tlb_index(env, r), true);
+}
+
+static inline void invalidateMatching(int index, int guestId, uint8_t ASID, bool isGuestCtx)
+{
+    r4k_tlb_t *tlb;
+
+    tlb = &env->tlb->mmu.r4k.tlb[index];
+
+    if (!tlb->G && tlb->ASID == ASID && tlb->GuestID == guestId 
+        && !tlb->hardware_invalid && tlb->isGuestCtx == isGuestCtx) {
+        tlb->hardware_invalid = 1;
+        sv_log("TLB invalidated: Entry[%d] ASID=%d, guestId=%d, isGuestCtx=%d "
+               "- %08x "TARGET_FMT_lx" "TARGET_FMT_lx" "TARGET_FMT_lx"\n",
+               index, tlb->ASID, tlb->GuestID, tlb->isGuestCtx, tlb->PageMask,
+               tlb->VPN, tlb->PFN[0], tlb->PFN[1]);
+    }
+}
+
+static inline void invalidateFlushMatching(int index, int guestId, bool isGuestCtx)
+{
+    r4k_tlb_t *tlb;
+
+    tlb = &env->tlb->mmu.r4k.tlb[index];
+
+    if (tlb->GuestID == guestId && !tlb->hardware_invalid &&
+        tlb->isGuestCtx == isGuestCtx) {
+        tlb->hardware_invalid = 1;
+
+        sv_log("TLB invalidated: Entry[%d] guestId=%d, isGuestCtx=%d - %08x "
+               TARGET_FMT_lx" "TARGET_FMT_lx" "TARGET_FMT_lx"\n", index,
+               tlb->GuestID, tlb->isGuestCtx, tlb->PageMask, tlb->VPN,
+               tlb->PFN[0], tlb->PFN[1]);
+    }
+}
+
+void r4k_helper_tlbginv (int flush)
+{
+    int idx;
+    int guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+    uint8_t ASID = env->Guest.CP0_EntryHi & 0xFF;
+    bool isGuestCtx = true;
+    int i;
+    // FIXME: CHECK IF EHINV IS SUPPORTED
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: Guest - TLBINV%s", env->cpu_model_str,
+           flush ? "F " : " ");
+#else
+    sv_log("Info (MIPS32_TLB) %s: Guest - TLBINV%s", env->cpu_model_str,
+           flush ? "F " : " ");
+#endif
+#endif
+    idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+    r4k_invalidate_tlb(env, idx, 0);
+    if (flush) {
+        sv_log("index %d\n", idx);
+        for (i = 0; i < env->tlb->nb_tlb; i++) {
+            invalidateFlushMatching(i, guestId, isGuestCtx);
+        }
+    } else {
+        sv_log("ASID=%d index %d\n", ASID, idx);
+        for (i = 0; i < env->tlb->nb_tlb; i++) {
+            invalidateMatching(i, guestId, ASID, isGuestCtx);
+        }
+    }
+}
+
+void r4k_helper_tlbinv (int flush)
+{
+    int idx;
+    int guestId;
+    uint8_t ASID;
+    bool isGuestCtx;
+    int i;
+    bool guestMode = env->hflags & MIPS_HFLAG_GUEST;
+
+    // FIXME: CHECK IF EHINV IS SUPPORTED
+#ifdef SV_SUPPORT
+#if defined(TARGET_MIPS64)
+    sv_log("Info (MIPS64_TLB) %s: %s - TLBINV%s", env->cpu_model_str,
+           guestMode ? "Guest" : "Root", flush ? "F " : " ");
+#else
+    sv_log("Info (MIPS32_TLB) %s: %s - TLBINV%s", env->cpu_model_str,
+           guestMode ? "Guest" : "Root", flush ? "F " : " ");
+#endif
+#endif
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+        ASID = env->Guest.CP0_EntryHi & 0xFF;
+        isGuestCtx = true;    
+        idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+        r4k_invalidate_tlb(env, idx, 0);
+    } else {
+        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+        ASID = env->CP0_EntryHi & 0xFF;
+        isGuestCtx = false;
+        idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+        r4k_invalidate_tlb(env, idx, 0);
+    }
+    if (flush) {
+        sv_log("index %d\n", idx);
+        for (i = 0; i < env->tlb->nb_tlb; i++) {
+            invalidateFlushMatching(i, guestId, isGuestCtx);
+        }
+    } else {
+        sv_log("ASID=%d index %d\n", ASID, idx);
+        for (i = 0; i < env->tlb->nb_tlb; i++) {
+            invalidateMatching(i, guestId, ASID, isGuestCtx);
+        }
+    }
+}
+
 void r4k_helper_tlbp (void)
 {
     r4k_tlb_t *tlb;
@@ -6459,6 +6583,11 @@ void helper_tlbwr(void)
     env->tlb->helper_tlbwr();
 }
 
+void helper_tlbgwr(void)
+{
+    env->guest_tlb->helper_tlbwr();
+}
+
 void helper_tlbp(void)
 {
     env->tlb->helper_tlbp();
@@ -6477,6 +6606,26 @@ void helper_tlbr(void)
 void helper_tlbgr(void)
 {
     env->guest_tlb->helper_tlbr();
+}
+
+void helper_tlbinv(void)
+{
+    env->tlb->helper_tlbinv(0);
+}
+
+void helper_tlbginv(void)
+{
+    env->guest_tlb->helper_tlbinv(0);
+}
+
+void helper_tlbinvf(void)
+{
+    env->tlb->helper_tlbinv(1);
+}
+
+void helper_tlbginvf(void)
+{
+    env->guest_tlb->helper_tlbinv(1);
 }
 
 /* Specials */
