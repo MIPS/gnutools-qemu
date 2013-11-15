@@ -6491,7 +6491,7 @@ void r4k_helper_tlbr (void)
 void r4k_helper_tlbgr (void)
 {
     // root mode accessing guest tlb
-    int idx
+    int idx;
     idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     idx = convert_tlb_index(env, idx);
     
