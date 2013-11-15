@@ -6181,9 +6181,9 @@ void r4k_helper_tlbgwr (void)
 {
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s Guest - TLBR ", env->cpu_model_str);
+    sv_log("Info (MIPS64_TLB) %s Guest - TLBWR ", env->cpu_model_str);
 #else
-    sv_log("Info (MIPS32_TLB) %s Guest - TLBR ", env->cpu_model_str);
+    sv_log("Info (MIPS32_TLB) %s Guest - TLBWR ", env->cpu_model_str);
 #endif
 #endif
     int r = cpu_mips_get_random(env);
@@ -6387,45 +6387,17 @@ void r4k_helper_tlbgp (void)
                             (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
 }
 
-void r4k_helper_tlbr (void)
+static void r4k_helper_tlbr_common (int idx,
+                                    target_ulong *CP0_EntryHi, 
+                                    int32_t *CP0_PageMask,
+                                    target_ulong *CP0_EntryLo0,
+                                    target_ulong *CP0_EntryLo1,
+                                    int32_t *CP0_Index,
+                                    int guestId)
 {
-    r4k_tlb_t *tlb;
-    uint8_t ASID;
-    int idx;
-
-    target_ulong *CP0_EntryHi;
-    int32_t *CP0_PageMask;
-    target_ulong *CP0_EntryLo0;
-    target_ulong *CP0_EntryLo1;
-    int32_t * CP0_Index;
-    int guestId;
-    bool guestMode = env->hflags & MIPS_HFLAG_GUEST;
-
-    // TODO: a generic solution for getting current context 
-    //       also for other instructions
-    if (guestMode) {
-        CP0_EntryHi = &env->Guest.CP0_EntryHi;
-        CP0_PageMask = &env->Guest.CP0_PageMask;
-        CP0_EntryLo0 = &env->Guest.CP0_EntryLo0;
-        CP0_EntryLo1 = &env->Guest.CP0_EntryLo1;
-        CP0_Index = &env->Guest.CP0_Index;
-        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
-
-        idx = (*CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-        idx = convert_tlb_index(env, idx);
-    } else {
-        CP0_EntryHi = &env->CP0_EntryHi;
-        CP0_PageMask = &env->CP0_PageMask;
-        CP0_EntryLo0 = &env->CP0_EntryLo0;
-        CP0_EntryLo1 = &env->CP0_EntryLo1;
-        CP0_Index = &env->CP0_Index;
-        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
-
-        idx = (*CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-    }
-
-    ASID = *CP0_EntryHi & 0xFF;
-    tlb = &env->tlb->mmu.r4k.tlb[idx];
+    r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[idx];
+    uint8_t ASID = *CP0_EntryHi & 0xFF;
+    int isGuestMode = env->hflags & MIPS_HFLAG_GUEST;
 
     /* If this will change the current ASID, flush qemu's TLB.  */
     if (ASID != tlb->ASID)
@@ -6433,8 +6405,8 @@ void r4k_helper_tlbr (void)
 
     r4k_mips_tlb_flush_extra(env, env->tlb->nb_tlb);
 
-    if (tlb->hardware_invalid || tlb->GuestID != guestId) {
-        if (!(env->hflags & MIPS_HFLAG_GUEST)) {
+    if (tlb->hardware_invalid) {
+        if (!isGuestMode) {
             env->CP0_GuestCtl1 &= ~(0xff << CP0GuestCtl1_RID);
         }
         *CP0_EntryHi = 1 << CP0EntryHiEHINV;
@@ -6442,18 +6414,32 @@ void r4k_helper_tlbr (void)
         *CP0_EntryLo0 = 0;
         *CP0_EntryLo1 = 0;
     } else {
-        *CP0_EntryHi = tlb->VPN | tlb->ASID | (tlb->hardware_invalid << CP0EntryHiEHINV);
+        *CP0_EntryHi = tlb->VPN | tlb->ASID;
         *CP0_PageMask = tlb->PageMask;
         *CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
             (tlb->C0 << 3) | (tlb->PFN[0] << 6);
         *CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
             (tlb->C1 << 3) | (tlb->PFN[1] << 6);
+
+        if (tlb->GuestID != guestId) {
+            if (isGuestMode) {
+                *CP0_EntryHi = 1 << CP0EntryHiEHINV;
+                *CP0_PageMask = 0;
+                *CP0_EntryLo0 = 0;
+                *CP0_EntryLo1 = 0;
+            } else {
+                env->CP0_GuestCtl1 &= ~(0xff << CP0GuestCtl1_RID);
+                env->CP0_GuestCtl1 |= tlb->GuestID << CP0GuestCtl1_RID;
+            }
+        }
     }
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s: %s - TLBR ", env->cpu_model_str, guestMode ? "Guest" : "Root");
+    sv_log("Info (MIPS64_TLB) %s: %s - TLBR ", env->cpu_model_str,
+           (env->hflags & MIPS_HFLAG_GUEST) ? "Guest" : "Root");
 #else
-    sv_log("Info (MIPS32_TLB) %s: %s - TLBR ", env->cpu_model_str, guestMode ? "Guest" : "Root");
+    sv_log("Info (MIPS32_TLB) %s: %s - TLBR ", env->cpu_model_str,
+           (env->hflags & MIPS_HFLAG_GUEST) ? "Guest" : "Root");
 #endif
     sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
     sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
@@ -6472,58 +6458,50 @@ void r4k_helper_tlbr (void)
 #endif
 }
 
+void r4k_helper_tlbr (void)
+{
+    int idx;
+    // TODO: a generic solution for getting current context 
+    //       also for other instructions
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        // guest mode
+        idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+        idx = convert_tlb_index(env, idx);
+        r4k_helper_tlbr_common(idx,
+                               &env->Guest.CP0_EntryHi,
+                               &env->Guest.CP0_PageMask,
+                               &env->Guest.CP0_EntryLo0,
+                               &env->Guest.CP0_EntryLo1,
+                               &env->Guest.CP0_Index,
+                               (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff);
+    } else {
+        // root mode
+        idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
+        r4k_helper_tlbr_common(idx,
+                               &env->CP0_EntryHi,
+                               &env->CP0_PageMask,
+                               &env->CP0_EntryLo0,
+                               &env->CP0_EntryLo1,
+                               &env->CP0_Index,
+                               (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
+    }
+
+}
+
 void r4k_helper_tlbgr (void)
 {
-    r4k_tlb_t *tlb;
-    uint8_t ASID;
-    int idx;
-
-    ASID = env->Guest.CP0_EntryHi & 0xFF;
+    // root mode accessing guest tlb
+    int idx
     idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     idx = convert_tlb_index(env, idx);
-    tlb = &env->tlb->mmu.r4k.tlb[idx];
-
-    /* If this will change the current ASID, flush qemu's TLB.  */
-    if (ASID != tlb->ASID)
-        cpu_mips_tlb_flush (env, 1);
-
-    r4k_mips_tlb_flush_extra(env, env->tlb->nb_tlb);
-
-    if (tlb->hardware_invalid) {
-        env->CP0_GuestCtl1 &= ~(0xff << CP0GuestCtl1_RID);
-        env->Guest.CP0_EntryHi = 1 << CP0EntryHiEHINV;
-        env->Guest.CP0_PageMask = 0;
-        env->Guest.CP0_EntryLo0 = 0;
-        env->Guest.CP0_EntryLo1 = 0;
-    } else {
-        env->Guest.CP0_EntryHi = tlb->VPN | tlb->ASID;
-        env->Guest.CP0_PageMask = tlb->PageMask;
-        env->Guest.CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                                  (tlb->C0 << 3) | (tlb->PFN[0] << 6);
-        env->Guest.CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                                  (tlb->C1 << 3) | (tlb->PFN[1] << 6);
-    }
-#ifdef SV_SUPPORT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s: Guest - TLBR ", env->cpu_model_str);
-#else
-    sv_log("Info (MIPS32_TLB) %s: Guest - TLBR ", env->cpu_model_str);
-#endif
-    sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
-    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
-    sv_log(" G %x ", tlb->G);
-    sv_log("V0 %x ", tlb->V0);
-    sv_log("V1 %x ", tlb->V1);
-    sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->D1);
-    sv_log("EHINV %x ", tlb->hardware_invalid);
-    sv_log("ASID tlb=0x%04x ", tlb->ASID);
-    sv_log("EnHi=0x%04x ", (unsigned) env->CP0_EntryHi & 0xff);
-    sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
-    sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
-           (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :
-           (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
-#endif
+    
+    r4k_helper_tlbr_common(idx,
+                           &env->Guest.CP0_EntryHi,
+                           &env->Guest.CP0_PageMask,
+                           &env->Guest.CP0_EntryLo0,
+                           &env->Guest.CP0_EntryLo1,
+                           &env->Guest.CP0_Index,
+                           (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
 }
 
 void helper_tlbwi(void)
