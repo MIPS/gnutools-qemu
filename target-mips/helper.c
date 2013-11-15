@@ -460,22 +460,20 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
     } else if (ret < 0)
 #endif
     {
+        // clear GExcCode bits
+        env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
         if (ret < TLBRET_GUESTEXIT)
         {
             env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
             env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
-            // clear GExcCode bits
-            env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
-            if(ret == TLBRET_NOMATCH + TLBRET_GUESTEXIT) {
-                env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
-            }
-            else {
-                env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
-            }
+            env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
             env->hflags &= ~MIPS_HFLAG_GUEST;
 //            env->hflags |= MIPS_HFLAG_ROOT;
             ret -= TLBRET_GUESTEXIT;
             tlb_flush (env, 1);
+        }
+        else {
+        	env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
         }
         if (env->hflags & MIPS_HFLAG_GUEST) {
             sv_log("memory failed at %x %d %d\n", (unsigned) physical, rw, ret);
