@@ -366,6 +366,7 @@ struct CPUMIPSState {
     target_ulong CP0_BadVAddr;
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
+#define CP0EntryHiEHINV 10
     int32_t CP0_Compare;
     int32_t CP0_Status;
 #define CP0St_CU3   31
@@ -484,7 +485,7 @@ struct CPUMIPSState {
 #define CP0C3_SM   1
 #define CP0C3_TL   0
     int32_t CP0_Config4;
-#define CP0C4_IE   (0x3 << 29)
+#define CP0C4_IE   29
 #define CP0C4_M    31
     int32_t CP0_Config5;
 #define CP0C5_MSAEn  27

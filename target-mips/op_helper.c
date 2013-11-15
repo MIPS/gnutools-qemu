@@ -4952,8 +4952,8 @@ void helper_mtc0_entryhi (target_ulong arg1)
 
     /* 1k pages not implemented */
     val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
-    if ((env->CP0_Config4 & CP0C4_IE) >= 2) {
-        val |= arg1 & 0x400; // EHINV
+    if (((env->CP0_Config4 >> CP0C4_IE) & 0x3) >= 2) {
+        val |= arg1 & (1 << CP0EntryHiEHINV);
     }
 #if defined(TARGET_MIPS64)
     val &= env->SEGMask;
@@ -5437,7 +5437,7 @@ static void r4k_fill_tlb (int idx)
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
-    tlb->VPN = env->CP0_EntryHi & ((~mask) << 1);
+    tlb->VPN = env->CP0_EntryHi & (~mask << (TARGET_PAGE_BITS + 1));
 #if defined(TARGET_MIPS64)
     tlb->VPN &= env->SEGMask;
 #endif
