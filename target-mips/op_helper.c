@@ -6299,7 +6299,7 @@ void r4k_helper_tlbinv (int flush)
     }
 }
 
-void r4k_helper_tlbp (void)
+static void r4k_helper_tlbp_common (bool isGuestTLB, target_ulong CP0_EntryHi, int32_t *CP0_Index, int guestId)
 {
     r4k_tlb_t *tlb;
     target_ulong mask;
@@ -6308,24 +6308,10 @@ void r4k_helper_tlbp (void)
     uint8_t ASID;
     int i;
     int tlbIndex;
-    int guestId;
-    target_ulong CP0_EntryHi;
-    int32_t *CP0_Index;
-    bool guestMode = env->hflags & MIPS_HFLAG_GUEST;
-
-    if (guestMode) {
-        CP0_EntryHi = env->Guest.CP0_EntryHi;
-        CP0_Index = &env->Guest.CP0_Index;
-        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
-    } else {
-        CP0_EntryHi = env->CP0_EntryHi;
-        CP0_Index = &env->CP0_Index;
-        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
-    }
 
     ASID = CP0_EntryHi & 0xFF;
     for (i = 0; i < env->tlb->nb_tlb; i++) {
-        tlbIndex = guestMode ? convert_tlb_index(env, i) : i;
+        tlbIndex = isGuestTLB ? convert_tlb_index(env, i) : i;
 
         tlb = &env->tlb->mmu.r4k.tlb[tlbIndex];
         /* 1k pages are not supported. */
@@ -6359,11 +6345,14 @@ void r4k_helper_tlbp (void)
 
         *CP0_Index = 0x80000000;
     }
+
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s: %s - TLBP ", env->cpu_model_str, guestMode ? "Guest" : "Root");
+    sv_log("Info (MIPS64_TLB) %s: %s - TLBP ", env->cpu_model_str, 
+           (env->hflags & MIPS_HFLAG_GUEST) ? "Guest" : "Root");
 #else
-    sv_log("Info (MIPS32_TLB) %s: %s - TLBP ", env->cpu_model_str, guestMode ? "Guest" : "Root");
+    sv_log("Info (MIPS32_TLB) %s: %s - TLBP ", env->cpu_model_str, 
+           (env->hflags & MIPS_HFLAG_GUEST) ? "Guest" : "Root");
 #endif
     sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
     sv_log("P %d ", (*CP0_Index & 0x80000000) >> 31);
@@ -6371,59 +6360,31 @@ void r4k_helper_tlbp (void)
 #endif
 }
 
+void r4k_helper_tlbp (void)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        // guest mode
+        r4k_helper_tlbp_common (true,
+                                env->Guest.CP0_EntryHi,
+                                &env->Guest.CP0_Index,
+                                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff);
+
+    } else {
+        // root mode
+        r4k_helper_tlbp_common (false,
+                                env->CP0_EntryHi,
+                                &env->CP0_Index,
+                                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
+    }
+}
+
 void r4k_helper_tlbgp (void)
 {
-    r4k_tlb_t *tlb;
-    target_ulong mask;
-    target_ulong tag;
-    target_ulong VPN;
-    uint8_t ASID;
-    int i;
-
-    int guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
-
-    ASID = env->Guest.CP0_EntryHi & 0xFF;
-    for (i = 0; i < env->tlb->nb_tlb; i++) {
-        tlb = &env->tlb->mmu.r4k.tlb[i];
-        /* 1k pages are not supported. */
-        mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-        tag = env->Guest.CP0_EntryHi & ~mask;
-        VPN = tlb->VPN & ~mask;
-        /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag &&
-            tlb->GuestID == guestId && !tlb->hardware_invalid) {
-            /* TLB match */
-            env->Guest.CP0_Index = convert_tlb_index(env, i);
-            break;
-        }
-    }
-    if (i == env->tlb->nb_tlb) {
-        /* No match.  Discard any shadow entries, if any of them match.  */
-        for (i = env->tlb->nb_tlb; i < env->tlb->tlb_in_use; i++) {
-            tlb = &env->tlb->mmu.r4k.tlb[i];
-            /* 1k pages are not supported. */
-            mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-            tag = env->Guest.CP0_EntryHi & ~mask;
-            VPN = tlb->VPN & ~mask;
-            /* Check ASID, virtual page number & size */
-            if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
-                r4k_mips_tlb_flush_extra (env, i);
-                break;
-            }
-        }
-
-        env->Guest.CP0_Index = 0x80000000;
-    }
-#ifdef SV_SUPPORT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) %s: Guest - TLBP ", env->cpu_model_str);
-#else
-    sv_log("Info (MIPS32_TLB) %s: Guest - TLBP ", env->cpu_model_str);
-#endif
-    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
-    sv_log("P %d ", (env->Guest.CP0_Index & 0x80000000) >> 31);
-    sv_log("Index %d\n", env->Guest.CP0_Index & 0x7FFFFFFF);
-#endif
+    // root mode accessing guest tlb
+    r4k_helper_tlbp_common (true,
+                            env->Guest.CP0_EntryHi,
+                            &env->Guest.CP0_Index,
+                            (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff);
 }
 
 void r4k_helper_tlbr (void)
