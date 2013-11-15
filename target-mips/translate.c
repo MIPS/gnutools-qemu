@@ -8205,25 +8205,33 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         opn = "tlbinv";
         if (!env->tlb->helper_tlbinv)
             goto die;
-        gen_helper_tlbinv();
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            gen_helper_tlbinv();
+        } // if not supported - treat as NOP
         break;
     case OPC_TLBGINV:
         opn = "tlbginv";
         if (!env->guest_tlb->helper_tlbinv)
             goto die;
-        gen_helper_tlbginv();
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            gen_helper_tlbginv();
+        } // if not supported - treat as NOP
         break;
     case OPC_TLBINVF:
         opn = "tlbinvf";
         if (!env->tlb->helper_tlbinv)
             goto die;
-        gen_helper_tlbinvf();
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            gen_helper_tlbinvf();
+        } // if not supported - treat as NOP
         break;
     case OPC_TLBGINVF:
         opn = "tlbginvf";
         if (!env->guest_tlb->helper_tlbinv)
             goto die;
-        gen_helper_tlbginvf();
+        if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+            gen_helper_tlbginvf();
+        } // if not supported - treat as NOP
         break;
     case OPC_ERET:
         opn = "eret";

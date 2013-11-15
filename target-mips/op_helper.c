@@ -5240,7 +5240,10 @@ void helper_mtc0_entryhi (target_ulong arg1)
     target_ulong old, val;
 
     /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0x4FF);
+    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
+    if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
+        val |= arg1 & (1 << CP0EntryHiEHINV);
+    }
 #if defined(TARGET_MIPS64)
     val &= env->SEGMask;
 #endif
@@ -6228,7 +6231,6 @@ void r4k_helper_tlbginv (int flush)
     uint8_t ASID = env->Guest.CP0_EntryHi & 0xFF;
     bool isGuestCtx = true;
     int i;
-    // FIXME: CHECK IF EHINV IS SUPPORTED
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: Guest - TLBINV%s", env->cpu_model_str,
@@ -6262,7 +6264,6 @@ void r4k_helper_tlbinv (int flush)
     int i;
     bool guestMode = env->hflags & MIPS_HFLAG_GUEST;
 
-    // FIXME: CHECK IF EHINV IS SUPPORTED
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: %s - TLBINV%s", env->cpu_model_str,
