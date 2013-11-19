@@ -15418,6 +15418,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(Guest.CP0_EntryLo0,        "Guest.C0ENLO0");
     CHK_CP0_REG(Guest.CP0_EntryLo1,        "Guest.C0ENLO1");
     CHK_CP0_REG(Guest.CP0_EntryHi,         "Guest.C0ENHI ");
+    CHK_CP0_REG(Guest.CP0_BadVAddr,        "Guest.C0BVA ");
 
     CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
     CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");

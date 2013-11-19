@@ -384,7 +384,11 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
 
     }
     /* Raise exception */
-    env->CP0_BadVAddr = address;
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        env->Guest.CP0_BadVAddr = address;
+    } else {
+        env->CP0_BadVAddr = address;
+    }
     env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
                        ((address >> 9) & 0x007ffff0);
 #if defined(SV_SUPPORT)
@@ -398,8 +402,13 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
            thus we modify qemu to work in the same way to make diff tests pass.
         */
 #endif
-    env->CP0_EntryHi =
-        (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        env->Guest.CP0_EntryHi =
+            (env->Guest.CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+    } else {
+        env->CP0_EntryHi =
+            (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+    }
 #if defined(SV_SUPPORT)
     }
 #endif
