@@ -14121,7 +14121,9 @@ void cpu_reset (CPUMIPSState *env)
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
 
     /* MSA */
-    msa_reset(env);
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        msa_reset(env);
+    }
 }
 
 void restore_state_to_opc(CPUState *env, TranslationBlock *tb, int pc_pos)
