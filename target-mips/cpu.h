@@ -469,6 +469,7 @@ struct CPUMIPSState {
 #define CP0SRSCtl_CSS 0
     int32_t CP0_SRSMap;
     int32_t CP0_GuestCtl0;
+#define CP0_GuestCtl0_rw_bitmask 0xF2B0FC03
 #define CP0GuestCtl0_GM 31
 #define CP0GuestCtl0_RI 30
 #define CP0GuestCtl0_MC 29

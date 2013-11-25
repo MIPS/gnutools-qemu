@@ -64,15 +64,32 @@ int fixed_mmu_map_address (CPUState *env, target_phys_addr_t *physical, int *pro
     return TLBRET_MATCH;
 }
 
+static inline bool isDrgValid(CPUState *env, bool instruction)
+{
+    return ((env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_DRG) &&
+             !(env->hflags & MIPS_HFLAG_GUEST) &&
+             (env->hflags & MIPS_HFLAG_KSU)    &&
+             ((env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff) != 0) &&
+            !instruction);
+}
+
 /* MIPS32/MIPS64 R4000-style MMU emulation */
 int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                      target_ulong address, int rw, int access_type)
 {
     uint8_t ASID = env->CP0_EntryHi & 0xFF;
     int i;
-    int guestId = (env->hflags & MIPS_HFLAG_GUEST) ?
-                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
-                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+    int guestId;
+
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
+    } else {
+        if (isDrgValid(env, rw == 2)) {
+            guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+        } else {
+            guestId = 0;
+        }
+    }
     
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
@@ -99,7 +116,7 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                 sv_log("tlb hardware_invalid\n");
                 return TLBRET_INVALID;
             }*/
-            if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
+            if (rw == 0 || rw == 2 || (n ? tlb->D1 : tlb->D0)) {
                 *physical = (tlb->PFN[n] << TARGET_PAGE_BITS) | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
@@ -450,8 +467,6 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
     qemu_log("%s pc " TARGET_FMT_lx " ad " TARGET_FMT_lx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 
-    rw &= 1;
-
     /* data access */
 #if !defined(CONFIG_USER_ONLY)
     /* XXX: put correct access by using cpu_restore_state()
@@ -508,8 +523,6 @@ target_phys_addr_t cpu_mips_translate_address(CPUState *env, target_ulong addres
     int prot;
     int access_type;
     int ret = 0;
-
-    rw &= 1;
 
     /* data access */
     access_type = ACCESS_INT;

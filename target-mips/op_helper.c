@@ -5458,8 +5458,8 @@ void helper_mtc0_srsctl (target_ulong arg1)
 void helper_mtc0_guestctl0 (target_ulong arg1)
 {
     /* AT, CG, G1, G0E, PT, ASE, RAD, G2, GExc-Code */
-    uint32_t mask = 0xF2B0FD03;
-    env->CP0_GuestCtl0 = (env->CP0_GuestCtl0 & ~mask) | (arg1 & mask);
+    env->CP0_GuestCtl0 = (env->CP0_GuestCtl0 & ~CP0_GuestCtl0_rw_bitmask) | 
+                         (arg1 & CP0_GuestCtl0_rw_bitmask);
 }
 
 static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
