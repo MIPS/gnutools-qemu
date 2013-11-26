@@ -760,6 +760,69 @@ static void cpu_request_exit(void *opaque, int irq, int level)
     }
 }
 
+#ifdef PAE_TEST
+typedef struct {
+    MemoryRegion mem;
+    uint64_t base;
+    char * name;
+    uint64_t buffer;
+} TestInfo;
+
+static uint64_t pae_test_read(void *opaque, target_phys_addr_t addr,
+                              unsigned size)
+{
+    TestInfo * testinfo = opaque;
+
+    printf("READ,%016"PRIx64",0x%"PRIx64"\n", testinfo->base, testinfo->buffer);
+    return testinfo->buffer;
+}
+
+static void pae_test_write(void *opaque, target_phys_addr_t addr,
+                           uint64_t val, unsigned size)
+{
+    TestInfo * testinfo = opaque;
+
+    printf("WRITE,%016"PRIx64",0x%"PRIx64"\n", testinfo->base, val);
+    testinfo->buffer = val;
+}
+
+static const MemoryRegionOps pae_test_struct = {
+    .read = pae_test_read,
+    .write = pae_test_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+static inline void pae_test_init(MemoryRegion *system_memory, uint64_t base, 
+                                 uint32_t size, uint32_t pa_bits)
+{
+    TestInfo * testinfo = (TestInfo*)g_malloc0(sizeof(TestInfo));
+    testinfo->buffer = 0;
+    testinfo->base = base;
+    testinfo->name = malloc(20);
+    sprintf(testinfo->name, "%d-bit PA", pa_bits);
+
+    memory_region_init_io(&testinfo->mem, &pae_test_struct, testinfo,
+                          testinfo->name, size);
+    memory_region_add_subregion(system_memory, base, &testinfo->mem);
+}
+
+static inline void pae_test_register_memories(MemoryRegion *system_memory)
+{
+    /* Register single memory pages under the following physical addresses:
+       0000 0000 A000 0000
+       0000 0001 2000 0000
+       0000 0002 2000 0000
+       ...
+       0000 0040 2000 0000
+       0000 0080 2000 0000
+     */
+    int i;
+    for (i = 32; i <= 40; i++)
+    {
+        pae_test_init(system_memory, (1ULL << (i - 1)) + (1ULL << 29), TARGET_PAGE_SIZE, i);
+    }
+}
+#endif
 static
 void mips_malta_init (ram_addr_t ram_size,
                       const char *boot_device,
@@ -836,6 +899,9 @@ void mips_malta_init (ram_addr_t ram_size,
     /* FPGA */
     malta_fpga_init(system_memory, 0x1f000000LL, env->irq[2], serial_hds[2]);
 
+#ifdef PAE_TEST
+    pae_test_register_memories(system_memory);
+#endif
     /* Load firmware in flash / BIOS unless we boot directly into a kernel. */
     if (kernel_filename) {
         /* Write a small bootloader to the flash location. */

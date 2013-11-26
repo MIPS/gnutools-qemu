@@ -1255,6 +1255,9 @@ const struct mips_opcode mips_builtin_opcodes[] =
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
 
+/* XPA */
+{"mthc0",   "t,G,H",    0x40c00000, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I32     }, // FIXME
+{"mfhc0",   "t,G,H",    0x40400000, 0xffe007f8, LCD|WR_t|RD_C0, 	0,      I32     },
 /* MSA */
 {"sll.b",   "+d,+e,+f",	0x7800000d, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
 {"sll.h",   "+d,+e,+f",	0x7820000d, 0xffe0003f, WR_VD|RD_VS|RD_VT,	0,      MSA	},
