@@ -1043,9 +1043,13 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) | (1 << CP0C3_CMGCR) |
-                       (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) |
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) | 
+                       (0 << CP0C3_CMGCR) | // not supported
+                       (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) | 
+                       (1 << CP0C3_LPA) | (1 << CP0C3_M) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+        .CP0_Config4 = (1 << CP0C4_M),
+        .CP0_Config5 = (1 << CP0C5_MVH),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
