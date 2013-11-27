@@ -5426,12 +5426,15 @@ void helper_mtc0_guestctl0ext (target_ulong arg1)
     env->CP0_GuestCtl0Ext = (env->CP0_GuestCtl0Ext & ~mask) | (arg1 & mask);
 }
 
+// Compare bits between two variables
+#define COMPARE_BITS(A, B, POS, MASK) \
+    ((((A) >> (POS)) & (MASK)) != (((B) >> (POS)) & (MASK)))
+
 void helper_mtc0_status (target_ulong arg1)
 {
     uint32_t val, old;
     uint32_t mask = env->CP0_Status_rw_bitmask;
     val = arg1 & mask;
-#define CHK_BITS(POS, MASK) (((old >> (POS)) & (MASK)) != ((arg1 >> (POS)) & (MASK)))
     if (env->hflags & MIPS_HFLAG_GUEST) {
         // Guest mode
         old = env->Guest.CP0_Status;
@@ -5439,19 +5442,23 @@ void helper_mtc0_status (target_ulong arg1)
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
-        // Table 4.9 Guest CP0 Fields Subject to Software or Hardware Field Change Exception
-        else if ( (CHK_BITS(CP0St_CU2, 1) && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC2) & 1)) ||
-                (CHK_BITS(CP0St_CU1, 1) && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC1) & 1)) ||
-                CHK_BITS(CP0St_RP, 1) ||
-                CHK_BITS(CP0St_FR, 1) ||
-                CHK_BITS(CP0St_MX, 1) ||
-                CHK_BITS(CP0St_BEV, 1) ||
-                CHK_BITS(CP0St_TS, 1) ||
-                CHK_BITS(CP0St_SR, 1) ||
-                CHK_BITS(CP0St_NMI, 1) ||
-                CHK_BITS(16, 3) || // Impl
-                (CHK_BITS(CP0St_KSU, 3) && ((env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1)) ||
-                CHK_BITS(CP0St_ERL, 1) ) {
+        // Table 4.10 Guest CP0 Fields Subject to Software
+        // or Hardware Field Change Exception
+        else if ( (COMPARE_BITS(old, arg1, CP0St_CU2, 1)
+                        && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC2) & 1)) ||
+                (COMPARE_BITS(old, arg1, CP0St_CU1, 1)
+                        && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC1) & 1)) ||
+                COMPARE_BITS(old, arg1, CP0St_RP, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_FR, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_MX, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_BEV, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_TS, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_SR, 1) ||
+                COMPARE_BITS(old, arg1, CP0St_NMI, 1) ||
+                COMPARE_BITS(old, arg1, 16, 3) || // Impl
+                (COMPARE_BITS(old, arg1, CP0St_KSU, 3)
+                        && ((env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1)) ||
+                COMPARE_BITS(old, arg1, CP0St_ERL, 1) ) {
             // FIXME: VZ
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
@@ -5727,6 +5734,39 @@ void helper_mtgc0_config2 (target_ulong arg1)
 {
     /* tertiary/secondary caches not implemented */
     env->Guest.CP0_Config2 = (env->Guest.CP0_Config2 & 0x8FFF0FFF);
+}
+
+void helper_mtc0_config5 (target_ulong arg1)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CF)) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        // Config5 : MSAEn. (Enable for MIPS SIMD Architecture module.
+        //                   Applicable only if MSA implemented.)
+        //         : UFR. (User FR enable, Release 5 optional feature)
+        else if ( (!(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD))) &&
+                    ((COMPARE_BITS(env->CP0_Config5, arg1, CP0C5_MSAEn, 1)
+                            && (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) ||
+                    (COMPARE_BITS(env->CP0_Config5, arg1, CP0C5_UFR, 1)))) {
+//            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
+            sv_log("ERR: MTC0/Config5MSAEn in Guest mode should cause GSFC\n");
+        }
+        else {
+            env->Guest.CP0_Config5 = arg1 & 0x8000002;
+        }
+    }
+    else {
+        // Segmentation control is not implemented
+        // K CV bits are ignored
+        env->Guest.CP0_Config5 = arg1 & 0x8000002;
+    }
+}
+
+void helper_mtgc0_config5 (target_ulong arg1)
+{
+    env->Guest.CP0_Config5 = arg1 & 0x8000002;
 }
 
 void helper_mtc0_lladdr (target_ulong arg1)

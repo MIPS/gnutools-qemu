@@ -598,6 +598,7 @@ struct CPUMIPSState {
 #define CP0C5_MSAEn  27
 #define CP0C5_MVH    5
 #define CP0C5_LLB    4
+#define CP0C5_UFR    2
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */

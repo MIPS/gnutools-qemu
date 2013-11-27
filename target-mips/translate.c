@@ -5936,16 +5936,8 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Config4";
             break;
         case 5:
-            if (guest_mode) {
-                gen_helper_check_gpsi_cp0();
-                gen_helper_check_gpsi_cf();
-                gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_Config5));
-                rn = "Guest.Config5";
-            }
-            else {
-                gen_mtc0_store32(arg, offsetof(CPUState, CP0_Config5));
-                rn = "Config5";
-            }
+            gen_helper_mtc0_config5(arg);
+            rn = "Config5";
             break;
         /* 6,7 are implementation dependent */
         case 6:
@@ -6471,7 +6463,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             rn = "Guest.Config4";
             break;
         case 5:
-            gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_Config5));
+            gen_helper_mtgc0_config5(arg);
             rn = "Guest.Config5";
             break;
         /* 6,7 are implementation dependent */
