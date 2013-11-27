@@ -3901,6 +3901,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         default:
             goto mfhc0_read0;
         }
+        break;
     case 3:
         switch (sel) {
         case 0:
@@ -3970,6 +3971,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         default:
             goto mthc0_nop;
         }
+        break;
     case 3:
         switch (sel) {
         case 0:
