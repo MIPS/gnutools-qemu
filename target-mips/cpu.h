@@ -959,6 +959,7 @@ void cpu_mips_store_compare_guest (CPUState *env, uint32_t value);
 
 /* mips_int.c */
 void cpu_mips_soft_irq(CPUState *env, int irq, int level);
+void cpu_mips_soft_irq_guest(CPUState *env, int irq, int level);
 
 /* helper.c */
 int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,

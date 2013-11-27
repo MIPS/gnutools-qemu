@@ -5564,19 +5564,29 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
     }
     if (guest)
     {
+        if (guest == 1) {
+            //BD, TI CE FDCI IP7..2 RIPL ExcCode
+            mask &= ~0xF020FC7C;
+        }
+
         old = cpu->Guest.CP0_Cause;
-        if (guest == 1 && ((old & CP0Ca_DC) != (arg1 & CP0Ca_DC))) {
+        if (guest == 1 &&
+            !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) && (
+                COMPARE_BITS(old, arg1, CP0Ca_DC, 1) ||
+                COMPARE_BITS(old, arg1, CP0Ca_IV, 1))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
             return;
         }
         cpu->Guest.CP0_Cause = (cpu->Guest.CP0_Cause & ~mask) | (arg1 & mask);
 
-        /* The value of Guest.Cause/DC has no direct effect on the calculation of the guest time value. */
+        /* The value of Guest.Cause/DC has no direct effect on the calculation
+         * of the guest time value. */
 
         /* Set/reset software interrupts */
         for (i = 0 ; i < 2 ; i++) {
             if ((old ^ cpu->Guest.CP0_Cause) & (1 << (CP0Ca_IP + i))) {
-                cpu_mips_soft_irq(cpu, i, cpu->Guest.CP0_Cause & (1 << (CP0Ca_IP + i)));
+                cpu_mips_soft_irq_guest(cpu, i,
+                        cpu->Guest.CP0_Cause & (1 << (CP0Ca_IP + i)));
             }
         }
     }
@@ -5595,7 +5605,8 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
         /* Set/reset software interrupts */
         for (i = 0 ; i < 2 ; i++) {
             if ((old ^ cpu->CP0_Cause) & (1 << (CP0Ca_IP + i))) {
-                cpu_mips_soft_irq(cpu, i, cpu->CP0_Cause & (1 << (CP0Ca_IP + i)));
+                cpu_mips_soft_irq(cpu, i,
+                        cpu->CP0_Cause & (1 << (CP0Ca_IP + i)));
             }
         }
     }

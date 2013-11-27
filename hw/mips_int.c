@@ -93,3 +93,12 @@ void cpu_mips_soft_irq(CPUState *env, int irq, int level)
 
     qemu_set_irq(env->irq[irq], level);
 }
+
+void cpu_mips_soft_irq_guest(CPUState *env, int irq, int level)
+{
+    if (irq < 0 || irq > 2) {
+        return;
+    }
+
+    qemu_set_irq(env->guest_irq[irq], level);
+}
