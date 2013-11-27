@@ -94,6 +94,21 @@ struct mips_def_t {
     int32_t CP0_ContextConfig;
     int insn_flags;
     enum mips_mmu_types mmu_type;
+    int32_t CP0_GuestCtl0;
+    int32_t CP0_GuestCtl1;
+    int32_t CP0_GuestCtl2;
+    int32_t CP0_GuestCtl3;
+    int32_t CP0_GuestCtl0Ext;
+    struct Guest_t {
+        int32_t CP0_Config0;
+        int32_t CP0_Config1;
+        int32_t CP0_Config2;
+        int32_t CP0_Config3;
+        int32_t CP0_Config4;
+        int32_t CP0_Config5;
+        int32_t CP0_Config6; //optional
+        int32_t CP0_Config7; //optional
+    } Guest;
 };
 
 /*****************************************************************************/
@@ -1046,11 +1061,18 @@ static mips_def_t mips_defs[] =
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) |
                        (1 << CP0C3_CMGCR) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+        .CP0_GuestCtl0 = 0x0c4c00fc,
+        .Guest.CP0_Config0 = 0x80048482,
+        .Guest.CP0_Config1 = 0xfea35193,
+        .Guest.CP0_Config2 = 0x80000000,
+        .Guest.CP0_Config3 = 0x8e003e28,
+        .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config5 = 0x10000000,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x3d78FF1F,
+        .CP0_Status_rw_bitmask = 0x3D4AFF1F,
         .CP1_fcr0 = (1 << FCR0_HAS2008) | (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
         .SEGBITS = 32,
@@ -1487,6 +1509,21 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
         CHECK_SET_CONFIG(insn_flags, int);
         CHECK_SET_CONFIG(CP0_ContextConfig, uint32_t);
+
+        CHECK_SET_CONFIG(CP0_GuestCtl0, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl1, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl2, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl3, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl0Ext, uint32_t);
+
+        CHECK_SET_CONFIG(Guest.CP0_Config0, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config1, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config2, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config3, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config5, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config6, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config7, uint32_t);
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }
