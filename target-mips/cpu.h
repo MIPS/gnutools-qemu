@@ -688,7 +688,10 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
     /* VZ ASE */
-#define MIPS_HFLAG_GUEST  0x100000 /* Guest Mode */
+#define MIPS_HFLAG_GUEST    0x100000 /* Guest Mode */
+#define MIPS_HFLAG_FPU_ROOT 0x200000 /* ROOT FPU enabled */
+#define MIPS_HFLAG_DSP_ROOT 0x400000 /* ROOT DSP enabled */
+
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
@@ -978,7 +981,7 @@ static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
     *pc = env->active_tc.PC;
     *cs_base = 0;
     *flags = env->hflags & (MIPS_HFLAG_TMASK | MIPS_HFLAG_BMASK);
-    *flags |= env->hflags & (0x100000); //VZ_ASE
+    *flags |= env->hflags & (0x700000); //VZ_ASE
 }
 
 static inline void cpu_set_tls(CPUState *env, target_ulong newtls)

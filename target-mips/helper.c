@@ -831,8 +831,22 @@ void do_interrupt (CPUState *env)
         goto set_EPC;
     case EXCP_CpU:
         cause = 11;
-        env->CP0_Cause = (env->CP0_Cause & ~(0x3 << CP0Ca_CE)) |
-                         (env->error_code << CP0Ca_CE);
+        // VZ-ASE Onion model
+        if (env->error_code >= 0x10) {
+            // Cp is enabled in Guest mode but disabled in Root mode
+            // Take it as root exception
+            env->hflags &= ~MIPS_HFLAG_GUEST;
+            env->error_code &= ~0x10;
+            tlb_flush (env, 1);
+        }
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            env->Guest.CP0_Cause = (env->Guest.CP0_Cause & ~(0x3 << CP0Ca_CE)) |
+                             (env->error_code << CP0Ca_CE);
+        }
+        else {
+            env->CP0_Cause = (env->CP0_Cause & ~(0x3 << CP0Ca_CE)) |
+                             (env->error_code << CP0Ca_CE);
+        }
         goto set_EPC;
     case EXCP_OVERFLOW:
         cause = 12;
@@ -866,6 +880,13 @@ void do_interrupt (CPUState *env)
         cause = 25;
         goto set_EPC;
     case EXCP_DSPDIS:
+        // VZ-ASE Onion model
+        if (env->error_code >= 0x10) {
+            // DSP is enabled in Guest mode but disabled in Root mode
+            // Take it as root exception
+            env->hflags &= ~MIPS_HFLAG_GUEST;
+            tlb_flush (env, 1);
+        }
         cause = 26;
         goto set_EPC;
     case EXCP_CACHE:

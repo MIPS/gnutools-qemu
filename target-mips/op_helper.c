@@ -178,7 +178,8 @@ static inline void compute_hflags(CPUState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_GUEST);
+                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_GUEST | 
+                     MIPS_HFLAG_FPU_ROOT | MIPS_HFLAG_DSP_ROOT);
     if (isGuestMode()) {
         sv_log("Switching GUESTMODE (GuestCtl1: RID=%x ID=%x)\n", 
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff,
@@ -192,6 +193,12 @@ static inline void compute_hflags(CPUState *env)
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff);
         env->hflags &= ~MIPS_HFLAG_GUEST;
         tlb_flush (env, 1);
+    }
+    if (env->CP0_Status & (1 << CP0St_CU1)) {
+        env->hflags |= MIPS_HFLAG_FPU_ROOT;
+    }
+    if (env->CP0_Status & (1 << CP0St_MX)) {
+        env->hflags |= MIPS_HFLAG_DSP_ROOT;
     }
     if (env->hflags & MIPS_HFLAG_GUEST) {
         if (!(env->Guest.CP0_Status & (1 << CP0St_EXL)) &&

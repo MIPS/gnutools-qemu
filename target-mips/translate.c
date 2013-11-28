@@ -914,8 +914,16 @@ static inline void check_cp0_enabled(DisasContext *ctx)
 
 static inline void check_cp1_enabled(DisasContext *ctx)
 {
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_FPU)))
+    if (unlikely(!(ctx->hflags & MIPS_HFLAG_FPU))) {
         generate_exception_err(ctx, EXCP_CpU, 1);
+    }
+    // VZ-ASE Onion model
+    else if (unlikely((ctx->hflags & MIPS_HFLAG_GUEST)
+                        && !(ctx->hflags & MIPS_HFLAG_FPU_ROOT))) {
+        generate_exception_err(ctx, EXCP_CpU, 0x10 | 1);
+        // 0x10 indicates CP1 is enabled in Guest mode
+        // but it is disabled in root mode
+    }
 }
 
 /* Verify that the processor is running with COP1X instructions enabled.
@@ -985,6 +993,13 @@ static inline void check_dsp(CPUState *env, DisasContext *ctx, int rev)
 
     if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSP))) {
         generate_exception(ctx, EXCP_DSPDIS);
+    }
+    // VZ-ASE Onion model
+    else if (unlikely((ctx->hflags & MIPS_HFLAG_GUEST)
+                        && !(ctx->hflags & MIPS_HFLAG_DSP_ROOT))) {
+        generate_exception_err(ctx, EXCP_DSPDIS, 0x10);
+        // 0x10 indicates DSP is enabled in Guest mode
+        // but it is disabled in root mode
     }
 }
 
