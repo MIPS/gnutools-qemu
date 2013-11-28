@@ -1213,9 +1213,15 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static void mtc0_entrylo_common(int isR6, uint64_t * CP0_EntryLo, target_ulong arg1,
+static void mtc0_entrylo_common(CPUMIPSState *env, int isR6, uint64_t * CP0_EntryLo, target_ulong arg1,
                                 target_ulong rixi, uint32_t write_rixi_lshift) {
-    target_ulong newval = (arg1 & 0x3FFFFFFF) | (rixi << write_rixi_lshift);
+    uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
+    uint32_t mask;
+    target_ulong newval;
+
+    mask = (1 << (30 - (36 - pabits))) - 1;
+    newval = (arg1 & mask) | (rixi << write_rixi_lshift);
+
     if (isR6) {
         if (((arg1 >> CP0EnLo_C) & 0x6) != 0x2) {
             // Leave old C field value if new value not allowed
@@ -1230,7 +1236,7 @@ void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
-    mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
+    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
                         &env->CP0_EntryLo0, arg1, rxie, CP0EnLo_RI - 31);
 }
 
@@ -1240,7 +1246,7 @@ void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
     uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
-    mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
+    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
                         &env->CP0_EntryLo0, arg1, rxie, 0);
 }
 #endif
@@ -1248,8 +1254,10 @@ void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 #ifndef TARGET_MIPS64
 static inline void xpa_mthc0(CPUMIPSState *env, uint64_t * reg, target_ulong val)
 {
+    unsigned int xpabits = (env->PABITS > 36) ? (env->PABITS - 36) : 0;
+
     if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
-        val &= (1 << XPA_ADDITIONAL_BITS) - 1;
+        val &= (1 << xpabits) - 1;
         *reg = ((uint64_t)val << 32) | (*reg & 0x00000000ffffffffULL);
     }
 }
@@ -1469,7 +1477,7 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
-    mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
+    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
                         &env->CP0_EntryLo1, arg1, rxie, CP0EnLo_RI - 31);
 }
 
@@ -1479,7 +1487,7 @@ void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
     uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
-    mtc0_entrylo_common(env->insn_flags & ISA_MIPS32R6,
+    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
                         &env->CP0_EntryLo1, arg1, rxie, 0);
 }
 #endif

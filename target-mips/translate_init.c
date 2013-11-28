@@ -401,7 +401,7 @@ static mips_def_t mips_defs[] =
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .SEGBITS = 32,
-        .PABITS = 32,
+        .PABITS = 40,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
