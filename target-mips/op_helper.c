@@ -4655,7 +4655,18 @@ static inline void mtc0_entrylo (uint64_t * CP0_EntryLo, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
-    uint32_t mask = (1 << (30 - (36 - pabits))) - 1;
+    uint32_t mask;
+
+    if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&
+        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
+        (env->PABITS > 32)) {
+        // If LPA is supported but not enabled then
+        // PA[35:32] within the lower 32-bits need to be zeroed,
+        // because 36-bit PAE is now folded into XPA.
+        pabits = 32;
+    }
+
+    mask = (1 << (30 - (36 - pabits))) - 1;
     *CP0_EntryLo = arg1 & mask;
 }
 
