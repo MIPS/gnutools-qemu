@@ -14316,6 +14316,11 @@ void cpu_reset (CPUMIPSState *env)
 #endif
     env->exception_index = EXCP_NONE;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
+    if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
 
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {

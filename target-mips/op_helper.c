@@ -174,8 +174,8 @@ static inline void compute_hflags(CPUState *env)
     if (env->CP0_Status & (1 << CP0St_MX)) {
         env->hflags |= MIPS_HFLAG_DSP;
     }
-    if (env->insn_flags & ISA_MIPS32R2) {
-        if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
+    if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
             env->hflags |= MIPS_HFLAG_COP1X;
         }
     } else if (env->insn_flags & ISA_MIPS32) {
