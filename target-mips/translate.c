@@ -3877,7 +3877,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 {
     if (unlikely(!(env->CP0_Config5 & (1 << CP0C5_MVH)))) {
-        XPA_DEBUG("[XPA] mfthc0 NOT SUPPORTED.\n");
+        XPA_DEBUG("[XPA] MFHC0/MTHC0 NOT SUPPORTED.\n");
         generate_exception(ctx, EXCP_RI);
     }
 }
@@ -3885,8 +3885,6 @@ static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
-
-    XPA_DEBUG("[XPA] mfhc0: reg %d, sel %d\n", reg, sel);
 
     check_mfthc0(env, ctx);
 
@@ -3957,8 +3955,6 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     if (sel != 0) {
         check_insn(env, ctx, ISA_MIPS32);
     }
-
-    XPA_DEBUG("[XPA] mthc0: reg %d, sel %d\n", reg, sel);
 
     // EntryLo, EntryHi, TagLo, LLA,
     switch (reg) {
