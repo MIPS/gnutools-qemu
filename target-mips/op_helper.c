@@ -4650,18 +4650,32 @@ void helper_mtc0_vpeopt (target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-void helper_mtc0_entrylo0 (target_ulong arg1)
+static inline void mtc0_entrylo (uint64_t * CP0_EntryLo, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
+    uint32_t mask = (1 << (30 - (36 - pabits))) - 1;
+    *CP0_EntryLo = arg1 & mask;
+}
+
+void helper_mtc0_entrylo0 (target_ulong arg1)
+{
+    mtc0_entrylo(&env->CP0_EntryLo0, arg1);
+}
+
+void helper_mtc0_entrylo1 (target_ulong arg1)
+{
+    mtc0_entrylo(&env->CP0_EntryLo1, arg1);
 }
 
 #ifndef TARGET_MIPS64
 static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
 {
+    unsigned int xpabits = (env->PABITS > 36) ? (env->PABITS - 36) : 0;
+
     if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
-        val &= (1 << XPA_ADDITIONAL_BITS) - 1;
+        val &= (1 << xpabits) - 1;
         *reg = ((uint64_t)val << 32) | (*reg & 0x00000000ffffffffULL);
     }
 }
@@ -4874,13 +4888,6 @@ void helper_mttc0_tcschefback (target_ulong arg1)
         other->active_tc.CP0_TCScheFBack = arg1;
     else
         other->tcs[other_tc].CP0_TCScheFBack = arg1;
-}
-
-void helper_mtc0_entrylo1 (target_ulong arg1)
-{
-    /* Large physaddr (PABITS) not implemented on MIPS64 */
-    /* 1k pages not implemented */
-    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
 }
 
 void helper_mtc0_context (target_ulong arg1)
