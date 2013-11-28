@@ -1817,7 +1817,12 @@ static void gen_ld (CPUState *env, DisasContext *ctx, uint32_t opc,
         // Any memory access instruction between the execution of LL and SC
         // is able to SC instruction fail. (Other implementation can be vary)
         TCGv_i32 z32 = tcg_const_i32(0);
-        tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+        if (ctx->hflags & MIPS_HFLAG_GUEST) {
+            tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, Guest.llbit));
+        }
+        else {
+            tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+        }
     }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
@@ -1907,7 +1912,12 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
     // Any memory access instruction between the execution of LL and SC
     // is able to SC instruction fail. (Other implementation can be vary)
     TCGv_i32 z32 = tcg_const_i32(0);
-    tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, Guest.llbit));
+    }
+    else {
+        tcg_gen_st_i32(z32, cpu_env, offsetof(CPUState, llbit));
+    }
 
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);

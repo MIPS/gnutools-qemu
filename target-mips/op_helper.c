@@ -3867,8 +3867,14 @@ static inline target_phys_addr_t do_translate_address(target_ulong address, int 
 #define HELPER_LD_ATOMIC(name, insn)                                          \
 target_ulong helper_##name(target_ulong arg, int mem_idx)                     \
 {                                                                             \
-    env->lladdr = do_translate_address(arg, 0);                               \
-    env->llbit = 1;                                                           \
+    if (env->hflags & MIPS_HFLAG_GUEST) {                                     \
+        env->Guest.lladdr = do_translate_address(arg, 0);                     \
+        env->Guest.llbit = 1;                                                 \
+    }                                                                         \
+    else {                                                                    \
+        env->lladdr = do_translate_address(arg, 0);                           \
+        env->llbit = 1;                                                       \
+    }                                                                         \
     return do_##insn(arg, mem_idx);                                           \
 }
 HELPER_LD_ATOMIC(ll, lw)
@@ -3881,17 +3887,31 @@ HELPER_LD_ATOMIC(lld, ld)
 target_ulong helper_##name(target_ulong arg1, target_ulong arg2, int mem_idx) \
 {                                                                             \
     int ret = 0;                                                              \
+    target_ulong lladdr, llbit;                                               \
+    if (env->hflags & MIPS_HFLAG_GUEST) {                                     \
+        lladdr = env->Guest.lladdr;                                           \
+        llbit = env->Guest.llbit;                                             \
+    }                                                                         \
+    else {                                                                    \
+        lladdr = env->lladdr;                                                 \
+        llbit = env->llbit;                                                   \
+    }                                                                         \
     if (arg2 & almask) {                                                      \
-        env->CP0_BadVAddr = arg2;                                             \
+        if (env->hflags & MIPS_HFLAG_GUEST) {                                 \
+            env->Guest.CP0_BadVAddr = arg2;                                   \
+        }                                                                     \
+        else {                                                                \
+            env->CP0_BadVAddr = arg2;                                         \
+        }                                                                     \
         helper_raise_exception(EXCP_AdES);                                    \
     }                                                                         \
-    if (do_translate_address(arg2, 1) == env->lladdr) {                       \
-        if (env->llbit) {                                                     \
+    if (do_translate_address(arg2, 1) == lladdr) {                            \
+        if (llbit) {                                                          \
             do_##st_insn(arg2, arg1, mem_idx);                                \
             ret = 1;                                                          \
         }                                                                     \
     }                                                                         \
-    arg1 = (0) | ((env->llbit) & 1);                                          \
+    arg1 = (0) | (llbit & 1);                                                 \
     return ret;                                                               \
 }
 // FIXME:   A return value is not required from the above function.
@@ -6792,6 +6812,7 @@ void helper_eret (void)
             set_pc(env->Guest.CP0_EPC);
             env->Guest.CP0_Status &= ~(1 << CP0St_EXL);
         }
+        env->Guest.llbit = 0;
     }
     else {
         if (env->CP0_Status & (1 << CP0St_ERL)) {
@@ -6801,10 +6822,10 @@ void helper_eret (void)
             set_pc(env->CP0_EPC);
             env->CP0_Status &= ~(1 << CP0St_EXL);
         }
+        env->llbit = 0;
     }
     compute_hflags(env);
     debug_post_eret();
-    env->llbit = 0;
 }
 
 void helper_hypcall (void)
