@@ -5470,9 +5470,10 @@ void helper_mtc0_status (target_ulong arg1)
 {
     uint32_t val, old;
     uint32_t mask = env->CP0_Status_rw_bitmask;
-    val = arg1 & mask;
     if (env->hflags & MIPS_HFLAG_GUEST) {
         // Guest mode
+        mask &= ~0x180000; // SR and NMI are Read-only in Guest mode
+        val = arg1 & mask;
         old = env->Guest.CP0_Status;
 
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ) {
@@ -5480,32 +5481,32 @@ void helper_mtc0_status (target_ulong arg1)
         }
         // Table 4.10 Guest CP0 Fields Subject to Software
         // or Hardware Field Change Exception
-        else if ( (COMPARE_BITS(old, arg1, CP0St_CU2, 1)
-                        && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC2) & 1)) ||
-                (COMPARE_BITS(old, arg1, CP0St_CU1, 1)
-                        && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC1) & 1)) ||
-                COMPARE_BITS(old, arg1, CP0St_RP, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_FR, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_MX, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_BEV, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_TS, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_SR, 1) ||
-                COMPARE_BITS(old, arg1, CP0St_NMI, 1) ||
-                COMPARE_BITS(old, arg1, 16, 3) || // Impl
-                (COMPARE_BITS(old, arg1, CP0St_KSU, 3)
-                        && ((env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1)) ||
-                COMPARE_BITS(old, arg1, CP0St_ERL, 1) ) {
-            // FIXME: VZ
+        else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+                        ( (COMPARE_BITS(old, val, CP0St_CU2, 1)
+                            && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC2) & 1)) ||
+                        (COMPARE_BITS(old, val, CP0St_CU1, 1)
+                            && !((env->CP0_GuestCtl0 >> CP0GuestCtl0_SFC1) & 1)) ||
+                        COMPARE_BITS(old, val, CP0St_RP, 1) ||
+                        COMPARE_BITS(old, val, CP0St_FR, 1) ||
+                        COMPARE_BITS(old, val, CP0St_MX, 1) ||
+                        COMPARE_BITS(old, val, CP0St_BEV, 1) ||
+                        COMPARE_BITS(old, val, CP0St_TS, 1) ||
+                        COMPARE_BITS(old, val, CP0St_SR, 1) ||
+                        COMPARE_BITS(old, val, CP0St_NMI, 1) ||
+                        COMPARE_BITS(old, val, 16, 3) || // Impl
+                        (COMPARE_BITS(old, val, CP0St_KSU, 3)
+                            && ((env->CP0_GuestCtl0 >> CP0GuestCtl0_MC) & 1)) ||
+                        COMPARE_BITS(old, val, CP0St_ERL, 1) )) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
-            env->Guest.CP0_Status = arg1; // FIXME: VZ - mask?
+            env->Guest.CP0_Status = val;
             compute_hflags(env);
-//            Add log here
         }
     }
     else {
         // Root mode
+        val = arg1 & mask;
         old = env->CP0_Status;
         env->CP0_Status = (env->CP0_Status & ~mask) | val;
         if (env->CP0_Config3 & (1 << CP0C3_MT)) {
@@ -5533,6 +5534,7 @@ void helper_mtgc0_status (target_ulong arg1)
 {
     uint32_t val;
     uint32_t mask = env->CP0_Status_rw_bitmask;
+    mask &= ~0x180000; // SR and NMI are optional in Guest mode
 
     val = arg1 & mask;
     env->Guest.CP0_Status = (env->Guest.CP0_Status & ~mask) | val;
@@ -5557,6 +5559,10 @@ void helper_mtc0_intctl (target_ulong arg1)
     if (env->hflags & MIPS_HFLAG_GUEST) {
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+                    COMPARE_BITS(env->Guest.CP0_IntCtl, arg1, CP0IntCtl_VS, 0x1f) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
             env->Guest.CP0_IntCtl = (env->Guest.CP0_IntCtl & ~0x000003e0) | (arg1 & 0x000003e0);
