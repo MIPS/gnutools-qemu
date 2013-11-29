@@ -252,6 +252,26 @@ static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
 }
 #endif
 
+#ifdef MIPSSIM_COMPAT
+// Register additional memory regions so we dont have to use huge amount of ram
+// in XPA-related tests
+
+// regions used in xpa_kernel_test
+#define PA_MEM1 0x75000000LL
+#define PA_MEM2 0x76000000LL
+
+static inline void pae_register_memories(MemoryRegion *address_space_mem)
+{
+    MemoryRegion *mem1 = g_new(MemoryRegion, 1);
+    MemoryRegion *mem2 = g_new(MemoryRegion, 1);
+
+    memory_region_init_ram(mem1, NULL, "mips_mipssim.pae-mem1", TARGET_PAGE_SIZE);
+    memory_region_init_ram(mem2, NULL, "mips_mipssim.pae-mem2", TARGET_PAGE_SIZE);
+
+    memory_region_add_subregion(address_space_mem, PA_MEM1, mem1);
+    memory_region_add_subregion(address_space_mem, PA_MEM2, mem2);
+}
+#endif
 static void
 mips_mipssim_init (ram_addr_t ram_size,
                    const char *boot_device,
@@ -299,6 +319,9 @@ mips_mipssim_init (ram_addr_t ram_size,
 
     memory_region_add_subregion(address_space_mem, 0, ram);
 
+#ifdef MIPSSIM_COMPAT
+    pae_register_memories(address_space_mem);
+#endif
     /* Map the BIOS / boot exception handler. */
     memory_region_add_subregion(address_space_mem, 0x1fc00000LL, bios);
     /* Load a BIOS / boot exception handler image. */
@@ -306,7 +329,12 @@ mips_mipssim_init (ram_addr_t ram_size,
         bios_name = BIOS_FILENAME;
 #ifdef SV_SUPPORT
     /* Use -bios to load test.hex for SV against IASim */
-    bios_size = load_mips_hex(bios_name);
+    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+    if (filename) {
+        bios_size = load_mips_hex(filename);
+    } else {
+        bios_size = -1;
+    }
     if (bios_size < 0 && !kernel_filename) {
 #else
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);

@@ -38,6 +38,22 @@
 
 //#define MIPS_DEBUG_DISAS
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
+#define MIPS_DEBUG_XPA
+
+#ifdef MIPS_DEBUG_XPA
+# ifdef SV_SUPPORT
+#  define XPA_DEBUG(...) do {                   \
+    sv_log(__VA_ARGS__);                        \
+    qemu_log(__VA_ARGS__);                      \
+    } while(0)
+# else
+#  define XPA_DEBUG(...) do {                   \
+        qemu_log(__VA_ARGS__);                  \
+    } while(0)
+# endif
+#else
+# define XPA_DEBUG(...) do {} while(0)
+#endif
 
 /* MIPS major opcodes */
 #define MASK_OP_MAJOR(op)  (op & (0x3F << 26))
@@ -355,8 +371,10 @@ enum {
 
 enum {
     OPC_MFC0     = (0x00 << 21) | OPC_CP0,
+    OPC_MFHC0    = (0x02 << 21) | OPC_CP0,
     OPC_DMFC0    = (0x01 << 21) | OPC_CP0,
     OPC_MTC0     = (0x04 << 21) | OPC_CP0,
+    OPC_MTHC0    = (0x06 << 21) | OPC_CP0,
     OPC_DMTC0    = (0x05 << 21) | OPC_CP0,
     OPC_MFTR     = (0x08 << 21) | OPC_CP0,
     OPC_RDPGPR   = (0x0A << 21) | OPC_CP0,
@@ -3853,6 +3871,145 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
     tcg_gen_st_tl(arg, cpu_env, off);
 }
 
+#if !defined(TARGET_MIPS64)
+/* This code generates a "reserved instruction" exception if the
+   CPU does not support MTHC0 and MFHC0 instructions. */
+static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
+{
+    if (unlikely(!(env->CP0_Config5 & (1 << CP0C5_MVH)))) {
+        XPA_DEBUG("[XPA] MFHC0/MTHC0 NOT SUPPORTED.\n");
+        generate_exception(ctx, EXCP_RI);
+    }
+}
+
+static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    // EntryLo, EntryHi, TagLo, LLA,
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhc0_entrylo0(arg);
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhc0_entrylo1(arg);
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhc0_lladdr(arg);
+            rn = "LLAddr";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 28:
+        switch (sel) {
+        case 0:
+        case 2:
+        case 4:
+        case 6:
+            gen_helper_mfhc0_taglo(arg);
+            rn = "TagLo";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    default:
+        goto mfhc0_read0;
+    }
+    
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mfhc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+mfhc0_read0:
+    tcg_gen_movi_tl(arg, 0);
+    XPA_DEBUG("[XPA] mfhc0 - not 64-bit register (returning 0), rn %s, reg %d, sel %d\n", rn, reg, sel);
+}
+
+static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (sel != 0) {
+        check_insn(env, ctx, ISA_MIPS32);
+    }
+
+    // EntryLo, EntryHi, TagLo, LLA,
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_entrylo0(arg);
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_entrylo1(arg);
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_lladdr(arg);
+            rn = "LLAddr";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 28:
+        switch (sel) {
+        case 0:
+        case 2:
+        case 4:
+        case 6:
+            gen_helper_mthc0_taglo(arg);
+            rn = "TagLo";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    default:
+        goto mthc0_nop;
+    }
+    
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mthc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+mthc0_nop:
+    XPA_DEBUG("[XPA] mfhc0 - not 64-bit register (ignoring), rn %s, reg %d, sel %d\n", rn, reg, sel);
+}
+#endif
+
 static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -6718,6 +6875,27 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
             tcg_temp_free(t0);
         }
         opn = "dmtc0";
+        break;
+#else
+    case OPC_MFHC0:
+        check_mfthc0(env, ctx);
+        if (rt == 0) {
+            /* Treat as NOP. */
+            return;
+        }
+        gen_mfhc0(env, ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+        opn = "mfhc0";
+        break;
+    case OPC_MTHC0:
+        check_mfthc0(env, ctx);
+        {
+            TCGv t0 = tcg_temp_new();
+
+            gen_load_gpr(t0, rt);
+            gen_mthc0(env, ctx, t0, rd, ctx->opcode & 0x7);
+            tcg_temp_free(t0);
+        }
+        opn = "mthc0";
         break;
 #endif
     case OPC_MFTR:
@@ -13115,6 +13293,9 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 #if defined(TARGET_MIPS64)
         case OPC_DMFC0:
         case OPC_DMTC0:
+#else
+        case OPC_MFHC0:
+        case OPC_MTHC0:
 #endif
 #ifndef CONFIG_USER_ONLY
             gen_cp0(env, ctx, op1, rt, rd);
@@ -13673,8 +13854,13 @@ void cpu_dump_state (CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     cpu_fprintf(f, "CP0 Status  0x%08x Cause   0x%08x EPC    0x" TARGET_FMT_lx "\n",
                 env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
-    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
+    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x%016" PRIx64 "\n",
                 env->CP0_Config0, env->CP0_Config1, env->lladdr);
+#ifdef MIPS_DEBUG_XPA
+    cpu_fprintf(f, "    PageGrain 0x%08x\n", env->CP0_PageGrain);
+    cpu_fprintf(f, "    EntryLo0 0x%016" PRIx64 " EntryLo1 0x%016" PRIx64 "\n",
+                env->CP0_EntryLo0, env->CP0_EntryLo1);
+#endif
     if (env->hflags & MIPS_HFLAG_FPU)
         fpu_dump_state(env, f, cpu_fprintf, flags);
 #if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
@@ -13692,7 +13878,12 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
 #define CHK_CP0_REG(REG, NAME) do { \
         if(env_prev.REG != env->REG) \
-            sv_log("%s : Write " NAME " = " TARGET_FMT_lx "\n", env->cpu_model_str, env->REG); \
+            sv_log("%s : Write " NAME " = " TARGET_FMT_lx "\n", env->cpu_model_str, (target_ulong)env->REG); \
+    } while(0)
+
+#define CHK_CP0_REG64(REG, NAME) do { \
+        if(env_prev.REG != env->REG) \
+            sv_log("%s : Write " NAME " = %016" PRIx64 "\n", env->cpu_model_str, env->REG); \
     } while(0)
 
     //cp0 registers
@@ -13725,7 +13916,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_VPEOpt,                "C0VPEOPT    ");
 
     //2
-    CHK_CP0_REG(CP0_EntryLo0,              "C0ENLO0     ");
+    CHK_CP0_REG64(CP0_EntryLo0,            "C0ENLO0     ");
     CHK_CP0_REG(active_tc.CP0_TCStatus,    "C0TCSTAT    ");
     CHK_CP0_REG(active_tc.CP0_TCBind,      "C0TCBIND    ");
     // TCRestart missing
@@ -13735,7 +13926,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
 
     //3
-    CHK_CP0_REG(CP0_EntryLo1,              "C0ENLO1     ");
+    CHK_CP0_REG64(CP0_EntryLo1,            "C0ENLO1     ");
 
     //4
     CHK_CP0_REG(CP0_Context,               "C0CTXT      ");
@@ -13798,7 +13989,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     //17
     CHK_CP0_REG(lladdr,                    "C0LLA       ");
     if(env_prev.llbit != env->llbit) {
-        sv_log("%s : Write C0LL         = %u\n", env->cpu_model_str, env->llbit);
+        sv_log("%s : Write C0LL         = %u\n", env->cpu_model_str, (unsigned int)env->llbit);
     }
     //...
 
@@ -13839,7 +14030,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_Performance0,          "C0PERF0CTL  ");
 
     //28
-    CHK_CP0_REG(CP0_TagLo,                 "C0TAGLO     ");
+    CHK_CP0_REG64(CP0_TagLo,               "C0TAGLO     ");
     CHK_CP0_REG(CP0_DataLo,                "C0DATALO    ");
 
     //29
@@ -13861,7 +14052,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //FPU
     if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
-        sv_log("%s : Write C1FCSR           = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_fpu.fcr31);
+        sv_log("%s : Write C1FCSR           = %08x\n", env->cpu_model_str, env->active_fpu.fcr31);
     }
 
     //FPR
@@ -13873,7 +14064,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //MSA
     if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
-        sv_log("%s : Write msa_csr      = " TARGET_FMT_lx "\n", env->cpu_model_str, env->active_msa.msacsr);
+        sv_log("%s : Write msa_csr      = %08x\n", env->cpu_model_str, env->active_msa.msacsr);
     }
 
     for (i = 0; i < 32; i++) {
@@ -14119,9 +14310,16 @@ void cpu_reset (CPUMIPSState *env)
 #endif
     env->exception_index = EXCP_NONE;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
+    if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
 
     /* MSA */
-    msa_reset(env);
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        msa_reset(env);
+    }
 }
 
 void restore_state_to_opc(CPUState *env, TranslationBlock *tb, int pc_pos)
