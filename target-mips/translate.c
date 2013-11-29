@@ -328,6 +328,7 @@ enum {
     OPC_DINS     = 0x07 | OPC_SPECIAL3,
     OPC_FORK     = 0x08 | OPC_SPECIAL3,
     OPC_YIELD    = 0x09 | OPC_SPECIAL3,
+    OPC_CACHEE   = 0x1B | OPC_SPECIAL3,
     OPC_BSHFL    = 0x20 | OPC_SPECIAL3,
     OPC_DBSHFL   = 0x24 | OPC_SPECIAL3,
     OPC_RDHWR    = 0x3B | OPC_SPECIAL3,
@@ -8243,6 +8244,10 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
             switch(opc1)
             {
             case OPC_MFGC0:
+                if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                    gen_helper_reserved_instruction();
+                    break;
+                }
                 if (rt == 0) {
                     /* Treat as NOP. */
                     return;
@@ -8251,6 +8256,10 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 opn = "mfgc0";
                 break;
             case OPC_MTGC0:
+                if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                    gen_helper_reserved_instruction();
+                    break;
+                }
                 {
                     TCGv t0 = tcg_temp_new();
 
@@ -8450,6 +8459,10 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         }
         break;
     case OPC_WAIT:
+        if (ctx->hflags & MIPS_HFLAG_GUEST) {
+            generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+            break;
+        }
         opn = "wait";
         check_insn(env, ctx, ISA_MIPS3 | ISA_MIPS32);
         /* If we get an exception, we want to restart at next instruction */
@@ -14728,7 +14741,21 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
                 break;
             }
             /* Fall through */
-        case OPC_DIV_G_2E ... OPC_DIVU_G_2E:
+        case OPC_CACHEE: //OPC_MODU_G_2E
+            // CACHEE (MIPS32) and MODU_G_2E (LOONGSON2E) share same op codes
+            if (!(env->insn_flags & INSN_LOONGSON2E))
+            {
+                // treat as OPC_CACHEE
+                if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                    generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+                }
+                check_insn(env, ctx, ISA_MIPS3 | ISA_MIPS32);
+                check_cp0_enabled(ctx);
+                /* Treat as NOP. */
+                break;
+            }
+            // treat as OPC_DIVU_G_2E
+        case OPC_DIV_G_2E:// ... OPC_DIVU_G_2E:
         case OPC_MULTU_G_2E:
         case OPC_MOD_G_2E ... OPC_MODU_G_2E:
             check_insn(env, ctx, INSN_LOONGSON2E);
@@ -14914,6 +14941,10 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
          gen_st_cond(ctx, op, rt, rs, imm);
          break;
     case OPC_CACHE:
+        if (ctx->hflags & MIPS_HFLAG_GUEST) {
+            generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+            break;
+        }
         check_insn(env, ctx, ISA_MIPS3 | ISA_MIPS32);
         check_cp0_enabled(ctx);
         /* Treat as NOP. */

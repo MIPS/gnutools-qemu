@@ -43,6 +43,7 @@ DEF_HELPER_0(check_gpsi_cf, void)
 
 DEF_HELPER_0(reserved_architecture, void)
 DEF_HELPER_0(reserved_implementation, void)
+DEF_HELPER_0(reserved_instruction, void)
 
 #ifdef TARGET_MIPS64
 DEF_HELPER_3(ldl, tl, tl, tl, int)

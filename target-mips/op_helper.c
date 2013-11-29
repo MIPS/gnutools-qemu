@@ -381,6 +381,15 @@ void helper_reserved_implementation (void)
      */
 }
 
+void helper_reserved_instruction (void)
+{
+    if (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_RI)) {
+        helper_raise_exception_err(EXCP_GUESTEXIT, GRR);
+    }
+    else {
+        helper_raise_exception(EXCP_RI);
+    }
+}
 
 #if !defined(CONFIG_USER_ONLY)
 static void do_restore_state (void *pc_ptr)
