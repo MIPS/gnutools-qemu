@@ -374,14 +374,14 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
     case TLBRET_BADADDR:
         /* Reference to kernel address from user mode or supervisor mode */
         /* Reference to supervisor address from user mode */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_AdES;
         else
             exception = EXCP_AdEL;
         break;
     case TLBRET_NOMATCH:
         /* No TLB match for a mapped address */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_TLBS;
         else
             exception = EXCP_TLBL;
@@ -389,7 +389,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
         break;
     case TLBRET_INVALID:
         /* TLB match with no valid bit */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_TLBS;
         else
             exception = EXCP_TLBL;
@@ -420,6 +420,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
         */
 #endif
     if (env->hflags & MIPS_HFLAG_GUEST) {
+        // This causes failure on vz_cp0_misc test
         env->Guest.CP0_EntryHi =
             (env->Guest.CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
     } else {
