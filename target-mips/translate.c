@@ -3886,8 +3886,6 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 {
     const char *rn = "invalid";
 
-    check_mfthc0(env, ctx);
-
     // EntryLo, EntryHi, TagLo, LLA,
     switch (reg) {
     case 2:
@@ -3949,8 +3947,6 @@ mfhc0_read0:
 static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
-
-    check_mfthc0(env, ctx);
 
     if (sel != 0) {
         check_insn(env, ctx, ISA_MIPS32);
@@ -6882,6 +6878,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         break;
 #else
     case OPC_MFHC0:
+        check_mfthc0(env, ctx);
         if (rt == 0) {
             /* Treat as NOP. */
             return;
@@ -6890,6 +6887,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         opn = "mfhc0";
         break;
     case OPC_MTHC0:
+        check_mfthc0(env, ctx);
         {
             TCGv t0 = tcg_temp_new();
 
