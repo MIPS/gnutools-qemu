@@ -7201,7 +7201,7 @@ void helper_bseli_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
  *  BNZ, BZ
  */
 
-uint32_t helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
 {
     switch (df) {
     case DF_BYTE:
@@ -7248,12 +7248,12 @@ uint32_t helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
     return 1;
 }
 
-uint32_t helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
 {
     return !helper_bnz_df(p_arg, df, wrlen);
 }
 
-uint32_t helper_bnz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bnz_v(void *p_arg, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         if (D(p_arg, i) != 0) {
@@ -7264,7 +7264,7 @@ uint32_t helper_bnz_v(void *p_arg, uint32_t wrlen)
     return 0;
 }
 
-uint32_t helper_bz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bz_v(void *p_arg, uint32_t wrlen)
 {
     return !helper_bnz_v(p_arg, wrlen);
 }
@@ -7877,7 +7877,7 @@ int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  SPLAT, and MOVE_V
  */
 
-void helper_splat_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_splat_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7963,7 +7963,7 @@ void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
     }
 }
 
-void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
+void helper_fill_df(void *pwd, target_ulong rs, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7999,7 +7999,7 @@ void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
     }
 }
 
-void helper_insert_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
+void helper_insert_df(void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -8029,7 +8029,7 @@ void helper_insert_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
     }
 }
 
-void helper_insve_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
+void helper_insve_df(void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -8284,7 +8284,7 @@ int64_t helper_srlri_df(int64_t arg, uint32_t m, uint32_t df)
  *  SLD
  */
 
-void helper_sld_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_sld_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -8437,9 +8437,11 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 /* MSA helper */
 #include "mips_msa_helper_dummy.h"
 
-int64_t helper_load_wr_s64(int wreg, int df, int i)
+int64_t helper_load_wr_elem_s64(int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -8457,17 +8459,18 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
     }
 }
 
-int64_t helper_load_wr_modulo_s64(int wreg, int df, int i)
+target_ulong helper_load_wr_elem_target_s64(int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-    return helper_load_wr_s64(wreg, df, n);
+  return (target_ulong)helper_load_wr_elem_s64(wreg, df, i);
 }
 
-uint64_t helper_load_wr_i64(int wreg, int df, int i)
+
+
+uint64_t helper_load_wr_elem_i64(int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -8485,17 +8488,17 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
     }
 }
 
-uint64_t helper_load_wr_modulo_i64(int wreg, int df, int i)
+target_ulong helper_load_wr_elem_target_i64(int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-    return helper_load_wr_i64(wreg, df, n);
+  return (target_ulong)helper_load_wr_elem_i64(wreg, df, i);
 }
 
-void helper_store_wr(uint64_t val, int wreg, int df, int i)
+
+void helper_store_wr_elem(uint64_t val, int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -8515,17 +8518,11 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
         /* shouldn't get here */
       assert(0);
     }
-
-    return;
 }
 
-void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
+void helper_store_wr_elem_target(target_ulong val, int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-
-    helper_store_wr(val, wreg, df, n);
+  return helper_store_wr_elem((uint64_t)val, wreg, df, i);
 }
 
 
@@ -10811,13 +10808,13 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
 
 #define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
 
-uint64_t helper_dlsa(uint64_t rt, uint64_t rs, uint32_t u2)
+target_ulong helper_dlsa(target_ulong rt, target_ulong rs, uint32_t u2)
 {
   return LSA(rs, rt, u2);
 }
 
 
-uint32_t helper_lsa(uint32_t rt, uint32_t rs, uint32_t u2)
+target_ulong helper_lsa(target_ulong rt, target_ulong rs, uint32_t u2)
 {
-  return LSA(rs, rt, u2);
+  return (uint32_t)LSA(rs, rt, u2);
 }
