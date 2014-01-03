@@ -6820,14 +6820,20 @@ void helper_eret (void)
 {
     debug_pre_eret();
     if (env->hflags & MIPS_HFLAG_GUEST) {
+        env->Guest.llbit = 0;
         if (env->Guest.CP0_Status & (1 << CP0St_ERL)) {
             set_pc(env->Guest.CP0_ErrorEPC);
             env->Guest.CP0_Status &= ~(1 << CP0St_ERL);
         } else {
+            int32_t old_status = env->Guest.CP0_Status;
             set_pc(env->Guest.CP0_EPC);
             env->Guest.CP0_Status &= ~(1 << CP0St_EXL);
+            if ( (old_status != env->Guest.CP0_Status)
+                    && ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) )
+                    && (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_MC)) ) {
+                helper_raise_exception_err(EXCP_GUESTEXIT, GHFC);
+            }
         }
-        env->Guest.llbit = 0;
     }
     else {
         if (env->CP0_Status & (1 << CP0St_ERL)) {
