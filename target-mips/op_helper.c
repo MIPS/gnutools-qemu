@@ -5813,7 +5813,7 @@ void helper_mtc0_config5 (target_ulong arg1)
     else {
         // Segmentation control is not implemented
         // K CV bits are ignored
-        env->Guest.CP0_Config5 = arg1 & 0x8000002;
+        env->CP0_Config5 = arg1 & 0x8000002;
     }
 }
 
