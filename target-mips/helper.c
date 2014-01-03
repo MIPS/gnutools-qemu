@@ -1005,6 +1005,14 @@ void r4k_invalidate_tlb (CPUState *env, int idx, int use_extra)
         return;
     }
 
+    if ((env->CP0_Config3 & (1 << CP0C3_VZ)) && !tlb->isGuestCtx) {
+        /* Flush qemu tlb when overwriting r4k root tlb entry.
+           TODO: this should be safe but probably not optimal.
+        */
+        tlb_flush(env, 1);
+        return;
+    }
+
     if (use_extra && env->tlb->tlb_in_use < MIPS_TLB_MAX) {
         /* For tlbwr, we can shadow the discarded entry into
            a new (fake) TLB entry, as long as the guest can not

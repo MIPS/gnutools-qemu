@@ -6321,7 +6321,7 @@ void r4k_helper_tlbwi (void)
 #endif
     if (guestMode) {
         idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
-        r4k_invalidate_tlb(env, idx, 0);
+        r4k_invalidate_tlb(env, convert_tlb_index(env, idx), 0);
         r4k_fill_tlb(convert_tlb_index(env, idx), true);
     } else {
         idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
