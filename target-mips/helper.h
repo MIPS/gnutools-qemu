@@ -514,14 +514,14 @@ DEF_HELPER_1(pmon, void, int)
 DEF_HELPER_0(wait, void)
 
 /* MSA */
-DEF_HELPER_3(load_wr_s64, s64, int, int, int)
-DEF_HELPER_3(load_wr_modulo_s64, s64, int, int, int)
+DEF_HELPER_3(load_wr_elem_target_s64, tl, s32, s32, s32)
+DEF_HELPER_3(load_wr_elem_s64, s64, s32, s32, s32)
 
-DEF_HELPER_3(load_wr_i64, i64, int, int, int)
-DEF_HELPER_3(load_wr_modulo_i64, i64, int, int, int)
+DEF_HELPER_3(load_wr_elem_target_i64, tl, s32, s32, s32)
+DEF_HELPER_3(load_wr_elem_i64, i64, s32, s32, s32)
 
-DEF_HELPER_4(store_wr, void, i64, int, int, int)
-DEF_HELPER_4(store_wr_modulo, void, i64, int, int, int)
+DEF_HELPER_4(store_wr_elem_target, void, tl, s32, s32, s32)
+DEF_HELPER_4(store_wr_elem, void, i64, s32, s32, s32)
 
 #include "mips_msa_helper_decl.h"
 
