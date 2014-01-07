@@ -440,12 +440,12 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
   /* MSA/FPU2 arguments are wd, ws, wt corresponding to c, a, b
    *
    * NaN rules are:
-   *  - ws/a if is sNaN (addition left operand)
-   *  - wt/b if is sNaN (addition right operand)
-   *  - wd/c if is sNaN (multiplication left operand)
-   *  - ws/a if is qNaN (addition left operand)
-   *  - wt/b if is qNaN (addition right operand)
-   *  - wd/c if is qNaN (multiplication left operand)
+   *  - ws/a if is sNaN (multiplication left operand)
+   *  - wt/b if is sNaN (multiplication right operand)
+   *  - wd/c if is sNaN (addition left operand)
+   *  - ws/a if is qNaN (multiplication left operand)
+   *  - wt/b if is qNaN (multiplication right operand)
+   *  - wd/c if is qNaN (addition left operand)
    *  - default qNaN
    *         if ws/a * wt/b is infzero (multiplication right operand)
    */
