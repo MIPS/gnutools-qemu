@@ -108,6 +108,7 @@ struct mips_def_t {
         int32_t CP0_Config5;
         int32_t CP0_Config6; //optional
         int32_t CP0_Config7; //optional
+        int32_t CP0_ContextConfig;
     } Guest;
 };
 
@@ -1524,6 +1525,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         CHECK_SET_CONFIG(Guest.CP0_Config5, uint32_t);
         CHECK_SET_CONFIG(Guest.CP0_Config6, uint32_t);
         CHECK_SET_CONFIG(Guest.CP0_Config7, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_ContextConfig, uint32_t);
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }

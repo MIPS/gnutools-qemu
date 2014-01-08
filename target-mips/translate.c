@@ -4987,7 +4987,9 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.EBase";
             break;
         case 2:// CDMMBase
+            rn = "Guest.CDMMBase";
         case 3:// CMGCRBase
+            rn = "Guest.CMGCRBase";
             //FIXME IASIM's behaviour
             gen_helper_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
@@ -5402,6 +5404,13 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_EBase));
             rn = "Guest.EBase";
+            break;
+        case 2:// CDMMBase
+            rn = "Guest.CDMMBase";
+        case 3:// CMGCRBase
+            rn = "Guest.CMGCRBase";
+            // FIXME: not supported
+            tcg_gen_movi_tl(arg, 0);
             break;
         default:
             goto die;
@@ -15525,6 +15534,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_ROOT_CP0_REG(CP0_SRSCtl,                "C0SRSCTL    ");
     CHK_ROOT_CP0_REG(CP0_SRSMap,                "C0SRSMAP    ");
     CHK_ROOT_CP0_REG(CP0_GuestCtl0,             "C0GUESTCTL0 ");
+    CHK_ROOT_CP0_REG(CP0_GTOffset,              "C0GTOFFSET  ");
 
     //13
     CHK_ROOT_CP0_REG(CP0_Cause,                 "C0CAUS      ");
@@ -15870,6 +15880,9 @@ void cpu_reset (CPUMIPSState *env)
 
         env->Guest.CP0_EBase = 0x80000000 | (env->cpu_index & 0x3FF);
         env->Guest.CP0_IntCtl = 0xe0000000;
+
+        env->Guest.CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
+        env->Guest.CP0_ContextConfig = env->cpu_model->Guest.CP0_ContextConfig;
     }
 
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
