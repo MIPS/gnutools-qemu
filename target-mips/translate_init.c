@@ -1052,6 +1052,7 @@ static mips_def_t mips_defs[] =
     {
         .name = "proAptivVZ",
         .CP0_PRid = 0x0001a304,
+/*
         .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
                     (MMU_TYPE_R4000 << CP0C0_MT),
         .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (63 << CP0C1_MMU) |
@@ -1062,11 +1063,19 @@ static mips_def_t mips_defs[] =
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) |
                        (1 << CP0C3_CMGCR) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
+*/
+        .CP0_Config0 = 0x80040482,
+        .CP0_Config1 = 0xfea35191,
+        .CP0_Config2 = 0x80000447,
+        .CP0_Config3 = 0xac800c00,
+        .CP0_Config4 = 0xc01c0000,
+        .CP0_Config5 = 0x10000000,
+        .CP0_Config7 = 0x80010800,
         .CP0_GuestCtl0 = 0x0c4c00fc,
-        .Guest.CP0_Config0 = 0x80048482,
-        .Guest.CP0_Config1 = 0xfea35193,
+        .Guest.CP0_Config0 = 0x80040482,
+        .Guest.CP0_Config1 = 0xfea35191,
         .Guest.CP0_Config2 = 0x80000000,
-        .Guest.CP0_Config3 = 0x8e003e28,
+        .Guest.CP0_Config3 = 0x8c000c00,
         .Guest.CP0_Config4 = 0xc01c0000,
         .Guest.CP0_Config5 = 0x10000000,
         .CP0_LLAddr_rw_bitmask = 0,
