@@ -75,7 +75,7 @@ static inline bool isDrgValid(CPUState *env, bool instruction)
 
 /* MIPS32/MIPS64 R4000-style MMU emulation */
 int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
-                     target_ulong address, int rw, int access_type)
+                     target_ulong address, int rw, int guestCtx)
 {
     uint8_t ASID;
     int i;
@@ -102,15 +102,15 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 #if defined(TARGET_MIPS64)
         tag &= env->SEGMask;
 #endif
-
         /* Check ASID, virtual page number & size */
         if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag 
-            && !tlb->hardware_invalid && tlb->GuestID == guestId) {
+            && !tlb->hardware_invalid && tlb->GuestID == guestId 
+            && tlb->isGuestCtx == guestCtx) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
             if (!(n ? tlb->V1 : tlb->V0)) {
-                sv_log("tlb v0 v1 invalid %d vpn %x tag %x\n", i, (unsigned) VPN, (unsigned) tag);
+                sv_log("TLB[%i] INVALID address = %08x, mask = %08x, (VPN = %08x), tag = %08x\n", i,  (unsigned)address, (unsigned)mask, (unsigned)VPN, (unsigned)tag);
                 return TLBRET_INVALID;
             }
             /*else if (tlb->hardware_invalid) {
@@ -134,8 +134,9 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 
 #ifdef SV_SUPPORT
 /* MIPS32/MIPS64 R4000-style MMU emulation */
+// TODO: this almost identical to r4k_map_address (only cca added for debugging)
 int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
-                     target_ulong address, int rw, int access_type)
+                           target_ulong address, int rw, int guestCtx)
 {
     uint8_t ASID;
     int i;
@@ -165,7 +166,8 @@ int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *pro
 
         /* Check ASID, virtual page number & size */
         if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag 
-            && !tlb->hardware_invalid && tlb->GuestID == guestId) {
+            && !tlb->hardware_invalid && tlb->GuestID == guestId
+            && tlb->isGuestCtx == guestCtx) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
@@ -195,6 +197,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
     int user_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM;
     int supervisor_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM;
     int kernel_mode = !user_mode && !supervisor_mode;
+    int guestCtx;
 #if defined(TARGET_MIPS64)
     int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
     int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
@@ -207,6 +210,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 #endif
     int GuestID = -1;
     if (guest_mode) {
+        guestCtx = 1;
 //        sv_log("guest mode translation\n");
         target_phys_addr_t gpa;
 
@@ -220,7 +224,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
                 gpa = address & 0xFFFFFFFF;
                 *prot = PAGE_READ | PAGE_WRITE;
             } else {
-                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, guestCtx);
             }
         } else if (address < (int32_t)0xA0000000UL) {
             /* kseg0 */
@@ -241,7 +245,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         } else if (address < (int32_t)0xE0000000UL) {
             /* sseg (kseg2) */
             if (supervisor_mode || kernel_mode) {
-                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, guestCtx);
             } else {
                 ret = TLBRET_BADADDR;
             }
@@ -249,7 +253,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
             /* kseg3 */
             /* XXX: debug segment is not emulated */
             if (kernel_mode) {
-                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, access_type);
+                ret = env->guest_tlb->map_address(env, &gpa, prot, address, rw, guestCtx);
             } else {
                 ret = TLBRET_BADADDR;
             }
@@ -264,7 +268,8 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         //root tlb
 //        int GExcCode = if(ret)
 //        sv_log("GVA->GPA done\n");
-        ret = env->tlb->map_address(env, physical, prot, gpa, rw, access_type);
+        guestCtx = 0;
+        ret = env->tlb->map_address(env, physical, prot, gpa, rw, guestCtx);
         if (ret != TLBRET_MATCH) {
 #if 0
             // root exception
@@ -291,19 +296,20 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
     }
     else
     {
+        guestCtx = 0;
     if (address <= (int32_t)0x7FFFFFFFUL) {
         /* useg */
         if (env->CP0_Status & (1 << CP0St_ERL)) {
             *physical = address & 0xFFFFFFFF;
             *prot = PAGE_READ | PAGE_WRITE;
         } else {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         }
 #if defined(TARGET_MIPS64)
     } else if (address < 0x4000000000000000ULL) {
         /* xuseg */
         if (UX && address <= (0x3FFFFFFFFFFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         } else {
             ret = TLBRET_BADADDR;
         }
@@ -311,7 +317,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         /* xsseg */
         if ((supervisor_mode || kernel_mode) &&
             SX && address <= (0x7FFFFFFFFFFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         } else {
             ret = TLBRET_BADADDR;
         }
@@ -328,7 +334,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         /* xkseg */
         if (kernel_mode && KX &&
             address <= (0xFFFFFFFF7FFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         } else {
             ret = TLBRET_BADADDR;
         }
@@ -352,7 +358,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
     } else if (address < (int32_t)0xE0000000UL) {
         /* sseg (kseg2) */
         if (supervisor_mode || kernel_mode) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         } else {
             ret = TLBRET_BADADDR;
         }
@@ -360,7 +366,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         /* kseg3 */
         /* XXX: debug segment is not emulated */
         if (kernel_mode) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
+            ret = env->tlb->map_address(env, physical, prot, address, rw, guestCtx);
         } else {
             ret = TLBRET_BADADDR;
         }
