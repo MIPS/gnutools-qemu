@@ -77,20 +77,21 @@ static inline bool isDrgValid(CPUState *env, bool instruction)
 int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                      target_ulong address, int rw, int access_type)
 {
-    uint8_t ASID = env->CP0_EntryHi & 0xFF;
+    uint8_t ASID;
     int i;
     int guestId;
 
     if (env->hflags & MIPS_HFLAG_GUEST) {
+        ASID = env->Guest.CP0_EntryHi & 0xFF;
         guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
     } else {
+        ASID = env->CP0_EntryHi & 0xFF;
         if (isDrgValid(env, rw == 2)) {
             guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
         } else {
             guestId = 0;
         }
-    }
-    
+    }    
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
@@ -136,11 +137,21 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 int r4k_map_address_debug (CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
                      target_ulong address, int rw, int access_type)
 {
-    uint8_t ASID = env->CP0_EntryHi & 0xFF;
+    uint8_t ASID;
     int i;
-    int guestId = (env->hflags & MIPS_HFLAG_GUEST) ?
-                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff:
-                  (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+    int guestId;
+
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        ASID = env->Guest.CP0_EntryHi & 0xFF;
+        guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
+    } else {
+        ASID = env->CP0_EntryHi & 0xFF;
+        if (isDrgValid(env, rw == 2)) {
+            guestId = (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff;
+        } else {
+            guestId = 0;
+        }
+    }    
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
@@ -403,11 +414,14 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
     /* Raise exception */
     if (env->hflags & MIPS_HFLAG_GUEST) {
         env->Guest.CP0_BadVAddr = address;
+        env->Guest.CP0_Context = (env->Guest.CP0_Context & ~0x007fffff) |
+            ((address >> 9) & 0x007ffff0);
     } else {
         env->CP0_BadVAddr = address;
+        env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
+            ((address >> 9) & 0x007ffff0);
     }
-    env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
-                       ((address >> 9) & 0x007ffff0);
+
 #if defined(SV_SUPPORT)
     if (exception != EXCP_AdES && exception != EXCP_AdEL) {
         /* "MIPS Architecture for Programmers, Volume III: The MIPS32 and microMIPS
@@ -612,6 +626,7 @@ void do_interrupt (CPUState *env)
     target_ulong offset;
     int cause = -1;
     const char *name;
+    int * CP0_Status;
 #ifdef SV_SUPPORT
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_EXCEPT) %s: %s - %" PRIx64,
@@ -777,12 +792,18 @@ void do_interrupt (CPUState *env)
         goto set_EPC;
     case EXCP_TLBL:
         cause = 2;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            CP0_Status = &env->Guest.CP0_Status;
+        } else {
+            CP0_Status = &env->CP0_Status;
+        }
+        if (env->error_code == 1 && !(*CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
+            // TODO: VZ
             int R = env->CP0_BadVAddr >> 62;
-            int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
-            int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
-            int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
+            int UX = (*CP0_Status & (1 << CP0St_UX)) != 0;
+            int SX = (*CP0_Status & (1 << CP0St_SX)) != 0;
+            int KX = (*CP0_Status & (1 << CP0St_KX)) != 0;
 
             if (((R == 0 && UX) || (R == 1 && SX) || (R == 3 && KX)) &&
                 (!(env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F))))
@@ -794,12 +815,18 @@ void do_interrupt (CPUState *env)
         goto set_EPC;
     case EXCP_TLBS:
         cause = 3;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            CP0_Status = &env->Guest.CP0_Status;
+        } else {
+            CP0_Status = &env->CP0_Status;
+        }
+        if (env->error_code == 1 && !(*CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
+            // TODO: VZ
             int R = env->CP0_BadVAddr >> 62;
-            int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
-            int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
-            int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
+            int UX = (*CP0_Status & (1 << CP0St_UX)) != 0;
+            int SX = (*CP0_Status & (1 << CP0St_SX)) != 0;
+            int KX = (*CP0_Status & (1 << CP0St_KX)) != 0;
 
             if (((R == 0 && UX) || (R == 1 && SX) || (R == 3 && KX)) &&
                 (!(env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F))))
