@@ -13758,6 +13758,7 @@ static void decode_micromips32_opc (CPUState *env, DisasContext *ctx,
         case BPOSGE32:
             check_dsp(env, ctx, 1);
             gen_mBPOSGE32(env, ctx);
+            *is_branch = 1;
             break;
         case BPOSGE64:
             /* MIPS DSP 64: not implemented */
@@ -14816,6 +14817,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
         case OPC_BPOSGE32:
             check_dsp(env, ctx, 1);
             gen_BPOSGE32(env, ctx);
+            *is_branch = 1;
             break;
         default:            /* Invalid */
             MIPS_INVAL("regimm");
