@@ -6505,7 +6505,8 @@ static void r4k_helper_tlbp_common (bool isGuestTLB, target_ulong CP0_EntryHi, i
 
         /* Check ASID, virtual page number & size */
         if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && 
-            tlb->GuestID == guestId && !tlb->hardware_invalid) {
+            tlb->GuestID == guestId && !tlb->hardware_invalid && 
+            tlb->isGuestCtx == isGuestTLB) {
             /* TLB match */
             *CP0_Index = i;
             break;
