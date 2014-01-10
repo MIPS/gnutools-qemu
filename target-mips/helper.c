@@ -385,7 +385,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
                                 int rw, int tlb_error)
 {
     int exception = 0, error_code = 0;
-    int guestTLBException;
+    bool guestTLBException;
 
     if (env->hflags & MIPS_HFLAG_GUEST) {
         if (tlb_error < TLBRET_GUESTEXIT) {

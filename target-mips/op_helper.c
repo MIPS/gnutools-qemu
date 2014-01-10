@@ -6269,7 +6269,7 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
     tlb = &env->tlb->mmu.r4k.tlb[idx];
     if (((env->CP0_Config4 >> CP0C4_IE) & 0x03) >= 2) {
         tlb->hardware_invalid = 0;
-        if (*CP0_EntryHi >> CP0EntryHiEHINV & 1) {
+        if ((*CP0_EntryHi >> CP0EntryHiEHINV) & 1) {
             tlb->hardware_invalid = 1;
             inv_ignore = true;
             sv_log("INV ");
