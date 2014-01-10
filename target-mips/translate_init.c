@@ -1100,8 +1100,8 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) | 
-                       (0 << CP0C3_CMGCR) | // not supported
+        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VZ) |
+                       (0 << CP0C3_CMGCR) |
                        (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) | 
                        (1 << CP0C3_LPA) | (1 << CP0C3_M) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
@@ -1115,7 +1115,7 @@ static mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
         .SEGBITS = 32,
-        .PABITS = 32,
+        .PABITS = 40,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },

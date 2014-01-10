@@ -3943,7 +3943,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 {
     if (unlikely(!(env->CP0_Config5 & (1 << CP0C5_MVH)))) {
-        XPA_DEBUG("[XPA] mfthc0 NOT SUPPORTED.\n");
+        XPA_DEBUG("[XPA] MFHC0/MTHC0 NOT SUPPORTED.\n");
         generate_exception(ctx, EXCP_RI);
     }
 }
@@ -3951,10 +3951,6 @@ static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
-
-    XPA_DEBUG("[XPA] mfhc0: reg %d, sel %d\n", reg, sel);
-
-    check_mfthc0(env, ctx);
 
     // EntryLo, EntryHi, TagLo, LLA,
     switch (reg) {
@@ -3967,6 +3963,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         default:
             goto mfhc0_read0;
         }
+        break;
     case 3:
         switch (sel) {
         case 0:
@@ -4017,13 +4014,9 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 {
     const char *rn = "invalid";
 
-    check_mfthc0(env, ctx);
-
     if (sel != 0) {
         check_insn(env, ctx, ISA_MIPS32);
     }
-
-    XPA_DEBUG("[XPA] mthc0: reg %d, sel %d\n", reg, sel);
 
     // EntryLo, EntryHi, TagLo, LLA,
     switch (reg) {
@@ -4036,6 +4029,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         default:
             goto mthc0_nop;
         }
+        break;
     case 3:
         switch (sel) {
         case 0:
@@ -8335,6 +8329,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         break;
 #else
     case OPC_MFHC0:
+        check_mfthc0(env, ctx);
         if (rt == 0) {
             /* Treat as NOP. */
             return;
@@ -8343,6 +8338,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         opn = "mfhc0";
         break;
     case OPC_MTHC0:
+        check_mfthc0(env, ctx);
         {
             TCGv t0 = tcg_temp_new();
 
@@ -15938,6 +15934,11 @@ void cpu_reset (CPUMIPSState *env)
 #endif
     env->exception_index = EXCP_NONE;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
+    if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
 
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {

@@ -220,8 +220,8 @@ static inline void compute_hflags(CPUState *env)
         if (env->Guest.CP0_Status & (1 << CP0St_MX)) {
             env->hflags |= MIPS_HFLAG_DSP;
         }
-        if (env->insn_flags & ISA_MIPS32R2) {
-            if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
+        if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+            if (env->Guest.CP0_Config1 & (1 << CP0C1_FP)) {
                 env->hflags |= MIPS_HFLAG_COP1X;
             }
         } else if (env->insn_flags & ISA_MIPS32) {
@@ -267,8 +267,8 @@ static inline void compute_hflags(CPUState *env)
         if (env->CP0_Status & (1 << CP0St_MX)) {
             env->hflags |= MIPS_HFLAG_DSP;
         }
-        if (env->insn_flags & ISA_MIPS32R2) {
-            if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
+        if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
+            if (env->CP0_Config1 & (1 << CP0C1_FP)) {
                 env->hflags |= MIPS_HFLAG_COP1X;
             }
         } else if (env->insn_flags & ISA_MIPS32) {
@@ -4900,18 +4900,60 @@ void helper_mtc0_vpeopt (target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static inline void mtc_entrylo(uint64_t *lo, target_ulong arg1, int mt)
+static inline void mtc_entrylo(uint64_t * CP0_EntryLo, target_ulong arg1, int mt)
 {
+    /* Large physaddr (PABITS) not implemented on MIPS64 */
+    /* 1k pages not implemented */
+    uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
     uint32_t mask;
+
+    // TODO: VZ
+    if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&
+        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
+        (env->PABITS > 32)) {
+        // If LPA is supported but not enabled then
+        // PA[35:32] within the lower 32-bits need to be zeroed,
+        // because 36-bit PAE is now folded into XPA.
+        pabits = 32;
+    }
+
     if (mt == 3/*MMU_TYPE_FMT*/) {
         // C/D/V/G fields only
         mask = 0x0000003f;
+    } else {
+        mask = (1 << (30 - (36 - pabits))) - 1;
+    }
+    
+    *CP0_EntryLo = arg1 & mask;
+}
+
+void helper_mtgc0_entrylo0 (target_ulong arg1)
+{
+    mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+}
+
+void helper_mtgc0_entrylo1 (target_ulong arg1)
+{
+    mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+}
+
+void helper_mtc0_entrylo1 (target_ulong arg1)
+{
+    /* Large physaddr (PABITS) not implemented on MIPS64 */
+    /* 1k pages not implemented */
+//    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_MG))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else {
+            mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+        }
     }
     else {
-        mask = 0x0000003f;
-        mask |= ((1 << (30 - (36 - env->PABITS))) - 1) & ~(0x3f);
+        mtc_entrylo(&env->CP0_EntryLo1, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3);
     }
-    *lo = arg1 & mask;
 }
 
 void helper_mtc0_entrylo0 (target_ulong arg1)
@@ -4933,17 +4975,13 @@ void helper_mtc0_entrylo0 (target_ulong arg1)
     }
 }
 
-void helper_mtgc0_entrylo0 (target_ulong arg1)
-{
-    mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
-    //env->Guest.CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
-}
-
 #ifndef TARGET_MIPS64
 static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
 {
+    unsigned int xpabits = (env->PABITS > 36) ? (env->PABITS - 36) : 0;
+
     if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
-        val &= (1 << XPA_ADDITIONAL_BITS) - 1;
+        val &= (1 << xpabits) - 1;
         *reg = ((uint64_t)val << 32) | (*reg & 0x00000000ffffffffULL);
     }
 }
@@ -5156,31 +5194,6 @@ void helper_mttc0_tcschefback (target_ulong arg1)
         other->active_tc.CP0_TCScheFBack = arg1;
     else
         other->tcs[other_tc].CP0_TCScheFBack = arg1;
-}
-
-void helper_mtc0_entrylo1 (target_ulong arg1)
-{
-    /* Large physaddr (PABITS) not implemented on MIPS64 */
-    /* 1k pages not implemented */
-//    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
-    if (env->hflags & MIPS_HFLAG_GUEST) {
-        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
-                (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_MG))) {
-            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
-        }
-        else {
-            mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
-        }
-    }
-    else {
-        mtc_entrylo(&env->CP0_EntryLo1, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3);
-    }
-}
-
-void helper_mtgc0_entrylo1 (target_ulong arg1)
-{
-    mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
-//    env->Guest.CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
 }
 
 void helper_mtc0_context (target_ulong arg1)
@@ -8674,7 +8687,7 @@ void helper_bseli_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
  *  BNZ, BZ
  */
 
-uint32_t helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
 {
     switch (df) {
     case DF_BYTE:
@@ -8721,12 +8734,12 @@ uint32_t helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
     return 1;
 }
 
-uint32_t helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
 {
     return !helper_bnz_df(p_arg, df, wrlen);
 }
 
-uint32_t helper_bnz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bnz_v(void *p_arg, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         if (D(p_arg, i) != 0) {
@@ -8737,7 +8750,7 @@ uint32_t helper_bnz_v(void *p_arg, uint32_t wrlen)
     return 0;
 }
 
-uint32_t helper_bz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bz_v(void *p_arg, uint32_t wrlen)
 {
     return !helper_bnz_v(p_arg, wrlen);
 }
@@ -9350,7 +9363,7 @@ int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  SPLAT, and MOVE_V
  */
 
-void helper_splat_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_splat_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9436,7 +9449,7 @@ void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
     }
 }
 
-void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
+void helper_fill_df(void *pwd, target_ulong rs, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9472,7 +9485,7 @@ void helper_fill_df(void *pwd, uint32_t rs, uint32_t wrlen_df)
     }
 }
 
-void helper_insert_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
+void helper_insert_df(void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9502,7 +9515,7 @@ void helper_insert_df(void *pwd, uint32_t rs, uint32_t n, uint32_t wrlen_df)
     }
 }
 
-void helper_insve_df(void *pwd, void *pws, uint32_t n, uint32_t wrlen_df)
+void helper_insve_df(void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9757,7 +9770,7 @@ int64_t helper_srlri_df(int64_t arg, uint32_t m, uint32_t df)
  *  SLD
  */
 
-void helper_sld_df(void *pwd, void *pws, uint32_t rt, uint32_t wrlen_df)
+void helper_sld_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -9910,9 +9923,11 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 /* MSA helper */
 #include "mips_msa_helper_dummy.h"
 
-int64_t helper_load_wr_s64(int wreg, int df, int i)
+int64_t helper_load_wr_elem_s64(int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -9930,17 +9945,18 @@ int64_t helper_load_wr_s64(int wreg, int df, int i)
     }
 }
 
-int64_t helper_load_wr_modulo_s64(int wreg, int df, int i)
+target_ulong helper_load_wr_elem_target_s64(int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-    return helper_load_wr_s64(wreg, df, n);
+  return (target_ulong)helper_load_wr_elem_s64(wreg, df, i);
 }
 
-uint64_t helper_load_wr_i64(int wreg, int df, int i)
+
+
+uint64_t helper_load_wr_elem_i64(int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -9958,17 +9974,17 @@ uint64_t helper_load_wr_i64(int wreg, int df, int i)
     }
 }
 
-uint64_t helper_load_wr_modulo_i64(int wreg, int df, int i)
+target_ulong helper_load_wr_elem_target_i64(int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-    return helper_load_wr_i64(wreg, df, n);
+  return (target_ulong)helper_load_wr_elem_i64(wreg, df, i);
 }
 
-void helper_store_wr(uint64_t val, int wreg, int df, int i)
+
+void helper_store_wr_elem(uint64_t val, int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
+    
+    i %= DF_ELEMENTS(df, wrlen);
     msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
@@ -9988,17 +10004,11 @@ void helper_store_wr(uint64_t val, int wreg, int df, int i)
         /* shouldn't get here */
       assert(0);
     }
-
-    return;
 }
 
-void helper_store_wr_modulo(uint64_t val, int wreg, int df, int i)
+void helper_store_wr_elem_target(target_ulong val, int32_t wreg, int32_t df, int32_t i)
 {
-    int wrlen = 128;
-    uint32_t n = i % DF_ELEMENTS(df, wrlen);
-
-
-    helper_store_wr(val, wreg, df, n);
+  return helper_store_wr_elem((uint64_t)val, wreg, df, i);
 }
 
 
@@ -12284,13 +12294,13 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
 
 #define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
 
-uint64_t helper_dlsa(uint64_t rt, uint64_t rs, uint32_t u2)
+target_ulong helper_dlsa(target_ulong rt, target_ulong rs, uint32_t u2)
 {
   return LSA(rs, rt, u2);
 }
 
 
-uint32_t helper_lsa(uint32_t rt, uint32_t rs, uint32_t u2)
+target_ulong helper_lsa(target_ulong rt, target_ulong rs, uint32_t u2)
 {
-  return LSA(rs, rt, u2);
+  return (uint32_t)LSA(rs, rt, u2);
 }
