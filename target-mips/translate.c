@@ -10571,9 +10571,18 @@ gen_rdhwr (CPUState *env, DisasContext *ctx, int rt, int rd)
         gen_store_gpr(t0, rt);
         break;
     case 2:
+        /* Mark as an IO operation because we read the time.  */
+        if (use_icount)
+            gen_io_start();
         save_cpu_state(ctx, 1);
         gen_helper_rdhwr_cc(t0);
         gen_store_gpr(t0, rt);
+        if (use_icount) {
+            gen_io_end();
+        }
+        /* Break the TB to be able to take timer interrupts immediately
+           after reading count.  */
+        ctx->bstate = BS_STOP;
         break;
     case 3:
         save_cpu_state(ctx, 1);

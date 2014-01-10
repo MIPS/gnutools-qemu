@@ -6886,11 +6886,11 @@ target_ulong helper_rdhwr_cpunum(void)
     if (env->hflags & MIPS_HFLAG_GUEST) {
         /* Access to CP0 registers using RDHWR when GuestCtl0CP0=0 providing
          * Guest CP0 registers are enabled for user access by guest HWREna. */
-        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
-                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
-        else if (env->Guest.CP0_HWREna & (1 << 0)) {
+        else if ((env->hflags & MIPS_HFLAG_CP0)
+                || (env->Guest.CP0_HWREna & (1 << 0))) {
             return env->Guest.CP0_EBase & 0x3ff;
         }
         else {
@@ -6910,11 +6910,11 @@ target_ulong helper_rdhwr_cpunum(void)
 target_ulong helper_rdhwr_synci_step(void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
-                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
-        else if (env->Guest.CP0_HWREna & (1 << 1)) {
+        else if ((env->hflags & MIPS_HFLAG_CP0)
+                || (env->Guest.CP0_HWREna & (1 << 1))) {
             return env->SYNCI_Step;
         }
         else {
@@ -6939,7 +6939,8 @@ target_ulong helper_rdhwr_cc(void)
                 !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
-        else if (env->Guest.CP0_HWREna & (1 << 2)) {
+        else if ((env->hflags & MIPS_HFLAG_CP0)
+                || (env->Guest.CP0_HWREna & (1 << 2))) {
             return (int32_t)cpu_mips_get_count(env) + env->CP0_GTOffset;
         }
         else {
@@ -6960,11 +6961,11 @@ target_ulong helper_rdhwr_cc(void)
 target_ulong helper_rdhwr_ccres(void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
-                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_GT))) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
-        else if (env->Guest.CP0_HWREna & (1 << 3)) {
+        else if ((env->hflags & MIPS_HFLAG_CP0)
+                || (env->Guest.CP0_HWREna & (1 << 3))) {
             return env->CCRes;
         }
         else {
