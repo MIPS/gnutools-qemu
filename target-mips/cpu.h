@@ -328,6 +328,7 @@ struct CPUMIPSState {
 
     // VZ-ASE
     CPUMIPSPrvState Guest;
+    uint32_t exitGuest;
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */

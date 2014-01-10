@@ -385,6 +385,22 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
                                 int rw, int tlb_error)
 {
     int exception = 0, error_code = 0;
+    int guestTLBException;
+
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (tlb_error < TLBRET_GUESTEXIT) {
+            // exit Guest mode and indicate Root TLB exception
+            env->exitGuest = 1;
+            guestTLBException = false;
+            tlb_error -= TLBRET_GUESTEXIT;
+        } else {
+            // Guest TLB exception
+            guestTLBException = true;
+        }
+    } else {
+        // Root TLB exception (Root mode)
+        guestTLBException = false;
+    }
 
     switch (tlb_error) {
     default:
@@ -415,10 +431,10 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
         /* TLB match but 'D' bit is cleared */
         exception = EXCP_LTLBL;
         break;
-
     }
+
     /* Raise exception */
-    if (env->hflags & MIPS_HFLAG_GUEST) {
+    if (guestTLBException) {
         env->Guest.CP0_BadVAddr = address;
         env->Guest.CP0_Context = (env->Guest.CP0_Context & ~0x007fffff) |
             ((address >> 9) & 0x007ffff0);
@@ -439,7 +455,7 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
            thus we modify qemu to work in the same way to make diff tests pass.
         */
 #endif
-    if (env->hflags & MIPS_HFLAG_GUEST) {
+    if (guestTLBException) {
         // This causes failure on vz_cp0_misc test
         env->Guest.CP0_EntryHi =
             (env->Guest.CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
@@ -505,31 +521,23 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
     } else if (ret < 0)
 #endif
     {
-        // clear GExcCode bits
-        env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
-        if (ret < TLBRET_GUESTEXIT)
-        {
-            env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
-            env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
-            env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
-            env->hflags &= ~MIPS_HFLAG_GUEST;
-//            env->hflags |= MIPS_HFLAG_ROOT;
-            ret -= TLBRET_GUESTEXIT;
-            tlb_flush (env, 1);
-        }
-        else {
-        	env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
-        }
         if (env->hflags & MIPS_HFLAG_GUEST) {
-            sv_log("memory failed at %x %d %d\n", (unsigned) physical, rw, ret);
-//            address = physical;
-//            sv_log("address  = %x\n", address);
-//            sv_log("c0bva  = %x\n", env->CP0_BadVAddr);
-//            sv_log("c0ctxt = %x\n", env->CP0_Context);
-//            sv_log("c0guestctl0 = %x\n", env->CP0_GuestCtl0);
+            // clear GExcCode bits
+            env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
+            if (ret < TLBRET_GUESTEXIT)
+            {
+                env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
+                env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
+                env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
+                sv_log("Guest: Root.TLB miss: updating guestctl0 = %08x\n", env->CP0_GuestCtl0);
+            }
+            else {
+                env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
+                sv_log("Guest: Guest.TLB miss: updating guestctl0 = %08x\n", env->CP0_GuestCtl0);
+            }
         }
         // physical contains erorr address
-        sv_log("cpu_mips_handle_mmu_fault - calling raise_mmu_exception\n");
+        sv_log("Root: Root.TLB miss - calling raise_mmu_exception\n");
         raise_mmu_exception(env, physical, rw, ret);
         ret = 1;
     }
@@ -646,6 +654,13 @@ void do_interrupt (CPUState *env)
             env->active_tc.PC);
 #endif
 #endif
+
+    if (env->exitGuest) {
+        env->hflags &= ~MIPS_HFLAG_GUEST;
+        env->exitGuest = 0;
+        tlb_flush (env, 1);
+    }
+
     //take exception as root by now
     //FIXME: VZ
     if( env->exception_index == EXCP_GUESTEXIT )
