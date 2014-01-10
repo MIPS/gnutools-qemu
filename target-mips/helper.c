@@ -456,7 +456,11 @@ static void raise_mmu_exception(CPUState *env, target_ulong address,
         */
 #endif
     if (guestTLBException) {
-        // This causes failure on vz_cp0_misc test
+        /* When an exception is triggered as a result of a root TLB access
+         * during guest-mode execution, the handler will be executed in
+         * root mode, and exception state is stored into root CP0 registers.
+         * The registers affected are GuestCtl0, Root.EPC, Root.BadVAddr,
+         * Root.EntryHi, Root.Cause and Root.ContextBadVPN2. */
         env->Guest.CP0_EntryHi =
             (env->Guest.CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
     } else {

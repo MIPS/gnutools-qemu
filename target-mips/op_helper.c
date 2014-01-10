@@ -296,6 +296,14 @@ void helper_raise_exception_err (uint32_t exception, int error_code)
     if (exception < 0x100)
         qemu_log("%s: %d %d\n", __func__, exception, error_code);
 #endif
+    // Reserved Instruction in Guest mode should be redirected to Root
+    // when GuestCtl0RI=1
+    if ( exception == EXCP_RI
+            && (env->hflags & MIPS_HFLAG_GUEST)
+            && (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_RI)) ) {
+        exception = EXCP_GUESTEXIT;
+        error_code = GRR;
+    }
     env->exception_index = exception;
     env->error_code = error_code;
     cpu_loop_exit(env);
@@ -355,7 +363,7 @@ void helper_check_gpsi_cf (void)
     }
 }
 
-void helper_reserved_architecture (void)
+void helper_guest_reserved_architecture (void)
 {
     if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
         helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
@@ -365,7 +373,7 @@ void helper_reserved_architecture (void)
     }
 }
 
-void helper_reserved_implementation (void)
+void helper_guest_reserved_implementation (void)
 {
     if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
         helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
@@ -379,16 +387,6 @@ void helper_reserved_implementation (void)
     }
     /* till here
      */
-}
-
-void helper_reserved_instruction (void)
-{
-    if (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_RI)) {
-        helper_raise_exception_err(EXCP_GUESTEXIT, GRR);
-    }
-    else {
-        helper_raise_exception(EXCP_RI);
-    }
 }
 
 #if !defined(CONFIG_USER_ONLY)

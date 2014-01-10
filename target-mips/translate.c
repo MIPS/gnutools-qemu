@@ -3918,14 +3918,14 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 
 #define MTC0_GUEST_RESERVED_ARCHITECTURE() { \
     if (ctx->hflags & MIPS_HFLAG_GUEST) { \
-        gen_helper_reserved_architecture(); \
+        gen_helper_guest_reserved_architecture(); \
         break; \
     } \
 }
 
 #define MTC0_GUEST_RESERVED_IMPLEMENTATION() { \
     if (ctx->hflags & MIPS_HFLAG_GUEST) { \
-        gen_helper_reserved_implementation(); \
+        gen_helper_guest_reserved_implementation(); \
         break; \
     } \
 }
@@ -4719,7 +4719,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.Index";
             break;
         case 1 ... 3:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4733,7 +4733,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Random";
             break;
         case 1 ... 7:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4750,7 +4750,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.EntryLo0";
             break;
         case 1 ... 7:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4817,7 +4817,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.Wired";
             break;
         case 1 ... 5:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4870,7 +4870,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         /* 6,7 are implementation dependent */
         case 6:
         case 7:
-            gen_helper_reserved_implementation();
+            gen_helper_guest_reserved_implementation();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4887,7 +4887,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.EntryHi";
             break;
         case 4 ... 6:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4903,13 +4903,13 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             rn = "Guest.Compare";
             break;
         case 4:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             break;
         /* 6,7 are implementation dependent */
         case 6:
         case 7:
-            gen_helper_reserved_implementation();
+            gen_helper_guest_reserved_implementation();
             tcg_gen_movi_tl(arg, 0);
             break;
         default:
@@ -4939,7 +4939,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             break;
         case 6:
         case 7:
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
        default:
             goto die;
@@ -4985,7 +4985,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         case 3:// CMGCRBase
             rn = "Guest.CMGCRBase";
             //FIXME IASIM's behaviour
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
 //            generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
             break;
@@ -5028,7 +5028,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         /* 6,7 are implementation dependent */
         case 6:
             // FIXME IASIM's behaviour
-            gen_helper_reserved_implementation();
+            gen_helper_guest_reserved_implementation();
             tcg_gen_movi_tl(arg, 0);
 //            gen_helper_check_gpsi_cp0();
 //            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config6));
@@ -5036,7 +5036,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             break;
         case 7:
             // FIXME IASIM's behaviour
-            gen_helper_reserved_implementation();
+            gen_helper_guest_reserved_implementation();
             tcg_gen_movi_tl(arg, 0);
 //            gen_helper_check_gpsi_cp0();
 //            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_Config7));
@@ -5060,7 +5060,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         switch (sel) {
         case 0:
 //            gen_helper_1i(mfc0_watchlo, arg, sel);
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             rn = "Guest.WatchLo";
             break;
@@ -5072,7 +5072,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         switch (sel) {
         case 0:
 //            gen_helper_1i(mfc0_watchhi, arg, sel);
-            gen_helper_reserved_architecture();
+            gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
             rn = "WatchHi";
             break;
@@ -5081,7 +5081,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         }
         break;
     case 22:
-        gen_helper_reserved_implementation();
+        gen_helper_guest_reserved_implementation();
         tcg_gen_movi_tl(arg, 0);
         break;
     case 23:
@@ -5188,7 +5188,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
 
 die:
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
-    gen_helper_reserved_architecture();
+    gen_helper_guest_reserved_architecture();
     tcg_gen_movi_tl(arg, 0);
 }
 
@@ -6262,7 +6262,7 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
     if (ctx->hflags & MIPS_HFLAG_GUEST) {
-        gen_helper_reserved_architecture();
+        gen_helper_guest_reserved_architecture();
 #ifdef SV_SUPPORT
         sv_log("MTC0 ERROR: rn %s, reg %d, sel %d\n", rn, reg, sel);
 //        exit(127);
@@ -8248,7 +8248,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
             {
             case OPC_MFGC0:
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
-                    gen_helper_reserved_instruction();
+                    generate_exception(ctx, EXCP_RI);
                     break;
                 }
                 if (rt == 0) {
@@ -8260,7 +8260,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 break;
             case OPC_MTGC0:
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
-                    gen_helper_reserved_instruction();
+                    generate_exception(ctx, EXCP_RI);
                     break;
                 }
                 {
