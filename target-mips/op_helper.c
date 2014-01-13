@@ -4974,19 +4974,20 @@ void helper_mtc0_entrylo0 (target_ulong arg1)
 }
 
 #ifndef TARGET_MIPS64
-static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
+// Common function for MTHCO/MFHC0 and MTHGC0/MFTHGC0
+static inline void xpa_mthc0_common(uint64_t * reg, target_ulong val, const int32_t * CP0_PageGrain)
 {
     unsigned int xpabits = (env->PABITS > 36) ? (env->PABITS - 36) : 0;
 
-    if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+    if (*CP0_PageGrain & (1 << CP0PG_ELPA)) {
         val &= (1 << xpabits) - 1;
         *reg = ((uint64_t)val << 32) | (*reg & 0x00000000ffffffffULL);
     }
 }
 
-static inline target_ulong xpa_mfhc0(const uint64_t * reg)
+static inline target_ulong xpa_mfhc0_common(const uint64_t * reg, const int32_t * CP0_PageGrain)
 {
-    if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+    if (*CP0_PageGrain & (1 << CP0PG_ELPA)) {
         return *reg >> 32;
     } else {
         return 0;
@@ -4995,43 +4996,107 @@ static inline target_ulong xpa_mfhc0(const uint64_t * reg)
 
 void helper_mthc0_entrylo0 (target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_EntryLo0, arg1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        xpa_mthc0_common(&env->Guest.CP0_EntryLo0, arg1, &env->Guest.CP0_PageGrain);
+    } else {
+        xpa_mthc0_common(&env->CP0_EntryLo0, arg1, &env->CP0_PageGrain);
+    }
 }
 
 target_ulong helper_mfhc0_entrylo0 (void)
 {
-    return xpa_mfhc0(&env->CP0_EntryLo0);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        return xpa_mfhc0_common(&env->Guest.CP0_EntryLo0, &env->Guest.CP0_PageGrain);
+    } else {
+        return xpa_mfhc0_common(&env->CP0_EntryLo0, &env->CP0_PageGrain);
+    }
 }
 
 void helper_mthc0_entrylo1 (target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_EntryLo1, arg1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        xpa_mthc0_common(&env->Guest.CP0_EntryLo1, arg1, &env->Guest.CP0_PageGrain);
+    } else {
+        xpa_mthc0_common(&env->CP0_EntryLo1, arg1, &env->CP0_PageGrain);
+    }
 }
 
 target_ulong helper_mfhc0_entrylo1 (void)
 {
-    return xpa_mfhc0(&env->CP0_EntryLo1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        return xpa_mfhc0_common(&env->Guest.CP0_EntryLo1, &env->Guest.CP0_PageGrain);
+    } else {
+        return xpa_mfhc0_common(&env->CP0_EntryLo1, &env->CP0_PageGrain);
+    }
 }
 
 void helper_mthc0_taglo(target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_TagLo, arg1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        sv_log("MTHC0 ERROR - TagLo doesn't exist in guest context.");
+    } else {
+        xpa_mthc0_common(&env->CP0_TagLo, arg1, &env->CP0_PageGrain);
+    }
 }
 
 target_ulong helper_mfhc0_taglo(void)
 {
-    return xpa_mfhc0(&env->CP0_TagLo);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        sv_log("MFHC0 ERROR - TagLo doesn't exist in guest context.");
+        return 0;
+    } else {
+        return xpa_mfhc0_common(&env->CP0_TagLo, &env->CP0_PageGrain);
+    }
 }
 
-void helper_mthc0_lladdr (target_ulong arg1)
+void helper_mthc0_lladdr(target_ulong arg1)
 {
-    xpa_mthc0(&env->lladdr, arg1);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        xpa_mthc0_common(&env->Guest.lladdr, arg1, &env->Guest.CP0_PageGrain);
+    } else {
+        xpa_mthc0_common(&env->lladdr, arg1, &env->CP0_PageGrain);
+    }
 }
 
-target_ulong helper_mfhc0_lladdr (void)
+target_ulong helper_mfhc0_lladdr(void)
 {
-    return xpa_mfhc0(&env->lladdr);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        return xpa_mfhc0_common(&env->Guest.lladdr, &env->Guest.CP0_PageGrain);
+    } else {
+        return xpa_mfhc0_common(&env->lladdr, &env->CP0_PageGrain);
+    }
 }
+
+void helper_mthgc0_entrylo0(target_ulong arg1)
+{
+    xpa_mthc0_common(&env->Guest.CP0_EntryLo0, arg1, &env->Guest.CP0_PageGrain);
+}
+
+target_ulong helper_mfhgc0_entrylo0(void)
+{
+    return xpa_mfhc0_common(&env->Guest.CP0_EntryLo0, &env->Guest.CP0_PageGrain);
+}
+
+void helper_mthgc0_entrylo1(target_ulong arg1)
+{
+    xpa_mthc0_common(&env->Guest.CP0_EntryLo1, arg1, &env->Guest.CP0_PageGrain);
+}
+
+target_ulong helper_mfhgc0_entrylo1(void)
+{
+    return xpa_mfhc0_common(&env->Guest.CP0_EntryLo1, &env->Guest.CP0_PageGrain);
+}
+
+void helper_mthgc0_lladdr(target_ulong arg1)
+{
+    xpa_mthc0_common(&env->Guest.lladdr, arg1, &env->Guest.CP0_PageGrain);
+}
+
+target_ulong helper_mfhgc0_lladdr(void)
+{
+    return xpa_mfhc0_common(&env->Guest.lladdr, &env->Guest.CP0_PageGrain);
+}
+
 #endif
 
 void helper_mtc0_tcstatus (target_ulong arg1)

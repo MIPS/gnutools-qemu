@@ -318,6 +318,15 @@ DEF_HELPER_1(mthc0_entrylo0, void, tl)
 DEF_HELPER_1(mthc0_entrylo1, void, tl)
 DEF_HELPER_1(mthc0_taglo, void, tl)
 DEF_HELPER_1(mthc0_lladdr, void, tl)
+
+DEF_HELPER_0(mfhgc0_entrylo0, tl)
+DEF_HELPER_0(mfhgc0_entrylo1, tl)
+DEF_HELPER_0(mfhgc0_lladdr, tl)
+
+DEF_HELPER_1(mthgc0_entrylo0, void, tl)
+DEF_HELPER_1(mthgc0_entrylo1, void, tl)
+DEF_HELPER_1(mthgc0_lladdr, void, tl)
+
 #endif /* TARGET_MIPS64 */
 
 DEF_HELPER_1(mtc0_index, void, tl)

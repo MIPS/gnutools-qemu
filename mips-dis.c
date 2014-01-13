@@ -3015,6 +3015,12 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"mtgc0",   "t,G",      0x40600200, 0xffe007ff, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
 {"mtgc0",   "t,+D",     0x40600200, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
 {"mtgc0",   "t,G,H",    0x40600200, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"mfhgc0",   "t,G",      0x40600400, 0xFFE007FF, LCD|WR_t|RD_C0, 0,  I33     }, // FIXME MIPS32 release 5
+{"mfhgc0",   "t,+D",     0x40600400, 0xffe007f8, LCD|WR_t|RD_C0, 0,  I33     },
+{"mfhgc0",   "t,G,H",    0x40600400, 0xffe007f8, LCD|WR_t|RD_C0, 0,  I33     },
+{"mthgc0",   "t,G",      0x40600600, 0xffe007ff, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"mthgc0",   "t,+D",     0x40600600, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
+{"mthgc0",   "t,G,H",    0x40600600, 0xffe007f8, COD|RD_t|WR_C0|WR_CC,   0,      I33  },
 {"hypcall", "",         0x42000028, 0xFFE007FF, TRAP,      0,      I33   }, // FIXME
 {"tlbgp",   "",         0x42000010, 0xffffffff, INSN_TLB,  0,      I33      },
 {"tlbgr",   "",         0x42000009, 0xffffffff, INSN_TLB,  0,      I33      },

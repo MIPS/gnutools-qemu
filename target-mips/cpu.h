@@ -305,7 +305,7 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
-    target_ulong lladdr;
+    uint64_t lladdr;
     target_ulong llbit;
     target_ulong CP0_WatchLo[8];
     int32_t CP0_WatchHi[8];

@@ -4078,6 +4078,107 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 mthc0_nop:
     XPA_DEBUG("[XPA] mfhc0 - not 64-bit register (ignoring), rn %s, reg %d, sel %d\n", rn, reg, sel);
 }
+
+static void gen_mfhgc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    // EntryLo, EntryHi, LLA
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhgc0_entrylo0(arg);
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mfhgc0_read0;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhgc0_entrylo1(arg);
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mfhgc0_read0;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhgc0_lladdr(arg);
+            rn = "LLAddr";
+            break;
+        default:
+            goto mfhgc0_read0;
+        }
+        break;
+    default:
+        goto mfhgc0_read0;
+    }
+    
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mfhgc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+mfhgc0_read0:
+    tcg_gen_movi_tl(arg, 0);
+    XPA_DEBUG("[XPA] mfhgc0 - not 64-bit register (returning 0), rn %s, reg %d, sel %d\n", rn, reg, sel);
+}
+
+static void gen_mthgc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (sel != 0) {
+        check_insn(env, ctx, ISA_MIPS32);
+    }
+
+    // EntryLo, LLA
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_entrylo0(arg);
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mthgc0_nop;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_entrylo1(arg);
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mthgc0_nop;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_lladdr(arg);
+            rn = "LLAddr";
+            break;
+        default:
+            goto mthgc0_nop;
+        }
+        break;
+    default:
+        goto mthgc0_nop;
+    }
+    
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mthgc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+mthgc0_nop:
+    XPA_DEBUG("[XPA] mfhgc0 - not 64-bit register (ignoring), rn %s, reg %d, sel %d\n", rn, reg, sel);
+}
 #endif
 
 static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -8276,12 +8377,28 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 }
                 opn = "mtgc0";
                 break;
+#if !defined(TARGET_MIPS64)
             case OPC_MFHGC0:
-                sv_log("OPC_MFHGC0 %x\n", opc1);
+                check_mfthc0(env, ctx);
+                if (rt == 0) {
+                    /* Treat as NOP. */
+                    return;
+                }
+                gen_mfhgc0(env, ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+                opn = "mfhgc0";
                 break;
             case OPC_MTHGC0:
-                sv_log("OPC_MTHGC0 %x\n", opc1);
+                check_mfthc0(env, ctx);
+                {
+                    TCGv t0 = tcg_temp_new();
+                    
+                    gen_load_gpr(t0, rt);
+                    gen_mthgc0(env, ctx, t0, rd, ctx->opcode & 0x7);
+                    tcg_temp_free(t0);
+                }
+                opn = "mthgc0";
                 break;
+#endif
             default:
                 break;
             }
