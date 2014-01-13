@@ -5818,19 +5818,22 @@ void helper_mtc0_config5 (target_ulong arg1)
             sv_log("ERR: MTC0/Config5MSAEn in Guest mode should cause GSFC\n");
         }
         else {
-            env->Guest.CP0_Config5 = arg1 & 0x8000002;
+            env->Guest.CP0_Config5 = (arg1 & 0x8000002) 
+                | (env->Guest.CP0_Config5 & (1 << CP0C5_MVH)); // read-only
         }
     }
     else {
         // Segmentation control is not implemented
         // K CV bits are ignored
-        env->CP0_Config5 = arg1 & 0x8000002;
+        env->CP0_Config5 = (arg1 & 0x8000002) 
+            | (env->CP0_Config5 & (1 << CP0C5_MVH)); // read-only
     }
 }
 
 void helper_mtgc0_config5 (target_ulong arg1)
 {
-    env->Guest.CP0_Config5 = arg1 & 0x8000002;
+    env->Guest.CP0_Config5 = (arg1 & 0x8000002)
+        | (env->Guest.CP0_Config5 & (1 << CP0C5_MVH)); // TODO: VZ - allow Root to change Guest's config
 }
 
 void helper_mtc0_lladdr (target_ulong arg1)

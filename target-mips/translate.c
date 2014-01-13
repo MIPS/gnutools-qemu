@@ -3942,7 +3942,11 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
    CPU does not support MTHC0 and MFHC0 instructions. */
 static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 {
-    if (unlikely(!(env->CP0_Config5 & (1 << CP0C5_MVH)))) {
+    int32_t * CP0_Config5 = (ctx->hflags & MIPS_HFLAG_GUEST) 
+                          ? &env->Guest.CP0_Config5 
+                          : &env->CP0_Config5;
+
+    if (unlikely(!(*CP0_Config5 & (1 << CP0C5_MVH)))) {
         XPA_DEBUG("[XPA] MFHC0/MTHC0 NOT SUPPORTED.\n");
         generate_exception(ctx, EXCP_RI);
     }
