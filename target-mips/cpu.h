@@ -26,7 +26,7 @@ struct CPUMIPSState;
 
 typedef struct r4k_tlb_t r4k_tlb_t;
 struct r4k_tlb_t {
-    target_ulong VPN;
+    uint64_t VPN; // Root needs >32 bits VA if Guest supports XPA
     uint32_t PageMask;
     uint_fast8_t ASID;
     uint_fast16_t G:1;
@@ -47,7 +47,7 @@ typedef struct CPUMIPSTLBContext CPUMIPSTLBContext;
 struct CPUMIPSTLBContext {
     uint32_t nb_tlb;
     uint32_t tlb_in_use;
-    int (*map_address) (struct CPUMIPSState *env, target_phys_addr_t *physical, int *prot, target_ulong address, int rw, int access_type);
+    int (*map_address) (struct CPUMIPSState *env, target_phys_addr_t *physical, int *prot, uint64_t address, int rw, int access_type);
     void (*helper_tlbwi) (void);
     void (*helper_tlbwr) (void);
     void (*helper_tlbp) (void);
@@ -286,9 +286,9 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
     int32_t CP0_HWREna;
-    target_ulong CP0_BadVAddr;
+    uint64_t CP0_BadVAddr;
     int32_t CP0_Count;
-    target_ulong CP0_EntryHi;
+    uint64_t CP0_EntryHi; // Upper 32-bits are not used.
     int32_t CP0_Compare;
     int32_t CP0_Status;
     int32_t CP0_IntCtl;
@@ -412,7 +412,7 @@ struct CPUMIPSState {
     int32_t CP0_HWREna;
     target_ulong CP0_BadVAddr;
     int32_t CP0_Count;
-    target_ulong CP0_EntryHi;
+    uint64_t CP0_EntryHi;
 #define CP0EntryHiVPN2  13
 #define CP0EntryHiVPN2X 11
 #define CP0EntryHiEHINV 10
@@ -721,11 +721,11 @@ struct CPUMIPSState {
 
 #if !defined(CONFIG_USER_ONLY)
 int no_mmu_map_address (CPUMIPSState *env, target_phys_addr_t *physical, int *prot,
-                        target_ulong address, int rw, int access_type);
+                        uint64_t address, int rw, int access_type);
 int fixed_mmu_map_address (CPUMIPSState *env, target_phys_addr_t *physical, int *prot,
-                           target_ulong address, int rw, int access_type);
+                           uint64_t address, int rw, int access_type);
 int r4k_map_address (CPUMIPSState *env, target_phys_addr_t *physical, int *prot,
-                     target_ulong address, int rw, int access_type);
+                     uint64_t address, int rw, int access_type);
 void r4k_helper_tlbwi (void);
 void r4k_helper_tlbwr (void);
 void r4k_helper_tlbp (void);

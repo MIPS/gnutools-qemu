@@ -3978,6 +3978,16 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             goto mfhc0_read0;
         }
         break;
+    case 10:
+        switch (sel) {
+        case 0:
+            gen_helper_mfhc0_entryhi(arg);
+            rn = "EntryHi";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
     case 17:
         switch (sel) {
         case 0:
@@ -4039,6 +4049,16 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mthc0_entrylo1(arg);
             rn = "EntryLo1";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 10:
+        switch (sel) {
+        case 0:
+            gen_helper_mthc0_entryhi(arg);
+            rn = "EntryHi";
             break;
         default:
             goto mthc0_nop;
@@ -8380,6 +8400,10 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
 #if !defined(TARGET_MIPS64)
             case OPC_MFHGC0:
                 check_mfthc0(env, ctx);
+                if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                    generate_exception(ctx, EXCP_RI);
+                    break;
+                }
                 if (rt == 0) {
                     /* Treat as NOP. */
                     return;
@@ -8389,6 +8413,10 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 break;
             case OPC_MTHGC0:
                 check_mfthc0(env, ctx);
+                if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                    generate_exception(ctx, EXCP_RI);
+                    break;
+                }
                 {
                     TCGv t0 = tcg_temp_new();
                     
@@ -15647,7 +15675,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     // CHK_ROOT_CP0_REG(CP0_Count,                 "C0COUNT     ");
 
     //10
-    CHK_ROOT_CP0_REG(CP0_EntryHi,               "C0ENHI      ");
+    CHK_ROOT_CP0_REG64(CP0_EntryHi,             "C0ENHI      ");
     CHK_ROOT_CP0_REG(CP0_GuestCtl1,             "C0GUESTCTL1 ");
     CHK_ROOT_CP0_REG(CP0_GuestCtl2,             "C0GUESTCTL2 ");
     CHK_ROOT_CP0_REG(CP0_GuestCtl3,             "C0GUESTCTL3 ");
@@ -15799,8 +15827,8 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //VZ
     CHK_CP0_REG(Guest.CP0_Index,           "Guest.C0IDX  ");
-    CHK_CP0_REG(Guest.CP0_EntryLo0,        "Guest.C0ENLO0");
-    CHK_CP0_REG(Guest.CP0_EntryLo1,        "Guest.C0ENLO1");
+    CHK_CP0_REG64(Guest.CP0_EntryLo0,      "Guest.C0ENLO0");
+    CHK_CP0_REG64(Guest.CP0_EntryLo1,      "Guest.C0ENLO1");
     CHK_CP0_REG(Guest.CP0_EntryHi,         "Guest.C0ENHI ");
     CHK_CP0_REG(Guest.CP0_BadVAddr,        "Guest.C0BVA ");
 

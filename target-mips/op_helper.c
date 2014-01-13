@@ -5067,6 +5067,33 @@ target_ulong helper_mfhc0_lladdr(void)
     }
 }
 
+// EntryHi seems to be different than other extended to 64-bits registers:
+// 1 - upper 32-bits are used when Guest's PABITS > 32-bits 
+//     (other registers use upper 32-bits when PABITS > 36)
+// 2 - only Root.EntryHi is extended (Guest.EntryHi remains 32-bit)
+void helper_mthc0_entryhi (target_ulong arg1)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        sv_log("MTHC0 WARNING - ignoring upper 32-bit Guest.EntryHi write attempt.");
+    } else {
+        if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+            arg1 &= (1 << (env->PABITS - 32)) - 1;
+            env->CP0_EntryHi = ((uint64_t)arg1 << 32) 
+                | (env->CP0_EntryHi & 0x00000000ffffffffULL);
+        }
+    }
+}
+
+target_ulong helper_mfhc0_entryhi (void)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        sv_log("MTHC0 WARNING - trying to read from upper 32-bit Guest.EntryHi");
+        return 0;
+    } else {
+        return xpa_mfhc0_common(&env->CP0_EntryHi, &env->CP0_PageGrain);
+    }
+}
+
 void helper_mthgc0_entrylo0(target_ulong arg1)
 {
     xpa_mthc0_common(&env->Guest.CP0_EntryLo0, arg1, &env->Guest.CP0_PageGrain);
@@ -6254,7 +6281,7 @@ static void r4k_mips_tlb_flush_extra (CPUState *env, int first)
 
 static inline void r4k_fill_tlb_entry (r4k_tlb_t *tlb,
                                        bool guestTLB,
-                                       target_ulong *CP0_EntryHi,
+                                       uint64_t *CP0_EntryHi,
                                        int32_t *CP0_PageMask,
                                        uint64_t *CP0_EntryLo0,
                                        uint64_t *CP0_EntryLo1)
@@ -6325,7 +6352,7 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
     r4k_tlb_t *tlb;
     bool inv_ignore = false;
 
-    target_ulong *CP0_EntryHi;
+    uint64_t *CP0_EntryHi;
     int32_t *CP0_PageMask;
     uint64_t *CP0_EntryLo0;
     uint64_t *CP0_EntryLo1;
@@ -6364,7 +6391,7 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
     sv_log("FILL TLB index %d, ", guestTLB ? convert_tlb_index(env, idx) : idx);
     sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
     sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
-    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("VPN 0x%016" PRIx64 " ", tlb->VPN);
     sv_log("PFN0 0x%016" PRIx64 " ", tlb->PFN[0] << TARGET_PAGE_BITS);
     sv_log("PFN1 0x%016" PRIx64 " ", tlb->PFN[1] << TARGET_PAGE_BITS);
     sv_log("mask 0x%08x ", tlb->PageMask);
@@ -6378,7 +6405,7 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
     
     sv_log("%s : Write TLB Entry[%d] = ", env->cpu_model_str, idx);
     sv_log("%08x ", *CP0_PageMask);
-    sv_log(TARGET_FMT_lx" ", *CP0_EntryHi);
+    sv_log("%016" PRIx64 " ", *CP0_EntryHi);
     sv_log("%016" PRIx64 " ", (uint64_t)(*CP0_EntryLo1 & ~1ULL) | tlb->G);
     sv_log("%016" PRIx64 "\n", (uint64_t)(*CP0_EntryLo0 & ~1ULL) | tlb->G);
 #endif
@@ -6464,7 +6491,7 @@ static inline void invalidateMatching(int index, int guestId, uint8_t ASID, bool
         && !tlb->hardware_invalid && tlb->isGuestCtx == isGuestCtx) {
         tlb->hardware_invalid = 1;
         sv_log("TLB invalidated: Entry[%d] ASID=%d, guestId=%d, isGuestCtx=%d "
-               "- %08x "TARGET_FMT_lx" 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
+               "- %08x 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
                index, tlb->ASID, tlb->GuestID, tlb->isGuestCtx, tlb->PageMask,
                tlb->VPN, tlb->PFN[0], tlb->PFN[1]);
     }
@@ -6481,7 +6508,7 @@ static inline void invalidateFlushMatching(int index, int guestId, bool isGuestC
         tlb->hardware_invalid = 1;
 
         sv_log("TLB invalidated: Entry[%d] guestId=%d, isGuestCtx=%d - %08x "
-               TARGET_FMT_lx" 0x%016" PRIx64 " 0x%016" PRIx64 "\n", index,
+               " 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n", index,
                tlb->GuestID, tlb->isGuestCtx, tlb->PageMask, tlb->VPN,
                tlb->PFN[0], tlb->PFN[1]);
     }
@@ -6652,7 +6679,7 @@ void r4k_helper_tlbgp (void)
 }
 
 static void r4k_helper_tlbr_common (int idx,
-                                    target_ulong *CP0_EntryHi, 
+                                    uint64_t *CP0_EntryHi, 
                                     int32_t *CP0_PageMask,
                                     uint64_t *CP0_EntryLo0,
                                     uint64_t *CP0_EntryLo1,
@@ -6716,7 +6743,7 @@ static void r4k_helper_tlbr_common (int idx,
            (env->hflags & MIPS_HFLAG_GUEST) ? "Guest" : "Root");
 #endif
     sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
-    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log("VPN 0x%016" PRIx64, tlb->VPN >> 11);
     sv_log(" G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
     sv_log("V1 %x ", tlb->V1);
@@ -6724,7 +6751,7 @@ static void r4k_helper_tlbr_common (int idx,
     sv_log("D1 %x ", tlb->D1);
     sv_log("EHINV %x ", tlb->hardware_invalid);
     sv_log("ASID tlb=0x%04x ", tlb->ASID);
-    sv_log("EnHi=0x" TARGET_FMT_lx "\n", *CP0_EntryHi & 0xff);
+    sv_log("EnHi=0x%016" PRIx64 "\n", *CP0_EntryHi & 0xff);
     sv_log("GuestID tlb=0x%02x ", tlb->GuestID);
     sv_log("GuestCtl1=0x%02x\n", (env->hflags & MIPS_HFLAG_GUEST) ?
            (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff :

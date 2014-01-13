@@ -39,7 +39,7 @@ enum {
 
 /* no MMU emulation */
 int no_mmu_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
-                        target_ulong address, int rw, int access_type)
+                        uint64_t address, int rw, int access_type)
 {
     *physical = address;
     *prot = PAGE_READ | PAGE_WRITE;
@@ -48,7 +48,7 @@ int no_mmu_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
 
 /* fixed mapping MMU emulation */
 int fixed_mmu_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
-                           target_ulong address, int rw, int access_type)
+                           uint64_t address, int rw, int access_type)
 {
     if (address <= (int32_t)0x7FFFFFFFUL) {
         if (!(env->CP0_Status & (1 << CP0St_ERL)))
@@ -75,7 +75,7 @@ static inline bool isDrgValid(CPUState *env, bool instruction)
 
 /* MIPS32/MIPS64 R4000-style MMU emulation */
 int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
-                     target_ulong address, int rw, int guestCtx)
+                     uint64_t address, int rw, int guestCtx)
 {
     uint8_t ASID;
     int i;
@@ -96,9 +96,9 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
         /* 1k pages are not supported. */
-        target_ulong mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-        target_ulong tag = address & ~mask;
-        target_ulong VPN = tlb->VPN & ~mask;
+        uint64_t mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
+        uint64_t tag = address & ~mask;
+        uint64_t VPN = tlb->VPN & ~mask;
 #if defined(TARGET_MIPS64)
         tag &= env->SEGMask;
 #endif
@@ -381,7 +381,7 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 }
 #endif
 
-static void raise_mmu_exception(CPUState *env, target_ulong address,
+static void raise_mmu_exception(CPUState *env, uint64_t address,
                                 int rw, int tlb_error)
 {
     int exception = 0, error_code = 0;
