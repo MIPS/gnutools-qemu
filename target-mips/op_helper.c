@@ -4898,21 +4898,20 @@ void helper_mtc0_vpeopt (target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static inline void mtc_entrylo(uint64_t * CP0_EntryLo, target_ulong arg1, int mt)
+static inline void mtc_entrylo(uint64_t * CP0_EntryLo, target_ulong arg1, int mt, bool isGuestCtx)
 {
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
     uint32_t mask;
 
-    // TODO: VZ
-    if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&
-        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
-        (env->PABITS > 32)) {
-        // If LPA is supported but not enabled then
-        // PA[35:32] within the lower 32-bits need to be zeroed,
-        // because 36-bit PAE is now folded into XPA.
-        pabits = 32;
+    if (isGuestCtx) {
+        // If XPA not enabled in Root, then Guest 36-bit PAE not possible.
+        // PA[35:32] within the lower 32-bits need to be zeroed.
+        // Refer to Table 4.16 ("Root effect on Guest XPA control") of VZ ASE doc
+        if ((env->PABITS > 32) && !(env->CP0_PageGrain & (1 << CP0PG_ELPA))) {
+            pabits = 32;
+        }
     }
 
     if (mt == 3/*MMU_TYPE_FMT*/) {
@@ -4927,12 +4926,12 @@ static inline void mtc_entrylo(uint64_t * CP0_EntryLo, target_ulong arg1, int mt
 
 void helper_mtgc0_entrylo0 (target_ulong arg1)
 {
-    mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+    mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3, true);
 }
 
 void helper_mtgc0_entrylo1 (target_ulong arg1)
 {
-    mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+    mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3, true);
 }
 
 void helper_mtc0_entrylo1 (target_ulong arg1)
@@ -4946,11 +4945,11 @@ void helper_mtc0_entrylo1 (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+            mtc_entrylo(&env->Guest.CP0_EntryLo1, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3, true);
         }
     }
     else {
-        mtc_entrylo(&env->CP0_EntryLo1, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3);
+        mtc_entrylo(&env->CP0_EntryLo1, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3, false);
     }
 }
 
@@ -4965,11 +4964,11 @@ void helper_mtc0_entrylo0 (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3);
+            mtc_entrylo(&env->Guest.CP0_EntryLo0, arg1, (env->Guest.CP0_Config0 >> CP0C0_MT) & 3, true);
         }
     }
     else {
-        mtc_entrylo(&env->CP0_EntryLo0, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3);
+        mtc_entrylo(&env->CP0_EntryLo0, arg1, (env->CP0_Config0 >> CP0C0_MT) & 3, false);
     }
 }
 
