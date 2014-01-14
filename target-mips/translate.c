@@ -6599,7 +6599,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             ctx->bstate = BS_STOP;
             break;
         case 1:
-            /* ignored, read only */
+            gen_helper_mtgc0_config1(arg);
             rn = "Guest.Config1";
             break;
         case 2:
@@ -6609,7 +6609,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             ctx->bstate = BS_STOP;
             break;
         case 3:
-            /* ignored, read only */
+            gen_helper_mtgc0_config3(arg);
             rn = "Guest.Config3";
             break;
         case 4:

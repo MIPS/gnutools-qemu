@@ -5576,6 +5576,20 @@ void helper_mtc0_status (target_ulong arg1)
     if (env->hflags & MIPS_HFLAG_GUEST) {
         // Guest mode
         mask &= ~0x180000; // SR and NMI are Read-only in Guest mode
+        if ((env->hflags & MIPS_HFLAG_SM) ||
+                ((env->Guest.CP0_Config0 >> CP0C0_MT) & 3) == 3 /*MMU_TYPE_FMT*/) {
+            mask &= ~0x00000008; //SM
+        }
+        if (!((env->Guest.CP0_Config1 >> CP0C1_FP) & 1)) {
+            mask &= ~(0x20000000 | 0x04000000); //CU1, FR
+        }
+        if (!((env->Guest.CP0_Config1 >> CP0C1_C2) & 1)) {
+            mask &= ~0x40000000; //CU2
+        }
+        if (!((env->Guest.CP0_Config3 >> CP0C3_DSPP) & 1)) {
+            mask &= ~0x01000000; //MX
+        }
+        // todo: IPLW, PX, UX,SX,KX
         val = arg1 & mask;
         old = env->Guest.CP0_Status;
 
@@ -5603,7 +5617,7 @@ void helper_mtc0_status (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
-            env->Guest.CP0_Status = val;
+            env->Guest.CP0_Status = (env->Guest.CP0_Status & ~mask) | val;
             compute_hflags(env);
         }
     }
@@ -5856,7 +5870,8 @@ void helper_mtc0_config0 (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            env->Guest.CP0_Config0 = (env->Guest.CP0_Config0 & 0x81FFFFF8) | (arg1 & 0x00000007);
+            env->Guest.CP0_Config0 = (env->Guest.CP0_Config0 & 0x81FFFFF8)
+                    | (arg1 & 0x00000007);
         }
     }
     else {
@@ -5866,7 +5881,38 @@ void helper_mtc0_config0 (target_ulong arg1)
 
 void helper_mtgc0_config0 (target_ulong arg1)
 {
-    env->Guest.CP0_Config0 = (env->Guest.CP0_Config0 & 0x81FFFFF8) | (arg1 & 0x00000007);
+    uint32_t mask = 0x7E000007;
+    if ((env->CP0_Config0 & (3 << CP0C0_MT)) != 3/*MMU_TYPE_FMT*/) {
+        mask &= ~0x7E000000;
+    }
+    env->Guest.CP0_Config0 = (env->Guest.CP0_Config0 & ~mask) | (arg1 & mask);
+}
+
+void helper_mtgc0_config1 (target_ulong arg1)
+{
+    // !M, MMU Size - 1, C2, !MD, PC, !WR, CA, FP are optional Root writable.
+    uint32 mask = 0x7E000051;
+    if (!(env->CP0_Config1 & (1 << CP0C1_C2))) {
+        mask &= ~(1 << CP0C1_C2);
+    }
+    if (!(env->CP0_Config1 & (1 << CP0C1_PC))) {
+        mask &= ~(1 << CP0C1_PC);
+    }
+    if (!(env->CP0_Config1 & (1 << CP0C1_WR))) {
+        mask &= ~(1 << CP0C1_WR);
+    }
+    if (!(env->CP0_Config1 & (1 << CP0C1_FP))) {
+        mask &= ~(1 << CP0C1_FP);
+    }
+    env->Guest.CP0_Config1 = (env->Guest.CP0_Config1 & (~mask))
+            | (arg1 & mask);
+
+    if (!(env->Guest.CP0_Config1 & (1 << CP0C1_FP))) {
+        env->Guest.CP0_Status &= ~((1 << CP0St_CU1) | (1 << CP0St_FR));
+    }
+    if (!(env->Guest.CP0_Config1 & (1 << CP0C1_C2))) {
+        env->Guest.CP0_Status &= ~(1 << CP0St_CU2);
+    }
 }
 
 void helper_mtc0_config2 (target_ulong arg1)
@@ -5892,6 +5938,33 @@ void helper_mtgc0_config2 (target_ulong arg1)
     env->Guest.CP0_Config2 = (env->Guest.CP0_Config2 & 0x8FFF0FFF);
 }
 
+void helper_mtgc0_config3 (target_ulong arg1)
+{
+    // M, MSAP, BPG(MIPS64), ULRI, DSP2P, DSPP, CTXTC, ITL, LPA,VEIC, VINT,SP,CDMM,MT,SM,TL are optional Root writable.
+    uint32 mask = 0;//0x90002FFF;
+    if ((env->CP0_Config3 & (1 << CP0C3_DSPP))) {
+        mask |= (1 << CP0C3_DSPP);
+    }
+    if ((env->CP0_Config3 & (1 << CP0C3_DSP2P))) {
+        mask |= (1 << CP0C3_DSP2P);
+    }
+    if ((env->CP0_Config3 & (1 << CP0C3_ITL))) {
+        mask |= (1 << CP0C3_ITL);
+    }
+    if ((env->CP0_Config3 & (1 << CP0C3_CDMM))) {
+        mask |= (1 << CP0C3_CDMM);
+    }
+    if (((env->Guest.CP0_Config3 >> CP0C3_ISA) & 3) >= 2) {
+        mask |= (1 << CP0C3_ISA_ON_EXC);
+    }
+
+    env->Guest.CP0_Config3 = (env->Guest.CP0_Config3 & (~mask)) | (arg1 & mask);
+
+    if (!(env->Guest.CP0_Config3 & (1 << CP0C3_DSPP))) {
+        env->Guest.CP0_Status &= ~(1 << CP0St_MX);
+    }
+}
+
 void helper_mtc0_config5 (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -5910,22 +5983,28 @@ void helper_mtc0_config5 (target_ulong arg1)
             sv_log("ERR: MTC0/Config5MSAEn in Guest mode should cause GSFC\n");
         }
         else {
-            env->Guest.CP0_Config5 = (arg1 & 0x8000002) 
-                | (env->Guest.CP0_Config5 & (1 << CP0C5_MVH)); // read-only
+            env->Guest.CP0_Config5 = (arg1 & 0x08000004)
+                | (env->Guest.CP0_Config5 & ~0x08000004);
         }
     }
     else {
         // Segmentation control is not implemented
         // K CV bits are ignored
-        env->CP0_Config5 = (arg1 & 0x8000002) 
-            | (env->CP0_Config5 & (1 << CP0C5_MVH)); // read-only
+        env->CP0_Config5 = (arg1 & 0x08000004)
+            | (env->CP0_Config5 & ~0x08000004);
     }
 }
 
 void helper_mtgc0_config5 (target_ulong arg1)
 {
-    env->Guest.CP0_Config5 = (arg1 & 0x8000002)
-        | (env->Guest.CP0_Config5 & (1 << CP0C5_MVH)); // TODO: VZ - allow Root to change Guest's config
+    // K(seg control), CV, MSAEn, UFR is r/w
+    // MRP(MAAR) is optional writable from root mode
+    uint32_t mask = 0x08000004;
+    if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+        mask |= 0x20;
+    }
+    env->Guest.CP0_Config5 = (arg1 & mask)
+            | (env->Guest.CP0_Config5 & ~mask);
 }
 
 void helper_mtc0_lladdr (target_ulong arg1)
@@ -6043,7 +6122,7 @@ void helper_mtc0_performance0 (target_ulong arg1)
      * . Guest Config1PC=1, the performance counters are virtually
      *   shared by root and guest contexts.
     */
-    env->CP0_Performance0 = arg1 & 0x000007ff;
+    env->CP0_Performance0 = arg1 & 0x018007FF;
 }
 
 void helper_mtc0_taglo (target_ulong arg1)

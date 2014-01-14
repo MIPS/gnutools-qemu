@@ -471,7 +471,7 @@ struct CPUMIPSState {
 #define CP0SRSCtl_CSS 0
     int32_t CP0_SRSMap;
     int32_t CP0_GuestCtl0;
-#define CP0_GuestCtl0_rw_bitmask 0xF2B0FC03
+#define CP0_GuestCtl0_rw_bitmask 0xF280FC01
 #define CP0GuestCtl0_GM 31
 #define CP0GuestCtl0_RI 30
 #define CP0GuestCtl0_MC 29
@@ -566,6 +566,7 @@ struct CPUMIPSState {
 #define CP0C3_CMGCR 29
 #define CP0C3_MSAP  28
 #define CP0C3_VZ   23
+#define CP0C3_IPLW 21
 #define CP0C3_EICW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -576,10 +577,12 @@ struct CPUMIPSState {
 #define CP0C3_DSP2P 11
 #define CP0C3_DSPP 10
 #define CP0C3_CTXTC 9
+#define CP0C3_ITL  8
 #define CP0C3_LPA  7
 #define CP0C3_VEIC 6
 #define CP0C3_VInt 5
 #define CP0C3_SP   4
+#define CP0C3_CDMM 3
 #define CP0C3_MT   2
 #define CP0C3_SM   1
 #define CP0C3_TL   0
