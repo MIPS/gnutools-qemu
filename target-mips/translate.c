@@ -16031,6 +16031,9 @@ void cpu_reset (CPUMIPSState *env)
         env->CP0_GuestCtl0Ext = env->cpu_model->CP0_GuestCtl0Ext;
 
         env->Guest.CP0_Config0 = env->cpu_model->Guest.CP0_Config0;
+#ifdef TARGET_WORDS_BIGENDIAN
+        env->Guest.CP0_Config0 |= (1 << CP0C0_BE);
+#endif
         env->Guest.CP0_Config1 = env->cpu_model->Guest.CP0_Config1;
         env->Guest.CP0_Config2 = env->cpu_model->Guest.CP0_Config2;
         env->Guest.CP0_Config3 = env->cpu_model->Guest.CP0_Config3;
