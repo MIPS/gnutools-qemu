@@ -410,7 +410,7 @@ struct CPUMIPSState {
 #define CP0SRSC4_SRS14	10
 #define CP0SRSC4_SRS13	0
     int32_t CP0_HWREna;
-    target_ulong CP0_BadVAddr;
+    uint64_t CP0_BadVAddr;
     int32_t CP0_Count;
     uint64_t CP0_EntryHi;
 #define CP0EntryHiVPN2  13

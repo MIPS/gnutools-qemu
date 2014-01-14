@@ -109,7 +109,7 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_SRSConf3);
     qemu_put_sbe32s(f, &env->CP0_SRSConf4);
     qemu_put_sbe32s(f, &env->CP0_HWREna);
-    qemu_put_betls(f, &env->CP0_BadVAddr);
+    qemu_put_be64s(f, &env->CP0_BadVAddr);
     qemu_put_sbe32s(f, &env->CP0_Count);
     qemu_put_be64s(f, &env->CP0_EntryHi);
     qemu_put_sbe32s(f, &env->CP0_Compare);
@@ -261,7 +261,7 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_SRSConf3);
     qemu_get_sbe32s(f, &env->CP0_SRSConf4);
     qemu_get_sbe32s(f, &env->CP0_HWREna);
-    qemu_get_betls(f, &env->CP0_BadVAddr);
+    qemu_get_be64s(f, &env->CP0_BadVAddr);
     qemu_get_sbe32s(f, &env->CP0_Count);
     qemu_get_be64s(f, &env->CP0_EntryHi);
     qemu_get_sbe32s(f, &env->CP0_Compare);

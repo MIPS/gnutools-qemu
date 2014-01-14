@@ -1033,7 +1033,7 @@ void do_interrupt (CPUState *env)
     }
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
         qemu_log("%s: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " cause %d\n"
-                "    S %08x C %08x A " TARGET_FMT_lx " D " TARGET_FMT_lx "\n",
+                "    S %08x C %08x A %"PRIx64" D " TARGET_FMT_lx "\n",
                 __func__, env->active_tc.PC, env->CP0_EPC, cause,
                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
                 env->CP0_DEPC);

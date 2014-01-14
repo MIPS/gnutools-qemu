@@ -5033,7 +5033,7 @@ target_ulong helper_mfhc0_entrylo1 (void)
 void helper_mthc0_taglo(target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        sv_log("MTHC0 ERROR - TagLo doesn't exist in guest context.");
+        sv_log("MTHC0 ERROR - TagLo doesn't exist in guest context\n");
     } else {
         xpa_mthc0_common(&env->CP0_TagLo, arg1, &env->CP0_PageGrain);
     }
@@ -5042,7 +5042,7 @@ void helper_mthc0_taglo(target_ulong arg1)
 target_ulong helper_mfhc0_taglo(void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        sv_log("MFHC0 ERROR - TagLo doesn't exist in guest context.");
+        sv_log("MFHC0 ERROR - TagLo doesn't exist in guest context\n");
         return 0;
     } else {
         return xpa_mfhc0_common(&env->CP0_TagLo, &env->CP0_PageGrain);
@@ -5074,7 +5074,7 @@ target_ulong helper_mfhc0_lladdr(void)
 void helper_mthc0_entryhi (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        sv_log("MTHC0 WARNING - ignoring upper 32-bit Guest.EntryHi write attempt.");
+        sv_log("MTHC0 WARNING - ignoring upper 32-bit Guest.EntryHi write attempt\n");
     } else {
         if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
             arg1 &= (1 << (env->PABITS - 32)) - 1;
@@ -5087,7 +5087,7 @@ void helper_mthc0_entryhi (target_ulong arg1)
 target_ulong helper_mfhc0_entryhi (void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
-        sv_log("MTHC0 WARNING - trying to read from upper 32-bit Guest.EntryHi");
+        sv_log("MTHC0 WARNING - trying to read from upper 32-bit Guest.EntryHi\n");
         return 0;
     } else {
         return xpa_mfhc0_common(&env->CP0_EntryHi, &env->CP0_PageGrain);
