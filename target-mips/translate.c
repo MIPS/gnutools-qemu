@@ -3952,6 +3952,64 @@ static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
     }
 }
 
+static void check_guest_mfthc0(DisasContext *ctx, int reg, int sel)
+{
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            // "EntryLo0";
+            gen_helper_check_gpsi_cp0();
+            gen_helper_check_gpsi_mg();
+            break;
+        default:
+            goto mfthc0_reserved_arch;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            // "EntryLo1";
+            gen_helper_check_gpsi_cp0();
+            gen_helper_check_gpsi_mg();
+            break;
+        default:
+            goto mfthc0_reserved_arch;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            // "LLAddr";
+            gen_helper_guest_reserved_architecture();
+            break;
+        default:
+            goto mfthc0_reserved_arch;
+        }
+        break;
+    case 28:
+        switch (sel) {
+        case 0:
+        case 2:
+        case 4:
+        case 6:
+            // "TagLo";
+            generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+            break;
+        default:
+            goto mfthc0_reserved_arch;
+        }
+        break;
+    default:
+        goto mfthc0_reserved_arch;
+    }
+    
+    return;
+
+mfthc0_reserved_arch:
+    gen_helper_guest_reserved_architecture();
+}
+
 static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -8479,6 +8537,9 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
 #else
     case OPC_MFHC0:
         check_mfthc0(env, ctx);
+        if (ctx->hflags & MIPS_HFLAG_GUEST) {
+            check_guest_mfthc0(ctx, rd, ctx->opcode & 0x7);
+        }
         if (rt == 0) {
             /* Treat as NOP. */
             return;
@@ -8488,6 +8549,9 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         break;
     case OPC_MTHC0:
         check_mfthc0(env, ctx);
+        if (ctx->hflags & MIPS_HFLAG_GUEST) {
+            check_guest_mfthc0(ctx, rd, ctx->opcode & 0x7);
+        }
         {
             TCGv t0 = tcg_temp_new();
 
