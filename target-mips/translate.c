@@ -1425,6 +1425,16 @@ static inline void check_insn(DisasContext *ctx, int flags)
     }
 }
 
+/* This code generates a "reserved instruction" exception if the
+   CPU has corresponding flag set which indicates that the instruction
+   has been removed. */
+static inline void check_insn_opc_removed(DisasContext *ctx, int flags)
+{
+    if (unlikely(ctx->insn_flags & flags)) {
+        generate_exception(ctx, EXCP_RI);
+    }
+}
+
 /* This code generates a "reserved instruction" exception if 64-bit
    instructions are not enabled. */
 static inline void check_mips_64(DisasContext *ctx)
@@ -15611,6 +15621,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     case OPC_CP3:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
         if (env->CP0_Config1 & (1 << CP0C1_FP)) {
             check_cp1_enabled(ctx);
             op1 = MASK_CP3(ctx->opcode);
