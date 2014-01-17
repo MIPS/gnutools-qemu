@@ -15581,6 +15581,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #endif
             case OPC_BC1ANY2:
             case OPC_BC1ANY4:
+                check_insn_opc_removed(ctx, ISA_MIPS32R6);
                 check_cop1x(ctx);
                 check_insn(ctx, ASE_MIPS3D);
                 /* fall through */
@@ -15588,11 +15589,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
                                     (rt >> 2) & 0x7, imm << 2);
                 break;
+            case OPC_PS_FMT:
+                check_insn_opc_removed(ctx, ISA_MIPS32R6);
             case OPC_S_FMT:
             case OPC_D_FMT:
             case OPC_W_FMT:
             case OPC_L_FMT:
-            case OPC_PS_FMT:
+                switch (ctx->opcode & FOP(0x3f, 0x1f)) {
+                case OPC_CVT_PS_S:
+                case OPC_CVT_PS_PW:
+                    check_insn_opc_removed(ctx, ISA_MIPS32R6);
+                default:
+                    break;
+                }
                 gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
                            (imm >> 8) & 0x7);
                 break;
