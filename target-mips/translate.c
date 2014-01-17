@@ -14675,6 +14675,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
 
         case OPC_MOVCI:
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
             check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
             if (env->CP0_Config1 & (1 << CP0C1_FP)) {
                 check_cp1_enabled(ctx);
