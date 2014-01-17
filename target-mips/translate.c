@@ -15396,8 +15396,15 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_REGIMM:
         op1 = MASK_REGIMM(ctx->opcode);
         switch (op1) {
-        case OPC_BLTZ ... OPC_BGEZL: /* REGIMM branches */
-        case OPC_BLTZAL ... OPC_BGEZALL:
+        case OPC_BLTZL: /* REGIMM branches */
+        case OPC_BGEZL:
+        case OPC_BLTZALL:
+        case OPC_BGEZALL:
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        case OPC_BLTZ:
+        case OPC_BGEZ:
+        case OPC_BLTZAL:
+        case OPC_BGEZAL:
             gen_compute_branch(ctx, op1, 4, rs, -1, imm << 2);
             break;
         case OPC_TGEI ... OPC_TEQI: /* REGIMM traps */
@@ -15526,8 +15533,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
          offset = (int32_t)(ctx->opcode & 0x3FFFFFF) << 2;
          gen_compute_branch(ctx, op, 4, rs, rt, offset);
          break;
-    case OPC_BEQ ... OPC_BGTZ: /* Branch */
-    case OPC_BEQL ... OPC_BGTZL:
+    case OPC_BEQL ... OPC_BGTZL:  /* Branch */
+         check_insn_opc_removed(ctx, ISA_MIPS32R6);
+    case OPC_BEQ ... OPC_BGTZ:
          gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
          break;
     case OPC_LB ... OPC_LWR: /* Load and stores */
@@ -15587,6 +15595,13 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 check_insn(ctx, ASE_MIPS3D);
                 /* fall through */
             case OPC_BC1:
+                switch (MASK_BC1(ctx->opcode)) {
+                case OPC_BC1FL:
+                case OPC_BC1TL:
+                    check_insn_opc_removed(ctx, ISA_MIPS32R6);
+                default:
+                    break;
+                }
                 gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
                                     (rt >> 2) & 0x7, imm << 2);
                 break;
