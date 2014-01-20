@@ -15548,7 +15548,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_BEQ ... OPC_BGTZ:
          gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
          break;
-    case OPC_LB ... OPC_LWR: /* Load and stores */
+    case OPC_LWL: /* Load and stores */
+    case OPC_LWR:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+    case OPC_LB ... OPC_LH:
+    case OPC_LW ... OPC_LHU:
     case OPC_LL:
          gen_ld(ctx, op, rt, rs, imm);
          break;
@@ -15699,8 +15703,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
 #if defined(TARGET_MIPS64)
     /* MIPS64 opcodes */
-    case OPC_LWU:
     case OPC_LDL ... OPC_LDR:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+    case OPC_LWU:
     case OPC_LLD:
     case OPC_LD:
         check_insn(ctx, ISA_MIPS3);
