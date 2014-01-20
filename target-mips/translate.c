@@ -14639,10 +14639,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_MFHI:          /* Move from HI/LO */
         case OPC_MFLO:
+            if ((rs & 3) == 0) {
+                check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            }
             gen_HILO(ctx, op1, rs & 3, rd);
             break;
         case OPC_MTHI:
         case OPC_MTLO:          /* Move to HI/LO */
+            if ((rs & 3) == 0) {
+                check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            }
             gen_HILO(ctx, op1, rd & 3, rs);
             break;
         case OPC_PMON:          /* Pmon entry point, also R4010 selsl */
@@ -14778,10 +14784,14 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         switch (op1) {
         case OPC_MADD ... OPC_MADDU: /* Multiply and add/sub */
         case OPC_MSUB ... OPC_MSUBU:
+            if ((rd & 3) == 0) {
+                check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            }
             check_insn(ctx, ISA_MIPS32);
             gen_muldiv(ctx, op1, rd & 3, rs, rt);
             break;
         case OPC_MUL:
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
             gen_arith(ctx, op1, rd, rs, rt);
             break;
         case OPC_CLO:
