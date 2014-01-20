@@ -340,7 +340,7 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
     s.info.read_memory_func = target_read_memory;
     s.info.buffer_vma = code;
     s.info.buffer_length = size;
-    s.info.print_address_func = generic_print_target_address;
+    s.info.print_address_func = generic_print_address;
 
     s.info.disassembler_options = sv_dis_options;
 

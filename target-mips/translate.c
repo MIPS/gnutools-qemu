@@ -1617,7 +1617,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUL);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "lwu";
         break;
@@ -1625,7 +1625,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
 #endif
         opn = "ld";
         break;
@@ -1634,7 +1634,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
 #endif
         opn = "lld";
         break;
@@ -1658,7 +1658,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
 #endif
         opn = "ldl";
         break;
@@ -1682,7 +1682,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
 #endif
         opn = "ldr";
         break;
@@ -1693,7 +1693,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00008);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
 #endif
         opn = "ldpc";
         break;
@@ -1705,7 +1705,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "lwpc";
         break;
@@ -1713,7 +1713,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "lw";
         break;
@@ -1721,7 +1721,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESW);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00002);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00002);
 #endif
         opn = "lh";
         break;
@@ -1729,7 +1729,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUW);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00002);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00002);
 #endif
         opn = "lhu";
         break;
@@ -1737,7 +1737,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_SB);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00001);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00001);
 #endif
         opn = "lb";
         break;
@@ -1745,7 +1745,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_UB);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00001);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00001);
 #endif
         opn = "lbu";
         break;
@@ -1770,7 +1770,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "lwl";
         break;
@@ -1795,7 +1795,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "lwr";
         break;
@@ -1804,7 +1804,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
 #ifdef MIPSSIM_COMPAT
-        gen_helper_0e2i(trace_mem_access, taddr, t0, 0x00004);
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
 #endif
         opn = "ll";
         break;
