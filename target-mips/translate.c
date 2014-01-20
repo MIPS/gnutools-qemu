@@ -15556,8 +15556,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_LL:
          gen_ld(ctx, op, rt, rs, imm);
          break;
-    case OPC_SB ... OPC_SW:
+    case OPC_SWL:
     case OPC_SWR:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+    case OPC_SB ... OPC_SH:
+    case OPC_SW:
          gen_st(ctx, op, rt, rs, imm);
          break;
     case OPC_SC:
@@ -15713,6 +15716,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_ld(ctx, op, rt, rs, imm);
         break;
     case OPC_SDL ... OPC_SDR:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
     case OPC_SD:
         check_insn(ctx, ISA_MIPS3);
         check_mips_64(ctx);
