@@ -350,6 +350,10 @@ enum {
     /* MIPS DSP Accumulator and DSPControl Access Sub-class */
     OPC_EXTR_W_DSP     = 0x38 | OPC_SPECIAL3,
     OPC_DEXTR_W_DSP    = 0x3C | OPC_SPECIAL3,
+
+    /* R6 */
+    R6_OPC_LL          = 0x36 | OPC_SPECIAL3,
+    R6_OPC_SC          = 0x26 | OPC_SPECIAL3,
 };
 
 /* BSHFL opcodes */
@@ -1815,6 +1819,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         opn = "lwr";
         break;
     case OPC_LL:
+    case R6_OPC_LL:
         save_cpu_state(ctx, 1);
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
@@ -1941,6 +1946,7 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         break;
 #endif
     case OPC_SC:
+    case R6_OPC_SC:
         save_cpu_state(ctx, 1);
         op_st_sc(t1, t0, rt, ctx);
         opn = "sc";
@@ -14865,6 +14871,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_SPECIAL3:
         op1 = MASK_SPECIAL3(ctx->opcode);
         switch (op1) {
+        case R6_OPC_LL:
+            check_insn(ctx, ISA_MIPS32R6);
+            gen_ld(ctx, op1, rt, rs, imm >> 7);
+            break;
         case OPC_EXT:
         case OPC_INS:
             check_insn(ctx, ISA_MIPS32R2);
@@ -15169,6 +15179,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 break;
             }
             break;
+        case R6_OPC_SC: // and OPC_DMOD_G_2E:
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_st_cond(ctx, op1, rt, rs, imm >> 7);
+            } else {
+#if defined(TARGET_MIPS64)
+                check_insn(ctx, INSN_LOONGSON2E);
+                gen_loongson_integer(ctx, op1, rd, rs, rt);
+#else
+                // Invalid in MIPS32
+                generate_exception(ctx, EXCP_RI);                
+#endif
+            }
+            break;
 #if defined(TARGET_MIPS64)
         case OPC_DEXTM ... OPC_DEXT:
         case OPC_DINSM ... OPC_DINS:
@@ -15184,7 +15207,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_DDIV_G_2E ... OPC_DDIVU_G_2E:
         case OPC_DMULT_G_2E ... OPC_DMULTU_G_2E:
-        case OPC_DMOD_G_2E ... OPC_DMODU_G_2E:
+        case OPC_DMODU_G_2E:
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
             check_insn(ctx, INSN_LOONGSON2E);
             gen_loongson_integer(ctx, op1, rd, rs, rt);
             break;
@@ -15569,10 +15593,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
          break;
     case OPC_LWL: /* Load and stores */
     case OPC_LWR:
+    case OPC_LL:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
     case OPC_LB ... OPC_LH:
     case OPC_LW ... OPC_LHU:
-    case OPC_LL:
          gen_ld(ctx, op, rt, rs, imm);
          break;
     case OPC_SWL:
