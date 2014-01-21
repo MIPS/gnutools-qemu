@@ -21,6 +21,11 @@
 #include "cpu.h"
 #include "qemu-common.h"
 
+#ifdef MIPSSIM_COMPAT
+char *cpu_model_name;
+char *cpu_config_name;
+FILE *svtracefile;
+#endif
 
 static void mips_cpu_set_pc(CPUState *cs, vaddr value)
 {

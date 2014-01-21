@@ -103,18 +103,27 @@ int cpu_mips_cacheability(CPUMIPSState *env, target_ulong vaddr, int rw)
     }
     return cca;
 }
+#endif
+#endif
 
+#ifdef MIPSSIM_COMPAT
 void helper_trace_mem_access(CPUMIPSState *env,
                                            target_ulong val,
                                            target_ulong addr,
                                            uint32_t rw_size)
 {
+#ifndef CONFIG_USER_ONLY
     sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
             (rw_size >> 16)? "Write":"Read",
             addr,
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
             cpu_mips_cacheability(env, addr, rw_size >> 16)
             );
+#else
+    sv_log(" : Memory %s ["TARGET_FMT_lx"] = ",
+            (rw_size >> 16)? "Write":"Read",
+            addr);
+#endif
 
     switch(rw_size & 0xffff)
     {
@@ -135,8 +144,6 @@ void helper_trace_mem_access(CPUMIPSState *env,
         break;
     }
 }
-
-#endif
 #endif
 
 /*****************************************************************************/

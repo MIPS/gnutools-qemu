@@ -367,11 +367,15 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
     int insn_bytes;
     uint32_t opcode;
 
+#ifndef CONFIG_USER_ONLY
     fprintf(out, " : " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
-            cpu_mips_cacheability(env, pc, 0)
-            );
+            cpu_mips_cacheability(env, pc, 0));
+#else
+    fprintf(out, " : " TARGET_FMT_lx ": ", pc);
+#endif
+
 
     if (!(env->hflags & MIPS_HFLAG_M16)) {
         target_read_memory(pc, (bfd_byte *)&opcode, 4, &s.info);

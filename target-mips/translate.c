@@ -32,7 +32,9 @@
 #ifdef MIPSSIM_COMPAT
 #include "sysemu/sysemu.h"
 #endif
-//#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
+#ifndef MIPS_DEBUG_DISAS
+#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
+#endif
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 
 /* MIPS major opcodes */

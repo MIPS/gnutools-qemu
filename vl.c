@@ -171,6 +171,9 @@ int main(int argc, char **argv)
 #include "ui/qemu-spice.h"
 #include "qapi/string-input-visitor.h"
 
+#ifdef MIPSSIM_COMPAT
+#include "target-mips/mips-avp.h"
+#endif
 //#define DEBUG_NET
 //#define DEBUG_SLIRP
 
@@ -234,11 +237,6 @@ static bool boot_strict;
 uint8_t *boot_splash_filedata;
 size_t boot_splash_filedata_size;
 uint8_t qemu_extra_params_fw[2];
-#ifdef MIPSSIM_COMPAT
-char *cpu_model_name;
-char *cpu_config_name;
-FILE *svtracefile;
-#endif
 
 typedef struct FWBootEntry FWBootEntry;
 
