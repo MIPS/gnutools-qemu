@@ -18482,6 +18482,28 @@ void cpu_state_reset(CPUMIPSState *env)
 
     compute_hflags(env);
     env->exception_index = EXCP_NONE;
+
+#ifdef MIPSSIM_COMPAT
+#define PRINT_CFG_VAL(NAME, VAL) qemu_log("CFG: " NAME " = %08x\n", VAL)
+    PRINT_CFG_VAL("Supervisor", 0);
+    PRINT_CFG_VAL("SRVP_ReservedMem", 256*1024*1024 - 1);
+    PRINT_CFG_VAL("MaxPageSizeInKB", 256*1024);
+    PRINT_CFG_VAL("SEGBITS", env->SEGBITS);
+    PRINT_CFG_VAL("C0CONFIG", env->CP0_Config0);
+    PRINT_CFG_VAL("C0CONFIG1", env->CP0_Config1);
+    PRINT_CFG_VAL("C0CONFIG2", env->CP0_Config2);
+    PRINT_CFG_VAL("C0CONFIG3", env->CP0_Config3);
+    PRINT_CFG_VAL("C0CONFIG4", env->CP0_Config4);
+    PRINT_CFG_VAL("C0CONFIG5", env->CP0_Config5);
+    PRINT_CFG_VAL("C0CONFIG6", env->CP0_Config6);
+    PRINT_CFG_VAL("C0CONFIG7", env->CP0_Config7);
+    PRINT_CFG_VAL("C0STAT", env->CP0_Status);
+    PRINT_CFG_VAL("C0INTCTL", env->CP0_IntCtl);
+    PRINT_CFG_VAL("C0SRSCTL", env->CP0_SRSCtl);
+    PRINT_CFG_VAL("C0SRSMAP", env->CP0_SRSMap);
+    PRINT_CFG_VAL("C1FIR", env->active_fpu.fcr0);
+    qemu_log("\n");
+#endif
 }
 
 void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb, int pc_pos)
