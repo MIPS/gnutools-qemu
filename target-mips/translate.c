@@ -14806,7 +14806,20 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
+static void decode_opc_special2_r6 (CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t op1;
+
+    op1 = MASK_SPECIAL2(ctx->opcode);
+    switch (op1) {
+    default:            /* Invalid */
+        MIPS_INVAL("special2_r6");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
+static void decode_opc_special2_legacy (CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd;
     uint32_t op1;
@@ -14819,16 +14832,30 @@ static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
     switch (op1) {
     case OPC_MADD ... OPC_MADDU: /* Multiply and add/sub */
     case OPC_MSUB ... OPC_MSUBU:
-        if ((rd & 3) == 0) {
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        }
         check_insn(ctx, ISA_MIPS32);
         gen_muldiv(ctx, op1, rd & 3, rs, rt);
         break;
     case OPC_MUL:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
         gen_arith(ctx, op1, rd, rs, rt);
         break;
+    default:            /* Invalid */
+        MIPS_INVAL("special2_legacy");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
+static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs, rt, rd;
+    uint32_t op1;
+
+    rs = (ctx->opcode >> 21) & 0x1f;
+    rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+
+    op1 = MASK_SPECIAL2(ctx->opcode);
+    switch (op1) {
     case OPC_CLO:
     case OPC_CLZ:
         check_insn(ctx, ISA_MIPS32);
@@ -14872,12 +14899,15 @@ static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
         gen_loongson_integer(ctx, op1, rd, rs, rt);
         break;
 #endif
-    default:            /* Invalid */
-        MIPS_INVAL("special2");
-        generate_exception(ctx, EXCP_RI);
-        break;
+    default:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            decode_opc_special2_r6(env, ctx);
+        } else {
+            decode_opc_special2_legacy(env, ctx);
+        }
     }
 }
+
 static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd, sa;
