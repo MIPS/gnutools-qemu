@@ -14838,6 +14838,26 @@ static void decode_opc_special2_legacy (CPUMIPSState *env, DisasContext *ctx)
     case OPC_MUL:
         gen_arith(ctx, op1, rd, rs, rt);
         break;
+    case OPC_DIV_G_2F:
+    case OPC_DIVU_G_2F:
+    case OPC_MULT_G_2F:
+    case OPC_MULTU_G_2F:
+    case OPC_MOD_G_2F:
+    case OPC_MODU_G_2F:
+        check_insn(ctx, INSN_LOONGSON2F);
+        gen_loongson_integer(ctx, op1, rd, rs, rt);
+        break;
+#if defined(TARGET_MIPS64)
+    case OPC_DMULT_G_2F:
+    case OPC_DMULTU_G_2F:
+    case OPC_DDIV_G_2F:
+    case OPC_DDIVU_G_2F:
+    case OPC_DMOD_G_2F:
+    case OPC_DMODU_G_2F:
+        check_insn(ctx, INSN_LOONGSON2F);
+        gen_loongson_integer(ctx, op1, rd, rs, rt);
+        break;
+#endif
     default:            /* Invalid */
         MIPS_INVAL("special2_legacy");
         generate_exception(ctx, EXCP_RI);
@@ -14847,11 +14867,10 @@ static void decode_opc_special2_legacy (CPUMIPSState *env, DisasContext *ctx)
 
 static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
 {
-    int rs, rt, rd;
+    int rs, rd;
     uint32_t op1;
 
     rs = (ctx->opcode >> 21) & 0x1f;
-    rt = (ctx->opcode >> 16) & 0x1f;
     rd = (ctx->opcode >> 11) & 0x1f;
 
     op1 = MASK_SPECIAL2(ctx->opcode);
@@ -14873,30 +14892,12 @@ static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
         }
         /* Treat as NOP. */
         break;
-    case OPC_DIV_G_2F:
-    case OPC_DIVU_G_2F:
-    case OPC_MULT_G_2F:
-    case OPC_MULTU_G_2F:
-    case OPC_MOD_G_2F:
-    case OPC_MODU_G_2F:
-        check_insn(ctx, INSN_LOONGSON2F);
-        gen_loongson_integer(ctx, op1, rd, rs, rt);
-        break;
 #if defined(TARGET_MIPS64)
     case OPC_DCLO:
     case OPC_DCLZ:
         check_insn(ctx, ISA_MIPS64);
         check_mips_64(ctx);
         gen_cl(ctx, op1, rd, rs);
-        break;
-    case OPC_DMULT_G_2F:
-    case OPC_DMULTU_G_2F:
-    case OPC_DDIV_G_2F:
-    case OPC_DDIVU_G_2F:
-    case OPC_DMOD_G_2F:
-    case OPC_DMODU_G_2F:
-        check_insn(ctx, INSN_LOONGSON2F);
-        gen_loongson_integer(ctx, op1, rd, rs, rt);
         break;
 #endif
     default:
