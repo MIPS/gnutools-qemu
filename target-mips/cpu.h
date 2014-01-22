@@ -455,10 +455,12 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_BDS16  0x08000 /* branch requires 16-bit delay slot  */
 #define MIPS_HFLAG_BDS32  0x10000 /* branch requires 32-bit delay slot  */
 #define MIPS_HFLAG_BX     0x20000 /* branch exchanges execution mode    */
-#define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
+#define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT | MIPS_HFLAG_CB)
     /* MIPS DSP resources access. */
 #define MIPS_HFLAG_DSP   0x40000  /* Enable access to MIPS DSP resources. */
 #define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
+
+#define MIPS_HFLAG_CB    0x100000  /* Compact branch */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 

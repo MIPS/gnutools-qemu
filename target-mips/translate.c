@@ -110,6 +110,7 @@ enum {
     OPC_LDC2     = (0x36 << 26),
     OPC_SWC1     = (0x39 << 26),
     OPC_SWC2     = (0x3A << 26),
+    OPC_BALC     = (0x3A << 26), /* R6 */
     OPC_SDC1     = (0x3D << 26),
     OPC_SDC2     = (0x3E << 26),
     /* MDMX ASE specific */
@@ -3720,13 +3721,19 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 {
     target_ulong btgt = -1;
     int blink = 0;
+    int post_delay = insn_bytes;
     int bcond_compute = 0;
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
     if (ctx->hflags & MIPS_HFLAG_BMASK) {
 #ifdef MIPS_DEBUG_DISAS
-        LOG_DISAS("Branch in delay slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
+        if(ctx->hflags & MIPS_HFLAG_CB) {
+            LOG_DISAS("Branch in forbidden slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
+        }
+        else {
+            LOG_DISAS("Branch in delay slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
+        }
 #endif
         generate_exception(ctx, EXCP_RI);
         goto out;
@@ -3744,6 +3751,7 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             gen_load_gpr(t1, rt);
             bcond_compute = 1;
         }
+    case OPC_BALC:
         btgt = ctx->pc + insn_bytes + offset;
         break;
     case OPC_BGEZ:
@@ -3817,6 +3825,10 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             ctx->hflags |= MIPS_HFLAG_B;
             MIPS_DEBUG("balways");
             break;
+        case OPC_BALC:
+            // Compact Branch
+            post_delay = 0;
+            ctx->hflags |= MIPS_HFLAG_CB;
         case OPC_BGEZALS:
         case OPC_BGEZAL:  /* 0 >= 0          */
         case OPC_BGEZALL: /* 0 >= 0 likely   */
@@ -4004,7 +4016,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 
     ctx->btarget = btgt;
     if (blink > 0) {
-        int post_delay = insn_bytes;
         int lowbit = !!(ctx->hflags & MIPS_HFLAG_M16);
 
         if (opc != OPC_JALRC)
@@ -15532,7 +15543,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int32_t offset;
     int rs, rt, rd, sa;
-    uint32_t op, op1, op2;
+    uint32_t op, op1;
     int16_t imm;
 
     /* make sure instructions are on a word boundary */
@@ -15632,6 +15643,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         case OPC_MFMC0:
 #ifndef CONFIG_USER_ONLY
             {
+                uint32_t op2;
                 TCGv t0 = tcg_temp_new();
 
                 op2 = MASK_MFMC0(ctx->opcode);
@@ -15718,6 +15730,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_BEQ ... OPC_BGTZ:
          gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
          break;
+    case OPC_BALC:    // and OPC_SWC2
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            // OPC_BALC is R6 instruction
+            gen_compute_branch(ctx, op, 4, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
+        }
+        else {
+            // OPC_SWC2
+            generate_exception_err(ctx, EXCP_CpU, 2);
+        }
+        break;
     case OPC_LWL: /* Load and stores */
     case OPC_LWR:
     case OPC_LL:
@@ -15821,7 +15843,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     /* COP2.  */
     case OPC_LWC2:
     case OPC_LDC2:
-    case OPC_SWC2:
+//    case OPC_SWC2:
+// opcode for SWC2 is replaced with BALC in R6
+// refer OPC_BALC
     case OPC_SDC2:
         /* COP2: Not implemented. */
         generate_exception_err(ctx, EXCP_CpU, 2);
@@ -16006,6 +16030,11 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             generate_exception(&ctx, EXCP_RI);
             ctx.bstate = BS_STOP;
             break;
+        }
+        if (ctx.hflags & MIPS_HFLAG_CB) {
+            // compact branch. execute a branch now
+            // fixme: Forbidden slot for not taken path
+            is_delay = 1;
         }
         if (is_delay) {
             handle_delay_slot(&ctx, insn_bytes);

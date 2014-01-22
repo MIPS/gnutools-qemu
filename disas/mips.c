@@ -1277,6 +1277,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 /* b is at the top of the table.  */
 /* bal is at the top of the table.  */
 /* bc0[tf]l? are at the bottom of the table.  */
+{"balc",     "+p",    0xE8000000, 0xfc000000,  UBD|WR_31,     0,      I32R6  },
 {"bc1any2f", "N,p",	0x45200000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any2t", "N,p",	0x45210000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any4f", "N,p",	0x45400000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
@@ -3751,6 +3752,15 @@ print_insn_args (const char *d,
 	      msbd = ((l >> OP_SH_EXTMSBD) & OP_MASK_EXTMSBD) + 32;
 	      (*info->fprintf_func) (info->stream, "0x%x", msbd + 1);
 	      break;
+
+	    case 'p':
+	        /* Sign extend the displacement with 26 bits.  */
+	        delta = (l >> OP_SH_DELTA) & OP_MASK_TARGET;
+	        if (delta & 0x2000000)
+	          delta |= ~0x3FFFFFF;
+	        info->target = (delta << 2) + pc + INSNLEN;
+	        (*info->print_address_func) (info->target, info);
+	        break;
 
 	    case 't': /* Coprocessor 0 reg name */
 	      (*info->fprintf_func) (info->stream, "%s",
