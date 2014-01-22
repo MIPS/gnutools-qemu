@@ -355,6 +355,8 @@ enum {
     /* R6 */
     R6_OPC_LL          = 0x36 | OPC_SPECIAL3,
     R6_OPC_SC          = 0x26 | OPC_SPECIAL3,
+    R6_OPC_LLD         = 0x37 | OPC_SPECIAL3,
+    R6_OPC_SCD         = 0x27 | OPC_SPECIAL3,
 };
 
 /* BSHFL opcodes */
@@ -1650,6 +1652,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         opn = "ld";
         break;
     case OPC_LLD:
+    case R6_OPC_LLD:
         save_cpu_state(ctx, 1);
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
@@ -1938,6 +1941,7 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_SCD:
+    case R6_OPC_SCD:
         save_cpu_state(ctx, 1);
         op_st_scd(t1, t0, rt, ctx);
         opn = "scd";
@@ -14938,6 +14942,14 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_LL:
         gen_ld(ctx, op1, rt, rs, imm >> 7);
         break;
+#if defined(TARGET_MIPS64)
+    case R6_OPC_SCD:
+        gen_st_cond(ctx, op1, rt, rs, imm >> 7);
+        break;
+    case R6_OPC_LLD:
+        gen_ld(ctx, op1, rt, rs, imm >> 7);
+        break;
+#endif
     default:            /* Invalid */
         MIPS_INVAL("special3_r6");
         generate_exception(ctx, EXCP_RI);
@@ -15901,9 +15913,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
     /* MIPS64 opcodes */
     case OPC_LDL ... OPC_LDR:
+    case OPC_LLD:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
     case OPC_LWU:
-    case OPC_LLD:
     case OPC_LD:
         check_insn(ctx, ISA_MIPS3);
         check_mips_64(ctx);
@@ -15917,6 +15929,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_st(ctx, op, rt, rs, imm);
         break;
     case OPC_SCD:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
         check_insn(ctx, ISA_MIPS3);
         check_mips_64(ctx);
         gen_st_cond(ctx, op, rt, rs, imm);
