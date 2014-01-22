@@ -14778,6 +14778,79 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
+static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs, rt, rd;
+    uint32_t op1;
+
+    rs = (ctx->opcode >> 21) & 0x1f;
+    rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+
+    op1 = MASK_SPECIAL2(ctx->opcode);
+    switch (op1) {
+    case OPC_MADD ... OPC_MADDU: /* Multiply and add/sub */
+    case OPC_MSUB ... OPC_MSUBU:
+        if ((rd & 3) == 0) {
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        }
+        check_insn(ctx, ISA_MIPS32);
+        gen_muldiv(ctx, op1, rd & 3, rs, rt);
+        break;
+    case OPC_MUL:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        gen_arith(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_CLO:
+    case OPC_CLZ:
+        check_insn(ctx, ISA_MIPS32);
+        gen_cl(ctx, op1, rd, rs);
+        break;
+    case OPC_SDBBP:
+        /* XXX: not clear which exception should be raised
+         *      when in debug mode...
+         */
+        check_insn(ctx, ISA_MIPS32);
+        if (!(ctx->hflags & MIPS_HFLAG_DM)) {
+            generate_exception(ctx, EXCP_DBp);
+        } else {
+            generate_exception(ctx, EXCP_DBp);
+        }
+        /* Treat as NOP. */
+        break;
+    case OPC_DIV_G_2F:
+    case OPC_DIVU_G_2F:
+    case OPC_MULT_G_2F:
+    case OPC_MULTU_G_2F:
+    case OPC_MOD_G_2F:
+    case OPC_MODU_G_2F:
+        check_insn(ctx, INSN_LOONGSON2F);
+        gen_loongson_integer(ctx, op1, rd, rs, rt);
+        break;
+#if defined(TARGET_MIPS64)
+    case OPC_DCLO:
+    case OPC_DCLZ:
+        check_insn(ctx, ISA_MIPS64);
+        check_mips_64(ctx);
+        gen_cl(ctx, op1, rd, rs);
+        break;
+    case OPC_DMULT_G_2F:
+    case OPC_DMULTU_G_2F:
+    case OPC_DDIV_G_2F:
+    case OPC_DDIVU_G_2F:
+    case OPC_DMOD_G_2F:
+    case OPC_DMODU_G_2F:
+        check_insn(ctx, INSN_LOONGSON2F);
+        gen_loongson_integer(ctx, op1, rd, rs, rt);
+        break;
+#endif
+    default:            /* Invalid */
+        MIPS_INVAL("special2");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int32_t offset;
@@ -14818,68 +14891,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         decode_opc_special(env, ctx);
         break;
     case OPC_SPECIAL2:
-        op1 = MASK_SPECIAL2(ctx->opcode);
-        switch (op1) {
-        case OPC_MADD ... OPC_MADDU: /* Multiply and add/sub */
-        case OPC_MSUB ... OPC_MSUBU:
-            if ((rd & 3) == 0) {
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            }
-            check_insn(ctx, ISA_MIPS32);
-            gen_muldiv(ctx, op1, rd & 3, rs, rt);
-            break;
-        case OPC_MUL:
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            gen_arith(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_CLO:
-        case OPC_CLZ:
-            check_insn(ctx, ISA_MIPS32);
-            gen_cl(ctx, op1, rd, rs);
-            break;
-        case OPC_SDBBP:
-            /* XXX: not clear which exception should be raised
-             *      when in debug mode...
-             */
-            check_insn(ctx, ISA_MIPS32);
-            if (!(ctx->hflags & MIPS_HFLAG_DM)) {
-                generate_exception(ctx, EXCP_DBp);
-            } else {
-                generate_exception(ctx, EXCP_DBp);
-            }
-            /* Treat as NOP. */
-            break;
-        case OPC_DIV_G_2F:
-        case OPC_DIVU_G_2F:
-        case OPC_MULT_G_2F:
-        case OPC_MULTU_G_2F:
-        case OPC_MOD_G_2F:
-        case OPC_MODU_G_2F:
-            check_insn(ctx, INSN_LOONGSON2F);
-            gen_loongson_integer(ctx, op1, rd, rs, rt);
-            break;
-#if defined(TARGET_MIPS64)
-        case OPC_DCLO:
-        case OPC_DCLZ:
-            check_insn(ctx, ISA_MIPS64);
-            check_mips_64(ctx);
-            gen_cl(ctx, op1, rd, rs);
-            break;
-        case OPC_DMULT_G_2F:
-        case OPC_DMULTU_G_2F:
-        case OPC_DDIV_G_2F:
-        case OPC_DDIVU_G_2F:
-        case OPC_DMOD_G_2F:
-        case OPC_DMODU_G_2F:
-            check_insn(ctx, INSN_LOONGSON2F);
-            gen_loongson_integer(ctx, op1, rd, rs, rt);
-            break;
-#endif
-        default:            /* Invalid */
-            MIPS_INVAL("special2");
-            generate_exception(ctx, EXCP_RI);
-            break;
-        }
+        decode_opc_special2 (env, ctx);
         break;
     case OPC_SPECIAL3:
         op1 = MASK_SPECIAL3(ctx->opcode);
