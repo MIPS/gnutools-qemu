@@ -353,6 +353,8 @@ enum {
     OPC_DEXTR_W_DSP    = 0x3C | OPC_SPECIAL3,
 
     /* R6 */
+    R6_OPC_PREF        = 0x35 | OPC_SPECIAL3,
+    R6_OPC_CACHE       = 0x25 | OPC_SPECIAL3,
     R6_OPC_LL          = 0x36 | OPC_SPECIAL3,
     R6_OPC_SC          = 0x26 | OPC_SPECIAL3,
     R6_OPC_LLD         = 0x37 | OPC_SPECIAL3,
@@ -14936,6 +14938,16 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
 
     op1 = MASK_SPECIAL3(ctx->opcode);
     switch (op1) {
+    case R6_OPC_PREF:
+        if (rs >= 24) {
+            // hind codes 24-31 are reserved and always signal RI
+            generate_exception(ctx, EXCP_RI);
+        }
+        /* Treat as NOP. */
+        break;
+    case R6_OPC_CACHE:
+        /* Treat as NOP. */
+        break;
     case R6_OPC_SC:
         gen_st_cond(ctx, op1, rt, rs, imm >> 7);
         break;
@@ -15771,11 +15783,13 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
          gen_st_cond(ctx, op, rt, rs, imm);
          break;
     case OPC_CACHE:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
         check_cp0_enabled(ctx);
         check_insn(ctx, ISA_MIPS3 | ISA_MIPS32);
         /* Treat as NOP. */
         break;
     case OPC_PREF:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
         check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
         /* Treat as NOP. */
         break;
