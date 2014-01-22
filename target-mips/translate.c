@@ -14537,6 +14537,247 @@ static void gen_mipsdsp_accinsn(DisasContext *ctx, uint32_t op1, uint32_t op2,
 
 /* End MIPSDSP functions. */
 
+static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs, rt, rd, sa;
+    uint32_t op1;
+
+    rs = (ctx->opcode >> 21) & 0x1f;
+    rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+    sa = (ctx->opcode >> 6) & 0x1f;
+
+    op1 = MASK_SPECIAL(ctx->opcode);
+    switch (op1) {
+    case OPC_SLL:          /* Shift with immediate */
+    case OPC_SRA:
+        gen_shift_imm(ctx, op1, rd, rt, sa);
+        break;
+    case OPC_SRL:
+        switch ((ctx->opcode >> 21) & 0x1f) {
+        case 1:
+            /* rotr is decoded as srl on non-R2 CPUs */
+            if (ctx->insn_flags & ISA_MIPS32R2) {
+                op1 = OPC_ROTR;
+            }
+            /* Fallthrough */
+        case 0:
+            gen_shift_imm(ctx, op1, rd, rt, sa);
+            break;
+        default:
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case OPC_MOVN:         /* Conditional move */
+    case OPC_MOVZ:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
+                   INSN_LOONGSON2E | INSN_LOONGSON2F);
+        gen_cond_move(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_SELEQZ:
+    case OPC_SELNEZ:
+        check_insn(ctx, ISA_MIPS32R6);
+        gen_cond_move(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_ADD ... OPC_SUBU:
+        gen_arith(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_SLLV:         /* Shifts */
+    case OPC_SRAV:
+        gen_shift(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_SRLV:
+        switch ((ctx->opcode >> 6) & 0x1f) {
+        case 1:
+            /* rotrv is decoded as srlv on non-R2 CPUs */
+            if (ctx->insn_flags & ISA_MIPS32R2) {
+                op1 = OPC_ROTRV;
+            }
+            /* Fallthrough */
+        case 0:
+            gen_shift(ctx, op1, rd, rs, rt);
+            break;
+        default:
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case OPC_SLT:          /* Set on less than */
+    case OPC_SLTU:
+        gen_slt(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_AND:          /* Logic*/
+    case OPC_OR:
+    case OPC_NOR:
+    case OPC_XOR:
+        gen_logic(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_MULT:
+    case OPC_MULTU:
+        if (sa) {
+            check_insn(ctx, INSN_VR54XX);
+            op1 = MASK_MUL_VR54XX(ctx->opcode);
+            gen_mul_vr54xx(ctx, op1, rd, rs, rt);
+        } else {
+            gen_muldiv(ctx, op1, rd & 3, rs, rt);
+        }
+        break;
+    case OPC_DIV:
+    case OPC_DIVU:
+        gen_muldiv(ctx, op1, 0, rs, rt);
+        break;
+    case OPC_JR ... OPC_JALR:
+        gen_compute_branch(ctx, op1, 4, rs, rd, sa);
+        break;
+    case OPC_TGE ... OPC_TEQ: /* Traps */
+    case OPC_TNE:
+        gen_trap(ctx, op1, rs, rt, -1);
+        break;
+    case OPC_MFHI:          /* Move from HI/LO */
+    case OPC_MFLO:
+        if ((rs & 3) == 0) {
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        }
+        gen_HILO(ctx, op1, rs & 3, rd);
+        break;
+    case OPC_MTHI:
+    case OPC_MTLO:          /* Move to HI/LO */
+        if ((rs & 3) == 0) {
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        }
+        gen_HILO(ctx, op1, rd & 3, rs);
+        break;
+    case OPC_PMON:          /* Pmon entry point, also R4010 selsl */
+#ifdef MIPS_STRICT_STANDARD
+        MIPS_INVAL("PMON / selsl");
+        generate_exception(ctx, EXCP_RI);
+#else
+        gen_helper_0e0i(pmon, sa);
+#endif
+        break;
+    case OPC_SYSCALL:
+        generate_exception(ctx, EXCP_SYSCALL);
+        ctx->bstate = BS_STOP;
+        break;
+    case OPC_BREAK:
+        generate_exception(ctx, EXCP_BREAK);
+        break;
+    case OPC_SPIM:
+#ifdef MIPS_STRICT_STANDARD
+        MIPS_INVAL("SPIM");
+        generate_exception(ctx, EXCP_RI);
+#else
+        /* Implemented as RI exception for now. */
+        MIPS_INVAL("spim (unofficial)");
+        generate_exception(ctx, EXCP_RI);
+#endif
+        break;
+    case OPC_SYNC:
+        /* Treat as NOP. */
+        break;
+
+    case OPC_MOVCI:
+        check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+            check_cp1_enabled(ctx);
+            gen_movci(ctx, rd, rs, (ctx->opcode >> 18) & 0x7,
+                      (ctx->opcode >> 16) & 1);
+        } else {
+            generate_exception_err(ctx, EXCP_CpU, 1);
+        }
+        break;
+
+#if defined(TARGET_MIPS64)
+        /* MIPS64 specific opcodes */
+    case OPC_DSLL:
+    case OPC_DSRA:
+    case OPC_DSLL32:
+    case OPC_DSRA32:
+        check_insn(ctx, ISA_MIPS3);
+        check_mips_64(ctx);
+        gen_shift_imm(ctx, op1, rd, rt, sa);
+        break;
+    case OPC_DSRL:
+        switch ((ctx->opcode >> 21) & 0x1f) {
+        case 1:
+            /* drotr is decoded as dsrl on non-R2 CPUs */
+            if (ctx->insn_flags & ISA_MIPS32R2) {
+                op1 = OPC_DROTR;
+            }
+            /* Fallthrough */
+        case 0:
+            check_insn(ctx, ISA_MIPS3);
+            check_mips_64(ctx);
+            gen_shift_imm(ctx, op1, rd, rt, sa);
+            break;
+        default:
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case OPC_DSRL32:
+        switch ((ctx->opcode >> 21) & 0x1f) {
+        case 1:
+            /* drotr32 is decoded as dsrl32 on non-R2 CPUs */
+            if (ctx->insn_flags & ISA_MIPS32R2) {
+                op1 = OPC_DROTR32;
+            }
+            /* Fallthrough */
+        case 0:
+            check_insn(ctx, ISA_MIPS3);
+            check_mips_64(ctx);
+            gen_shift_imm(ctx, op1, rd, rt, sa);
+            break;
+        default:
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case OPC_DADD ... OPC_DSUBU:
+        check_insn(ctx, ISA_MIPS3);
+        check_mips_64(ctx);
+        gen_arith(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_DSLLV:
+    case OPC_DSRAV:
+        check_insn(ctx, ISA_MIPS3);
+        check_mips_64(ctx);
+        gen_shift(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_DSRLV:
+        switch ((ctx->opcode >> 6) & 0x1f) {
+        case 1:
+            /* drotrv is decoded as dsrlv on non-R2 CPUs */
+            if (ctx->insn_flags & ISA_MIPS32R2) {
+                op1 = OPC_DROTRV;
+            }
+            /* Fallthrough */
+        case 0:
+            check_insn(ctx, ISA_MIPS3);
+            check_mips_64(ctx);
+            gen_shift(ctx, op1, rd, rs, rt);
+            break;
+        default:
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case OPC_DMULT ... OPC_DDIVU:
+        check_insn(ctx, ISA_MIPS3);
+        check_mips_64(ctx);
+        gen_muldiv(ctx, op1, 0, rs, rt);
+        break;
+#endif
+    default:            /* Invalid */
+        MIPS_INVAL("special");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int32_t offset;
@@ -14574,235 +14815,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     imm = (int16_t)ctx->opcode;
     switch (op) {
     case OPC_SPECIAL:
-        op1 = MASK_SPECIAL(ctx->opcode);
-        switch (op1) {
-        case OPC_SLL:          /* Shift with immediate */
-        case OPC_SRA:
-            gen_shift_imm(ctx, op1, rd, rt, sa);
-            break;
-        case OPC_SRL:
-            switch ((ctx->opcode >> 21) & 0x1f) {
-            case 1:
-                /* rotr is decoded as srl on non-R2 CPUs */
-                if (ctx->insn_flags & ISA_MIPS32R2) {
-                    op1 = OPC_ROTR;
-                }
-                /* Fallthrough */
-            case 0:
-                gen_shift_imm(ctx, op1, rd, rt, sa);
-                break;
-            default:
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        case OPC_MOVN:         /* Conditional move */
-        case OPC_MOVZ:
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
-                                 INSN_LOONGSON2E | INSN_LOONGSON2F);
-            gen_cond_move(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_SELEQZ:
-        case OPC_SELNEZ:
-            check_insn(ctx, ISA_MIPS32R6);
-            gen_cond_move(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_ADD ... OPC_SUBU:
-            gen_arith(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_SLLV:         /* Shifts */
-        case OPC_SRAV:
-            gen_shift(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_SRLV:
-            switch ((ctx->opcode >> 6) & 0x1f) {
-            case 1:
-                /* rotrv is decoded as srlv on non-R2 CPUs */
-                if (ctx->insn_flags & ISA_MIPS32R2) {
-                    op1 = OPC_ROTRV;
-                }
-                /* Fallthrough */
-            case 0:
-                gen_shift(ctx, op1, rd, rs, rt);
-                break;
-            default:
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        case OPC_SLT:          /* Set on less than */
-        case OPC_SLTU:
-            gen_slt(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_AND:          /* Logic*/
-        case OPC_OR:
-        case OPC_NOR:
-        case OPC_XOR:
-            gen_logic(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_MULT:
-        case OPC_MULTU:
-            if (sa) {
-                check_insn(ctx, INSN_VR54XX);
-                op1 = MASK_MUL_VR54XX(ctx->opcode);
-                gen_mul_vr54xx(ctx, op1, rd, rs, rt);
-            } else {
-                gen_muldiv(ctx, op1, rd & 3, rs, rt);
-            }
-            break;
-        case OPC_DIV:
-        case OPC_DIVU:
-            gen_muldiv(ctx, op1, 0, rs, rt);
-            break;
-        case OPC_JR ... OPC_JALR:
-            gen_compute_branch(ctx, op1, 4, rs, rd, sa);
-            break;
-        case OPC_TGE ... OPC_TEQ: /* Traps */
-        case OPC_TNE:
-            gen_trap(ctx, op1, rs, rt, -1);
-            break;
-        case OPC_MFHI:          /* Move from HI/LO */
-        case OPC_MFLO:
-            if ((rs & 3) == 0) {
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            }
-            gen_HILO(ctx, op1, rs & 3, rd);
-            break;
-        case OPC_MTHI:
-        case OPC_MTLO:          /* Move to HI/LO */
-            if ((rs & 3) == 0) {
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            }
-            gen_HILO(ctx, op1, rd & 3, rs);
-            break;
-        case OPC_PMON:          /* Pmon entry point, also R4010 selsl */
-#ifdef MIPS_STRICT_STANDARD
-            MIPS_INVAL("PMON / selsl");
-            generate_exception(ctx, EXCP_RI);
-#else
-            gen_helper_0e0i(pmon, sa);
-#endif
-            break;
-        case OPC_SYSCALL:
-            generate_exception(ctx, EXCP_SYSCALL);
-            ctx->bstate = BS_STOP;
-            break;
-        case OPC_BREAK:
-            generate_exception(ctx, EXCP_BREAK);
-            break;
-        case OPC_SPIM:
-#ifdef MIPS_STRICT_STANDARD
-            MIPS_INVAL("SPIM");
-            generate_exception(ctx, EXCP_RI);
-#else
-           /* Implemented as RI exception for now. */
-            MIPS_INVAL("spim (unofficial)");
-            generate_exception(ctx, EXCP_RI);
-#endif
-            break;
-        case OPC_SYNC:
-            /* Treat as NOP. */
-            break;
-
-        case OPC_MOVCI:
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
-            if (env->CP0_Config1 & (1 << CP0C1_FP)) {
-                check_cp1_enabled(ctx);
-                gen_movci(ctx, rd, rs, (ctx->opcode >> 18) & 0x7,
-                          (ctx->opcode >> 16) & 1);
-            } else {
-                generate_exception_err(ctx, EXCP_CpU, 1);
-            }
-            break;
-
-#if defined(TARGET_MIPS64)
-       /* MIPS64 specific opcodes */
-        case OPC_DSLL:
-        case OPC_DSRA:
-        case OPC_DSLL32:
-        case OPC_DSRA32:
-            check_insn(ctx, ISA_MIPS3);
-            check_mips_64(ctx);
-            gen_shift_imm(ctx, op1, rd, rt, sa);
-            break;
-        case OPC_DSRL:
-            switch ((ctx->opcode >> 21) & 0x1f) {
-            case 1:
-                /* drotr is decoded as dsrl on non-R2 CPUs */
-                if (ctx->insn_flags & ISA_MIPS32R2) {
-                    op1 = OPC_DROTR;
-                }
-                /* Fallthrough */
-            case 0:
-                check_insn(ctx, ISA_MIPS3);
-                check_mips_64(ctx);
-                gen_shift_imm(ctx, op1, rd, rt, sa);
-                break;
-            default:
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        case OPC_DSRL32:
-            switch ((ctx->opcode >> 21) & 0x1f) {
-            case 1:
-                /* drotr32 is decoded as dsrl32 on non-R2 CPUs */
-                if (ctx->insn_flags & ISA_MIPS32R2) {
-                    op1 = OPC_DROTR32;
-                }
-                /* Fallthrough */
-            case 0:
-                check_insn(ctx, ISA_MIPS3);
-                check_mips_64(ctx);
-                gen_shift_imm(ctx, op1, rd, rt, sa);
-                break;
-            default:
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        case OPC_DADD ... OPC_DSUBU:
-            check_insn(ctx, ISA_MIPS3);
-            check_mips_64(ctx);
-            gen_arith(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_DSLLV:
-        case OPC_DSRAV:
-            check_insn(ctx, ISA_MIPS3);
-            check_mips_64(ctx);
-            gen_shift(ctx, op1, rd, rs, rt);
-            break;
-        case OPC_DSRLV:
-            switch ((ctx->opcode >> 6) & 0x1f) {
-            case 1:
-                /* drotrv is decoded as dsrlv on non-R2 CPUs */
-                if (ctx->insn_flags & ISA_MIPS32R2) {
-                    op1 = OPC_DROTRV;
-                }
-                /* Fallthrough */
-            case 0:
-                check_insn(ctx, ISA_MIPS3);
-                check_mips_64(ctx);
-                gen_shift(ctx, op1, rd, rs, rt);
-                break;
-            default:
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        case OPC_DMULT ... OPC_DDIVU:
-            check_insn(ctx, ISA_MIPS3);
-            check_mips_64(ctx);
-            gen_muldiv(ctx, op1, 0, rs, rt);
-            break;
-#endif
-        default:            /* Invalid */
-            MIPS_INVAL("special");
-            generate_exception(ctx, EXCP_RI);
-            break;
-        }
+        decode_opc_special(env, ctx);
         break;
     case OPC_SPECIAL2:
         op1 = MASK_SPECIAL2(ctx->opcode);
