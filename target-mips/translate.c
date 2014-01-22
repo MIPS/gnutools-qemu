@@ -15624,6 +15624,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_TGEI ... OPC_TEQI: /* REGIMM traps */
         case OPC_TNEI:
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
             gen_trap(ctx, op1, rs, -1, imm);
             break;
         case OPC_SYNCI:
