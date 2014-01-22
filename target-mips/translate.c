@@ -14537,6 +14537,70 @@ static void gen_mipsdsp_accinsn(DisasContext *ctx, uint32_t op1, uint32_t op2,
 
 /* End MIPSDSP functions. */
 
+static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs, rt, rd;
+    uint32_t op1;
+
+    rs = (ctx->opcode >> 21) & 0x1f;
+    rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+
+    op1 = MASK_SPECIAL(ctx->opcode);
+    switch (op1) {
+    case OPC_SELEQZ:
+    case OPC_SELNEZ:
+        gen_cond_move(ctx, op1, rd, rs, rt);
+        break;
+    default:            /* Invalid */
+        MIPS_INVAL("special_r6");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
+static void decode_opc_special_legacy (CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs, rt, rd;
+    uint32_t op1;
+
+    rs = (ctx->opcode >> 21) & 0x1f;
+    rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+
+    op1 = MASK_SPECIAL(ctx->opcode);
+    switch (op1) {
+    case OPC_MOVN:         /* Conditional move */
+    case OPC_MOVZ:
+        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
+                   INSN_LOONGSON2E | INSN_LOONGSON2F);
+        gen_cond_move(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_MFHI:          /* Move from HI/LO */
+    case OPC_MFLO:
+        gen_HILO(ctx, op1, rs & 3, rd);
+        break;
+    case OPC_MTHI:
+    case OPC_MTLO:          /* Move to HI/LO */
+        gen_HILO(ctx, op1, rd & 3, rs);
+        break;
+    case OPC_MOVCI:
+        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
+        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+            check_cp1_enabled(ctx);
+            gen_movci(ctx, rd, rs, (ctx->opcode >> 18) & 0x7,
+                      (ctx->opcode >> 16) & 1);
+        } else {
+            generate_exception_err(ctx, EXCP_CpU, 1);
+        }
+        break;
+    default:            /* Invalid */
+        MIPS_INVAL("special_legacy");
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
 static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd, sa;
@@ -14568,18 +14632,6 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
             generate_exception(ctx, EXCP_RI);
             break;
         }
-        break;
-    case OPC_MOVN:         /* Conditional move */
-    case OPC_MOVZ:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
-                   INSN_LOONGSON2E | INSN_LOONGSON2F);
-        gen_cond_move(ctx, op1, rd, rs, rt);
-        break;
-    case OPC_SELEQZ:
-    case OPC_SELNEZ:
-        check_insn(ctx, ISA_MIPS32R6);
-        gen_cond_move(ctx, op1, rd, rs, rt);
         break;
     case OPC_ADD ... OPC_SUBU:
         gen_arith(ctx, op1, rd, rs, rt);
@@ -14635,20 +14687,6 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     case OPC_TNE:
         gen_trap(ctx, op1, rs, rt, -1);
         break;
-    case OPC_MFHI:          /* Move from HI/LO */
-    case OPC_MFLO:
-        if ((rs & 3) == 0) {
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        }
-        gen_HILO(ctx, op1, rs & 3, rd);
-        break;
-    case OPC_MTHI:
-    case OPC_MTLO:          /* Move to HI/LO */
-        if ((rs & 3) == 0) {
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        }
-        gen_HILO(ctx, op1, rd & 3, rs);
-        break;
     case OPC_PMON:          /* Pmon entry point, also R4010 selsl */
 #ifdef MIPS_STRICT_STANDARD
         MIPS_INVAL("PMON / selsl");
@@ -14676,18 +14714,6 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_SYNC:
         /* Treat as NOP. */
-        break;
-
-    case OPC_MOVCI:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
-        if (env->CP0_Config1 & (1 << CP0C1_FP)) {
-            check_cp1_enabled(ctx);
-            gen_movci(ctx, rd, rs, (ctx->opcode >> 18) & 0x7,
-                      (ctx->opcode >> 16) & 1);
-        } else {
-            generate_exception_err(ctx, EXCP_CpU, 1);
-        }
         break;
 
 #if defined(TARGET_MIPS64)
@@ -14771,10 +14797,12 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
         gen_muldiv(ctx, op1, 0, rs, rt);
         break;
 #endif
-    default:            /* Invalid */
-        MIPS_INVAL("special");
-        generate_exception(ctx, EXCP_RI);
-        break;
+    default:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            decode_opc_special_r6(env, ctx);
+        } else {
+            decode_opc_special_legacy(env, ctx);
+        }
     }
 }
 
