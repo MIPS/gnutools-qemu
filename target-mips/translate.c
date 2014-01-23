@@ -2517,11 +2517,11 @@ static void gen_cond_move(DisasContext *ctx, uint32_t opc,
         opn = "movz";
         break;
     case OPC_SELNEZ:
-        tcg_gen_movcond_tl(TCG_COND_NE, cpu_gpr[rd], t0, t1, t1, t2);
+        tcg_gen_movcond_tl(TCG_COND_EQ, cpu_gpr[rd], t0, t1, t1, t2);
         opn = "selnez";
         break;
     case OPC_SELEQZ:
-        tcg_gen_movcond_tl(TCG_COND_EQ, cpu_gpr[rd], t0, t1, t1, t2);
+        tcg_gen_movcond_tl(TCG_COND_NE, cpu_gpr[rd], t0, t1, t1, t2);
         opn = "seleqz";
         break;
     }
