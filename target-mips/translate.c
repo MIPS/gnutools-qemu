@@ -106,11 +106,12 @@ enum {
     /* Floating point load/store */
     OPC_LWC1     = (0x31 << 26),
     OPC_LWC2     = (0x32 << 26),
+    R6_OPC_BC    = (0x32 << 26),
     OPC_LDC1     = (0x35 << 26),
     OPC_LDC2     = (0x36 << 26),
     OPC_SWC1     = (0x39 << 26),
     OPC_SWC2     = (0x3A << 26),
-    OPC_BALC     = (0x3A << 26), /* R6 */
+    R6_OPC_BALC  = (0x3A << 26),
     OPC_SDC1     = (0x3D << 26),
     OPC_SDC2     = (0x3E << 26),
     /* MDMX ASE specific */
@@ -4023,7 +4024,8 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             gen_load_gpr(t1, rt);
             bcond_compute = 1;
         }
-    case OPC_BALC:
+    case R6_OPC_BC:
+    case R6_OPC_BALC:
         btgt = ctx->pc + insn_bytes + offset;
         break;
     case OPC_BGEZ:
@@ -4087,6 +4089,10 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     if (bcond_compute == 0) {
         /* No condition to be computed */
         switch (opc) {
+        case R6_OPC_BC:
+            // Compact Branch
+            post_delay = 0;
+            ctx->hflags |= MIPS_HFLAG_CB;
         case OPC_BEQ:     /* rx == rx        */
         case OPC_BEQL:    /* rx == rx likely */
         case OPC_BGEZ:    /* 0 >= 0          */
@@ -4097,7 +4103,7 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             ctx->hflags |= MIPS_HFLAG_B;
             MIPS_DEBUG("balways");
             break;
-        case OPC_BALC:
+        case R6_OPC_BALC:
             // Compact Branch
             post_delay = 0;
             ctx->hflags |= MIPS_HFLAG_CB;
@@ -16140,9 +16146,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_BEQ ... OPC_BGTZ:
          gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
          break;
-    case OPC_BALC:    // and OPC_SWC2
+    case R6_OPC_BC: // and OPC_LWC2
         if (ctx->insn_flags & ISA_MIPS32R6) {
-            // OPC_BALC is R6 instruction
+            // R6_OPC_BC is R6 instruction
+            gen_compute_branch(ctx, op, 4, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
+        }
+        else {
+            // OPC_SWC2
+            generate_exception_err(ctx, EXCP_CpU, 2);
+        }
+        break;
+    case R6_OPC_BALC: // and OPC_SWC2
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            // R6_OPC_BALC is R6 instruction
             gen_compute_branch(ctx, op, 4, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
         }
         else {
@@ -16253,11 +16269,13 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     /* COP2.  */
-    case OPC_LWC2:
+//    case OPC_LWC2:
+// opcode for LWC2 is replaced with BC in R6
+// refer R6_OPC_BC
     case OPC_LDC2:
 //    case OPC_SWC2:
 // opcode for SWC2 is replaced with BALC in R6
-// refer OPC_BALC
+// refer R6_OPC_BALC
     case OPC_SDC2:
         /* COP2: Not implemented. */
         generate_exception_err(ctx, EXCP_CpU, 2);

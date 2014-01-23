@@ -1299,6 +1299,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 /* bal is at the top of the table.  */
 /* bc0[tf]l? are at the bottom of the table.  */
 {"balc",     "+p",    0xE8000000, 0xfc000000,  UBD|WR_31,     0,      I32R6  },
+{"bc",       "+p",    0xC8000000, 0xfc000000,  UBD|WR_31,     0,      I32R6  },
 {"bc1any2f", "N,p",	0x45200000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any2t", "N,p",	0x45210000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any4f", "N,p",	0x45400000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
