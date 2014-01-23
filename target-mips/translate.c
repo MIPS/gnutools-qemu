@@ -392,17 +392,22 @@ enum {
 #define MASK_BSHFL(op)     MASK_SPECIAL3(op) | (op & (0x1F << 6))
 
 enum {
-    OPC_WSBH     = (0x02 << 6) | OPC_BSHFL,
-    OPC_SEB      = (0x10 << 6) | OPC_BSHFL,
-    OPC_SEH      = (0x18 << 6) | OPC_BSHFL,
+    OPC_WSBH      = (0x02 << 6) | OPC_BSHFL,
+    OPC_SEB       = (0x10 << 6) | OPC_BSHFL,
+    OPC_SEH       = (0x18 << 6) | OPC_BSHFL,
+    R6_OPC_ALIGN     = (0x08 << 6) | OPC_BSHFL, // 010.imm2
+    R6_OPC_ALIGN_END = (0x0B << 6) | OPC_BSHFL, // 010.00 to 010.11
+    R6_OPC_BITSWAP   = (0x00 << 6) | OPC_BSHFL  // 00000
 };
 
 /* DBSHFL opcodes */
 #define MASK_DBSHFL(op)    MASK_SPECIAL3(op) | (op & (0x1F << 6))
 
 enum {
-    OPC_DSBH     = (0x02 << 6) | OPC_DBSHFL,
-    OPC_DSHD     = (0x05 << 6) | OPC_DBSHFL,
+    OPC_DSBH       = (0x02 << 6) | OPC_DBSHFL,
+    OPC_DSHD       = (0x05 << 6) | OPC_DBSHFL,
+    R6_OPC_DALIGN     = (0x08 << 6) | OPC_DBSHFL, // 01.imm3
+    R6_OPC_DALIGN_END = (0x0F << 6) | OPC_DBSHFL, // 01.000 to 01.111
 };
 
 /* MIPS DSP REGIMM opcodes */
@@ -15233,12 +15238,14 @@ static void decode_opc_special2 (CPUMIPSState *env, DisasContext *ctx)
 
 static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
 {
-    int rs, rt;
-    uint32_t op1;
+    int rs, rt, rd, sa;
+    uint32_t op1, op2;
     int16_t imm;
 
     rs = (ctx->opcode >> 21) & 0x1f;
     rt = (ctx->opcode >> 16) & 0x1f;
+    rd = (ctx->opcode >> 11) & 0x1f;
+    sa = (ctx->opcode >> 6) & 0x1f;
     imm = (int16_t)ctx->opcode;
 
     op1 = MASK_SPECIAL3(ctx->opcode);
@@ -15259,12 +15266,67 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_LL:
         gen_ld(ctx, op1, rt, rs, imm >> 7);
         break;
+    case OPC_BSHFL:
+        op2 = MASK_BSHFL(ctx->opcode);
+        switch (op2) {
+        case R6_OPC_ALIGN ... R6_OPC_ALIGN_END:
+            // instruction promoted from DSP ASE (OPC_BALIGN)
+            check_insn(ctx, ISA_MIPS32R6);
+            {
+                TCGv t0, t1;
+                sa &= 3;
+                t0 = tcg_temp_new();
+                t1 = tcg_temp_new();
+                gen_load_gpr(t0, rs);
+                tcg_gen_shli_tl(t1, cpu_gpr[rt], 8 * sa);
+                tcg_gen_shri_tl(t0, t0, 8 * (4 - sa));
+                tcg_gen_or_tl(cpu_gpr[rd], t1, t0);
+                tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+                tcg_temp_free(t0);
+                tcg_temp_free(t1);
+            }
+            break;
+        case R6_OPC_BITSWAP:
+            // instruction promoted from DSP ASE (OPC_BITREV)
+            check_insn(ctx, ISA_MIPS32R6);
+            gen_helper_bitswap(cpu_gpr[rd], cpu_gpr[rt]);
+#if defined(TARGET_MIPS64)
+            if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
+                !(ctx->hflags & MIPS_HFLAG_UX)) {
+                tcg_gen_ext32s_i64(cpu_gpr[rd], cpu_gpr[rd]);
+            }
+#endif
+            break;
+        }
+        break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_SCD:
         gen_st_cond(ctx, op1, rt, rs, imm >> 7);
         break;
     case R6_OPC_LLD:
         gen_ld(ctx, op1, rt, rs, imm >> 7);
+    case OPC_DBSHFL:
+        op2 = MASK_DBSHFL(ctx->opcode);
+        switch(op2) {
+        case R6_OPC_DALIGN ... R6_OPC_DALIGN_END:
+            // instruction promoted from DSP ASE (OPC_DBALIGN)
+            check_insn(ctx, ISA_MIPS64R6);
+            check_mips_64(ctx);
+            sa &= 7;
+            TCGv t0, t1;
+            t0 = tcg_temp_new();
+            t1 = tcg_temp_new();
+            tcg_gen_shli_tl(t0, cpu_gpr[rt], 8 * sa);
+            if (sa == 0)
+                // avoid undefined
+                tcg_gen_sari_tl(t1, cpu_gpr[rs], 63);
+            else
+                tcg_gen_sari_tl(t1, cpu_gpr[rs], 8 * (8 - sa));
+            tcg_gen_or_tl(cpu_gpr[rd], t1, t0);
+            tcg_temp_free(t0);
+            tcg_temp_free(t1);
+            break;
+        }
         break;
 #endif
     default:            /* Invalid */
@@ -15562,12 +15624,6 @@ static void decode_opc_special3_legacy (CPUMIPSState *env, DisasContext *ctx)
         check_mips_64(ctx);
         gen_bitops(ctx, op1, rt, rs, sa, rd);
         break;
-    case OPC_DBSHFL:
-        check_insn(ctx, ISA_MIPS64R2);
-        check_mips_64(ctx);
-        op2 = MASK_DBSHFL(ctx->opcode);
-        gen_bshfl(ctx, op2, rt, rd);
-        break;
     case OPC_DDIV_G_2E ... OPC_DDIVU_G_2E:
     case OPC_DMULT_G_2E ... OPC_DMULTU_G_2E:
     case OPC_DMOD_G_2E ... OPC_DMODU_G_2E:
@@ -15827,10 +15883,35 @@ static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
         gen_bitops(ctx, op1, rt, rs, sa, rd);
         break;
     case OPC_BSHFL:
-        check_insn(ctx, ISA_MIPS32R2);
         op2 = MASK_BSHFL(ctx->opcode);
-        gen_bshfl(ctx, op2, rt, rd);
+        switch (op2) {
+        case R6_OPC_ALIGN ... R6_OPC_ALIGN_END:
+        case R6_OPC_BITSWAP:
+            check_insn(ctx, ISA_MIPS32R6);
+            decode_opc_special3_r6(env, ctx);
+            break;
+        default:
+            check_insn(ctx, ISA_MIPS32R2);
+            gen_bshfl(ctx, op2, rt, rd);
+        }
         break;
+#if defined(TARGET_MIPS64)
+    case OPC_DBSHFL:
+        op2 = MASK_DBSHFL(ctx->opcode);
+        switch(op2) {
+        case R6_OPC_DALIGN ... R6_OPC_DALIGN_END:
+            check_insn(ctx, ISA_MIPS32R6);
+            decode_opc_special3_r6(env, ctx);
+            break;
+        default:
+            check_insn(ctx, ISA_MIPS64R2);
+            check_mips_64(ctx);
+            op2 = MASK_DBSHFL(ctx->opcode);
+            gen_bshfl(ctx, op2, rt, rd);
+            break;
+        }
+        break;
+#endif
     case OPC_RDHWR:
         gen_rdhwr(ctx, rt, rd);
         break;
@@ -15975,7 +16056,6 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             {
                 uint32_t op2;
                 TCGv t0 = tcg_temp_new();
-
                 op2 = MASK_MFMC0(ctx->opcode);
                 switch (op2) {
                 case OPC_DMT:

@@ -49,6 +49,8 @@ DEF_HELPER_3(macchiu, tl, env, tl, tl)
 DEF_HELPER_3(msachi, tl, env, tl, tl)
 DEF_HELPER_3(msachiu, tl, env, tl, tl)
 
+DEF_HELPER_1(bitswap, tl, tl)
+
 #ifndef CONFIG_USER_ONLY
 /* CP0 helpers */
 DEF_HELPER_1(mfc0_mvpcontrol, tl, env)
