@@ -106,14 +106,16 @@ enum {
     /* Floating point load/store */
     OPC_LWC1     = (0x31 << 26),
     OPC_LWC2     = (0x32 << 26),
-    R6_OPC_BC    = (0x32 << 26),
     OPC_LDC1     = (0x35 << 26),
     OPC_LDC2     = (0x36 << 26),
     OPC_SWC1     = (0x39 << 26),
     OPC_SWC2     = (0x3A << 26),
-    R6_OPC_BALC  = (0x3A << 26),
     OPC_SDC1     = (0x3D << 26),
     OPC_SDC2     = (0x3E << 26),
+    /* Compat Branch */
+    R6_OPC_BC    = (0x32 << 26),
+    R6_OPC_BEQZC = (0x36 << 26), // BEQZC rs != r0 otherwise JIC
+    R6_OPC_BALC  = (0x3A << 26),
     /* MDMX ASE specific */
     OPC_MDMX     = (0x1E << 26),
     /* Cache and prefetch */
@@ -4049,6 +4051,21 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
         }
         btgt = ctx->pc + insn_bytes + offset;
         break;
+    case R6_OPC_BEQZC:
+        if (rs != 0) {
+            // BEQZC
+            gen_load_gpr(t0, rs);
+            bcond_compute = 1;
+            btgt = ctx->pc + insn_bytes + offset;
+        }
+        else {
+            // JIC
+            gen_load_gpr(btarget, rt);
+            tcg_gen_movi_tl(t0, offset);
+            tcg_gen_ext16s_tl(t0, t0);
+            tcg_gen_add_tl(btarget, btarget, t0);
+        }
+        break;
     case OPC_BPOSGE32:
 #if defined(TARGET_MIPS64)
     case OPC_BPOSGE64:
@@ -4089,6 +4106,21 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     if (bcond_compute == 0) {
         /* No condition to be computed */
         switch (opc) {
+        case R6_OPC_BEQZC:
+            // Compact Branch
+            post_delay = 0;
+            ctx->hflags |= MIPS_HFLAG_CB;
+            if (rs != 0) {
+                // BEQZC
+                ctx->hflags |= MIPS_HFLAG_B;
+                MIPS_DEBUG("beqzc " TARGET_FMT_lx, btgt);
+            }
+            else {
+                // JIC
+                ctx->hflags |= MIPS_HFLAG_BR;
+                MIPS_DEBUG("jic %x (%s)" , offset, regnames[rt]);
+            }
+            break;
         case R6_OPC_BC:
             // Compact Branch
             post_delay = 0;
@@ -4199,6 +4231,12 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             MIPS_DEBUG("beql %s, %s, " TARGET_FMT_lx,
                        regnames[rs], regnames[rt], btgt);
             goto likely;
+        case R6_OPC_BEQZC:
+            tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t0, 0);
+            MIPS_DEBUG("beqzc %s, " TARGET_FMT_lx,
+                                   regnames[rs], btgt);
+            ctx->hflags |= MIPS_HFLAG_CB;
+            goto not_likely;
         case OPC_BNE:
             tcg_gen_setcond_tl(TCG_COND_NE, bcond, t0, t1);
             MIPS_DEBUG("bne %s, %s, " TARGET_FMT_lx,
@@ -16166,6 +16204,23 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             generate_exception_err(ctx, EXCP_CpU, 2);
         }
         break;
+    case R6_OPC_BEQZC: // and R6_OPC_JIC, OPC_LDC2
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            // R6_OPC_BALC is R6 instruction
+            if (rs != 0) {
+                //BEQZC
+                gen_compute_branch(ctx, op, 4, rs, 0, (int32_t)(ctx->opcode & 0x1FFFFF) << 2);
+            }
+            else {
+                //JIC
+                gen_compute_branch(ctx, op, 4, 0, rt, (int32_t)(ctx->opcode & 0xFFFF));
+            }
+        }
+        else {
+            // OPC_SWC2
+            generate_exception_err(ctx, EXCP_CpU, 2);
+        }
+        break;
     case OPC_LWL: /* Load and stores */
     case OPC_LWR:
     case OPC_LL:
@@ -16272,7 +16327,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 //    case OPC_LWC2:
 // opcode for LWC2 is replaced with BC in R6
 // refer R6_OPC_BC
-    case OPC_LDC2:
+//    case OPC_LDC2:
+// opcode for LDC2 is replaced with BEQZC in R6
+// refer R6_OPC_BEQZC
 //    case OPC_SWC2:
 // opcode for SWC2 is replaced with BALC in R6
 // refer R6_OPC_BALC

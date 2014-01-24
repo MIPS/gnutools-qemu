@@ -1217,6 +1217,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
    them first.  The assemblers uses a hash table based on the
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
+/* R6 instructions */
 {"mul",     "d,s,t",    0x00000098, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6	},
 {"muh",     "d,s,t",    0x000000d8, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6	},
 {"mulu",    "d,s,t",    0x00000099, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6	},
@@ -1233,14 +1234,22 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"dmod",    "d,s,t",    0x000000de, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6   },
 {"ddivu",   "d,s,t",    0x0000009f, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6   },
 {"dmodu",   "d,s,t",    0x000000df, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,              I32R6   },
-{"ll",      "t,o(b)",   0x7c000036, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
-{"sc",      "t,o(b)",   0x7c000026, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
-{"lld",     "t,o(b)",   0x7c000037, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
-{"scd",     "t,o(b)",   0x7c000027, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
-{"pref",    "h,o(b)",   0x7c000035, 0xfc00003f, RD_b,           	0,		I32R6	},
-{"cache",   "k,o(b)",   0x7c000025, 0xfc00003f, RD_b,           	0,		I32R6	},
+{"ll",      "t,+o(b)",   0x7c000036, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
+{"sc",      "t,+o(b)",   0x7c000026, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
+{"lld",     "t,+o(b)",   0x7c000037, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
+{"scd",     "t,+o(b)",   0x7c000027, 0xfc00003f, LDD|RD_b|WR_t,		0,		I32R6	},
+{"pref",    "h,+o(b)",   0x7c000035, 0xfc00003f, RD_b,           	0,		I32R6	},
+{"cache",   "k,+o(b)",   0x7c000025, 0xfc00003f, RD_b,           	0,		I32R6	},
 {"seleqz",  "d,v,t",    0x00000035, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,		I32R6	},
 {"selnez",  "d,v,t",    0x00000037, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,		I32R6	},
+{"align",   "d,v,t",    0x7C000220, 0xFC00073F, WR_d|RD_s|RD_t,     0,      I32R6  },
+{"dalign",  "d,v,t",    0x7C000224, 0xFC00063F, WR_d|RD_s|RD_t,     0,      I64R6  },
+{"bitswap", "d,w",      0x7C000020, 0xFFE007FF, WR_d|RD_t,          0,      I32R6  },
+{"balc",    "+p",       0xE8000000, 0xfc000000, UBD|WR_31,          0,      I32R6  },
+{"bc",      "+p",       0xC8000000, 0xfc000000, UBD|WR_31,          0,      I32R6  },
+{"jic",     "t,o",      0xD8000000, 0xffe00000, UBD|RD_t,           0,      I32R6  },
+{"beqzc",   "s,+p",     0xD8000000, 0xfc000000, CBD|RD_s,           0,      I32R6  },
+
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
 {"nop",     "",         0x00000000, 0xffffffff, 0,              	INSN2_ALIAS,	I1      }, /* sll */
@@ -1280,7 +1289,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"addr.ps", "D,S,T",	0x46c00018, 0xffe0003f,	WR_D|RD_S|RD_T|FP_D,	0,		M3D	},
 {"addu",    "d,v,t",	0x00000021, 0xfc0007ff,	WR_d|RD_s|RD_t,		0,		I1	},
 {"addu",    "t,r,I",	0,    (int) M_ADDU_I,	INSN_MACRO,		0,		I1	},
-{"align",   "d,v,t",    0x7C000220, 0xFC00073F, WR_d|RD_s|RD_t,     0,      I32R6  },
 {"alni.ob", "X,Y,Z,O",	0x78000018, 0xff00003f,	WR_D|RD_S|RD_T|FP_D,	0,		MX|SB1	},
 {"alni.ob", "D,S,T,%",	0x48000018, 0xff00003f,	WR_D|RD_S|RD_T, 	0,		N54	},
 {"alni.qh", "X,Y,Z,O",	0x7800001a, 0xff00003f,	WR_D|RD_S|RD_T|FP_D,	0,		MX	},
@@ -1298,8 +1306,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 /* b is at the top of the table.  */
 /* bal is at the top of the table.  */
 /* bc0[tf]l? are at the bottom of the table.  */
-{"balc",     "+p",    0xE8000000, 0xfc000000,  UBD|WR_31,     0,      I32R6  },
-{"bc",       "+p",    0xC8000000, 0xfc000000,  UBD|WR_31,     0,      I32R6  },
 {"bc1any2f", "N,p",	0x45200000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any2t", "N,p",	0x45210000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
 {"bc1any4f", "N,p",	0x45400000, 0xffe30000,	CBD|RD_CC|FP_S,		0,		M3D	},
@@ -1342,7 +1348,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"bgtul",   "s,I,p",	0,    (int) M_BGTUL_I,	INSN_MACRO,		0,		I2|T3	},
 {"bgtz",    "s,p",	0x1c000000, 0xfc1f0000,	CBD|RD_s,		0,		I1	},
 {"bgtzl",   "s,p",	0x5c000000, 0xfc1f0000,	CBL|RD_s,		0,		I2|T3	},
-{"bitswap", "d,w",  0x7C000020, 0xFFE007FF, WR_d|RD_t,      0,      I32R6  },
 {"ble",     "s,t,p",	0,    (int) M_BLE,	INSN_MACRO,		0,		I1	},
 {"ble",     "s,I,p",	0,    (int) M_BLE_I,	INSN_MACRO,		0,		I1	},
 {"blel",    "s,t,p",	0,    (int) M_BLEL,	INSN_MACRO,		0,		I2|T3	},
@@ -1584,7 +1589,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"daddiu",  "t,r,j",	0x64000000, 0xfc000000, WR_t|RD_s,		0,		I3	},
 {"daddu",   "d,v,t",	0x0000002d, 0xfc0007ff, WR_d|RD_s|RD_t,		0,		I3	},
 {"daddu",   "t,r,I",	0,    (int) M_DADDU_I,	INSN_MACRO,		0,		I3	},
-{"dalign",  "d,v,t",    0x7C000224, 0xFC00063F, WR_d|RD_s|RD_t,     0,      I64R6  },
 {"dbreak",  "",		0x7000003f, 0xffffffff,	0,			0,		N5	},
 {"dclo",    "U,s",      0x70000025, 0xfc0007ff, RD_s|WR_d|WR_t, 	0,		I64|N55 },
 {"dclz",    "U,s",      0x70000024, 0xfc0007ff, RD_s|WR_d|WR_t, 	0,		I64|N55 },
@@ -3777,6 +3781,14 @@ print_insn_args (const char *d,
 	      (*info->fprintf_func) (info->stream, "0x%x", msbd + 1);
 	      break;
 
+	    case 'o':
+	        delta = (l >> OP_SH_DELTA_R6) & OP_MASK_DELTA_R6;
+	        if (delta & 0x8000)
+	          delta |= ~0xffff;
+	        (*info->fprintf_func) (info->stream, "%d",
+	                   delta);
+	        break;
+
 	    case 'p':
 	        /* Sign extend the displacement with 26 bits.  */
 	        delta = (l >> OP_SH_DELTA) & OP_MASK_TARGET;
@@ -3957,9 +3969,7 @@ print_insn_args (const char *d,
 
 	case 'j': /* Same as i, but sign-extended.  */
 	case 'o':
-	  delta = (opp->membership == I32R6) ?
-              (l >> OP_SH_DELTA_R6) & OP_MASK_DELTA_R6 :
-              (l >> OP_SH_DELTA) & OP_MASK_DELTA;
+	  delta = (l >> OP_SH_DELTA) & OP_MASK_DELTA;
 
 	  if (delta & 0x8000)
 	    delta |= ~0xffff;
