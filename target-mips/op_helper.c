@@ -1723,6 +1723,12 @@ void helper_mtc0_config2(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Config2 = (env->CP0_Config2 & 0x8FFF0FFF);
 }
 
+void helper_mtc0_config4(CPUMIPSState *env, target_ulong arg1)
+{
+    env->CP0_Config4 = (env->CP0_Config4 & (~env->CP0_Config4_rw_bitmask)) |
+                       (arg1 & env->CP0_Config4_rw_bitmask);
+}
+
 void helper_mtc0_config5(CPUMIPSState *env, target_ulong arg1)
 {
     if (env->insn_flags & ISA_MIPS32R6) {

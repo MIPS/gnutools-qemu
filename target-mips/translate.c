@@ -6058,8 +6058,9 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "Config3";
             break;
         case 4:
-            /* currently ignored */
+            gen_helper_mtc0_config4(cpu_env, arg);
             rn = "Config4";
+            ctx->bstate = BS_STOP;
             break;
         case 5:
             gen_helper_mtc0_config5(cpu_env, arg);
@@ -18460,6 +18461,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_Config2 = env->cpu_model->CP0_Config2;
     env->CP0_Config3 = env->cpu_model->CP0_Config3;
     env->CP0_Config4 = env->cpu_model->CP0_Config4;
+    env->CP0_Config4_rw_bitmask = env->cpu_model->CP0_Config4_rw_bitmask;
     env->CP0_Config5 = env->cpu_model->CP0_Config5;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;

@@ -415,6 +415,7 @@ struct CPUMIPSState {
 #define CP0C3_SM   1
 #define CP0C3_TL   0
     int32_t CP0_Config4;
+    int32_t CP0_Config4_rw_bitmask;
 #define CP0C4_KScrExist 16
 #define CP0C4_MMUExtDef 14
 #define CP0C4_IE   29

@@ -48,6 +48,9 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
+#define MIPS_CONFIG4                                              \
+((0 << CP0C4_M))
+
 struct mips_def_t {
     const char *name;
     int32_t CP0_PRid;
@@ -56,6 +59,7 @@ struct mips_def_t {
     int32_t CP0_Config2;
     int32_t CP0_Config3;
     int32_t CP0_Config4;
+    int32_t CP0_Config4_rw_bitmask;
     int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
@@ -341,7 +345,9 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_M),
+        .CP0_Config4 = MIPS_CONFIG4,
+        .CP0_Config4_rw_bitmask = 0,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
