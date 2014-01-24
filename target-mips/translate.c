@@ -7875,11 +7875,14 @@ enum fopcode {
     OPC_TRUNC_W_S = FOP(13, FMT_S),
     OPC_CEIL_W_S = FOP(14, FMT_S),
     OPC_FLOOR_W_S = FOP(15, FMT_S),
+    R6_OPC_SEL_S = FOP (16, FMT_S),   // R6
     OPC_MOVCF_S = FOP(17, FMT_S),
     OPC_MOVZ_S = FOP(18, FMT_S),
     OPC_MOVN_S = FOP(19, FMT_S),
+    R6_OPC_SELEQZ_S = FOP(20, FMT_S), // R6
     OPC_RECIP_S = FOP(21, FMT_S),
     OPC_RSQRT_S = FOP(22, FMT_S),
+    R6_OPC_SELNEZ_S = FOP(23, FMT_S), // R6
     OPC_RECIP2_S = FOP(28, FMT_S),
     OPC_RECIP1_S = FOP(29, FMT_S),
     OPC_RSQRT1_S = FOP(30, FMT_S),
@@ -7921,11 +7924,14 @@ enum fopcode {
     OPC_TRUNC_W_D = FOP(13, FMT_D),
     OPC_CEIL_W_D = FOP(14, FMT_D),
     OPC_FLOOR_W_D = FOP(15, FMT_D),
+    R6_OPC_SEL_D = FOP (16, FMT_D),   // R6
     OPC_MOVCF_D = FOP(17, FMT_D),
     OPC_MOVZ_D = FOP(18, FMT_D),
     OPC_MOVN_D = FOP(19, FMT_D),
+    R6_OPC_SELEQZ_D = FOP(20, FMT_D), // R6
     OPC_RECIP_D = FOP(21, FMT_D),
     OPC_RSQRT_D = FOP(22, FMT_D),
+    R6_OPC_SELNEZ_D = FOP(23, FMT_D), // R6
     OPC_RECIP2_D = FOP(28, FMT_D),
     OPC_RECIP1_D = FOP(29, FMT_D),
     OPC_RSQRT1_D = FOP(30, FMT_D),
@@ -8178,6 +8184,71 @@ static inline void gen_movcf_ps (int fs, int fd, int cc, int tf)
     gen_set_label(l2);
 }
 
+static void gen_sel_s (DisasContext *ctx, enum fopcode op1, int fd, int ft, int fs)
+{
+    TCGv_i32 t1 = tcg_const_i32(0);
+    TCGv_i32 fp0 = tcg_temp_new_i32();
+    TCGv_i32 fp1 = tcg_temp_new_i32();
+    TCGv_i32 fp2 = tcg_temp_new_i32();
+    gen_load_fpr32(fp0, fd);
+    gen_load_fpr32(fp1, ft);
+    gen_load_fpr32(fp2, fs);
+
+    switch (op1) {
+    case R6_OPC_SEL_S:
+        tcg_gen_movcond_i32(TCG_COND_NE, fp0, fp0, t1, fp1, fp2);
+        break;
+    case R6_OPC_SELEQZ_S:
+        tcg_gen_movcond_i32(TCG_COND_NE, fp0, fp1, t1, t1, fp2);
+        break;
+    case R6_OPC_SELNEZ_S:
+        tcg_gen_movcond_i32(TCG_COND_EQ, fp0, fp1, t1, t1, fp2);
+        break;
+    default:
+        MIPS_INVAL("gen_sel_s");
+        generate_exception (ctx, EXCP_RI);
+        return;
+    }
+
+    gen_store_fpr32(fp0, fd);
+    tcg_temp_free_i32(fp2);
+    tcg_temp_free_i32(fp1);
+    tcg_temp_free_i32(fp0);
+    tcg_temp_free_i32(t1);
+}
+
+static void gen_sel_d (DisasContext *ctx, enum fopcode op1, int fd, int ft, int fs)
+{
+    TCGv_i64 t1 = tcg_const_i64(0);
+    TCGv_i64 fp0 = tcg_temp_new_i64();
+    TCGv_i64 fp1 = tcg_temp_new_i64();
+    TCGv_i64 fp2 = tcg_temp_new_i64();
+    gen_load_fpr64(ctx, fp0, fd);
+    gen_load_fpr64(ctx, fp1, ft);
+    gen_load_fpr64(ctx, fp2, fs);
+
+    switch (op1) {
+    case R6_OPC_SEL_D:
+        tcg_gen_movcond_i64(TCG_COND_NE, fp0, fp0, t1, fp1, fp2);
+        break;
+    case R6_OPC_SELEQZ_D:
+        tcg_gen_movcond_i64(TCG_COND_NE, fp0, fp1, t1, t1, fp2);
+        break;
+    case R6_OPC_SELNEZ_D:
+        tcg_gen_movcond_i64(TCG_COND_EQ, fp0, fp1, t1, t1, fp2);
+        break;
+    default:
+        MIPS_INVAL("gen_sel_d");
+        generate_exception (ctx, EXCP_RI);
+        return;
+    }
+
+    gen_store_fpr64(ctx, fp0, fd);
+    tcg_temp_free_i64(fp2);
+    tcg_temp_free_i64(fp1);
+    tcg_temp_free_i64(fp0);
+    tcg_temp_free_i64(t1);
+}
 
 static void gen_farith (DisasContext *ctx, enum fopcode op1,
                         int ft, int fs, int fd, int cc)
@@ -8425,6 +8496,18 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp0);
         }
         opn = "floor.w.s";
+        break;
+    case R6_OPC_SEL_S:
+        gen_sel_s(ctx, op1, fd, ft, fs);
+        opn = "sel.s";
+        break;
+    case R6_OPC_SELEQZ_S:
+        gen_sel_s(ctx, op1, fd, ft, fs);
+        opn = "seleqz.s";
+        break;
+    case R6_OPC_SELNEZ_S:
+        gen_sel_s(ctx, op1, fd, ft, fs);
+        opn = "selnez.s";
         break;
     case OPC_MOVCF_S:
         gen_movcf_s(fs, fd, (ft >> 2) & 0x7, ft & 0x1);
@@ -8834,6 +8917,18 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp32);
         }
         opn = "floor.w.d";
+        break;
+    case R6_OPC_SEL_D:
+        gen_sel_d(ctx, op1, fd, ft, fs);
+        opn = "sel.d";
+        break;
+    case R6_OPC_SELEQZ_D:
+        gen_sel_d(ctx, op1, fd, ft, fs);
+        opn = "seleqz.d";
+        break;
+    case R6_OPC_SELNEZ_D:
+        gen_sel_d(ctx, op1, fd, ft, fs);
+        opn = "selnez.d";
         break;
     case OPC_MOVCF_D:
         gen_movcf_d(ctx, fs, fd, (ft >> 2) & 0x7, ft & 0x1);

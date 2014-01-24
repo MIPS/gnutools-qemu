@@ -1263,6 +1263,12 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cache",   "k,+o(b)",   0x7c000025, 0xfc00003f, RD_b,           	0,		I32R6	},
 {"seleqz",  "d,v,t",    0x00000035, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,		I32R6	},
 {"selnez",  "d,v,t",    0x00000037, 0xfc0007ff, WR_d|RD_s|RD_t, 	0,		I32R6	},
+{"sel.s",   "D,S,T",    0x46000010, 0xffe0001f, FP_S,           	0,		I32R6	},
+{"sel.d",   "D,S,t",    0x46200010, 0xffe0001f, FP_D,           	0,		I32R6	},
+{"seleqz.s", "D,S,T",   0x46000014, 0xffe0001f, FP_S,           	0,		I32R6	},
+{"seleqz.d", "D,S,T",   0x46200014, 0xffe0001f, FP_D,           	0,		I32R6	},
+{"selnez.s", "D,S,T",   0x46000017, 0xffe0001f, FP_S,           	0,		I32R6	},
+{"selnez.d", "D,S,T",   0x46200017, 0xffe0001f, FP_D,           	0,		I32R6	},
 {"align",   "d,v,t",    0x7C000220, 0xFC00073F, WR_d|RD_s|RD_t,     0,      I32R6  },
 {"dalign",  "d,v,t",    0x7C000224, 0xFC00063F, WR_d|RD_s|RD_t,     0,      I64R6  },
 {"bitswap", "d,w",      0x7C000020, 0xFFE007FF, WR_d|RD_t,          0,      I32R6  },
@@ -1290,8 +1296,6 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"bgtzalc", "s,t,p",    0x1C000000, 0xffe00000, CBD|RD_s|RD_t,      0,      I32R6  },
 {"bltzalc", "s,t,p",    0x1C000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
 {"bltuc",   "s,t,p",    0x1C000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
-
-
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
 {"nop",     "",         0x00000000, 0xffffffff, 0,              	INSN2_ALIAS,	I1      }, /* sll */
