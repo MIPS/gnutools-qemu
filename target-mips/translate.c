@@ -133,8 +133,25 @@ enum {
     /* Cache and prefetch */
     OPC_CACHE    = (0x2F << 26),
     OPC_PREF     = (0x33 << 26),
-    /* Reserved major opcode */
-    OPC_MAJOR3B_RESERVED = (0x3B << 26),
+    /* R6 PC-relative family*/
+    R6_PC_RELATIVE = (0x3B << 26),
+};
+
+/* R6 PC-relative family*/
+#define MASK_R6_PC_RELATIVE_TOP2BITS(op)  MASK_OP_MAJOR(op) | (op & (3 << 19))
+#define MASK_R6_PC_RELATIVE_TOP5BITS(op)  MASK_OP_MAJOR(op) | (op & (0x1f << 16))
+enum {
+    /* Instructions determined by bits 19 and 20 */
+    R6_OPC_ADDIUP = R6_PC_RELATIVE | (0 << 19),
+    R6_OPC_LWP    = R6_PC_RELATIVE | (1 << 19),
+    R6_OPC_LWUP   = R6_PC_RELATIVE | (2 << 19),
+
+    /* Instructions determined by bits 16 ... 20 */
+    R6_OPC_AUIP   = R6_PC_RELATIVE | (0x1e << 16),
+    R6_OPC_ALUIP  = R6_PC_RELATIVE | (0x1f << 16),
+
+    /* Other */
+    R6_OPC_LDP    = R6_PC_RELATIVE | (6 << 19),
 };
 
 /* MIPS special opcodes */
@@ -2847,6 +2864,15 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
     }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s", opn, regnames[reg]);
+}
+
+static inline void gen_r6_ld (target_long addr, int reg, int memidx, 
+                              TCGMemOp memop)
+{
+    TCGv t0 = tcg_const_tl(addr);
+    tcg_gen_qemu_ld_tl(t0, t0, memidx, memop);
+    gen_store_gpr(t0, reg);
+    tcg_temp_free(t0);
 }
 
 static void gen_r6_muldiv(DisasContext *ctx, int opc, int rd, int rs, int rt)
@@ -16639,6 +16665,48 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_MDMX:
         check_insn(ctx, ASE_MDMX);
         /* MDMX: Not implemented. */
+    case R6_PC_RELATIVE:
+        switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
+        case R6_OPC_ADDIUP:
+            tcg_gen_movi_tl(cpu_gpr[rs], 
+                            ctx->pc + (((int32_t)ctx->opcode << 13) >> 11));
+            break;
+        case R6_OPC_LWP:
+            gen_r6_ld(ctx->pc + (((int32_t)ctx->opcode << 13) >> 11),
+                      rs, ctx->mem_idx, MO_TESL);
+        break;
+#if defined(TARGET_MIPS64)
+        case R6_OPC_LWUP:
+            gen_r6_ld(ctx->pc + (((int32_t)ctx->opcode << 13) >> 11),
+                      rs, ctx->mem_idx, MO_TEUL);
+        break;
+#endif
+        default:
+            op1 = MASK_R6_PC_RELATIVE_TOP5BITS(ctx->opcode);
+            switch (op1) {
+            case R6_OPC_AUIP:
+                tcg_gen_movi_tl(cpu_gpr[rs], ctx->pc + (imm << 16));
+                break;
+            case R6_OPC_ALUIP:
+                tcg_gen_movi_tl(cpu_gpr[rs], ~0xFFFF & (int32_t)(ctx->pc + (imm << 16)));
+                break;
+#if defined(TARGET_MIPS64)
+            case R6_OPC_LDP: // bits 18 and 19 are part of immediate
+            case R6_OPC_LDP + (1 << 16):
+            case R6_OPC_LDP + (2 << 16):
+            case R6_OPC_LDP + (3 << 16):
+                gen_r6_ld((ctx->pc & ~0x7) + (((int32_t)ctx->opcode << 13) >> 11),
+                          rs, ctx->mem_idx, MO_TEQ);
+                break;
+#endif
+            default:
+                MIPS_INVAL("R6_PC_RELATIVE");
+                generate_exception(ctx, EXCP_RI);
+                break;
+            }
+            break;
+        }
+        break;
     default:            /* Invalid */
         MIPS_INVAL("major opcode");
         generate_exception(ctx, EXCP_RI);
