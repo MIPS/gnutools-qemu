@@ -1218,6 +1218,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
 /* R6 instructions */
+{"lsa",     "d,s,t",    0x00000005, 0xfc00073f, WR_d|RD_s|RD_t,      	0,		I32R6	},
+{"dlsa",    "d,s,t",    0x00000015, 0xfc00073f, WR_d|RD_s|RD_t,      	0,		I64R6	},
 {"clz",     "U,s",      0x00000050, 0xfc0007ff, WR_d|RD_s,      	0,		I32R6	},
 {"clo",     "U,s",      0x00000051, 0xfc0007ff, WR_d|RD_s,      	0,		I32R6	},
 {"dclz",    "U,s",      0x00000052, 0xfc0007ff, WR_d|RD_s,      	0,		I64R6	},

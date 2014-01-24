@@ -245,11 +245,14 @@ enum {
     R6_OPC_SELEQZ = 0x35 | OPC_SPECIAL,
     R6_OPC_SELNEZ = 0x37 | OPC_SPECIAL,
 
-    R6_OPC_CLZ      = 0x10 | OPC_SPECIAL,
-    R6_OPC_CLO      = 0x11 | OPC_SPECIAL,
-    R6_OPC_DCLZ     = 0x12 | OPC_SPECIAL,
-    R6_OPC_DCLO     = 0x13 | OPC_SPECIAL,
-    R6_OPC_SDBBP    = 0x0e | OPC_SPECIAL,
+    R6_OPC_CLZ    = 0x10 | OPC_SPECIAL,
+    R6_OPC_CLO    = 0x11 | OPC_SPECIAL,
+    R6_OPC_DCLZ   = 0x12 | OPC_SPECIAL,
+    R6_OPC_DCLO   = 0x13 | OPC_SPECIAL,
+    R6_OPC_SDBBP  = 0x0e | OPC_SPECIAL,
+
+    R6_OPC_LSA    = 0x05 | OPC_SPECIAL,
+    R6_OPC_DLSA   = 0x15 | OPC_SPECIAL,
 };
 
 /* Multiplication variants of the vr54xx. */
@@ -14885,6 +14888,17 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
 
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
+    case R6_OPC_LSA:
+    {
+        int imm2 = (ctx->opcode >> 6) & 0x3;
+        TCGv t0 = tcg_temp_new();
+        gen_load_gpr(t0, rs);
+        tcg_gen_shli_tl(t0, t0, imm2 + 1);
+        tcg_gen_add_tl(cpu_gpr[rd], t0, cpu_gpr[rt]);
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        tcg_temp_free(t0);
+    }
+    break;
     case OPC_MULT ... OPC_DIVU:
         op2 = MASK_R6_MULDIV(ctx->opcode);
         switch (op2) {
@@ -14916,6 +14930,16 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
         /* Treat as NOP. */
         break;
 #if defined(TARGET_MIPS64)
+    case R6_OPC_DLSA:
+    {
+        int imm2 = (ctx->opcode >> 6) & 0x3;
+        TCGv t0 = tcg_temp_new();
+        gen_load_gpr(t0, rs);
+        tcg_gen_shli_tl(t0, t0, imm2 + 1);
+        tcg_gen_add_tl(cpu_gpr[rd], t0, cpu_gpr[rt]);
+        tcg_temp_free(t0);
+    }
+    break;
     case R6_OPC_DCLO:
     case R6_OPC_DCLZ:
         check_insn(ctx, ISA_MIPS64);
@@ -15086,13 +15110,17 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     case OPC_TNE:
         gen_trap(ctx, op1, rs, rt, -1);
         break;
-    case OPC_PMON:          /* Pmon entry point, also R4010 selsl */
+    case R6_OPC_LSA: // and OPC_PMON:          /* Pmon entry point, also R4010 selsl */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            decode_opc_special_r6 (env, ctx);
+        } else {
 #ifdef MIPS_STRICT_STANDARD
         MIPS_INVAL("PMON / selsl");
         generate_exception(ctx, EXCP_RI);
 #else
         gen_helper_0e0i(pmon, sa);
 #endif
+        }
         break;
     case OPC_SYSCALL:
         generate_exception(ctx, EXCP_SYSCALL);
