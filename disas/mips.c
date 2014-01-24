@@ -1256,6 +1256,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"bc",      "+p",       0xC8000000, 0xfc000000, UBD|WR_31,          0,      I32R6  },
 {"jic",     "t,o",      0xD8000000, 0xffe00000, UBD|RD_t,           0,      I32R6  },
 {"beqzc",   "s,+p",     0xD8000000, 0xfc000000, CBD|RD_s,           0,      I32R6  },
+{"jialc",   "t,o",      0xF8000000, 0xffe00000, UBD|RD_t,           0,      I32R6  },
+{"bnezc",   "s,+p",     0xF8000000, 0xfc000000, CBD|RD_s,           0,      I32R6  },
 
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
