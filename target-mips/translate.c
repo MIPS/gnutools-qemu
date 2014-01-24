@@ -308,6 +308,9 @@ enum {
     OPC_TEQI     = (0x0C << 16) | OPC_REGIMM,
     OPC_TNEI     = (0x0E << 16) | OPC_REGIMM,
     OPC_SYNCI    = (0x1F << 16) | OPC_REGIMM,
+
+    R6_OPC_DAHI  = (0x06 << 16) | OPC_REGIMM,
+    R6_OPC_DATI  = (0x1e << 16) | OPC_REGIMM,
 };
 
 /* Special2 opcodes */
@@ -2219,10 +2222,18 @@ static void gen_logic_imm(DisasContext *ctx, uint32_t opc,
                    regnames[rs], uimm);
         break;
     case OPC_LUI:
-        tcg_gen_movi_tl(cpu_gpr[rt], imm << 16);
-        MIPS_DEBUG("lui %s, " TARGET_FMT_lx, regnames[rt], uimm);
-        break;
-
+    {
+        if (rs != 0 && ctx->insn_flags & ISA_MIPS32R6) {
+            // OPC_AUI
+            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rs], imm << 16);
+            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            MIPS_DEBUG("aui %s, %s, %04x", regnames[rt], regnames[rs], imm);
+        } else {
+            tcg_gen_movi_tl(cpu_gpr[rt], imm << 16);
+            MIPS_DEBUG("lui %s, " TARGET_FMT_lx, regnames[rt], uimm);
+        }
+    }
+    break;
     default:
         MIPS_DEBUG("Unknown logical immediate opcode %08x", opc);
         break;
@@ -16248,6 +16259,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             check_dsp(ctx);
             gen_compute_branch(ctx, op1, 4, -1, -2, (int32_t)imm << 2);
             break;
+#if defined(TARGET_MIPS64)
+        case R6_OPC_DAHI:
+            tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 32);
+            MIPS_DEBUG("dahi %s, %04x", regnames[rs], imm);
+            break;
+        case R6_OPC_DATI:
+            tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 48);
+            MIPS_DEBUG("dati %s, %04x", regnames[rs], imm);
+            break;
+#endif
         default:            /* Invalid */
             MIPS_INVAL("regimm");
             generate_exception(ctx, EXCP_RI);
@@ -16359,7 +16380,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
          gen_slt_imm(ctx, op, rt, rs, imm);
          break;
     case OPC_ANDI: /* Arithmetic with immediate opcode */
-    case OPC_LUI:
+    case OPC_LUI: // and OPC_AUI added in MIPS32R6
     case OPC_ORI:
     case OPC_XORI:
          gen_logic_imm(ctx, op, rt, rs, imm);

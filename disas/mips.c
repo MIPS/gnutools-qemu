@@ -1218,6 +1218,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
 /* R6 instructions */
+{"dahi",    "s,u",      0x04060000, 0xfc1f0000, RD_s,           	0,		I64R6	},
+{"dati",    "s,u",      0x041e0000, 0xfc1f0000, RD_s,           	0,		I64R6	},
 {"lsa",     "d,s,t",    0x00000005, 0xfc00073f, WR_d|RD_s|RD_t,      	0,		I32R6	},
 {"dlsa",    "d,s,t",    0x00000015, 0xfc00073f, WR_d|RD_s|RD_t,      	0,		I64R6	},
 {"clz",     "U,s",      0x00000050, 0xfc0007ff, WR_d|RD_s,      	0,		I32R6	},
@@ -1812,6 +1814,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"lld",	    "t,o(b)",	0xd0000000, 0xfc000000, LDD|RD_b|WR_t,		0,		I3	},
 {"lld",     "t,A(b)",	0,    (int) M_LLD_AB,	INSN_MACRO,		0,		I3	},
 {"lui",     "t,u",	0x3c000000, 0xffe00000,	WR_t,			0,		I1	},
+{"aui",     "s,t,u",    0x3c000000, 0xfc000000, RD_s|WR_t,      	0,		I32R6	},
 {"luxc1",   "D,t(b)",	0x4c000005, 0xfc00f83f, LDD|WR_D|RD_t|RD_b|FP_D, 0,		I5|I33|N55},
 {"lw",      "t,o(b)",	0x8c000000, 0xfc000000,	LDD|RD_b|WR_t,		0,		I1	},
 {"lw",      "t,A(b)",	0,    (int) M_LW_AB,	INSN_MACRO,		0,		I1	},
