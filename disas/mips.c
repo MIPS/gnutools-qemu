@@ -407,6 +407,12 @@ struct mips_opcode
    "+3" UDI immediate bits 6-20
    "+4" UDI immediate bits 6-25
 
+   R6 immediates/displacements :
+   (adding suffix to 'o' to avoid adding new characters)
+   "+o"  9 bits immediate/displacement (shift = 7)
+   "+o1" 18 bits immediate/displacement (shift = 0)
+   "+o2" 19 bits immediate/displacement (shift = 0)
+
    Other:
    "()" parens surrounding optional value
    ","  separates operands
@@ -1218,6 +1224,12 @@ const struct mips_opcode mips_builtin_opcodes[] =
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
 /* R6 instructions */
+{"lwp",     "s,+o2",    0xec080000, 0xfc180000, WR_d,   		0,		I32R6	},
+{"lwup",    "s,+o2",    0xec100000, 0xfc180000, WR_d,   		0,		I32R6	},
+{"ldp",     "s,+o1",    0xec180000, 0xfc1a0000, WR_d,   		0,		I32R6	},
+{"addiup",  "s,+o2",    0xec000000, 0xfc180000, WR_d,           	0,		I32R6	},
+{"auip",    "s,u",      0xec1e0000, 0xfc1f0000, WR_d,           	0,		I32R6	},
+{"aluip",   "s,u",      0xec1f0000, 0xfc1f0000, WR_d,           	0,		I32R6	},
 {"dahi",    "s,u",      0x04060000, 0xfc1f0000, RD_s,           	0,		I64R6	},
 {"dati",    "s,u",      0x041e0000, 0xfc1f0000, RD_s,           	0,		I64R6	},
 {"lsa",     "d,s,t",    0x00000005, 0xfc00073f, WR_d|RD_s|RD_t,      	0,		I32R6	},
@@ -3803,10 +3815,28 @@ print_insn_args (const char *d,
 	      break;
 
 	    case 'o':
-	        delta = (l >> OP_SH_DELTA_R6) & OP_MASK_DELTA_R6;
-	        if (delta & 0x8000)
-	          delta |= ~0xffff;
-	        (*info->fprintf_func) (info->stream, "%d",
+                switch (*(d+1)) {
+                case '1':
+                    d++;
+                    delta = l & ((1 << 18) - 1);
+                    if (delta & 0x20000) {
+                        delta |= ~0x1ffff;
+                    }
+                    break;
+                case '2':
+                    d++;
+                    delta = l & ((1 << 19) - 1);
+                    if (delta & 0x40000) {
+                        delta |= ~0x3ffff;
+                    }
+                    break;
+                default:
+                    delta = (l >> OP_SH_DELTA_R6) & OP_MASK_DELTA_R6;
+                    if (delta & 0x8000)
+                        delta |= ~0xffff;
+                }
+	        
+                (*info->fprintf_func) (info->stream, "%d",
 	                   delta);
 	        break;
 
