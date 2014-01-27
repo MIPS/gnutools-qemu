@@ -113,10 +113,15 @@ enum {
     OPC_SDC1     = (0x3D << 26),
     OPC_SDC2     = (0x3E << 26),
     /* Compat Branch */
-    R6_OPC_BC    = (0x32 << 26),
-    R6_OPC_BEQZC = (0x36 << 26), // BEQZC rs != r0 otherwise JIC
-    R6_OPC_BALC  = (0x3A << 26),
-    R6_OPC_BNEZC = (0x3E << 26), // BNEZC rs != r0 otherwise JIALC
+    R6_OPC_BOVC     = (0x08 << 26), // [rs <= rt, rs != r0]
+    R6_OPC_BEQZALC  = (0x08 << 26), // [rs <= rt, rs == r0]
+    R6_OPC_BEQC     = (0x08 << 26), // [rs > rt]
+    R6_OPC_BC       = (0x32 << 26),
+    R6_OPC_BEQZC    = (0x36 << 26), // [rs != r0]
+    R6_OPC_JIC      = (0x36 << 26), // [rs == r0]
+    R6_OPC_BALC     = (0x3A << 26),
+    R6_OPC_BNEZC    = (0x3E << 26), // [rs != r0]
+    R6_OPC_JIALC    = (0x3E << 26), // [rs == r0]
     /* MDMX ASE specific */
     OPC_MDMX     = (0x1E << 26),
     /* Cache and prefetch */
@@ -4031,6 +4036,17 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     /* Load needed operands */
     switch (opc) {
     /* compact branch */
+    case R6_OPC_BOVC: // BEQZALC, BEQC
+        gen_load_gpr(t0, rs);
+        gen_load_gpr(t1, rt);
+        bcond_compute = 1;
+        post_delay = 0;
+        btgt = ctx->pc + insn_bytes + offset;
+        if (rs <= rt && rs == 0) {
+            // BEQZALC
+            blink = 31;
+        }
+        break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
         post_delay = 0;
@@ -4237,6 +4253,38 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     } else {
         switch (opc) {
         /* copact branch */
+        case R6_OPC_BOVC: // BEQZALC, BEQC
+            if (rs <= rt && rs != 0) {
+                // BOVC
+                TCGv_i32 t0 = tcg_temp_local_new_i32();
+                TCGv_i32 t1 = tcg_temp_local_new_i32();
+                TCGv_i32 tadd = tcg_temp_local_new_i32();
+                gen_load_gpr(t0, rs);
+                gen_load_gpr(t1, rt);
+                tcg_gen_ext32s_tl(t0, t0);
+                tcg_gen_ext32s_tl(t1, t1);
+                tcg_gen_add_tl(tadd, t0, t1);
+                tcg_gen_ext32s_tl(tadd, tadd);
+                tcg_gen_xor_tl(t0, t0, t1);
+                tcg_gen_xor_tl(t1, tadd, t1);
+                tcg_gen_andc_tl(t0, t1, t0);
+                tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
+                /* operands of same sign, result different sign */
+                tcg_temp_free(t0);
+                tcg_temp_free(t1);
+                tcg_temp_free(tadd);
+            }
+            else if (rs <= rt && rs == 0) {
+                // BEQZALC
+                tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t1, 0);
+            }
+            else {
+                // BEQC
+                tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
+            }
+            ctx->hflags |= MIPS_HFLAG_CB;
+            goto not_likely;
+            break;
         case R6_OPC_BEQZC:
             tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t0, 0);
             MIPS_DEBUG("beqzc %s, " TARGET_FMT_lx,
@@ -4381,6 +4429,12 @@ static void decode_compact_branch (CPUMIPSState *env, DisasContext *ctx)
     rt = (ctx->opcode >> 16) & 0x1f;
 
     switch (op) {
+    case R6_OPC_BOVC:
+        // BOVC    [rs <= rt, rs != r0]
+        // BEQZALC [rs <= rt, rs == r0]
+        // BEQC    [rs > rt]
+        gen_compute_branch(ctx, op, 4, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+        break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
         gen_compute_branch(ctx, op, 4, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
@@ -16218,7 +16272,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
-    case OPC_ADDI: /* Arithmetic with immediate opcode */
+    case R6_OPC_BOVC: // BEQZALC, BEQC and ADDI
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+//            R6_OPC_BOVC, R6_OPC_BEQZALC, R6_OPC_BEQC
+            decode_compact_branch(env, ctx);
+        }
+        else {
+//            OPC_ADDI /* Arithmetic with immediate opcode */
+            gen_arith_imm(ctx, op, rt, rs, imm);
+        }
+        break;
     case OPC_ADDIU:
          gen_arith_imm(ctx, op, rt, rs, imm);
          break;

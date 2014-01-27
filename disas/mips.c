@@ -1258,6 +1258,9 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"beqzc",   "s,+p",     0xD8000000, 0xfc000000, CBD|RD_s,           0,      I32R6  },
 {"jialc",   "t,o",      0xF8000000, 0xffe00000, UBD|RD_t,           0,      I32R6  },
 {"bnezc",   "s,+p",     0xF8000000, 0xfc000000, CBD|RD_s,           0,      I32R6  },
+{"beqzalc", "s,t,p",    0x20000000, 0xffe00000, CBD|RD_s|RD_t,      0,      I32R6  },
+{"bovc",    "s,t,p",    0x20000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
+{"beqc",    "s,t,p",    0x20000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
 
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
@@ -4306,6 +4309,13 @@ print_insn_mips (bfd_vma memaddr,
 	      if (! OPCODE_IS_MEMBER (op, mips_isa, mips_processor)
 		  && strcmp (op->name, "jalx"))
 		continue;
+
+	      if (strcmp(op->name, "bovc") == 0) {
+	          if (((word >> OP_SH_RS) & OP_MASK_RS)
+	                  > ((word >> OP_SH_RT) & OP_MASK_RT)) {
+	              continue;
+	          }
+	      }
 
 	      /* Figure out instruction type and branch delay information.  */
 	      if ((op->pinfo & INSN_UNCOND_BRANCH_DELAY) != 0)
