@@ -1281,6 +1281,9 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"blezc",   "s,t,p",    0x58000000, 0xffe00000, CBD|RD_s|RD_t,      0,      I32R6  },
 {"bgezc",   "s,t,p",    0x58000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
 {"bgec",    "s,t,p",    0x58000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
+{"bgtzc",   "s,t,p",    0x5C000000, 0xffe00000, CBD|RD_s|RD_t,      0,      I32R6  },
+{"bltzc",   "s,t,p",    0x5C000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
+{"bltc",    "s,t,p",    0x5C000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
 
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
@@ -4355,7 +4358,7 @@ print_insn_mips (bfd_vma memaddr,
 	              continue;
 	          }
 	      }
-	      if (strcmp(op->name, "bgezc") == 0) {
+	      if (strcmp(op->name, "bgezc") == 0 || strcmp(op->name, "bltzc") == 0) {
 	          if (((word >> OP_SH_RS) & OP_MASK_RS)
                     != ((word >> OP_SH_RT) & OP_MASK_RT)) {
                 continue;
