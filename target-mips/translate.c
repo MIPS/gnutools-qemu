@@ -15527,6 +15527,7 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
         break;
     case R6_OPC_LLD:
         gen_ld(ctx, op1, rt, rs, imm >> 7);
+        break;
     case OPC_DBSHFL:
         op2 = MASK_DBSHFL(ctx->opcode);
         switch(op2) {
