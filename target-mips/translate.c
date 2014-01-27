@@ -4018,7 +4018,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 {
     target_ulong btgt = -1;
     int blink = 0;
-    int post_delay = insn_bytes;
     int bcond_compute = 0;
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
@@ -4038,42 +4037,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 
     /* Load needed operands */
     switch (opc) {
-    /* compact branch */
-    case R6_OPC_BOVC: // BEQZALC, BEQC
-    case R6_OPC_BNVC: // BNEZALC, BNEC
-        gen_load_gpr(t0, rs);
-        gen_load_gpr(t1, rt);
-        bcond_compute = 1;
-        post_delay = 0;
-        btgt = ctx->pc + insn_bytes + offset;
-        if (rs <= rt && rs == 0) {
-            // BEQZALC, BNEZALC
-            blink = 31;
-        }
-        break;
-    case R6_OPC_BC:
-    case R6_OPC_BALC:
-        post_delay = 0;
-        btgt = ctx->pc + insn_bytes + offset;
-        break;
-    case R6_OPC_BEQZC:
-    case R6_OPC_BNEZC:
-        post_delay = 0;
-        if (rs != 0) {
-            // BEQZC, BNEZC
-            gen_load_gpr(t0, rs);
-            bcond_compute = 1;
-            btgt = ctx->pc + insn_bytes + offset;
-        }
-        else {
-            // JIC, JIALC
-            gen_load_gpr(btarget, rt);
-            tcg_gen_movi_tl(t0, offset);
-            tcg_gen_ext16s_tl(t0, t0);
-            tcg_gen_add_tl(btarget, btarget, t0);
-        }
-        break;
-
     case OPC_BEQ:
     case OPC_BEQL:
     case OPC_BNE:
@@ -4147,23 +4110,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     if (bcond_compute == 0) {
         /* No condition to be computed */
         switch (opc) {
-        /* compact branch */
-        case R6_OPC_BNEZC: // JIALC as [rs == 0]
-            blink = 31;
-            MIPS_DEBUG("link");
-        case R6_OPC_BEQZC: // JIC as [rs == 0]
-            ctx->hflags |= MIPS_HFLAG_CB | MIPS_HFLAG_BR;
-            MIPS_DEBUG("jic %x (%s)" , offset, regnames[rt]);
-            break;
-        case R6_OPC_BALC:
-            blink = 31;
-            MIPS_DEBUG("link");
-        case R6_OPC_BC:
-            ctx->hflags |= MIPS_HFLAG_CB | MIPS_HFLAG_B;
-            /* Always take and link */
-            MIPS_DEBUG("b compact");
-            break;
-
         case OPC_BEQ:     /* rx == rx        */
         case OPC_BEQL:    /* rx == rx likely */
         case OPC_BGEZ:    /* 0 >= 0          */
@@ -4256,74 +4202,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
         }
     } else {
         switch (opc) {
-        /* compact branch */
-        case R6_OPC_BOVC: // BEQZALC, BEQC
-        case R6_OPC_BNVC: // BNEZALC, BNEC
-            if (rs <= rt && rs != 0) {
-                // BOVC, BNVC
-                TCGv_i32 t0 = tcg_temp_local_new_i32();
-                TCGv_i32 t1 = tcg_temp_local_new_i32();
-                TCGv_i32 tadd = tcg_temp_local_new_i32();
-                gen_load_gpr(t0, rs);
-                gen_load_gpr(t1, rt);
-                tcg_gen_ext32s_tl(t0, t0);
-                tcg_gen_ext32s_tl(t1, t1);
-                tcg_gen_add_tl(tadd, t0, t1);
-                tcg_gen_ext32s_tl(tadd, tadd);
-                tcg_gen_xor_tl(t0, t0, t1);
-                tcg_gen_xor_tl(t1, tadd, t1);
-                tcg_gen_andc_tl(t0, t1, t0);
-                if (opc == R6_OPC_BOVC) {
-                    // BOVC
-                    tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
-                }
-                else {
-                    // BNVC
-                    tcg_gen_setcondi_tl(TCG_COND_GE, bcond, t0, 0);
-                }
-                /* operands of same sign, result different sign */
-                tcg_temp_free(t0);
-                tcg_temp_free(t1);
-                tcg_temp_free(tadd);
-            }
-            else if (rs <= rt && rs == 0) {
-                // BEQZALC, BNEZALC
-                if (opc == R6_OPC_BEQZALC) {
-                    // BEQZALC
-                    tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t1, 0);
-                }
-                else {
-                    // BNEZALC
-                    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t1, 0);
-                }
-            }
-            else {
-                // BEQC, BNEC
-                if (opc == R6_OPC_BEQC) {
-                    // BEQC
-                    tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
-                }
-                else {
-                    // BNEC
-                    tcg_gen_setcond_tl(TCG_COND_NE, bcond, t0, t1);
-                }
-            }
-            ctx->hflags |= MIPS_HFLAG_CB;
-            goto not_likely;
-            break;
-        case R6_OPC_BEQZC:
-            tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t0, 0);
-            MIPS_DEBUG("beqzc %s, " TARGET_FMT_lx,
-                                   regnames[rs], btgt);
-            ctx->hflags |= MIPS_HFLAG_CB;
-            goto not_likely;
-        case R6_OPC_BNEZC:
-            tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t0, 0);
-            MIPS_DEBUG("bnezc %s, " TARGET_FMT_lx,
-                                   regnames[rs], btgt);
-            ctx->hflags |= MIPS_HFLAG_CB;
-            goto not_likely;
-
         case OPC_BEQ:
             tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
             MIPS_DEBUG("beq %s, %s, " TARGET_FMT_lx,
@@ -4429,6 +4307,7 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 
     ctx->btarget = btgt;
     if (blink > 0) {
+        int post_delay = insn_bytes;
         int lowbit = !!(ctx->hflags & MIPS_HFLAG_M16);
 
         if (opc != OPC_JALRC)
@@ -4444,43 +4323,178 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
+
 /* Compact Branches */
-static void decode_compact_branch (CPUMIPSState *env, DisasContext *ctx)
+static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
+        int rs, int rt, int32_t offset)
 {
-    int rs, rt;
-    uint32_t op;
+    target_ulong btgt = -1;
+    int blink = 0;
+    int bcond_compute = 0;
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
 
-    op = MASK_OP_MAJOR(ctx->opcode);
-    rs = (ctx->opcode >> 21) & 0x1f;
-    rt = (ctx->opcode >> 16) & 0x1f;
+    if (ctx->hflags & MIPS_HFLAG_BMASK) {
+#ifdef MIPS_DEBUG_DISAS
+        if(ctx->hflags & MIPS_HFLAG_CB) {
+            LOG_DISAS("Branch in forbidden slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
+        }
+        else {
+            LOG_DISAS("Branch in delay slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
+        }
+#endif
+        generate_exception(ctx, EXCP_RI);
+        goto out;
+    }
 
-    switch (op) {
-    case R6_OPC_BOVC:
-        // BOVC    [rs <= rt, rs != r0]
-        // BEQZALC [rs <= rt, rs == r0]
-        // BEQC    [rs > rt]
-    case R6_OPC_BNVC:
-        // BNVC    [rs <= rt, rs != r0]
-        // BNEZALC [rs <= rt, rs == r0]
-        // BNEC    [rs > rt]
-        gen_compute_branch(ctx, op, 4, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+    /* Load needed operands */
+    switch (opc) {
+    /* compact branch */
+    case R6_OPC_BOVC: // BEQZALC, BEQC
+    case R6_OPC_BNVC: // BNEZALC, BNEC
+        gen_load_gpr(t0, rs);
+        gen_load_gpr(t1, rt);
+        bcond_compute = 1;
+        btgt = ctx->pc + 4 + offset;
+        if (rs <= rt && rs == 0) {
+            // BEQZALC, BNEZALC
+            blink = 31;
+        }
         break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
-        gen_compute_branch(ctx, op, 4, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
+        btgt = ctx->pc + 4 + offset;
         break;
-    case R6_OPC_BEQZC: // and R6_OPC_JIC
-    case R6_OPC_BNEZC: // and R6_OPC_JIALC
+    case R6_OPC_BEQZC:
+    case R6_OPC_BNEZC:
         if (rs != 0) {
             // BEQZC, BNEZC
-            gen_compute_branch(ctx, op, 4, rs, 0, (int32_t)(ctx->opcode & 0x1FFFFF) << 2);
+            gen_load_gpr(t0, rs);
+            bcond_compute = 1;
+            btgt = ctx->pc + 4 + offset;
         }
         else {
             // JIC, JIALC
-            gen_compute_branch(ctx, op, 4, 0, rt, (int32_t)(ctx->opcode & 0xFFFF));
+            gen_load_gpr(btarget, rt);
+            tcg_gen_movi_tl(t0, offset);
+            tcg_gen_ext16s_tl(t0, t0);
+            tcg_gen_add_tl(btarget, btarget, t0);
         }
         break;
+    default:
+        MIPS_INVAL("branch/jump");
+        generate_exception(ctx, EXCP_RI);
+        goto out;
     }
+
+    ctx->hflags |= MIPS_HFLAG_CB;
+    if (bcond_compute == 0) {
+        /* No condition to be computed */
+        switch (opc) {
+        /* compact branch */
+        case R6_OPC_JIALC: // JIALC as [rs == 0]
+            blink = 31;
+            MIPS_DEBUG("link");
+        case R6_OPC_JIC: // JIC as [rs == 0]
+            ctx->hflags |= MIPS_HFLAG_BR;
+            MIPS_DEBUG("jic %x (%s)" , offset, regnames[rt]);
+            break;
+        case R6_OPC_BALC:
+            blink = 31;
+            MIPS_DEBUG("link");
+        case R6_OPC_BC:
+            ctx->hflags |= MIPS_HFLAG_B;
+            /* Always take and link */
+            MIPS_DEBUG("b compact");
+            break;
+        default:
+            MIPS_INVAL("branch/jump");
+            generate_exception(ctx, EXCP_RI);
+            goto out;
+        }
+    } else {
+        ctx->hflags |= MIPS_HFLAG_CB | MIPS_HFLAG_BC;
+
+        switch (opc) {
+        case R6_OPC_BOVC: // BEQZALC, BEQC
+        case R6_OPC_BNVC: // BNEZALC, BNEC
+            if (rs <= rt && rs != 0) {
+                // BOVC, BNVC
+                TCGv_i32 t0 = tcg_temp_local_new_i32();
+                TCGv_i32 t1 = tcg_temp_local_new_i32();
+                TCGv_i32 tadd = tcg_temp_local_new_i32();
+                gen_load_gpr(t0, rs);
+                gen_load_gpr(t1, rt);
+                tcg_gen_ext32s_tl(t0, t0);
+                tcg_gen_ext32s_tl(t1, t1);
+                tcg_gen_add_tl(tadd, t0, t1);
+                tcg_gen_ext32s_tl(tadd, tadd);
+                tcg_gen_xor_tl(t0, t0, t1);
+                tcg_gen_xor_tl(t1, tadd, t1);
+                tcg_gen_andc_tl(t0, t1, t0);
+                if (opc == R6_OPC_BOVC) {
+                    // BOVC
+                    tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
+                }
+                else {
+                    // BNVC
+                    tcg_gen_setcondi_tl(TCG_COND_GE, bcond, t0, 0);
+                }
+                /* operands of same sign, result different sign */
+                tcg_temp_free(t0);
+                tcg_temp_free(t1);
+                tcg_temp_free(tadd);
+            }
+            else if (rs <= rt && rs == 0) {
+                // BEQZALC, BNEZALC
+                if (opc == R6_OPC_BEQZALC) {
+                    // BEQZALC
+                    tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t1, 0);
+                }
+                else {
+                    // BNEZALC
+                    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t1, 0);
+                }
+            }
+            else {
+                // BEQC, BNEC
+                if (opc == R6_OPC_BEQC) {
+                    // BEQC
+                    tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
+                }
+                else {
+                    // BNEC
+                    tcg_gen_setcond_tl(TCG_COND_NE, bcond, t0, t1);
+                }
+            }
+            break;
+        case R6_OPC_BEQZC:
+            tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t0, 0);
+            MIPS_DEBUG("beqzc %s, " TARGET_FMT_lx,
+                                   regnames[rs], btgt);
+            break;
+        case R6_OPC_BNEZC:
+            tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t0, 0);
+            MIPS_DEBUG("bnezc %s, " TARGET_FMT_lx,
+                                   regnames[rs], btgt);
+            break;
+        default:
+            MIPS_INVAL("conditional branch/jump");
+            generate_exception(ctx, EXCP_RI);
+            goto out;
+        }
+    }
+    MIPS_DEBUG("enter ds: link %d cond %02x target " TARGET_FMT_lx,
+                   blink, ctx->hflags, btgt);
+
+    ctx->btarget = btgt;
+    if (blink > 0) {
+        tcg_gen_movi_tl(cpu_gpr[blink], ctx->pc + 4);
+    }
+
+out:
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
 }
 
 /* special3 bitfield operations */
@@ -16305,7 +16319,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BOVC: // BEQZALC, BEQC and ADDI
         if (ctx->insn_flags & ISA_MIPS32R6) {
 //            R6_OPC_BOVC, R6_OPC_BEQZALC, R6_OPC_BEQC
-            decode_compact_branch(env, ctx);
+            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
         }
         else {
 //            OPC_ADDI /* Arithmetic with immediate opcode */
@@ -16439,10 +16453,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     /* Compact branches [R6] and COP2 [non-R6] */
     case R6_OPC_BC: // and OPC_LWC2
     case R6_OPC_BALC: // and OPC_SWC2
+        gen_compute_compact_branch(ctx, op, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
+        break;
     case R6_OPC_BEQZC: // R6_OPC_JIC and OPC_LDC2
     case R6_OPC_BNEZC: // R6_OPC_JIALC and OPC_SDC2
         if (ctx->insn_flags & ISA_MIPS32R6) {
-            decode_compact_branch(env, ctx);
+            if (rs != 0) {
+                // BEQZC, BNEZC
+                gen_compute_compact_branch(ctx, op, rs, 0, (int32_t)(ctx->opcode & 0x1FFFFF) << 2);
+            }
+            else {
+                // JIC, JIALC
+                gen_compute_compact_branch(ctx, op, 0, rt, (int32_t)(ctx->opcode & 0xFFFF));
+            }
         }
         else {
             /* COP2: Not implemented. */
@@ -16524,7 +16547,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_DADDI: // BNVC, BNEZALC, BNEC
         if (ctx->insn_flags & ISA_MIPS32R6) {
 //          R6_OPC_BNVC, BNEZALC, BNEC
-            decode_compact_branch(env, ctx);
+            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
         }
         else {
 //          OPC_DADDI
@@ -16542,7 +16565,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #ifndef TARGET_MIPS64
     case R6_OPC_BNVC: // BNEZALC, BNEC
         if (ctx->insn_flags & ISA_MIPS32R6) {
-            decode_compact_branch(env, ctx);
+            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
         }
         else {
             MIPS_INVAL("major opcode");
