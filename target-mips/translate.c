@@ -4444,9 +4444,9 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         case R6_OPC_BNVC: // BNEZALC, BNEC
             if (rs <= rt && rs != 0) {
                 // BOVC, BNVC
-                TCGv_i32 t0 = tcg_temp_local_new_i32();
-                TCGv_i32 t1 = tcg_temp_local_new_i32();
-                TCGv_i32 tadd = tcg_temp_local_new_i32();
+                TCGv t0 = tcg_temp_local_new();
+                TCGv t1 = tcg_temp_local_new();
+                TCGv tadd = tcg_temp_local_new();
                 gen_load_gpr(t0, rs);
                 gen_load_gpr(t1, rt);
                 tcg_gen_ext32s_tl(t0, t0);
