@@ -116,6 +116,9 @@ enum {
     R6_OPC_BOVC     = (0x08 << 26), // [rs <= rt, rs != r0]
     R6_OPC_BEQZALC  = (0x08 << 26), // [rs <= rt, rs == r0]
     R6_OPC_BEQC     = (0x08 << 26), // [rs > rt]
+    R6_OPC_BNVC     = (0x18 << 26), // [rs <= rt, rs != r0]
+    R6_OPC_BNEZALC  = (0x18 << 26), // [rs <= rt, rs == r0]
+    R6_OPC_BNEC     = (0x18 << 26), // [rs > rt]
     R6_OPC_BC       = (0x32 << 26),
     R6_OPC_BEQZC    = (0x36 << 26), // [rs != r0]
     R6_OPC_JIC      = (0x36 << 26), // [rs == r0]
@@ -4037,13 +4040,14 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     switch (opc) {
     /* compact branch */
     case R6_OPC_BOVC: // BEQZALC, BEQC
+    case R6_OPC_BNVC: // BNEZALC, BNEC
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
         post_delay = 0;
         btgt = ctx->pc + insn_bytes + offset;
         if (rs <= rt && rs == 0) {
-            // BEQZALC
+            // BEQZALC, BNEZALC
             blink = 31;
         }
         break;
@@ -4252,10 +4256,11 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
         }
     } else {
         switch (opc) {
-        /* copact branch */
+        /* compact branch */
         case R6_OPC_BOVC: // BEQZALC, BEQC
+        case R6_OPC_BNVC: // BNEZALC, BNEC
             if (rs <= rt && rs != 0) {
-                // BOVC
+                // BOVC, BNVC
                 TCGv_i32 t0 = tcg_temp_local_new_i32();
                 TCGv_i32 t1 = tcg_temp_local_new_i32();
                 TCGv_i32 tadd = tcg_temp_local_new_i32();
@@ -4268,19 +4273,40 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
                 tcg_gen_xor_tl(t0, t0, t1);
                 tcg_gen_xor_tl(t1, tadd, t1);
                 tcg_gen_andc_tl(t0, t1, t0);
-                tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
+                if (opc == R6_OPC_BOVC) {
+                    // BOVC
+                    tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
+                }
+                else {
+                    // BNVC
+                    tcg_gen_setcondi_tl(TCG_COND_GE, bcond, t0, 0);
+                }
                 /* operands of same sign, result different sign */
                 tcg_temp_free(t0);
                 tcg_temp_free(t1);
                 tcg_temp_free(tadd);
             }
             else if (rs <= rt && rs == 0) {
-                // BEQZALC
-                tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t1, 0);
+                // BEQZALC, BNEZALC
+                if (opc == R6_OPC_BEQZALC) {
+                    // BEQZALC
+                    tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, t1, 0);
+                }
+                else {
+                    // BNEZALC
+                    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, t1, 0);
+                }
             }
             else {
-                // BEQC
-                tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
+                // BEQC, BNEC
+                if (opc == R6_OPC_BEQC) {
+                    // BEQC
+                    tcg_gen_setcond_tl(TCG_COND_EQ, bcond, t0, t1);
+                }
+                else {
+                    // BNEC
+                    tcg_gen_setcond_tl(TCG_COND_NE, bcond, t0, t1);
+                }
             }
             ctx->hflags |= MIPS_HFLAG_CB;
             goto not_likely;
@@ -4433,6 +4459,10 @@ static void decode_compact_branch (CPUMIPSState *env, DisasContext *ctx)
         // BOVC    [rs <= rt, rs != r0]
         // BEQZALC [rs <= rt, rs == r0]
         // BEQC    [rs > rt]
+    case R6_OPC_BNVC:
+        // BNVC    [rs <= rt, rs != r0]
+        // BNEZALC [rs <= rt, rs == r0]
+        // BNEC    [rs > rt]
         gen_compute_branch(ctx, op, 4, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
         break;
     case R6_OPC_BC:
@@ -16491,12 +16521,33 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         check_mips_64(ctx);
         gen_st_cond(ctx, op, rt, rs, imm);
         break;
-    case OPC_DADDI:
+    case OPC_DADDI: // BNVC, BNEZALC, BNEC
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+//          R6_OPC_BNVC, BNEZALC, BNEC
+            decode_compact_branch(env, ctx);
+        }
+        else {
+//          OPC_DADDI
+            check_insn(ctx, ISA_MIPS3);
+            check_mips_64(ctx);
+            gen_arith_imm(ctx, op, rt, rs, imm);
+        }
+        break;
     case OPC_DADDIU:
         check_insn(ctx, ISA_MIPS3);
         check_mips_64(ctx);
         gen_arith_imm(ctx, op, rt, rs, imm);
         break;
+#endif
+#ifndef TARGET_MIPS64
+    case R6_OPC_BNVC: // BNEZALC, BNEC
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            decode_compact_branch(env, ctx);
+        }
+        else {
+            MIPS_INVAL("major opcode");
+            generate_exception(ctx, EXCP_RI);
+        }
 #endif
     case OPC_JALX:
         check_insn(ctx, ASE_MIPS16 | ASE_MICROMIPS);
