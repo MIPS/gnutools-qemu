@@ -2866,6 +2866,21 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
     MIPS_DEBUG("%s %s", opn, regnames[reg]);
 }
 
+static target_long calc_pc_add (target_long base, target_long offset)
+{
+    target_long sum = base + offset;
+#if defined (TARGET_MIPS64)
+    // address sum extend
+#define ADDR_EXT_MIN (-((int64_t)1 << 31))
+#define ADDR_EXT_MAX  (((int64_t)1 << 31) - 1)
+    if (base >= ADDR_EXT_MIN && base <= ADDR_EXT_MAX 
+        && offset >= ADDR_EXT_MIN && offset <= ADDR_EXT_MAX) {
+        sum = (int32_t)sum;
+    }
+#endif
+    return sum;
+}
+
 static inline void gen_r6_ld (target_long addr, int reg, int memidx, 
                               TCGMemOp memop)
 {
@@ -16668,9 +16683,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_PC_RELATIVE:
         switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
         case R6_OPC_ADDIUP:
-            tcg_gen_movi_tl(cpu_gpr[rs], 
-                            ctx->pc + (((int32_t)ctx->opcode << 13) >> 11));
-            break;
+        {
+            target_long offset = ((int32_t)ctx->opcode << 13) >> 11;
+            tcg_gen_movi_tl(cpu_gpr[rs],
+                            calc_pc_add(ctx->pc, offset));
+        }
+        break;
         case R6_OPC_LWP:
             gen_r6_ld(ctx->pc + (((int32_t)ctx->opcode << 13) >> 11),
                       rs, ctx->mem_idx, MO_TESL);
@@ -16685,10 +16703,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             op1 = MASK_R6_PC_RELATIVE_TOP5BITS(ctx->opcode);
             switch (op1) {
             case R6_OPC_AUIP:
-                tcg_gen_movi_tl(cpu_gpr[rs], ctx->pc + (imm << 16));
+                tcg_gen_movi_tl(cpu_gpr[rs],
+                                calc_pc_add(ctx->pc, imm << 16));
                 break;
             case R6_OPC_ALUIP:
-                tcg_gen_movi_tl(cpu_gpr[rs], ~0xFFFF & (int32_t)(ctx->pc + (imm << 16)));
+                tcg_gen_movi_tl(cpu_gpr[rs],
+                                ~0xFFFF & calc_pc_add(ctx->pc, imm << 16));
                 break;
 #if defined(TARGET_MIPS64)
             case R6_OPC_LDP: // bits 18 and 19 are part of immediate
