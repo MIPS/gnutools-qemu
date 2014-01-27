@@ -144,6 +144,10 @@ void helper_trace_mem_access(CPUMIPSState *env,
         break;
     }
 }
+void helper_trace_reg_access(CPUMIPSState *env, target_ulong val)
+{
+    sv_log("reg = "TARGET_FMT_lx"\n", val);
+}
 #endif
 
 /*****************************************************************************/
