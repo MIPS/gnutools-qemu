@@ -15403,6 +15403,9 @@ static void decode_opc_special_legacy (CPUMIPSState *env, DisasContext *ctx)
         gen_muldiv(ctx, op1, 0, rs, rt);
         break;
 #endif
+    case OPC_JR:
+        gen_compute_branch(ctx, op1, 4, rs, rd, sa);
+        break;
     default:            /* Invalid */
         MIPS_INVAL("special_legacy");
         generate_exception(ctx, EXCP_RI);
@@ -15475,7 +15478,7 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     case OPC_XOR:
         gen_logic(ctx, op1, rd, rs, rt);
         break;
-    case OPC_JR ... OPC_JALR:
+    case OPC_JALR:
         gen_compute_branch(ctx, op1, 4, rs, rd, sa);
         break;
     case OPC_TGE ... OPC_TEQ: /* Traps */
