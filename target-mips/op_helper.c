@@ -2427,9 +2427,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t reg)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        if (arg1 & 0x007c0000)
-            return;
-        env->active_fpu.fcr31 = arg1;
+        env->active_fpu.fcr31 = arg1 | (0x007c0000 & env->active_fpu.fcr31);
         break;
     default:
         return;

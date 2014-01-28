@@ -79,6 +79,7 @@ struct mips_def_t {
     int32_t CP0_TCStatus_rw_bitmask;
     int32_t CP0_SRSCtl;
     int32_t CP1_fcr0;
+    int32_t CP1_fcr31;
     int32_t SEGBITS;
     int32_t PABITS;
     int32_t CP0_SRSConf0_rw_bitmask;
@@ -518,9 +519,10 @@ static mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x37FBFFFF,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
+        .CP1_fcr0 = (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 42,
         /* The architectural limit is 59, but we have hardcoded 36 bit
            in some places...
