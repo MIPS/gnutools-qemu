@@ -7907,10 +7907,14 @@ enum fopcode {
     OPC_RECIP_S = FOP(21, FMT_S),
     OPC_RSQRT_S = FOP(22, FMT_S),
     R6_OPC_SELNEZ_S = FOP(23, FMT_S), // R6
-    OPC_RECIP2_S = FOP(28, FMT_S),
-    OPC_RECIP1_S = FOP(29, FMT_S),
-    OPC_RSQRT1_S = FOP(30, FMT_S),
-    OPC_RSQRT2_S = FOP(31, FMT_S),
+    OPC_RECIP2_S = FOP(28, FMT_S),   // MIPS-3D
+    OPC_RECIP1_S = FOP(29, FMT_S),   // MIPS-3D
+    R6_OPC_MIN_S = FOP(28, FMT_S),   // R6
+    R6_OPC_MINA_S = FOP(29, FMT_S),  // R6
+    OPC_RSQRT1_S = FOP(30, FMT_S),   // MIPS-3D
+    OPC_RSQRT2_S = FOP(31, FMT_S),   // MIPS-3D
+    R6_OPC_MAX_S = FOP(30, FMT_S),   // R6
+    R6_OPC_MAXA_S = FOP(31, FMT_S),  // R6
     OPC_CVT_D_S = FOP(33, FMT_S),
     OPC_CVT_W_S = FOP(36, FMT_S),
     OPC_CVT_L_S = FOP(37, FMT_S),
@@ -7956,10 +7960,14 @@ enum fopcode {
     OPC_RECIP_D = FOP(21, FMT_D),
     OPC_RSQRT_D = FOP(22, FMT_D),
     R6_OPC_SELNEZ_D = FOP(23, FMT_D), // R6
-    OPC_RECIP2_D = FOP(28, FMT_D),
-    OPC_RECIP1_D = FOP(29, FMT_D),
-    OPC_RSQRT1_D = FOP(30, FMT_D),
-    OPC_RSQRT2_D = FOP(31, FMT_D),
+    OPC_RECIP2_D = FOP(28, FMT_D),   // MIPS-3D
+    OPC_RECIP1_D = FOP(29, FMT_D),   // MIPS-3D
+    R6_OPC_MIN_D = FOP(28, FMT_D),   // R6
+    R6_OPC_MINA_D = FOP(29, FMT_D),  // R6
+    OPC_RSQRT1_D = FOP(30, FMT_D),   // MIPS-3D
+    OPC_RSQRT2_D = FOP(31, FMT_D),   // MIPS-3D
+    R6_OPC_MAX_D = FOP(30, FMT_D),   // R6
+    R6_OPC_MAXA_D = FOP(31, FMT_D),  // R6
     OPC_CVT_S_D = FOP(32, FMT_D),
     OPC_CVT_W_D = FOP(36, FMT_D),
     OPC_CVT_L_D = FOP(37, FMT_D),
@@ -8593,59 +8601,119 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.s";
         break;
-    case OPC_RECIP2_S:
-        check_cp1_64bitmode(ctx);
-        {
+    case R6_OPC_MIN_S: // or OPC_RECIP2_S:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
-
+            TCGv_i32 fp2 = tcg_temp_new_i32();
             gen_load_fpr32(fp0, fs);
             gen_load_fpr32(fp1, ft);
-            gen_helper_float_recip2_s(fp0, cpu_env, fp0, fp1);
+            gen_helper_float_min_s(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp2, fd);
+            tcg_temp_free_i32(fp2);
             tcg_temp_free_i32(fp1);
-            gen_store_fpr32(fp0, fd);
             tcg_temp_free_i32(fp0);
+            opn = "min.s";
+        } else {
+            // OPC_RECIP2_S: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i32 fp0 = tcg_temp_new_i32();
+                TCGv_i32 fp1 = tcg_temp_new_i32();
+                
+                gen_load_fpr32(fp0, fs);
+                gen_load_fpr32(fp1, ft);
+                gen_helper_float_recip2_s(fp0, cpu_env, fp0, fp1);
+                tcg_temp_free_i32(fp1);
+                gen_store_fpr32(fp0, fd);
+                tcg_temp_free_i32(fp0);
+            }
+            opn = "recip2.s";
         }
-        opn = "recip2.s";
         break;
-    case OPC_RECIP1_S:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i32 fp0 = tcg_temp_new_i32();
-
-            gen_load_fpr32(fp0, fs);
-            gen_helper_float_recip1_s(fp0, cpu_env, fp0);
-            gen_store_fpr32(fp0, fd);
-            tcg_temp_free_i32(fp0);
-        }
-        opn = "recip1.s";
-        break;
-    case OPC_RSQRT1_S:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i32 fp0 = tcg_temp_new_i32();
-
-            gen_load_fpr32(fp0, fs);
-            gen_helper_float_rsqrt1_s(fp0, cpu_env, fp0);
-            gen_store_fpr32(fp0, fd);
-            tcg_temp_free_i32(fp0);
-        }
-        opn = "rsqrt1.s";
-        break;
-    case OPC_RSQRT2_S:
-        check_cp1_64bitmode(ctx);
-        {
+    case R6_OPC_MINA_S: // or OPC_RECIP1_S:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
-
+            TCGv_i32 fp2 = tcg_temp_new_i32();
             gen_load_fpr32(fp0, fs);
             gen_load_fpr32(fp1, ft);
-            gen_helper_float_rsqrt2_s(fp0, cpu_env, fp0, fp1);
+            gen_helper_float_mina_s(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp2, fd);
+            tcg_temp_free_i32(fp2);
             tcg_temp_free_i32(fp1);
-            gen_store_fpr32(fp0, fd);
             tcg_temp_free_i32(fp0);
+            opn = "mina.s";
+        } else {
+            // OPC_RECIP1_S: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i32 fp0 = tcg_temp_new_i32();
+                
+                gen_load_fpr32(fp0, fs);
+                gen_helper_float_recip1_s(fp0, cpu_env, fp0);
+                gen_store_fpr32(fp0, fd);
+                tcg_temp_free_i32(fp0);
+            }
+            opn = "recip1.s";
         }
-        opn = "rsqrt2.s";
+        break;
+    case R6_OPC_MAX_S: // or OPC_RSQRT1_S:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            TCGv_i32 fp0 = tcg_temp_new_i32();
+            TCGv_i32 fp1 = tcg_temp_new_i32();
+            TCGv_i32 fp2 = tcg_temp_new_i32();
+            gen_load_fpr32(fp0, fs);
+            gen_load_fpr32(fp1, ft);
+            gen_helper_float_max_s(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp2, fd);
+            tcg_temp_free_i32(fp2);
+            tcg_temp_free_i32(fp1);
+            tcg_temp_free_i32(fp0);
+            opn = "max.s";
+        } else {
+            // OPC_RSQRT1_S: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i32 fp0 = tcg_temp_new_i32();
+                
+                gen_load_fpr32(fp0, fs);
+                gen_helper_float_rsqrt1_s(fp0, cpu_env, fp0);
+                gen_store_fpr32(fp0, fd);
+                tcg_temp_free_i32(fp0);
+            }
+            opn = "rsqrt1.s";
+        }
+        break;
+    case R6_OPC_MAXA_S: // or OPC_RSQRT2_S:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            TCGv_i32 fp0 = tcg_temp_new_i32();
+            TCGv_i32 fp1 = tcg_temp_new_i32();
+            TCGv_i32 fp2 = tcg_temp_new_i32();
+            gen_load_fpr32(fp0, fs);
+            gen_load_fpr32(fp1, ft);
+            gen_helper_float_max_s(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp2, fd);
+            tcg_temp_free_i32(fp2);
+            tcg_temp_free_i32(fp1);
+            tcg_temp_free_i32(fp0);
+            opn = "maxa.s";
+        } else {
+            // OPC_RSQRT2_S: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i32 fp0 = tcg_temp_new_i32();
+                TCGv_i32 fp1 = tcg_temp_new_i32();
+                
+                gen_load_fpr32(fp0, fs);
+                gen_load_fpr32(fp1, ft);
+                gen_helper_float_rsqrt2_s(fp0, cpu_env, fp0, fp1);
+                tcg_temp_free_i32(fp1);
+                gen_store_fpr32(fp0, fd);
+                tcg_temp_free_i32(fp0);
+            }
+            opn = "rsqrt1.s";
+        }
         break;
     case OPC_CVT_D_S:
         check_cp1_registers(ctx, fd);
@@ -9014,59 +9082,119 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.d";
         break;
-    case OPC_RECIP2_D:
-        check_cp1_64bitmode(ctx);
-        {
+    case R6_OPC_MIN_D: // or OPC_RECIP2_D:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-
+            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_recip2_d(fp0, cpu_env, fp0, fp1);
+            gen_helper_float_min_d(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp2, fd);
+            tcg_temp_free_i64(fp2);
             tcg_temp_free_i64(fp1);
-            gen_store_fpr64(ctx, fp0, fd);
             tcg_temp_free_i64(fp0);
+            opn = "min.d";
+        } else {
+            // OPC_RECIP2_D: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i64 fp0 = tcg_temp_new_i64();
+                TCGv_i64 fp1 = tcg_temp_new_i64();
+                
+                gen_load_fpr64(ctx, fp0, fs);
+                gen_load_fpr64(ctx, fp1, ft);
+                gen_helper_float_recip2_d(fp0, cpu_env, fp0, fp1);
+                tcg_temp_free_i64(fp1);
+                gen_store_fpr64(ctx, fp0, fd);
+                tcg_temp_free_i64(fp0);
+            }
+            opn = "recip2.d";
         }
-        opn = "recip2.d";
         break;
-    case OPC_RECIP1_D:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i64 fp0 = tcg_temp_new_i64();
-
-            gen_load_fpr64(ctx, fp0, fs);
-            gen_helper_float_recip1_d(fp0, cpu_env, fp0);
-            gen_store_fpr64(ctx, fp0, fd);
-            tcg_temp_free_i64(fp0);
-        }
-        opn = "recip1.d";
-        break;
-    case OPC_RSQRT1_D:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i64 fp0 = tcg_temp_new_i64();
-
-            gen_load_fpr64(ctx, fp0, fs);
-            gen_helper_float_rsqrt1_d(fp0, cpu_env, fp0);
-            gen_store_fpr64(ctx, fp0, fd);
-            tcg_temp_free_i64(fp0);
-        }
-        opn = "rsqrt1.d";
-        break;
-    case OPC_RSQRT2_D:
-        check_cp1_64bitmode(ctx);
-        {
+    case R6_OPC_MINA_D: // or OPC_RECIP1_D:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-
+            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_rsqrt2_d(fp0, cpu_env, fp0, fp1);
+            gen_helper_float_mina_d(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp2, fd);
+            tcg_temp_free_i64(fp2);
             tcg_temp_free_i64(fp1);
-            gen_store_fpr64(ctx, fp0, fd);
             tcg_temp_free_i64(fp0);
+            opn = "mina.d";
+        } else {
+            // OPC_RECIP1_D: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i64 fp0 = tcg_temp_new_i64();
+                
+                gen_load_fpr64(ctx, fp0, fs);
+                gen_helper_float_recip1_d(fp0, cpu_env, fp0);
+                gen_store_fpr64(ctx, fp0, fd);
+                tcg_temp_free_i64(fp0);
+            }
+            opn = "recip1.d";
         }
-        opn = "rsqrt2.d";
+        break;
+    case R6_OPC_MAX_D: // or OPC_RSQRT1_D:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            TCGv_i64 fp0 = tcg_temp_new_i64();
+            TCGv_i64 fp1 = tcg_temp_new_i64();
+            TCGv_i64 fp2 = tcg_temp_new_i64();
+            gen_load_fpr64(ctx, fp0, fs);
+            gen_load_fpr64(ctx, fp1, ft);
+            gen_helper_float_max_d(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp2, fd);
+            tcg_temp_free_i64(fp2);
+            tcg_temp_free_i64(fp1);
+            tcg_temp_free_i64(fp0);
+            opn = "max.s";
+        } else {
+            // OPC_RSQRT1_D: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i64 fp0 = tcg_temp_new_i64();
+                
+                gen_load_fpr64(ctx, fp0, fs);
+                gen_helper_float_rsqrt1_d(fp0, cpu_env, fp0);
+                gen_store_fpr64(ctx, fp0, fd);
+                tcg_temp_free_i64(fp0);
+            }
+            opn = "rsqrt1.d";
+        }
+        break;
+    case R6_OPC_MAXA_D: // or OPC_RSQRT2_D:
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            TCGv_i64 fp0 = tcg_temp_new_i64();
+            TCGv_i64 fp1 = tcg_temp_new_i64();
+            TCGv_i64 fp2 = tcg_temp_new_i64();
+            gen_load_fpr64(ctx, fp0, fs);
+            gen_load_fpr64(ctx, fp1, ft);
+            gen_helper_float_max_d(fp2, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp2, fd);
+            tcg_temp_free_i64(fp2);
+            tcg_temp_free_i64(fp1);
+            tcg_temp_free_i64(fp0);
+            opn = "maxa.d";
+        } else {
+            // OPC_RSQRT2_D: MIPS-3D doesn't exist in R6
+            check_cp1_64bitmode(ctx);
+            {
+                TCGv_i64 fp0 = tcg_temp_new_i64();
+                TCGv_i64 fp1 = tcg_temp_new_i64();
+                
+                gen_load_fpr64(ctx, fp0, fs);
+                gen_load_fpr64(ctx, fp1, ft);
+                gen_helper_float_rsqrt2_d(fp0, cpu_env, fp0, fp1);
+                tcg_temp_free_i64(fp1);
+                gen_store_fpr64(ctx, fp0, fd);
+                tcg_temp_free_i64(fp0);
+            }
+            opn = "rsqrt2.d";
+        }
         break;
     case OPC_CMP_F_D:
     case OPC_CMP_UN_D:
