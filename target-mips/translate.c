@@ -17287,6 +17287,13 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
+    //FPR
+    for (i = 0; i < 32; i++) {
+        if (env_prev.active_fpu.fpr[i].fd != env->active_fpu.fpr[i].fd) {
+            sv_log(" : Write FPR[%2d]      = %016" PRIx64 "\n", i, env->active_fpu.fpr[i].fd);
+        }
+    }
+
     //DSP
     CHK_CP0_REG_ULONG(active_tc.DSPControl,    "DSPCTL      ");
 
