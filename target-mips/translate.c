@@ -113,6 +113,9 @@ enum {
     OPC_SDC1     = (0x3D << 26),
     OPC_SDC2     = (0x3E << 26),
     /* Compat Branch */
+    R6_OPC_BLEZALC  = (0x06 << 26), // [rs == r0, rt != r0]
+    R6_OPC_BGEZALC  = (0x06 << 26), // [rs != r0, rt != r0, rs == rt]
+    R6_OPC_BGEUC    = (0x06 << 26), // [rs != r0, rt != r0, rs != rt]
     R6_OPC_BOVC     = (0x08 << 26), // [rs <= rt, rs != r0]
     R6_OPC_BEQZALC  = (0x08 << 26), // [rs <= rt, rs == r0]
     R6_OPC_BEQC     = (0x08 << 26), // [rs > rt]
@@ -4426,6 +4429,16 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         bcond_compute = 1;
         btgt = ctx->pc + 4 + offset;
         break;
+    case R6_OPC_BLEZALC: // BGEZALC, BGEUC
+        if (rs == 0 || rs == rt) {
+            // BLEZALC, BGEZALC
+            blink = 31;
+        }
+        gen_load_gpr(t0, rs);
+        gen_load_gpr(t1, rt);
+        bcond_compute = 1;
+        btgt = ctx->pc + 4 + offset;
+        break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
         btgt = ctx->pc + 4 + offset;
@@ -4482,6 +4495,20 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         ctx->hflags |= MIPS_HFLAG_BC;
 
         switch (opc) {
+        case R6_OPC_BLEZALC: // BGEZALC, BGEUC
+            if (rs == 0 && rt != 0) {
+                // BLEZALC
+                tcg_gen_setcondi_tl(TCG_COND_LE, bcond, t1, 0);
+            }
+            else if (rs != 0 && rt != 0 && rs == rt) {
+                // BGEZALC
+                tcg_gen_setcondi_tl(TCG_COND_GE, bcond, t1, 0);
+            }
+            else {
+                // BGEUC
+                tcg_gen_setcond_tl(TCG_COND_GEU, bcond, t0, t1);
+            }
+            break;
         case R6_OPC_BLEZC: // BGEZC, BGEC
             if (rs == 0 && rt != 0) {
                 // BLEZC
@@ -16469,10 +16496,22 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
         }
         break;
+    case R6_OPC_BLEZALC: // BGEZALC, BGEUC and OPC_BLEZ
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            // BLEZALC, BGEZALC, BGEUC
+            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+        }
+        else {
+            // OPC_BLEZ
+            gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
+        }
+        break;
     case OPC_BEQL:
     case OPC_BNEL:
          check_insn_opc_removed(ctx, ISA_MIPS32R6);
-    case OPC_BEQ ... OPC_BGTZ:
+    case OPC_BEQ:
+    case OPC_BNE:
+    case OPC_BGTZ:
          gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
          break;
     case OPC_LWL: /* Load and stores */
