@@ -15723,12 +15723,6 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
             // instruction promoted from DSP ASE (OPC_BITREV)
             check_insn(ctx, ISA_MIPS32R6);
             gen_helper_bitswap(cpu_gpr[rd], cpu_gpr[rt]);
-#if defined(TARGET_MIPS64)
-            if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
-                !(ctx->hflags & MIPS_HFLAG_UX)) {
-                tcg_gen_ext32s_i64(cpu_gpr[rd], cpu_gpr[rd]);
-            }
-#endif
             break;
         }
         break;
