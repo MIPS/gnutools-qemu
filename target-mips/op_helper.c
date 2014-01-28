@@ -2934,6 +2934,24 @@ uint64_t helper_float_maddf_d(CPUMIPSState *env, uint64_t fs, uint64_t ft, uint6
     return fdret;
 }
 
+uint32_t helper_float_msubf_s(CPUMIPSState *env, uint32_t fs, uint32_t ft, uint32_t fd)
+{
+    uint32_t fdret;
+
+    fdret = float32_muladd(fs, ft, fd, float_muladd_negate_product, &env->active_fpu.fp_status);
+    update_fcr31(env, GETPC());
+    return fdret;
+}
+
+uint64_t helper_float_msubf_d(CPUMIPSState *env, uint64_t fs, uint64_t ft, uint64_t fd)
+{
+    uint64_t fdret;
+
+    fdret = float64_muladd(fs, ft, fd, float_muladd_negate_product, &env->active_fpu.fp_status);
+    update_fcr31(env, GETPC());
+    return fdret;
+}
+
 uint32_t helper_float_max_s(CPUMIPSState *env, uint32_t fs, uint32_t ft)
 {
     uint32_t fdret;
