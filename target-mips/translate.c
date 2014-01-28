@@ -7909,6 +7909,7 @@ enum fopcode {
     R6_OPC_SELNEZ_S = FOP(23, FMT_S), // R6
     OPC_RECIP2_S = FOP(28, FMT_S),   // MIPS-3D
     OPC_RECIP1_S = FOP(29, FMT_S),   // MIPS-3D
+    R6_OPC_MADDF_S = FOP(24, FMT_S),// R6
     R6_OPC_RINT_S = FOP(26, FMT_S),  // R6
     R6_OPC_CLASS_S = FOP(27, FMT_S), // R6
     R6_OPC_MIN_S = FOP(28, FMT_S),   // R6
@@ -7964,6 +7965,7 @@ enum fopcode {
     R6_OPC_SELNEZ_D = FOP(23, FMT_D), // R6
     OPC_RECIP2_D = FOP(28, FMT_D),   // MIPS-3D
     OPC_RECIP1_D = FOP(29, FMT_D),   // MIPS-3D
+    R6_OPC_MADDF_D = FOP(24, FMT_D),// R6
     R6_OPC_RINT_D = FOP(26, FMT_D),  // R6
     R6_OPC_CLASS_D = FOP(27, FMT_D), // R6
     R6_OPC_MIN_D = FOP(28, FMT_D),   // R6
@@ -8605,6 +8607,22 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.s";
         break;
+    case R6_OPC_MADDF_S:
+    {
+        TCGv_i32 fp0 = tcg_temp_new_i32();
+        TCGv_i32 fp1 = tcg_temp_new_i32();
+        TCGv_i32 fp2 = tcg_temp_new_i32();
+        gen_load_fpr32(fp0, fs);
+        gen_load_fpr32(fp1, ft);
+        gen_load_fpr32(fp2, fd);
+        gen_helper_float_maddf_s(fp2, cpu_env, fp0, fp1, fp2);
+        gen_store_fpr32(fp2, fd);
+        tcg_temp_free_i32(fp2);
+        tcg_temp_free_i32(fp1);
+        tcg_temp_free_i32(fp0);
+        opn = "maddf.s";
+    }
+    break;
     case R6_OPC_RINT_S:
     {
         TCGv_i32 fp0 = tcg_temp_new_i32();
@@ -9106,6 +9124,22 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.d";
         break;
+    case R6_OPC_MADDF_D:
+    {
+        TCGv_i64 fp0 = tcg_temp_new_i64();
+        TCGv_i64 fp1 = tcg_temp_new_i64();
+        TCGv_i64 fp2 = tcg_temp_new_i64();
+        gen_load_fpr64(ctx, fp0, fs);
+        gen_load_fpr64(ctx, fp1, ft);
+        gen_load_fpr64(ctx, fp2, fd);
+        gen_helper_float_maddf_d(fp2, cpu_env, fp0, fp1, fp2);
+        gen_store_fpr64(ctx, fp2, fd);
+        tcg_temp_free_i64(fp2);
+        tcg_temp_free_i64(fp1);
+        tcg_temp_free_i64(fp0);
+        opn = "maddf.d";
+    }
+    break;
     case R6_OPC_RINT_D:
     {
         TCGv_i64 fp0 = tcg_temp_new_i64();

@@ -214,6 +214,9 @@ DEF_HELPER_1(float_class_d, i64, i64)
 DEF_HELPER_2(float_rint_s, i32, env, i32)
 DEF_HELPER_2(float_rint_d, i64, env, i64)
 
+DEF_HELPER_4(float_maddf_s, i32, env, i32, i32, i32)
+DEF_HELPER_4(float_maddf_d, i64, env, i64, i64, i64)
+
 #define FOP_PROTO(op)                                       \
 DEF_HELPER_3(float_ ## op ## _s, i32, env, i32, i32)        \
 DEF_HELPER_3(float_ ## op ## _d, i64, env, i64, i64)
