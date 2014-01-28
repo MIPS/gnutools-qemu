@@ -17526,6 +17526,13 @@ void cpu_state_reset(CPUMIPSState *env)
         }
     }
 #endif
+    if ((env->insn_flags & ISA_MIPS32R6) && 
+        (env->active_fpu.fcr0 & (1 << FCR0_F64))) {
+        // R6: FR=0 mode in FPU not allowed
+        env->CP0_Status |= (1 << CP0St_FR);
+        env->CP0_Status_rw_bitmask &= ~(1 << CP0St_FR);
+    }
+
     compute_hflags(env);
     env->exception_index = EXCP_NONE;
 }
