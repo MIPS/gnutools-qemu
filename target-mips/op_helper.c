@@ -2996,6 +2996,72 @@ uint64_t helper_float_mina_d(CPUMIPSState *env, uint64_t fs, uint64_t ft)
     return fdret;
 }
 
+#define FLOAT_CLASS_SIGNALING_NAN      0x001
+#define FLOAT_CLASS_QUIET_NAN          0x002
+
+#define FLOAT_CLASS_NEGATIVE_INFINITY  0x004
+#define FLOAT_CLASS_NEGATIVE_NORMAL    0x008
+#define FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
+#define FLOAT_CLASS_NEGATIVE_ZERO      0x020
+
+#define FLOAT_CLASS_POSITIVE_INFINITY  0x040
+#define FLOAT_CLASS_POSITIVE_NORMAL    0x080
+#define FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
+#define FLOAT_CLASS_POSITIVE_ZERO      0x200
+
+#define FLOAT_CLASS(ARG, BITS)                              \
+    do {                                                        \
+        int mask;                                               \
+        int snan, qnan, inf, neg, zero, dnmz;                   \
+                                                                \
+        snan = float ## BITS ## _is_signaling_nan(ARG);         \
+        qnan = float ## BITS ## _is_quiet_nan(ARG);             \
+        inf  = float ## BITS ## _is_infinity(ARG);              \
+        neg  = float ## BITS ## _is_neg(ARG);                   \
+        zero = float ## BITS ## _is_zero(ARG);                  \
+        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);      \
+                                                                \
+        mask = 0;                                               \
+        if (snan) {                                             \
+            mask |= FLOAT_CLASS_SIGNALING_NAN;}             \
+        else if (qnan) {                                        \
+            mask |= FLOAT_CLASS_QUIET_NAN;                  \
+        } else if (neg) {                                       \
+            if (inf) {                                          \
+                mask |= FLOAT_CLASS_NEGATIVE_INFINITY;      \
+            } else if (zero) {                                  \
+                mask |= FLOAT_CLASS_NEGATIVE_ZERO;          \
+            } else if (dnmz) {                                  \
+                mask |= FLOAT_CLASS_NEGATIVE_SUBNORMAL;     \
+            }                                                   \
+            else {                                              \
+                mask |= FLOAT_CLASS_NEGATIVE_NORMAL;        \
+            }                                                   \
+        } else {                                                \
+            if (inf) {                                          \
+                mask |= FLOAT_CLASS_POSITIVE_INFINITY;      \
+            } else if (zero) {                                  \
+                mask |= FLOAT_CLASS_POSITIVE_ZERO;          \
+            } else if (dnmz) {                                  \
+                mask |= FLOAT_CLASS_POSITIVE_SUBNORMAL;     \
+            } else {                                            \
+                mask |= FLOAT_CLASS_POSITIVE_NORMAL;        \
+            }                                                   \
+        }                                                       \
+                                                                \
+        return mask;                                            \
+    } while (0)
+
+uint32_t helper_float_class_s(uint32_t arg)
+{
+    FLOAT_CLASS(arg, 32);
+}
+
+uint64_t helper_float_class_d(uint64_t arg)
+{
+    FLOAT_CLASS(arg, 64);
+}
+
 /* MIPS specific unary operations */
 uint64_t helper_float_recip_d(CPUMIPSState *env, uint64_t fdt0)
 {

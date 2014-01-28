@@ -1267,6 +1267,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"max.d",   "D,S,T",    0x4620001e, 0xffe0001f, FP_D,           	0,		I32R6	},
 {"maxa.s",  "D,S,T",    0x4600001f, 0xffe0001f, FP_S,           	0,		I32R6	},
 {"maxa.d",  "D,S,T",    0x4620001f, 0xffe0001f, FP_D,           	0,		I32R6	},
+{"class.s", "D,S,T",    0x4600001b, 0xffe0001f, FP_S,           	0,		I32R6	},
+{"class.d", "D,S,T",    0x4620001b, 0xffe0001f, FP_D,           	0,		I32R6	},
 {"min.s",   "D,S,T",    0x4600001c, 0xffe0001f, FP_S,           	0,		I32R6	},
 {"min.d",   "D,S,T",    0x4620001c, 0xffe0001f, FP_D,           	0,		I32R6	},
 {"mina.s",  "D,S,T",    0x4600001d, 0xffe0001f, FP_S,           	0,		I32R6	},

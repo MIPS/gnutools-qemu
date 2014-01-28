@@ -7909,6 +7909,7 @@ enum fopcode {
     R6_OPC_SELNEZ_S = FOP(23, FMT_S), // R6
     OPC_RECIP2_S = FOP(28, FMT_S),   // MIPS-3D
     OPC_RECIP1_S = FOP(29, FMT_S),   // MIPS-3D
+    R6_OPC_CLASS_S = FOP(27, FMT_S), // R6
     R6_OPC_MIN_S = FOP(28, FMT_S),   // R6
     R6_OPC_MINA_S = FOP(29, FMT_S),  // R6
     OPC_RSQRT1_S = FOP(30, FMT_S),   // MIPS-3D
@@ -7962,6 +7963,7 @@ enum fopcode {
     R6_OPC_SELNEZ_D = FOP(23, FMT_D), // R6
     OPC_RECIP2_D = FOP(28, FMT_D),   // MIPS-3D
     OPC_RECIP1_D = FOP(29, FMT_D),   // MIPS-3D
+    R6_OPC_CLASS_D = FOP(27, FMT_D), // R6
     R6_OPC_MIN_D = FOP(28, FMT_D),   // R6
     R6_OPC_MINA_D = FOP(29, FMT_D),  // R6
     OPC_RSQRT1_D = FOP(30, FMT_D),   // MIPS-3D
@@ -8601,6 +8603,16 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.s";
         break;
+    case R6_OPC_CLASS_S:
+    {
+        TCGv_i32 fp0 = tcg_temp_new_i32();
+        gen_load_fpr32(fp0, fs);
+        gen_helper_float_class_s(fp0, fp0);
+        gen_store_fpr32(fp0, fd);
+        tcg_temp_free_i32(fp0);
+        opn = "class.s";
+    }
+    break;
     case R6_OPC_MIN_S: // or OPC_RECIP2_S:
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i32 fp0 = tcg_temp_new_i32();
@@ -9082,6 +9094,16 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         }
         opn = "rsqrt.d";
         break;
+    case R6_OPC_CLASS_D:
+    {
+        TCGv_i64 fp0 = tcg_temp_new_i64();
+        gen_load_fpr64(ctx, fp0, fs);
+        gen_helper_float_class_d(fp0, fp0);
+        gen_store_fpr64(ctx, fp0, fd);
+        tcg_temp_free_i64(fp0);
+        opn = "class.d";
+    }
+    break;
     case R6_OPC_MIN_D: // or OPC_RECIP2_D:
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
