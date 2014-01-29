@@ -15998,7 +15998,7 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
     op1 = MASK_SPECIAL3(ctx->opcode);
     switch (op1) {
     case R6_OPC_PREF:
-        if (rs >= 24) {
+        if (rt >= 24) {
             // hind codes 24-31 are reserved and always signal RI
             generate_exception(ctx, EXCP_RI);
         }
