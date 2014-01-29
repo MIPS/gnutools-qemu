@@ -35,7 +35,7 @@ these four paragraphs for those parts of this code that are retained.
 
 =============================================================================*/
 
-#if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
 #define SNAN_BIT_IS_ONE		1
 #else
 #define SNAN_BIT_IS_ONE		0
