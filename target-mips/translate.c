@@ -4419,7 +4419,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = ctx->pc + 4 + offset;
+        btgt = calc_pc_add(ctx->pc + 4, offset);
         if (rs <= rt && rs == 0) {
             // BEQZALC, BNEZALC
             blink = 31;
@@ -4430,7 +4430,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = ctx->pc + 4 + offset;
+        btgt = calc_pc_add(ctx->pc + 4, offset);
         break;
     case R6_OPC_BLEZALC: // BGEZALC, BGEUC
     case R6_OPC_BGTZALC: // BLTZALC, BLTUC
@@ -4442,11 +4442,11 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = ctx->pc + 4 + offset;
+        btgt = calc_pc_add(ctx->pc + 4, offset);
         break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
-        btgt = ctx->pc + 4 + offset;
+        btgt = calc_pc_add(ctx->pc + 4, offset);
         break;
     case R6_OPC_BEQZC:
     case R6_OPC_BNEZC:
@@ -4454,14 +4454,38 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
             // BEQZC, BNEZC
             gen_load_gpr(t0, rs);
             bcond_compute = 1;
-            btgt = ctx->pc + 4 + offset;
+            btgt = calc_pc_add(ctx->pc + 4, offset);
         }
         else {
             // JIC, JIALC
-            gen_load_gpr(btarget, rt);
-            tcg_gen_movi_tl(t0, offset);
-            tcg_gen_ext16s_tl(t0, t0);
-            tcg_gen_add_tl(btarget, btarget, t0);
+            TCGv tbase = tcg_temp_local_new();
+            TCGv toffset = tcg_temp_local_new();
+
+            gen_load_gpr(tbase, rt);
+            tcg_gen_movi_tl(toffset, offset);
+            tcg_gen_add_tl(btarget, tbase, toffset);
+#ifdef TARGET_MIPS64
+            TCGv tmin = tcg_temp_local_new();
+            TCGv tmax = tcg_temp_local_new();
+            int lexit = gen_new_label();
+
+            tcg_gen_movi_tl(tmin, ADDR_EXT_MIN);
+            tcg_gen_movi_tl(tmax, ADDR_EXT_MAX);
+
+            tcg_gen_brcond_tl(TCG_COND_LT, tbase, tmin, lexit);
+            tcg_gen_brcond_tl(TCG_COND_GT, tbase, tmax, lexit);
+
+            tcg_gen_brcond_tl(TCG_COND_LT, toffset, tmin, lexit);
+            tcg_gen_brcond_tl(TCG_COND_GT, toffset, tmax, lexit);
+
+            tcg_gen_ext32s_tl(btarget, btarget);
+
+            gen_set_label(lexit);
+            tcg_temp_free(tmin);
+            tcg_temp_free(tmax);
+#endif
+            tcg_temp_free(tbase);
+            tcg_temp_free(toffset);
         }
         break;
     default:
@@ -16575,7 +16599,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BOVC: // BEQZALC, BEQC and ADDI
         if (ctx->insn_flags & ISA_MIPS32R6) {
 //            R6_OPC_BOVC, R6_OPC_BEQZALC, R6_OPC_BEQC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
 //            OPC_ADDI /* Arithmetic with immediate opcode */
@@ -16603,7 +16627,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BLEZC: // BGEZC, BGEC and OPC_BLEZL
         if (ctx->insn_flags & ISA_MIPS32R6) {
             // BLEZC, BGEZC, BGEC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
             // BLEZL
@@ -16613,7 +16637,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BGTZC: // BLTZC, BLTC and OPC_BGTZL
         if (ctx->insn_flags & ISA_MIPS32R6) {
             // BGTZC, BLTZC, BLTC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
             // BGTZL
@@ -16623,7 +16647,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BLEZALC: // BGEZALC, BGEUC and OPC_BLEZ
         if (ctx->insn_flags & ISA_MIPS32R6) {
             // BLEZALC, BGEZALC, BGEUC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
             // OPC_BLEZ
@@ -16633,7 +16657,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case R6_OPC_BGTZALC: // BLTZALC, BLTUC and OPC_BGTZ
         if (ctx->insn_flags & ISA_MIPS32R6) {
             // BGTZALC, BLTZALC, BLTUC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
             // OPC_BGTZ
@@ -16753,18 +16777,18 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     /* Compact branches [R6] and COP2 [non-R6] */
     case R6_OPC_BC: // and OPC_LWC2
     case R6_OPC_BALC: // and OPC_SWC2
-        gen_compute_compact_branch(ctx, op, 0, 0, (int32_t)(ctx->opcode & 0x3FFFFFF) << 2);
+        gen_compute_compact_branch(ctx, op, 0, 0, SIMM((ctx->opcode & 0x3FFFFFF) << 2, 0, 28));
         break;
     case R6_OPC_BEQZC: // R6_OPC_JIC and OPC_LDC2
     case R6_OPC_BNEZC: // R6_OPC_JIALC and OPC_SDC2
         if (ctx->insn_flags & ISA_MIPS32R6) {
             if (rs != 0) {
                 // BEQZC, BNEZC
-                gen_compute_compact_branch(ctx, op, rs, 0, (int32_t)(ctx->opcode & 0x1FFFFF) << 2);
+                gen_compute_compact_branch(ctx, op, rs, 0, SIMM((ctx->opcode & 0x1FFFFF) << 2, 0, 23));
             }
             else {
                 // JIC, JIALC
-                gen_compute_compact_branch(ctx, op, 0, rt, (int32_t)(ctx->opcode & 0xFFFF));
+                gen_compute_compact_branch(ctx, op, 0, rt, SIMM((ctx->opcode & 0xFFFF), 0, 16));
             }
         }
         else {
@@ -16847,7 +16871,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_DADDI: // BNVC, BNEZALC, BNEC
         if (ctx->insn_flags & ISA_MIPS32R6) {
 //          R6_OPC_BNVC, BNEZALC, BNEC
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
 //          OPC_DADDI
@@ -16865,7 +16889,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #ifndef TARGET_MIPS64
     case R6_OPC_BNVC: // BNEZALC, BNEC
         if (ctx->insn_flags & ISA_MIPS32R6) {
-            gen_compute_compact_branch(ctx, op, rs, rt, (int32_t)(ctx->opcode & 0xFFFF) << 2);
+            gen_compute_compact_branch(ctx, op, rs, rt, SIMM((ctx->opcode & 0xFFFF) << 2, 0, 18));
         }
         else {
             MIPS_INVAL("major opcode");
