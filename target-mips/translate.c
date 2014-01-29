@@ -8769,12 +8769,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
-            TCGv_i32 fp2 = tcg_temp_new_i32();
             gen_load_fpr32(fp0, fs);
             gen_load_fpr32(fp1, ft);
-            gen_helper_float_max_s(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr32(fp2, fd);
-            tcg_temp_free_i32(fp2);
+            gen_helper_float_max_s(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp1, fd);
             tcg_temp_free_i32(fp1);
             tcg_temp_free_i32(fp0);
             opn = "max.s";
@@ -8796,12 +8794,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
-            TCGv_i32 fp2 = tcg_temp_new_i32();
             gen_load_fpr32(fp0, fs);
             gen_load_fpr32(fp1, ft);
-            gen_helper_float_maxa_s(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr32(fp2, fd);
-            tcg_temp_free_i32(fp2);
+            gen_helper_float_maxa_s(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr32(fp1, fd);
             tcg_temp_free_i32(fp1);
             tcg_temp_free_i32(fp0);
             opn = "maxa.s";
@@ -9245,12 +9241,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_min_d(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr64(ctx, fp2, fd);
-            tcg_temp_free_i64(fp2);
+            gen_helper_float_min_d(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp1, fd);
             tcg_temp_free_i64(fp1);
             tcg_temp_free_i64(fp0);
             opn = "min.d";
@@ -9275,12 +9269,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_mina_d(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr64(ctx, fp2, fd);
-            tcg_temp_free_i64(fp2);
+            gen_helper_float_mina_d(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp1, fd);
             tcg_temp_free_i64(fp1);
             tcg_temp_free_i64(fp0);
             opn = "mina.d";
@@ -9302,12 +9294,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_max_d(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr64(ctx, fp2, fd);
-            tcg_temp_free_i64(fp2);
+            gen_helper_float_max_d(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp1, fd);
             tcg_temp_free_i64(fp1);
             tcg_temp_free_i64(fp0);
             opn = "max.s";
@@ -9329,12 +9319,10 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         if (ctx->insn_flags & ISA_MIPS32R6) {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
-            TCGv_i64 fp2 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, fs);
             gen_load_fpr64(ctx, fp1, ft);
-            gen_helper_float_maxa_d(fp2, cpu_env, fp0, fp1);
-            gen_store_fpr64(ctx, fp2, fd);
-            tcg_temp_free_i64(fp2);
+            gen_helper_float_maxa_d(fp1, cpu_env, fp0, fp1);
+            gen_store_fpr64(ctx, fp1, fd);
             tcg_temp_free_i64(fp1);
             tcg_temp_free_i64(fp0);
             opn = "maxa.d";
