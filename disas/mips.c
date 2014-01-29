@@ -1314,6 +1314,10 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"bltuc",   "s,t,p",    0x1C000000, 0xfc000000, CBD|RD_s|RD_t,      0,      I32R6  },
 {"nal",     "p",        0x04100000, 0xFFFF0000, WR_31,              0,      I32R6  },
 {"bal",     "p",        0x04110000, 0xFFFF0000, UBD|WR_31,          0,      I32R6  },
+{"bc1eqz",  "T,p",      0x45200000, 0xffe00000, CBD|RD_T|FP_S|FP_D, 0,      I32R6  },
+{"bc1nez",  "T,p",      0x45A00000, 0xffe00000, CBD|RD_T|FP_S|FP_D, 0,      I32R6  },
+{"bc2eqz",  "E,p",      0x49200000, 0xffe00000, CBD|RD_C2,          0,      I32R6  },
+{"bc2nez",  "E,p",      0x49A00000, 0xffe00000, CBD|RD_C2,          0,      I32R6  },
 {"pref",    "k,o(b)",   0xcc000000, 0xfc000000, RD_b,           	0,		I4|I32|G3	},
 {"prefx",   "h,t(b)",	0x4c00000f, 0xfc0007ff, RD_b|RD_t,		0,		I4|I33	},
 {"nop",     "",         0x00000000, 0xffffffff, 0,              	INSN2_ALIAS,	I1      }, /* sll */

@@ -949,6 +949,8 @@ enum {
     OPC_W_FMT    = (FMT_W << 21) | OPC_CP1,
     OPC_L_FMT    = (FMT_L << 21) | OPC_CP1,
     OPC_PS_FMT   = (FMT_PS << 21) | OPC_CP1,
+    R6_OPC_BC1EQZ = (0x09 << 21) | OPC_CP1,
+    R6_OPC_BC1NEZ = (0x0D << 21) | OPC_CP1,
 };
 
 #define MASK_CP1_FUNC(op)       MASK_CP1(op) | (op & 0x3F)
@@ -983,6 +985,8 @@ enum {
     OPC_CTC2    = (0x06 << 21) | OPC_CP2,
     OPC_MTHC2   = (0x07 << 21) | OPC_CP2,
     OPC_BC2     = (0x08 << 21) | OPC_CP2,
+    R6_OPC_BC2EQZ = (0x09 << 21) | OPC_CP2,
+    R6_OPC_BC2NEZ = (0x0D << 21) | OPC_CP2,
 };
 
 #define MASK_LMI(op)  (MASK_OP_MAJOR(op) | (op & (0x1F << 21)) | (op & 0x1F))
@@ -7876,6 +7880,49 @@ static void gen_compute_branch1(DisasContext *ctx, uint32_t op,
 
  out:
     tcg_temp_free_i32(t0);
+}
+
+/* R6 CP1 Branches (before delay slot) */
+static void gen_compute_branch1_r6(DisasContext *ctx, uint32_t op,
+                                int32_t ft, int32_t offset)
+{
+    target_ulong btarget;
+    const char *opn = "cp1 cond branch";
+
+    btarget = calc_pc_add(ctx->pc, offset);
+
+    switch (op) {
+    case R6_OPC_BC1EQZ:
+    case R6_OPC_BC1NEZ:
+        {
+            TCGv_i64 t0 = tcg_temp_new_i64();
+            gen_load_fpr64(ctx, t0, ft);
+            if(op == R6_OPC_BC1EQZ) {
+                tcg_gen_setcondi_i64(TCG_COND_EQ, t0, t0, 0);
+                opn = "bc1eqz";
+            }
+            else {
+                tcg_gen_setcondi_i64(TCG_COND_NE, t0, t0, 0);
+                opn = "bc1nez";
+            }
+#ifdef TARGET_MIPS64
+            tcg_gen_mov_tl(bcond, t0);
+#else
+            tcg_gen_trunc_i64_i32(bcond, t0);
+#endif
+            tcg_temp_free_i64(t0);
+            ctx->hflags |= MIPS_HFLAG_BC;
+        }
+        break;
+    default:
+        MIPS_INVAL(opn);
+        generate_exception (ctx, EXCP_RI);
+        return;
+    }
+    (void)opn; /* avoid a compiler warning */
+    MIPS_DEBUG("%s: cond %02x target " TARGET_FMT_lx, opn,
+               ctx->hflags, btarget);
+    ctx->btarget = btarget;
 }
 
 /* Coprocessor 1 (FPU) */
@@ -16971,7 +17018,24 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 gen_cp1(ctx, op1, rt, rd);
                 break;
 #endif
-            case OPC_BC1ANY2:
+            case R6_OPC_BC1EQZ: // and OPC_BC1ANY2
+                if (ctx->insn_flags & ISA_MIPS32R6) {
+                    // R6_OPC_BC1EQZ
+                    gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
+                                    rt, imm << 2);
+                }
+                else {
+                    // OPC_BC1ANY2
+                    check_cop1x(ctx);
+                    check_insn(ctx, ASE_MIPS3D);
+                    gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
+                                    (rt >> 2) & 0x7, imm << 2);
+                }
+                break;
+            case R6_OPC_BC1NEZ:
+                gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
+                                rt, imm << 2);
+                break;
             case OPC_BC1ANY4:
                 check_insn_opc_removed(ctx, ISA_MIPS32R6);
                 check_cop1x(ctx);
