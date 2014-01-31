@@ -498,6 +498,7 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
         return 3;
     }
 
+#if defined(TARGET_MIPS_LEGACYFP)
     /* Prefer sNaN over qNaN, in the a, b, c order. */
     if (aIsSNaN) {
         return 0;
@@ -512,6 +513,24 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
     } else {
         return 2;
     }
+#else
+    /* Prefer sNaN over qNaN, in the c, a, b order. */
+    if (cIsSNaN) {
+        return 2;
+    } else if (aIsSNaN) {
+        return 0;
+    } else if (bIsSNaN) {
+        return 1;
+    } else if (cIsQNaN) {
+        return 2;
+    } else if (aIsQNaN) {
+        return 0;
+    } else if (bIsQNaN) {
+        return 1;
+    } else {
+        return 3;
+    }
+#endif
 }
 #elif defined(TARGET_PPC)
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
