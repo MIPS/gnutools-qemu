@@ -486,7 +486,7 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
         return 1;
     }
 }
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS_LEGACYFP)
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
                          flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
 {
@@ -498,7 +498,6 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
         return 3;
     }
 
-#if defined(TARGET_MIPS_LEGACYFP)
     /* Prefer sNaN over qNaN, in the a, b, c order. */
     if (aIsSNaN) {
         return 0;
@@ -513,7 +512,15 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
     } else {
         return 2;
     }
-#else
+}
+#elif defined(TARGET_MIPS)
+static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
+                         flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
+{
+    if (infzero) {
+        float_raise(float_flag_invalid STATUS_VAR);
+    }
+
     /* Prefer sNaN over qNaN, in the c, a, b order. */
     if (cIsSNaN) {
         return 2;
@@ -530,7 +537,6 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
     } else {
         return 3;
     }
-#endif
 }
 #elif defined(TARGET_PPC)
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
