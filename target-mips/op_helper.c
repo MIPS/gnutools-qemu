@@ -2379,6 +2379,12 @@ static inline void restore_flush_mode(CPUMIPSState *env)
 {
     set_flush_to_zero((env->active_fpu.fcr31 & (1 << 24)) != 0,
                       &env->active_fpu.fp_status);
+
+    set_flush_inputs_to_zero((env->active_fpu.fcr31 & (1 << 24)) != 0,
+                             &env->active_fpu.fp_status);
+
+    set_float_detect_tininess((env->active_fpu.fcr31 & (1 << 24)) != 0,
+                              &env->active_fpu.fp_status);
 }
 
 target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
@@ -2457,7 +2463,9 @@ static inline int ieee_ex_to_mips(int xcpt)
         if (xcpt & float_flag_divbyzero) {
             ret |= FP_DIV0;
         }
-        if (xcpt & float_flag_inexact) {
+        if (xcpt & (float_flag_inexact |
+                    float_flag_input_denormal |
+                    float_flag_output_denormal)) {
             ret |= FP_INEXACT;
         }
     }
