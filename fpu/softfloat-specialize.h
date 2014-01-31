@@ -51,7 +51,7 @@ these four paragraphs for those parts of this code that are retained.
 /*----------------------------------------------------------------------------
 | The pattern for a default generated half-precision NaN.
 *----------------------------------------------------------------------------*/
-#if defined(TARGET_ARM)
+#if defined(TARGET_ARM) || (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float16 float16_default_nan = const_float16(0x7E00);
 #elif SNAN_BIT_IS_ONE
 const float16 float16_default_nan = const_float16(0x7DFF);
@@ -65,7 +65,7 @@ const float16 float16_default_nan = const_float16(0xFE00);
 #if defined(TARGET_SPARC)
 const float32 float32_default_nan = const_float32(0x7FFFFFFF);
 #elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
-      defined(TARGET_XTENSA)
+      defined(TARGET_XTENSA) || (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float32 float32_default_nan = const_float32(0x7FC00000);
 #elif SNAN_BIT_IS_ONE
 const float32 float32_default_nan = const_float32(0x7FBFFFFF);
@@ -78,7 +78,8 @@ const float32 float32_default_nan = const_float32(0xFFC00000);
 *----------------------------------------------------------------------------*/
 #if defined(TARGET_SPARC)
 const float64 float64_default_nan = const_float64(LIT64( 0x7FFFFFFFFFFFFFFF ));
-#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA)
+#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
+      (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF8000000000000 ));
 #elif SNAN_BIT_IS_ONE
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF7FFFFFFFFFFFF ));
