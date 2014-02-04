@@ -160,6 +160,11 @@ DEF_HELPER_2(mtc0_taghi, void, env, tl)
 DEF_HELPER_2(mtc0_datahi, void, env, tl)
 DEF_HELPER_3(mtc0_kscratch, void, env, tl, i32)
 
+#if defined(TARGET_MIPS64)
+DEF_HELPER_2(dmtc0_entrylo0, void, env, i64)
+DEF_HELPER_2(dmtc0_entrylo1, void, env, i64)
+#endif
+
 /* MIPS MT functions */
 DEF_HELPER_2(mftgpr, tl, env, i32)
 DEF_HELPER_2(mftlo, tl, env, i32)

@@ -1220,8 +1220,18 @@ void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) |
+        ((arg1 & 0xC0000000) << (CP0EnLo_RI - 31));
 }
+
+#if defined(TARGET_MIPS64)
+void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
+{
+    /* Large physaddr (PABITS) not implemented */
+    /* 1k pages not implemented */
+    env->CP0_EntryLo0 = (arg1 & 0xC00000003FFFFFFFull);
+}
+#endif
 
 void helper_mtc0_tcstatus(CPUMIPSState *env, target_ulong arg1)
 {
@@ -1387,8 +1397,18 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) |
+        ((arg1 & 0xC0000000) << (CP0EnLo_RI - 31));
 }
+
+#if defined(TARGET_MIPS64)
+void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
+{
+    /* Large physaddr (PABITS) not implemented */
+    /* 1k pages not implemented */
+    env->CP0_EntryLo1 = (arg1 & 0xC00000003FFFFFFFull);
+}
+#endif
 
 void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
 {

@@ -4970,8 +4970,19 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 2:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
-            tcg_gen_ext32s_tl(arg, arg);
+#if defined(TARGET_MIPS64)
+        {
+            TCGv_i64 tmp = tcg_const_i64(3ull << 62);
+            tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
+            tcg_gen_and_i64(tmp, arg, tmp);
+            tcg_gen_shri_i64(tmp, tmp, 32);
+            tcg_gen_or_i64(arg, arg, tmp);
+            tcg_gen_ext32s_i64(arg, arg);
+            tcg_temp_free_i64(tmp);
+        }
+#else
+            tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
+#endif
             rn = "EntryLo0";
             break;
         case 1:
@@ -5016,8 +5027,19 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 3:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
-            tcg_gen_ext32s_tl(arg, arg);
+#if defined(TARGET_MIPS64)
+        {
+            TCGv_i64 tmp = tcg_const_i64(3ull << 62);
+            tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
+            tcg_gen_and_i64(tmp, arg, tmp);
+            tcg_gen_shri_i64(tmp, tmp, 32);
+            tcg_gen_or_i64(arg, arg, tmp);
+            tcg_gen_ext32s_i64(arg, arg);
+            tcg_temp_free_i64(tmp);
+        }
+#else
+            tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
+#endif
             rn = "EntryLo1";
             break;
         default:
@@ -6799,7 +6821,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 2:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entrylo0(cpu_env, arg);
+            gen_helper_dmtc0_entrylo0(cpu_env, arg);
             rn = "EntryLo0";
             break;
         case 1:
@@ -6844,7 +6866,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 3:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entrylo1(cpu_env, arg);
+            gen_helper_dmtc0_entrylo1(cpu_env, arg);
             rn = "EntryLo1";
             break;
         default:
