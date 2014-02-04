@@ -4859,6 +4859,14 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+        {
+            TCGv_i32 s = tcg_const_i32(sel);
+            gen_helper_mfc0_kscratch(arg, s);
+            tcg_temp_free_i32(s);
+            rn = "KScratch";
+        }
+        break;
         default:
             goto die;
         }
@@ -6420,6 +6428,14 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
                 gen_helper_check_gpsi_cp0();
                 gen_helper_check_gpsi_og();
             }
+            else
+            {
+                TCGv_i32 s = tcg_const_i32(sel);
+                gen_helper_mtc0_kscratch(arg, s);
+                tcg_temp_free_i32(s);
+                rn = "KScratch";
+            }
+        break;
         default:
             goto die;
         }
@@ -7342,6 +7358,14 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+            {
+                TCGv_i32 s = tcg_const_i32(sel);
+                gen_helper_mfc0_kscratch(arg, s);
+                tcg_temp_free_i32(s);
+                rn = "KScratch";
+            }
+            break;
         default:
             goto die;
         }
@@ -7949,6 +7973,14 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             /* EJTAG support */
             gen_mtc0_store32(arg, offsetof(CPUState, CP0_DESAVE));
             rn = "DESAVE";
+            break;
+        case 2 ... 7:
+            {
+                TCGv_i32 s = tcg_const_i32(sel);
+                gen_helper_mtc0_kscratch(arg, s);
+                tcg_temp_free_i32(s);
+                rn = "KScratch";
+            }
             break;
         default:
             goto die;
