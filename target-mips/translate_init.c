@@ -518,7 +518,7 @@ static mips_def_t mips_defs[] =
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x37FBFFFF,
+        .CP0_Status_rw_bitmask = 0x31DBFFFF,
         .CP1_fcr0 = (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
