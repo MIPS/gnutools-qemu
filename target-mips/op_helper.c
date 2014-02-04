@@ -5466,7 +5466,7 @@ void helper_mtc0_hwrena (target_ulong arg1)
         }
     }
     else {
-        env->CP0_HWREna = arg1 & 0x0000000F;
+        env->CP0_HWREna = arg1 & 0x2000000F;
     }
 }
 
@@ -7297,6 +7297,17 @@ target_ulong helper_rdhwr_ccres(void)
         else
             helper_raise_exception(EXCP_RI);
     }
+    return 0;
+}
+
+target_ulong helper_rdhwr_ulr(void)
+{
+    if ((env->hflags & MIPS_HFLAG_CP0) ||
+        (env->CP0_HWREna & (1 << 29)))
+        return env->CP0_UserLocal;
+    else
+        helper_raise_exception(EXCP_RI);
+
     return 0;
 }
 

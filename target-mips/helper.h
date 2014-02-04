@@ -574,6 +574,7 @@ DEF_HELPER_0(rdhwr_cpunum, tl)
 DEF_HELPER_0(rdhwr_synci_step, tl)
 DEF_HELPER_0(rdhwr_cc, tl)
 DEF_HELPER_0(rdhwr_ccres, tl)
+DEF_HELPER_0(rdhwr_ulr, tl)
 DEF_HELPER_1(pmon, void, int)
 DEF_HELPER_0(wait, void)
 

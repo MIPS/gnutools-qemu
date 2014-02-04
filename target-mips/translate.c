@@ -4405,6 +4405,11 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_ContextConfig));
             rn = "ContextConfig";
             break;
+        case 2:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -5883,6 +5888,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mtc0_contextconfig(arg);
             rn = "ContextConfig";
             break;
+        case 2:
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -6939,7 +6948,11 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 1:
 //            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-//            break;
+            break;
+        case 2:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -7537,7 +7550,11 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 1:
 //           gen_helper_mtc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-//           break;
+           break;
+        case 2:
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+            rn = "UserLocal";
+            break;
         default:
             goto die;
         }
@@ -10842,8 +10859,10 @@ gen_rdhwr (CPUState *env, DisasContext *ctx, int rt, int rd)
         gen_store_gpr(t0, rt);
         break;
 #else
-        /* XXX: Some CPUs implement this in hardware.
-           Not supported yet. */
+        save_cpu_state(ctx, 1);
+        gen_helper_rdhwr_ulr(t0);
+        gen_store_gpr(t0, rt);
+        break;
 #endif
     default:            /* Invalid */
         MIPS_INVAL("rdhwr");
