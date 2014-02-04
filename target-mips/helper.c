@@ -86,7 +86,7 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
             /* Check access rights */
             if (!(n ? tlb->V1 : tlb->V0))
                 return TLBRET_INVALID;
-            if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
+            if (rw != 1 || (n ? tlb->D1 : tlb->D0)) {
                 *physical = tlb->PFN[n] | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
@@ -251,14 +251,14 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
     case TLBRET_BADADDR:
         /* Reference to kernel address from user mode or supervisor mode */
         /* Reference to supervisor address from user mode */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_AdES;
         else
             exception = EXCP_AdEL;
         break;
     case TLBRET_NOMATCH:
         /* No TLB match for a mapped address */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_TLBS;
         else
             exception = EXCP_TLBL;
@@ -266,7 +266,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         break;
     case TLBRET_INVALID:
         /* TLB match with no valid bit */
-        if (rw)
+        if (rw == 1)
             exception = EXCP_TLBS;
         else
             exception = EXCP_TLBL;
@@ -338,8 +338,6 @@ int cpu_mips_handle_mmu_fault (CPUMIPSState *env, target_ulong address, int rw,
     qemu_log("%s pc " TARGET_FMT_lx " ad " TARGET_FMT_lx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 
-    rw &= 1;
-
     /* data access */
 #if !defined(CONFIG_USER_ONLY)
     /* XXX: put correct access by using cpu_restore_state()
@@ -371,8 +369,6 @@ hwaddr cpu_mips_translate_address(CPUMIPSState *env, target_ulong address, int r
     int prot;
     int access_type;
     int ret = 0;
-
-    rw &= 1;
 
     /* data access */
     access_type = ACCESS_INT;
