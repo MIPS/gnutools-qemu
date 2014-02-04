@@ -26,6 +26,8 @@
 #include "cpu.h"
 
 enum {
+    TLBRET_XI = -6,
+    TLBRET_RI = -5,
     TLBRET_DIRTY = -4,
     TLBRET_INVALID = -3,
     TLBRET_NOMATCH = -2,
@@ -86,6 +88,10 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
             /* Check access rights */
             if (!(n ? tlb->V1 : tlb->V0))
                 return TLBRET_INVALID;
+            if (rw == 2 && (n ? tlb->XI1 : tlb->XI0))
+                return TLBRET_XI; 
+            if (rw == 0 && (n ? tlb->RI1 : tlb->RI0))
+                return TLBRET_RI; // TODO: MIPS16 PC-relative special case
             if (rw != 1 || (n ? tlb->D1 : tlb->D0)) {
                 *physical = tlb->PFN[n] | (address & (mask >> 1));
                 *prot = PAGE_READ;

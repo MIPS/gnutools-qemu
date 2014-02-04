@@ -29,6 +29,10 @@ struct r4k_tlb_t {
     uint_fast16_t V1:1;
     uint_fast16_t D0:1;
     uint_fast16_t D1:1;
+    uint_fast16_t XI0:1;
+    uint_fast16_t XI1:1;
+    uint_fast16_t RI0:1;
+    uint_fast16_t RI1:1;
     target_ulong PFN[2];
 };
 
