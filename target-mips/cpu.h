@@ -230,6 +230,7 @@ struct CPUMIPSState {
     target_ulong CP0_EntryLo1;
     target_ulong CP0_Context;
     target_ulong CP0_UserLocal;
+    target_ulong CP0_KScratch[6];
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
@@ -374,6 +375,7 @@ struct CPUMIPSState {
 #define CP0C3_SM   1
 #define CP0C3_TL   0
     int32_t CP0_Config4;
+#define CP0C4_KScrExist 16
 #define CP0C4_M    31
     int32_t CP0_Config5;
     int32_t CP0_Config6;

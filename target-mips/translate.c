@@ -5465,6 +5465,15 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+        {
+            TCGv_i32 s = tcg_const_i32(sel);
+            gen_helper_mfc0_kscratch(arg, cpu_env, s);
+            tcg_gen_ext32s_tl(arg, arg);
+            tcg_temp_free_i32(s);
+            rn = "KScratch";
+        }
+        break;
         default:
             goto die;
         }
@@ -6070,6 +6079,14 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+        {
+            TCGv_i32 s = tcg_const_i32(sel);
+            gen_helper_mtc0_kscratch(cpu_env, arg, s);
+            tcg_temp_free_i32(s);
+            rn = "KScratch";
+        }
+        break;
         default:
             goto die;
         }
@@ -6669,6 +6686,14 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+        {
+            TCGv_i32 s = tcg_const_i32(sel);
+            gen_helper_mfc0_kscratch(arg, cpu_env, s);
+            tcg_temp_free_i32(s);
+            rn = "KScratch";
+        }
+        break;
         default:
             goto die;
         }
@@ -7276,6 +7301,14 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
+        case 2 ... 7:
+        {
+            TCGv_i32 s = tcg_const_i32(sel);
+            gen_helper_mtc0_kscratch(cpu_env, arg, s);
+            tcg_temp_free_i32(s);
+            rn = "KScratch";
+        }
+        break;
         default:
             goto die;
         }

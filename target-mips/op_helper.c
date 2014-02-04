@@ -1712,6 +1712,22 @@ void helper_mtc0_datahi(CPUMIPSState *env, target_ulong arg1)
     env->CP0_DataHi = arg1; /* XXX */
 }
 
+void helper_mtc0_kscratch (CPUMIPSState *env, target_ulong arg1, uint32_t sel)
+{
+    if ((1 << sel) & (0xff & (env->CP0_Config4 >> CP0C4_KScrExist))) {
+        env->CP0_KScratch[sel-2] = arg1;
+    }
+}
+
+target_ulong helper_mfc0_kscratch (CPUMIPSState *env, uint32_t sel)
+{
+    if ((1 << sel) & (0xff & (env->CP0_Config4 >> CP0C4_KScrExist))) {
+        return env->CP0_KScratch[sel-2];
+    } else {
+        return 0;
+    }
+}
+
 /* MIPS MT functions */
 target_ulong helper_mftgpr(CPUMIPSState *env, uint32_t sel)
 {

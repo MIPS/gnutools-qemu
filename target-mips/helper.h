@@ -86,6 +86,7 @@ DEF_HELPER_2(mfc0_watchlo, tl, env, i32)
 DEF_HELPER_2(mfc0_watchhi, tl, env, i32)
 DEF_HELPER_1(mfc0_debug, tl, env)
 DEF_HELPER_1(mftc0_debug, tl, env)
+DEF_HELPER_2(mfc0_kscratch, tl, env, i32)
 #ifdef TARGET_MIPS64
 DEF_HELPER_1(dmfc0_tcrestart, tl, env)
 DEF_HELPER_1(dmfc0_tchalt, tl, env)
@@ -157,6 +158,7 @@ DEF_HELPER_2(mtc0_taglo, void, env, tl)
 DEF_HELPER_2(mtc0_datalo, void, env, tl)
 DEF_HELPER_2(mtc0_taghi, void, env, tl)
 DEF_HELPER_2(mtc0_datahi, void, env, tl)
+DEF_HELPER_3(mtc0_kscratch, void, env, tl, i32)
 
 /* MIPS MT functions */
 DEF_HELPER_2(mftgpr, tl, env, i32)
