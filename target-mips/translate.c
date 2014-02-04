@@ -4920,8 +4920,13 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 1:
         switch (sel) {
         case 0:
-            gen_helper_mfc0_random(arg, cpu_env);
-            rn = "Random";
+            if (!(ctx->insn_flags & ISA_MIPS32R6)) {
+                // Random register removed in R6
+                gen_helper_mfc0_random(arg, cpu_env);
+                rn = "Random";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -6130,8 +6135,13 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 1:
         switch (sel) {
         case 0:
-            gen_helper_mfc0_random(arg, cpu_env);
-            rn = "Random";
+            if (!(ctx->insn_flags & ISA_MIPS32R6)) {
+                // Random register removed in R6
+                gen_helper_mfc0_random(arg, cpu_env);
+                rn = "Random";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
