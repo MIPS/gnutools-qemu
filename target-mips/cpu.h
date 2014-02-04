@@ -769,8 +769,12 @@ static inline void compute_hflags(CPUMIPSState *env)
         env->hflags |= MIPS_HFLAG_UX;
     }
 #endif
-    if ((env->CP0_Status & (1 << CP0St_CU0)) ||
-        !(env->hflags & MIPS_HFLAG_KSU)) {
+
+    if (!(env->hflags & MIPS_HFLAG_KSU) ||
+        (!(env->insn_flags & ISA_MIPS32R6) &&
+         (env->CP0_Status & (1 << CP0St_CU0)))) {
+        /* R6: CU0 is no longer used to control user access to CP0.
+           Moreover, user never has access to CP0 resources. */
         env->hflags |= MIPS_HFLAG_CP0;
     }
     if (env->CP0_Status & (1 << CP0St_CU1)) {
