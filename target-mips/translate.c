@@ -5239,6 +5239,10 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
             break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BEVVA));
+            rn = "BEVVA";
+            break;
         default:
             goto die;
        }
@@ -5836,6 +5840,10 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_ebase(cpu_env, arg);
             rn = "EBase";
+            break;
+        case 4:
+            /* ignored */
+            rn = "BEVVA";
             break;
         default:
             goto die;
@@ -6464,6 +6472,10 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
             break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BEVVA));
+            rn = "BEVVA";
+            break;
         default:
             goto die;
         }
@@ -7070,6 +7082,10 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_ebase(cpu_env, arg);
             rn = "EBase";
+            break;
+        case 4:
+            /* ignored */
+            rn = "BEVVA";
             break;
         default:
             goto die;
@@ -18175,6 +18191,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->tlb->tlb_in_use = env->tlb->nb_tlb;
     env->CP0_Wired = 0;
     env->CP0_EBase = 0x80000000 | (cs->cpu_index & 0x3FF);
+    env->CP0_BEVVA = 0; // TODO
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
     /* vectored interrupts not implemented, timer on int 7,
        no performance counters. */
