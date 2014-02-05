@@ -281,7 +281,22 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         /* TLB match but 'D' bit is cleared */
         exception = EXCP_LTLBL;
         break;
-
+    case TLBRET_XI:
+        /* Execute-Inhibit Exception*/
+        if (env->CP0_PageGrain & (1 << CP0PG_IEC)) {
+            exception = EXCP_TLBXI;
+        } else {
+            exception = EXCP_TLBL;
+        }
+        break;
+    case TLBRET_RI:
+        /* Read-Inhibit Exception */
+        if (env->CP0_PageGrain & (1 << CP0PG_IEC)) {
+            exception = EXCP_TLBRI;
+        } else {
+            exception = EXCP_TLBL;
+        }
+        break;
     }
     /* Raise exception */
     env->CP0_BadVAddr = address;
@@ -423,6 +438,8 @@ static const char * const excp_names[EXCP_LAST + 1] = {
     [EXCP_MDMX] = "MDMX",
     [EXCP_C2E] = "precise coprocessor 2",
     [EXCP_CACHE] = "cache error",
+    [EXCP_TLBXI] = "TLB Execution-Inhibit",
+    [EXCP_TLBRI] = "TLB Read-Inhibit",
 };
 
 target_ulong exception_resume_pc (CPUMIPSState *env)
@@ -644,6 +661,12 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_C2E:
         cause = 18;
+        goto set_EPC;
+    case EXCP_TLBRI:
+        cause = 19;
+        goto set_EPC;
+    case EXCP_TLBXI:
+        cause = 20;
         goto set_EPC;
     case EXCP_MDMX:
         cause = 22;
