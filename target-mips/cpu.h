@@ -243,6 +243,7 @@ struct CPUMIPSState {
     target_ulong CP0_UserLocal;
     target_ulong CP0_KScratch[6];
     int32_t CP0_PageMask;
+    int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
 #define CP0PG_RIE 31
 #define CP0PG_XIE 30

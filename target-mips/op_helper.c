@@ -1428,13 +1428,8 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
     /* SmartMIPS not implemented */
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    uint32_t mask = 1 << CP0PG_IEC;
-
-    if (env->CP0_Config3 & (1 << CP0C3_RXI)) {
-        mask |= 3 << CP0PG_XIE;
-    }
-
-    env->CP0_PageGrain = arg1 & mask;
+    env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
+                         (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)

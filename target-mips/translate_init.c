@@ -92,6 +92,8 @@ struct mips_def_t {
     int32_t CP0_SRSConf3;
     int32_t CP0_SRSConf4_rw_bitmask;
     int32_t CP0_SRSConf4;
+    int32_t CP0_PageGrain_rw_bitmask;
+    int32_t CP0_PageGrain;
     int insn_flags;
     enum mips_mmu_types mmu_type;
 };
@@ -514,12 +516,14 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1 << CP0C3_DSPP) |
-                       (1 << CP0C3_ULRI),
+                       (1 << CP0C3_ULRI) | (1 << CP0C3_RXI),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x31DBFFFF,
+        .CP0_PageGrain = (1 << CP0PG_XIE) | (1 << CP0PG_RIE) | (1 << CP0PG_IEC),
+        .CP0_PageGrain_rw_bitmask = 0,
         .CP1_fcr0 = (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
