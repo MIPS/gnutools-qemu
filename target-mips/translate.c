@@ -906,6 +906,8 @@ enum {
 enum {
     OPC_TLBR     = 0x01 | OPC_C0,
     OPC_TLBWI    = 0x02 | OPC_C0,
+    OPC_TLBINV   = 0x03 | OPC_C0,
+    OPC_TLBINVF  = 0x04 | OPC_C0,
     OPC_TLBWR    = 0x06 | OPC_C0,
     OPC_TLBP     = 0x08 | OPC_C0,
     OPC_RFE      = 0x10 | OPC_C0,
@@ -7841,6 +7843,22 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         if (!env->tlb->helper_tlbwi)
             goto die;
         gen_helper_tlbwi(cpu_env);
+        break;
+    case OPC_TLBINV:
+        opn = "tlbinv";
+        if (ctx->insn_flags & INSN_TLBINV) {
+            if (!env->tlb->helper_tlbinv)
+                goto die;
+            gen_helper_tlbinv(cpu_env);
+        } // treat as nop if TLBINV not supported
+        break;
+    case OPC_TLBINVF:
+        opn = "tlbinvf";
+        if (ctx->insn_flags & INSN_TLBINV) {
+            if (!env->tlb->helper_tlbinvf)
+                goto die;
+            gen_helper_tlbinvf(cpu_env);
+        } // treat as nop if TLBINV not supported
         break;
     case OPC_TLBWR:
         opn = "tlbwr";

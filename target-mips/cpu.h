@@ -33,7 +33,9 @@ struct r4k_tlb_t {
     uint_fast16_t XI1:1;
     uint_fast16_t RI0:1;
     uint_fast16_t RI1:1;
+    uint_fast16_t EHINV:1;
     target_ulong PFN[2];
+    
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -46,6 +48,8 @@ struct CPUMIPSTLBContext {
     void (*helper_tlbwr)(struct CPUMIPSState *env);
     void (*helper_tlbp)(struct CPUMIPSState *env);
     void (*helper_tlbr)(struct CPUMIPSState *env);
+    void (*helper_tlbinv)(struct CPUMIPSState *env);
+    void (*helper_tlbinvf)(struct CPUMIPSState *env);
     union {
         struct {
             r4k_tlb_t tlb[MIPS_TLB_MAX];
@@ -282,6 +286,7 @@ struct CPUMIPSState {
     target_ulong CP0_BadVAddr;
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
+#define CP0EnHi_EHINV 10
     int32_t CP0_Compare;
     int32_t CP0_Status;
 #define CP0St_CU3   31
@@ -393,6 +398,7 @@ struct CPUMIPSState {
     int32_t CP0_Config4;
 #define CP0C4_KScrExist 16
 #define CP0C4_MMUExtDef 14
+#define CP0C4_IE   29
 #define CP0C4_M    31
     int32_t CP0_Config5;
     int32_t CP0_Config6;
@@ -521,6 +527,8 @@ void r4k_helper_tlbwi(CPUMIPSState *env);
 void r4k_helper_tlbwr(CPUMIPSState *env);
 void r4k_helper_tlbp(CPUMIPSState *env);
 void r4k_helper_tlbr(CPUMIPSState *env);
+void r4k_helper_tlbinv(CPUMIPSState *env);
+void r4k_helper_tlbinvf(CPUMIPSState *env);
 
 void mips_cpu_unassigned_access(CPUState *cpu, hwaddr addr,
                                 bool is_write, bool is_exec, int unused,

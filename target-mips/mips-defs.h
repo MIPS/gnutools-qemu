@@ -42,6 +42,9 @@
 #define		ASE_SMARTMIPS	0x00040000
 #define 	ASE_MICROMIPS	0x00080000
 
+/* MIPS feature specific instructions. */
+#define		INSN_TLBINV	0x01000000
+
 /* Chip specific instructions. */
 #define		INSN_LOONGSON2E  0x20000000
 #define		INSN_LOONGSON2F  0x40000000

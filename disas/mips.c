@@ -1224,6 +1224,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
 /* R6 instructions */
+{"tlbinv",  "",         0x42000003, 0xffffffff, INSN_TLB,   		0,		I32R6	},
+{"tlbinvf", "",         0x42000004, 0xffffffff, INSN_TLB,   		0,		I32R6	},
 {"lwp",     "s,+o2",    0xec080000, 0xfc180000, WR_d,   		0,		I32R6	},
 {"lwup",    "s,+o2",    0xec100000, 0xfc180000, WR_d,   		0,		I32R6	},
 {"ldp",     "s,+o1",    0xec180000, 0xfc1a0000, WR_d,   		0,		I32R6	},

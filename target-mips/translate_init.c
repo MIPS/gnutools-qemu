@@ -517,7 +517,7 @@ static mips_def_t mips_defs[] =
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1 << CP0C3_DSPP) |
                        (1 << CP0C3_ULRI) | (1 << CP0C3_RXI) | (1 << CP0C3_M),
-        .CP0_Config4 = (3 << CP0C4_MMUExtDef),
+        .CP0_Config4 = (3 << CP0C4_MMUExtDef) | (3 << CP0C4_IE),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
@@ -534,7 +534,7 @@ static mips_def_t mips_defs[] =
            in some places...
         .PABITS = 59, */ /* the architectural limit */
         .PABITS = 36,
-        .insn_flags = CPU_MIPS64R6,
+        .insn_flags = CPU_MIPS64R6 | INSN_TLBINV,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -647,6 +647,8 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->tlb->helper_tlbp = r4k_helper_tlbp;
     env->tlb->helper_tlbr = r4k_helper_tlbr;
+    env->tlb->helper_tlbinv = r4k_helper_tlbinv;
+    env->tlb->helper_tlbinvf = r4k_helper_tlbinvf;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
