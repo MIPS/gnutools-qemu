@@ -1220,8 +1220,8 @@ void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) |
-        ((arg1 & 0xC0000000) << (CP0EnLo_RI - 31));
+    target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
+    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | (rxie << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
@@ -1229,7 +1229,8 @@ void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = (arg1 & 0xC00000003FFFFFFFull);
+    uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
+    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | rxie;
 }
 #endif
 
@@ -1397,8 +1398,8 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) |
-        ((arg1 & 0xC0000000) << (CP0EnLo_RI - 31));
+    target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
+    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | (rxie << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
@@ -1406,7 +1407,8 @@ void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = (arg1 & 0xC00000003FFFFFFFull);
+    uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
+    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | rxie;
 }
 #endif
 
@@ -1426,7 +1428,8 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
     /* SmartMIPS not implemented */
     /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_PageGrain = 0;
+    env->CP0_PageGrain = (env->CP0_Config3 & (1 << CP0C3_RXI)) ?
+                         (arg1 & (3 << CP0PG_XIE)) : 0;
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
