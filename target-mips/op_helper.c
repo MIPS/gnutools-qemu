@@ -1551,8 +1551,12 @@ void helper_mttc0_status(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 {
+    int vs = arg1 & 0x000003e0;
+    if (vs & (vs - 1)) {
+        vs = env->CP0_IntCtl & 0x000003e0;
+    }
     /* vectored interrupts not implemented, no performance counters. */
-    env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | (arg1 & 0x000003e0);
+    env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | vs;
 }
 
 void helper_mtc0_srsctl(CPUMIPSState *env, target_ulong arg1)
