@@ -196,9 +196,9 @@ static int64_t load_kernel(void)
     if (loaderparams.initrd_filename) {
 #ifdef MIPSSIM_COMPAT
         initrd_size = load_mips_hex(loaderparams.initrd_filename);
+        (void)initrd_offset;
 #else
         initrd_size = get_image_size (loaderparams.initrd_filename);
-#endif
         if (initrd_size > 0) {
             initrd_offset = (kernel_high + ~INITRD_PAGE_MASK) & INITRD_PAGE_MASK;
             if (initrd_offset + initrd_size > loaderparams.ram_size) {
@@ -210,6 +210,7 @@ static int64_t load_kernel(void)
             initrd_size = load_image_targphys(loaderparams.initrd_filename,
                 initrd_offset, loaderparams.ram_size - initrd_offset);
         }
+#endif
         if (initrd_size == (target_ulong) -1) {
             fprintf(stderr, "qemu: could not load initial ram disk '%s'\n",
                     loaderparams.initrd_filename);
