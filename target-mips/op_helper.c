@@ -1074,20 +1074,15 @@ target_ulong helper_dmfc0_watchlo(CPUMIPSState *env, uint32_t sel)
 
 void helper_mtc0_index(CPUMIPSState *env, target_ulong arg1)
 {
-    int num = 1;
-    unsigned int tmp = env->tlb->nb_tlb;
     uint32_t index_p = arg1 & 0x80000000;
-
-    if (!(env->insn_flags & ISA_MIPS32R6)) {
-        // In pre-R6 architecture CP0_Index.P field is read-only
-        index_p = env->CP0_Index & 0x80000000;
+    uint32_t tlb_index = arg1 & 0x7fffffff;
+    if (tlb_index < env->tlb->nb_tlb) {
+        if (!(env->insn_flags & ISA_MIPS32R6)) {
+            // In pre-R6 architecture CP0_Index.P field is read-only
+            index_p = env->CP0_Index & 0x80000000;
+        }
+        env->CP0_Index = index_p | tlb_index;
     }
-
-    do {
-        tmp >>= 1;
-        num <<= 1;
-    } while (tmp);
-    env->CP0_Index = index_p | (arg1 & (num - 1));
 }
 
 void helper_mtc0_mvpcontrol(CPUMIPSState *env, target_ulong arg1)
