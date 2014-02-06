@@ -1521,6 +1521,8 @@ void helper_mtc0_status(CPUMIPSState *env, target_ulong arg1)
         mask &= ~(3 << CP0St_KSU);
     }
 
+    // CP0St_SR and CP0St_NMI: ignore a write of 1
+    mask &= ~(0x00180000 & arg1);
     val = arg1 & mask;
     old = env->CP0_Status;
     env->CP0_Status = (env->CP0_Status & ~mask) | val;
