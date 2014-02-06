@@ -1419,8 +1419,14 @@ void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 {
-    /* 1k pages not implemented */
-    env->CP0_PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
+    uint64_t mask = arg1 >> (TARGET_PAGE_BITS + 1);
+    /* Write new value only if valid */
+    if ((arg1 == (target_ulong)-1) ||
+        (mask == 0x0000 || mask == 0x0003 || mask == 0x000F ||
+         mask == 0x003F || mask == 0x00FF || mask == 0x03FF ||
+         mask == 0x0FFF || mask == 0x3FFF || mask == 0xFFFF)) {
+        env->CP0_PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
+    }
 }
 
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
