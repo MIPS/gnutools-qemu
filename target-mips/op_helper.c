@@ -1516,6 +1516,10 @@ void helper_mtc0_status(CPUMIPSState *env, target_ulong arg1)
 {
     uint32_t val, old;
     uint32_t mask = env->CP0_Status_rw_bitmask;
+    if (((env->CP0_Status >> CP0St_KSU) & 0x3) == 3) {
+        // leave the field unmodified on illegal value write
+        mask &= ~(3 << CP0St_KSU);
+    }
 
     val = arg1 & mask;
     old = env->CP0_Status;
