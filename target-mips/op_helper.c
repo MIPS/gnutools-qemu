@@ -1663,10 +1663,19 @@ target_ulong helper_mftc0_configx(CPUMIPSState *env, target_ulong idx)
 
 void helper_mtc0_config0(CPUMIPSState *env, target_ulong arg1)
 {
-    uint32_t mask = 0x00000007; // K0
+    uint32_t mask = 0;
+    uint32_t is_preR6 = !(env->insn_flags & ISA_MIPS32R6);
+    if (is_preR6 || (arg1 & 0x6) == 0x2) { // Allowed CCA: 2 or 3
+        mask |= 0x00000007; // K0
+    }
     if (((env->CP0_Config0 >> CP0C0_MT) & 0x7) == 3) {
         // Fixed Mapping MMU: K32 and KU fields available
-        mask |= (0x7 << CP0C0_KU) | (0x7 << CP0C0_K23);
+        if (is_preR6 || (((arg1 >> CP0C0_K23) & 0x6) == 0x2)) {
+            mask |= (0x7 << CP0C0_K23);
+        }
+        if (is_preR6 || ((arg1 >> CP0C0_KU) & 0x6) == 0x2) {
+            mask |= (0x7 << CP0C0_KU);
+        }
     }
     env->CP0_Config0 = (env->CP0_Config0 & ~mask) | (arg1 & mask);
 }
