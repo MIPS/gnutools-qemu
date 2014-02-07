@@ -2141,7 +2141,12 @@ void r4k_helper_tlbwr(CPUMIPSState *env)
     sv_log("Info (MIPS32_TLB) TLBWR ");
 #endif
 #endif
+    int idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     int r = cpu_mips_get_random(env);
+    if ((r == idx) && !(env->CP0_Index & 0x80000000)) {
+        // Index.P=0 causes TLBWR to use different TLB entry than Index
+        r = (r + 1) % env->tlb->nb_tlb;
+    }
 
     r4k_invalidate_tlb(env, r, 1);
     r4k_fill_tlb(env, r);
