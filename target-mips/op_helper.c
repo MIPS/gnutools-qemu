@@ -1581,6 +1581,7 @@ static void mtc0_cause(CPUMIPSState *cpu, target_ulong arg1)
         mask |= 1 << CP0Ca_DC;
     }
 
+    mask &= ~((1 << CP0Ca_WP) & arg1); // CP0Ca_WP: ignore a write of 1
     cpu->CP0_Cause = (cpu->CP0_Cause & ~mask) | (arg1 & mask);
 
     if ((old ^ cpu->CP0_Cause) & (1 << CP0Ca_DC)) {
