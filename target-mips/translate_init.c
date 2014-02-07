@@ -48,18 +48,6 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
-/* MMU types, the first four entries have the same layout as the
-   CP0C0_MT field.  */
-enum mips_mmu_types {
-    MMU_TYPE_NONE,
-    MMU_TYPE_R4000,
-    MMU_TYPE_RESERVED,
-    MMU_TYPE_FMT,
-    MMU_TYPE_R3000,
-    MMU_TYPE_R6000,
-    MMU_TYPE_R8000
-};
-
 struct mips_def_t {
     const char *name;
     int32_t CP0_PRid;

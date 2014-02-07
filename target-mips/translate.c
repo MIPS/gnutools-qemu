@@ -5537,8 +5537,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 0:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_index(cpu_env, arg);
-            rn = "Index";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_index(cpu_env, arg);
+                rn = "Index";
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -5607,8 +5609,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 2:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entrylo0(cpu_env, arg);
-            rn = "EntryLo0";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_entrylo0(cpu_env, arg);
+                rn = "EntryLo0";
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -5652,8 +5656,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 3:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entrylo1(cpu_env, arg);
-            rn = "EntryLo1";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_entrylo1(cpu_env, arg);
+                rn = "EntryLo1";
+            }
             break;
         default:
             goto die;
@@ -5662,8 +5668,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 4:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_context(cpu_env, arg);
-            rn = "Context";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_context(cpu_env, arg);
+                rn = "Context";
+            }
             break;
         case 1:
 //            gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
@@ -5680,8 +5688,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 5:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_pagemask(cpu_env, arg);
-            rn = "PageMask";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_pagemask(cpu_env, arg);
+                rn = "PageMask";
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -5695,8 +5705,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 6:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_wired(cpu_env, arg);
-            rn = "Wired";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_wired(cpu_env, arg);
+                rn = "Wired";
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -5756,8 +5768,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 10:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entryhi(cpu_env, arg);
-            rn = "EntryHi";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_entryhi(cpu_env, arg);
+                rn = "EntryHi";
+            }
             break;
         default:
             goto die;
@@ -6765,8 +6779,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 0:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_index(cpu_env, arg);
-            rn = "Index";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_index(cpu_env, arg);
+                rn = "Index";
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -6835,8 +6851,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 2:
         switch (sel) {
         case 0:
-            gen_helper_dmtc0_entrylo0(cpu_env, arg);
-            rn = "EntryLo0";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_dmtc0_entrylo0(cpu_env, arg);
+                rn = "EntryLo0";
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -6880,8 +6898,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 3:
         switch (sel) {
         case 0:
-            gen_helper_dmtc0_entrylo1(cpu_env, arg);
-            rn = "EntryLo1";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_dmtc0_entrylo1(cpu_env, arg);
+                rn = "EntryLo1";
+            }
             break;
         default:
             goto die;
@@ -6890,8 +6910,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 4:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_context(cpu_env, arg);
-            rn = "Context";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_context(cpu_env, arg);
+                rn = "Context";
+            }
             break;
         case 1:
 //           gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
@@ -6908,8 +6930,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 5:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_pagemask(cpu_env, arg);
-            rn = "PageMask";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_pagemask(cpu_env, arg);
+                rn = "PageMask";
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -6923,8 +6947,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 6:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_wired(cpu_env, arg);
-            rn = "Wired";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_wired(cpu_env, arg);
+                rn = "Wired";
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -6986,8 +7012,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 10:
         switch (sel) {
         case 0:
-            gen_helper_mtc0_entryhi(cpu_env, arg);
-            rn = "EntryHi";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_helper_mtc0_entryhi(cpu_env, arg);
+                rn = "EntryHi";
+            }
             break;
         default:
             goto die;
