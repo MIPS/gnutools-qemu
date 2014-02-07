@@ -16165,10 +16165,6 @@ static void decode_opc_special3_legacy (CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd;
     uint32_t op1, op2;
-#if defined(TARGET_MIPS64)
-    int sa = (ctx->opcode >> 6) & 0x1f;
-#endif
-
 
     rs = (ctx->opcode >> 21) & 0x1f;
     rt = (ctx->opcode >> 16) & 0x1f;
@@ -16443,12 +16439,6 @@ static void decode_opc_special3_legacy (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
 #if defined(TARGET_MIPS64)
-    case OPC_DEXTM ... OPC_DEXT:
-    case OPC_DINSM ... OPC_DINS:
-        check_insn(ctx, ISA_MIPS64R2);
-        check_mips_64(ctx);
-        gen_bitops(ctx, op1, rt, rs, sa, rd);
-        break;
     case OPC_DDIV_G_2E ... OPC_DDIVU_G_2E:
     case OPC_DMULT_G_2E ... OPC_DMULTU_G_2E:
     case OPC_DMOD_G_2E ... OPC_DMODU_G_2E:
@@ -16721,6 +16711,12 @@ static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
 #if defined(TARGET_MIPS64)
+    case OPC_DEXTM ... OPC_DEXT:
+    case OPC_DINSM ... OPC_DINS:
+        check_insn(ctx, ISA_MIPS64R2);
+        check_mips_64(ctx);
+        gen_bitops(ctx, op1, rt, rs, sa, rd);
+        break;
     case OPC_DBSHFL:
         op2 = MASK_DBSHFL(ctx->opcode);
         switch(op2) {
