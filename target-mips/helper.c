@@ -545,8 +545,10 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
                 sv_log("Guest: Guest.TLB miss: updating guestctl0 = %08x\n", env->CP0_GuestCtl0);
             }
         }
-        // physical contains erorr address
-        sv_log("Root: Root.TLB miss - calling raise_mmu_exception\n");
+        else {
+            // physical contains error address
+            sv_log("Root: Root.TLB miss - calling raise_mmu_exception\n");
+        }
         raise_mmu_exception(env, physical, rw, ret);
         ret = 1;
     }
@@ -1040,8 +1042,10 @@ void do_interrupt (CPUState *env)
     }
 #ifdef SV_SUPPORT
     sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+    if (sv_enabled()) {
+        trace_cpu_state(env, 0);
+    }
 #endif
-
 #endif
     env->exception_index = EXCP_NONE;
 }
