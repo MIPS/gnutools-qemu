@@ -4886,7 +4886,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
     tcg_gen_st_tl(arg, cpu_env, off);
 }
 
-static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
@@ -5523,7 +5523,7 @@ die:
 #endif
 }
 
-static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
@@ -6148,7 +6148,7 @@ die:
 }
 
 #if defined(TARGET_MIPS64)
-static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
@@ -6751,7 +6751,7 @@ die:
 #endif
 }
 
-static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
@@ -7430,7 +7430,7 @@ static void gen_mftr(CPUMIPSState *env, DisasContext *ctx, int rt, int rd,
                 gen_helper_mftc0_tcschefback(t0, cpu_env);
                 break;
             default:
-                gen_mfc0(ctx, t0, rt, sel);
+                gen_mfc0(env, ctx, t0, rt, sel);
                 break;
             }
             break;
@@ -7440,7 +7440,7 @@ static void gen_mftr(CPUMIPSState *env, DisasContext *ctx, int rt, int rd,
                 gen_helper_mftc0_entryhi(t0, cpu_env);
                 break;
             default:
-                gen_mfc0(ctx, t0, rt, sel);
+                gen_mfc0(env, ctx, t0, rt, sel);
                 break;
             }
         case 12:
@@ -7449,7 +7449,7 @@ static void gen_mftr(CPUMIPSState *env, DisasContext *ctx, int rt, int rd,
                 gen_helper_mftc0_status(t0, cpu_env);
                 break;
             default:
-                gen_mfc0(ctx, t0, rt, sel);
+                gen_mfc0(env, ctx, t0, rt, sel);
                 break;
             }
         case 13:
@@ -7498,12 +7498,12 @@ static void gen_mftr(CPUMIPSState *env, DisasContext *ctx, int rt, int rd,
                 gen_helper_mftc0_debug(t0, cpu_env);
                 break;
             default:
-                gen_mfc0(ctx, t0, rt, sel);
+                gen_mfc0(env, ctx, t0, rt, sel);
                 break;
             }
             break;
         default:
-            gen_mfc0(ctx, t0, rt, sel);
+            gen_mfc0(env, ctx, t0, rt, sel);
         }
     } else switch (sel) {
     /* GPR registers. */
@@ -7648,7 +7648,7 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
                 gen_helper_mttc0_tcschefback(cpu_env, t0);
                 break;
             default:
-                gen_mtc0(ctx, t0, rd, sel);
+                gen_mtc0(env, ctx, t0, rd, sel);
                 break;
             }
             break;
@@ -7658,7 +7658,7 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
                 gen_helper_mttc0_entryhi(cpu_env, t0);
                 break;
             default:
-                gen_mtc0(ctx, t0, rd, sel);
+                gen_mtc0(env, ctx, t0, rd, sel);
                 break;
             }
         case 12:
@@ -7667,7 +7667,7 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
                 gen_helper_mttc0_status(cpu_env, t0);
                 break;
             default:
-                gen_mtc0(ctx, t0, rd, sel);
+                gen_mtc0(env, ctx, t0, rd, sel);
                 break;
             }
         case 13:
@@ -7696,12 +7696,12 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
                 gen_helper_mttc0_debug(cpu_env, t0);
                 break;
             default:
-                gen_mtc0(ctx, t0, rd, sel);
+                gen_mtc0(env, ctx, t0, rd, sel);
                 break;
             }
             break;
         default:
-            gen_mtc0(ctx, t0, rd, sel);
+            gen_mtc0(env, ctx, t0, rd, sel);
         }
     } else switch (sel) {
     /* GPR registers. */
@@ -7803,7 +7803,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             /* Treat as NOP. */
             return;
         }
-        gen_mfc0(ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+        gen_mfc0(env, ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
         opn = "mfc0";
         break;
     case OPC_MTC0:
@@ -7811,7 +7811,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             TCGv t0 = tcg_temp_new();
 
             gen_load_gpr(t0, rt);
-            gen_mtc0(ctx, t0, rd, ctx->opcode & 0x7);
+            gen_mtc0(env, ctx, t0, rd, ctx->opcode & 0x7);
             tcg_temp_free(t0);
         }
         opn = "mtc0";
@@ -7823,7 +7823,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             /* Treat as NOP. */
             return;
         }
-        gen_dmfc0(ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+        gen_dmfc0(env, ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
         opn = "dmfc0";
         break;
     case OPC_DMTC0:
@@ -7832,7 +7832,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             TCGv t0 = tcg_temp_new();
 
             gen_load_gpr(t0, rt);
-            gen_dmtc0(ctx, t0, rd, ctx->opcode & 0x7);
+            gen_dmtc0(env, ctx, t0, rd, ctx->opcode & 0x7);
             tcg_temp_free(t0);
         }
         opn = "dmtc0";
@@ -12435,7 +12435,7 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
             /* Treat as NOP. */
             break;
         }
-        gen_mfc0(ctx, cpu_gpr[rt], rs, (ctx->opcode >> 11) & 0x7);
+        gen_mfc0(env, ctx, cpu_gpr[rt], rs, (ctx->opcode >> 11) & 0x7);
         break;
     case MTC0:
     case MTC0 + 32:
@@ -12444,7 +12444,7 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
             TCGv t0 = tcg_temp_new();
 
             gen_load_gpr(t0, rt);
-            gen_mtc0(ctx, t0, rs, (ctx->opcode >> 11) & 0x7);
+            gen_mtc0(env, ctx, t0, rs, (ctx->opcode >> 11) & 0x7);
             tcg_temp_free(t0);
         }
         break;

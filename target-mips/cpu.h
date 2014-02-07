@@ -41,6 +41,7 @@ struct r4k_tlb_t {
 #if !defined(CONFIG_USER_ONLY)
 typedef struct CPUMIPSTLBContext CPUMIPSTLBContext;
 struct CPUMIPSTLBContext {
+    uint32_t tlb_type;
     uint32_t nb_tlb;
     uint32_t tlb_in_use;
     int (*map_address) (struct CPUMIPSState *env, hwaddr *physical, int *prot, target_ulong address, int rw, int access_type);
