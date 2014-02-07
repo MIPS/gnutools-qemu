@@ -467,10 +467,10 @@ static void raise_mmu_exception(CPUState *env, uint64_t address,
          * The registers affected are GuestCtl0, Root.EPC, Root.BadVAddr,
          * Root.EntryHi, Root.Cause and Root.ContextBadVPN2. */
         env->Guest.CP0_EntryHi =
-            (env->Guest.CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+            (env->Guest.CP0_EntryHi & 0x4FF) | (address & (TARGET_PAGE_MASK << 1));
     } else {
         env->CP0_EntryHi =
-            (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
+            (env->CP0_EntryHi & 0x4FF) | (address & (TARGET_PAGE_MASK << 1));
     }
 #if defined(SV_SUPPORT)
     }
