@@ -5145,6 +5145,10 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_HWREna));
             rn = "HWREna";
             break;
+        case 1 ... 7:
+            /* Reserved */
+            tcg_gen_movi_tl(arg, 0);
+            break;
         default:
             goto die;
         }
@@ -5355,14 +5359,19 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         }
         break;
     case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
-        switch (sel) {
-        case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
-            rn = "Framemask";
-            break;
-        default:
-            goto die;
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            /* Reserved */
+            tcg_gen_movi_tl(arg, 0);
+        } else {
+            /* Officially reserved, but sel 0 is used for R1x000 framemask */
+            switch (sel) {
+            case 0:
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
+                rn = "Framemask";
+                break;
+            default:
+                goto die;
+            }
         }
         break;
     case 22:
@@ -5770,6 +5779,9 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             gen_helper_mtc0_hwrena(cpu_env, arg);
             rn = "HWREna";
             break;
+        case 1 ... 7:
+            /* Reserved */
+            break;
         default:
             goto die;
         }
@@ -5975,14 +5987,18 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         }
         break;
     case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
-        switch (sel) {
-        case 0:
-            gen_helper_mtc0_framemask(cpu_env, arg);
-            rn = "Framemask";
-            break;
-        default:
-            goto die;
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            /* Reserved */
+        } else {
+            /* Officially reserved, but sel 0 is used for R1x000 framemask */
+            switch (sel) {
+            case 0:
+                gen_helper_mtc0_framemask(cpu_env, arg);
+                rn = "Framemask";
+                break;
+            default:
+                goto die;
+            }
         }
         break;
     case 22:
@@ -6423,6 +6439,10 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_HWREna));
             rn = "HWREna";
             break;
+        case 1 ... 7:
+            /* Reserved */
+            tcg_gen_movi_tl(arg, 0); 
+            break;
         default:
             goto die;
         }
@@ -6627,14 +6647,21 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         }
         break;
     case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
-        switch (sel) {
-        case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
-            rn = "Framemask";
-            break;
-        default:
-            goto die;
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            /* Reserved */
+            tcg_gen_movi_tl(arg, 0);
+        } else {
+            /* Officially reserved, but sel 0 is used for R1x000 framemask */
+            switch (sel) {
+            case 0:
+                if (!(ctx->insn_flags & ISA_MIPS32R6)) {
+                    gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
+                    rn = "Framemask";
+                }
+                break;
+            default:
+                goto die;
+            }
         }
         break;
     case 22:
@@ -7040,6 +7067,9 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             gen_helper_mtc0_hwrena(cpu_env, arg);
             rn = "HWREna";
             break;
+        case 1 ... 7:
+            /* Reserved */
+            break;
         default:
             goto die;
         }
@@ -7249,14 +7279,18 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         }
         break;
     case 21:
-       /* Officially reserved, but sel 0 is used for R1x000 framemask */
-        switch (sel) {
-        case 0:
-            gen_helper_mtc0_framemask(cpu_env, arg);
-            rn = "Framemask";
-            break;
-        default:
-            goto die;
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            /* Reserved */
+        } else {
+            /* Officially reserved, but sel 0 is used for R1x000 framemask */
+            switch (sel) {
+            case 0:
+                gen_helper_mtc0_framemask(cpu_env, arg);
+                rn = "Framemask";
+                break;
+            default:
+                goto die;
+            }
         }
         break;
     case 22:
