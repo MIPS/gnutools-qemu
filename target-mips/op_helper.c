@@ -4754,7 +4754,11 @@ void helper_mtc0_index (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            env->Guest.CP0_Index = arg1;
+            do {
+                tmp >>= 1;
+                num <<= 1;
+            } while (tmp);
+            env->Guest.CP0_Index = (env->Guest.CP0_Index & 0x80000000) | (arg1 & (num - 1));
         }
     }
     else {
@@ -5303,7 +5307,7 @@ void helper_mtc0_context (target_ulong arg1)
 
 void helper_mtgc0_context (target_ulong arg1)
 {
-    env->Guest.CP0_Context = (env->CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
+    env->Guest.CP0_Context = (env->Guest.CP0_Context & 0xF) | (arg1 & ~0x4);
 }
 
 void helper_mtc0_pagemask (target_ulong arg1)
@@ -5726,6 +5730,9 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
             //BD, TI CE FDCI IP7..2 RIPL ExcCode
             mask &= ~0xF020FC7C;
         }
+        else if (guest == 2) {
+            mask |= 0xF020007C;
+        }
 
         old = cpu->Guest.CP0_Cause;
         if (guest == 1 &&
@@ -5821,7 +5828,7 @@ void helper_mtc0_ebase (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            env->Guest.CP0_EBase = (env->CP0_EBase & ~0x3FFFF000) | (arg1 & 0x3FFFF000);
+            env->Guest.CP0_EBase = (env->Guest.CP0_EBase & ~0x3FFFF000) | (arg1 & 0x3FFFF000);
         }
     }
     else {
@@ -5833,7 +5840,7 @@ void helper_mtc0_ebase (target_ulong arg1)
 void helper_mtgc0_ebase (target_ulong arg1)
 {
     /* vectored interrupts not implemented */
-    env->Guest.CP0_EBase = (env->Guest.CP0_EBase & ~0x3FFFF000) | (arg1 & 0x3FFFF000);
+    env->Guest.CP0_EBase = (env->Guest.CP0_EBase & ~0x3FFFF3FF) | (arg1 & 0x3FFFF3FF);
 }
 
 void helper_mttc0_ebase(target_ulong arg1)

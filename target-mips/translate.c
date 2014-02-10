@@ -6560,8 +6560,14 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         }
         break;
     case 8:
-        /* ignored */
-        rn = "BadVAddr";
+        switch (sel) {
+        case 0:
+            gen_mtc0_store64(arg, offsetof(CPUState, Guest.CP0_BadVAddr));
+            rn = "Guest.BadVAddr";
+            break;
+        default:
+            goto die;
+        }
         break;
     case 9:
         switch (sel) {
