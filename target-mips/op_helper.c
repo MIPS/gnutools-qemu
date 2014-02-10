@@ -6892,6 +6892,13 @@ void r4k_helper_tlbgr (void)
 
 void helper_tlbwi(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ( !((env->CP0_GuestCtl0 >> CP0GuestCtl0_CP0) & 1) ||
+                ((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbwi();
 }
 
@@ -6902,6 +6909,13 @@ void helper_tlbgwi(void)
 
 void helper_tlbwr(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ( !((env->CP0_GuestCtl0 >> CP0GuestCtl0_CP0) & 1) ||
+                ((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbwr();
 }
 
@@ -6912,6 +6926,13 @@ void helper_tlbgwr(void)
 
 void helper_tlbp(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ( !((env->CP0_GuestCtl0 >> CP0GuestCtl0_CP0) & 1) ||
+                ((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbp();
 }
 
@@ -6922,6 +6943,12 @@ void helper_tlbgp(void)
 
 void helper_tlbr(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbr();
 }
 
@@ -6932,6 +6959,13 @@ void helper_tlbgr(void)
 
 void helper_tlbinv(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ( !((env->CP0_GuestCtl0 >> CP0GuestCtl0_CP0) & 1) ||
+                ((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbinv(0);
 }
 
@@ -6942,6 +6976,13 @@ void helper_tlbginv(void)
 
 void helper_tlbinvf(void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ( !((env->CP0_GuestCtl0 >> CP0GuestCtl0_CP0) & 1) ||
+                ((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) != 3) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return;
+        }
+    }
     env->tlb->helper_tlbinv(1);
 }
 
@@ -6953,17 +6994,39 @@ void helper_tlbginvf(void)
 /* Specials */
 target_ulong helper_di (void)
 {
-    target_ulong t0 = env->CP0_Status;
+    target_ulong t0;
 
-    env->CP0_Status = t0 & ~(1 << CP0St_IE);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return 0;
+        }
+        t0 = env->Guest.CP0_Status;
+        env->Guest.CP0_Status = t0 & ~(1 << CP0St_IE);
+    }
+    else {
+        t0= env->CP0_Status;
+        env->CP0_Status = t0 & ~(1 << CP0St_IE);
+    }
     return t0;
 }
 
 target_ulong helper_ei (void)
 {
-    target_ulong t0 = env->CP0_Status;
+    target_ulong t0;
 
-    env->CP0_Status = t0 | (1 << CP0St_IE);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return 0;
+        }
+        t0 = env->Guest.CP0_Status;
+        env->Guest.CP0_Status = t0 | (1 << CP0St_IE);
+    }
+    else {
+        t0 = env->CP0_Status;
+        env->CP0_Status = t0 | (1 << CP0St_IE);
+    }
     return t0;
 }
 
@@ -7013,7 +7076,10 @@ void helper_eret (void)
     debug_pre_eret();
     if (env->hflags & MIPS_HFLAG_GUEST) {
         env->Guest.llbit = 0;
-        if (env->Guest.CP0_Status & (1 << CP0St_ERL)) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_Status & (1 << CP0St_ERL)) {
             set_pc(env->Guest.CP0_ErrorEPC);
             env->Guest.CP0_Status &= ~(1 << CP0St_ERL);
         } else {

@@ -15133,11 +15133,21 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
             break;
         case OPC_RDPGPR:
             check_insn(env, ctx, ISA_MIPS32R2);
-            gen_load_srsgpr(rt, rd);
+            if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+            }
+            else {
+                gen_load_srsgpr(rt, rd);
+            }
             break;
         case OPC_WRPGPR:
             check_insn(env, ctx, ISA_MIPS32R2);
-            gen_store_srsgpr(rt, rd);
+            if (ctx->hflags & MIPS_HFLAG_GUEST) {
+                generate_exception_err(ctx, EXCP_GUESTEXIT, GPSI);
+            }
+            else {
+                gen_store_srsgpr(rt, rd);
+            }
             break;
         default:
             MIPS_INVAL("cp0");
