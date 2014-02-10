@@ -1735,11 +1735,7 @@ void helper_mtc0_framemask(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_debug(CPUMIPSState *env, target_ulong arg1)
 {
-    env->CP0_Debug = (env->CP0_Debug & 0x8C03FC1F) | (arg1 & 0x13300120);
-    if (arg1 & (1 << CP0DB_DM))
-        env->hflags |= MIPS_HFLAG_DM;
-    else
-        env->hflags &= ~MIPS_HFLAG_DM;
+    env->CP0_Debug = (env->CP0_Debug & 0x8C03FC1F) | (arg1 & 0x13300100);
 }
 
 void helper_mttc0_debug(CPUMIPSState *env, target_ulong arg1)
