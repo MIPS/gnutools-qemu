@@ -298,6 +298,8 @@ struct CPUMIPSState {
 #define CP0SRSC4_SRS13	0
     int32_t CP0_HWREna;
     target_ulong CP0_BadVAddr;
+    int32_t CP0_BadInstr;
+    int32_t CP0_BadInstrP;
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
 #define CP0EnHi_EHINV 10
@@ -399,6 +401,8 @@ struct CPUMIPSState {
 #define CP0C2_SA   0
     int32_t CP0_Config3;
 #define CP0C3_M    31
+#define CP0C3_BP 27
+#define CP0C3_BI 26
 #define CP0C3_ISA_ON_EXC 16
 #define CP0C3_ULRI 13
 #define CP0C3_RXI  12

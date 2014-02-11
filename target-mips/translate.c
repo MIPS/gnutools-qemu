@@ -5169,9 +5169,17 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             tcg_gen_ext32s_tl(arg, arg);
             rn = "BadVAddr";
             break;
+        case 1:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstr));
+            rn = "BadInstr";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrP));
+            rn = "BadInstrP";
+            break;
         default:
             goto die;
-       }
+        }
         break;
     case 9:
         switch (sel) {
@@ -5796,8 +5804,22 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         }
         break;
     case 8:
-        /* ignored */
-        rn = "BadVAddr";
+        switch (sel) {
+        case 0:
+            /* ignored */
+            rn = "BadVAddr";
+            break;
+        case 1:
+            /* ignored */
+            rn = "BadInstr";
+            break;
+        case 2:
+            /* ignored */
+            rn = "BadInstrP";
+            break;
+        default:
+            goto die;
+        }
         break;
     case 9:
         switch (sel) {
@@ -6462,6 +6484,14 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));
             rn = "BadVAddr";
             break;
+        case 1:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstr));
+            rn = "BadInstr";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrP));
+            rn = "BadInstrP";
+            break;
         default:
             goto die;
         }
@@ -7084,8 +7114,22 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         }
         break;
     case 8:
-        /* ignored */
-        rn = "BadVAddr";
+        switch (sel) {
+        case 0:
+            /* ignored */
+            rn = "BadVAddr";
+            break;
+        case 1:
+            /* ignored */
+            rn = "BadInstr";
+            break;
+        case 2:
+            /* ignored */
+            rn = "BadInstrP";
+            break;
+        default:
+            goto die;
+        }
         break;
     case 9:
         switch (sel) {
