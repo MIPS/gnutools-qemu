@@ -1435,7 +1435,9 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
 {
-    env->CP0_Wired = arg1 % env->tlb->nb_tlb;
+    if (arg1 < env->tlb->nb_tlb) {
+        env->CP0_Wired = arg1;
+    }
 }
 
 void helper_mtc0_srsconf0(CPUMIPSState *env, target_ulong arg1)
