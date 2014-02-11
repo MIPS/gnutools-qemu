@@ -508,6 +508,8 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_CB    0x100000  /* Compact branch */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
+    uint32_t last_instr;           /* Needed for BadInstr  */
+    uint32_t last_br_instr;        /* Needed for BadInstrP */
 
     int SYNCI_Step; /* Address step size for SYNCI */
     int CCRes; /* Cycle count resolution/divisor */

@@ -1121,6 +1121,8 @@ static TCGv cpu_dspctrl, btarget, bcond;
 static TCGv_i32 hflags;
 static TCGv_i32 fpu_fcr0, fpu_fcr31;
 static TCGv_i64 fpu_f64[32];
+static TCGv_i32 last_instr;
+static TCGv_i32 last_br_instr;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
 static target_ulong gen_opc_btarget[OPC_BUF_SIZE];
@@ -1375,6 +1377,13 @@ static inline int get_fp_bit (int cc)
 static inline void gen_save_pc(target_ulong pc)
 {
     tcg_gen_movi_tl(cpu_PC, pc);
+}
+
+static inline void gen_save_current_opc(TCGv_i32 targ, uint32_t opc)
+{
+    if (opc) { // not interested in NOPs
+        tcg_gen_movi_i32(targ, opc);
+    }
 }
 
 static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
@@ -11272,6 +11281,9 @@ static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     int funct;
     int n_bytes;
 
+    /* capture the most recent instruction */
+    gen_save_current_opc(last_instr, ctx->opcode);
+
     op = (ctx->opcode >> 11) & 0x1f;
     sa = (ctx->opcode >> 2) & 0x7;
     sa = sa == 0 ? 8 : sa;
@@ -13843,6 +13855,9 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
 static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     uint32_t op;
+
+    /* capture the most recent instruction */
+    gen_save_current_opc(last_instr, ctx->opcode);
 
     /* make sure instructions are on a halfword boundary */
     if (ctx->pc & 0x1) {
@@ -17009,6 +17024,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     uint32_t op, op1;
     int16_t imm;
 
+    /* capture the most recent instruction */
+    gen_save_current_opc(last_instr, ctx->opcode);
+
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
         env->CP0_BadVAddr = ctx->pc;
@@ -17725,6 +17743,10 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             ctx.bstate = BS_STOP;
             break;
         }
+        if ((ctx.hflags & MIPS_HFLAG_BMASK) && !is_delay) {
+            /* capture the most recent branch instruction prior to delay slot */
+            gen_save_current_opc(last_br_instr, ctx.opcode);
+        }
         if (ctx.hflags & MIPS_HFLAG_CB) {
             // compact branch. execute a branch now
             // fixme: Forbidden slot for not taken path
@@ -18177,6 +18199,12 @@ void mips_tcg_init(void)
     fpu_fcr31 = tcg_global_mem_new_i32(TCG_AREG0,
                                        offsetof(CPUMIPSState, active_fpu.fcr31),
                                        "fcr31");
+    last_instr = tcg_global_mem_new_i32(TCG_AREG0,
+                                        offsetof(CPUMIPSState, last_instr),
+                                        "last_instr");
+    last_br_instr = tcg_global_mem_new_i32(TCG_AREG0,
+                                           offsetof(CPUMIPSState, last_br_instr),
+                                           "last_br_instr");
 
     inited = 1;
 }
