@@ -18066,6 +18066,8 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
     //8
     CHK_CP0_REG_ULONG(CP0_BadVAddr,              "C0BVA       ");
+    CHK_CP0_REG(CP0_BadInstr,                    "C0BINSTR    ");
+    CHK_CP0_REG(CP0_BadInstrP,                   "C0BINSTRP   ");
 
     //9
     CHK_CP0_REG(CP0_Count,                       "C0COUNT     ");
