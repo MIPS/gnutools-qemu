@@ -15984,7 +15984,7 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
         gen_cl(ctx, op1, rd, rs);
         break;
     case R6_OPC_SDBBP:
-        /* Treat as NOP. */
+        generate_exception(ctx, EXCP_DBp); // TODO
         break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_DLSA:
