@@ -5310,6 +5310,35 @@ void helper_mtgc0_context (target_ulong arg1)
     env->Guest.CP0_Context = (env->Guest.CP0_Context & 0xF) | (arg1 & ~0x4);
 }
 
+void helper_mtc0_contextconfig (target_ulong arg1)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))
+                || (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_MG))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if ((env->Guest.CP0_Config3 & (1 << CP0C3_CTXTC))
+                || (env->Guest.CP0_Config3 & (1 << CP0C3_SM))){
+            env->Guest.CP0_ContextConfig = arg1;
+        }
+    }
+    else {
+        if ((env->CP0_Config3 & (1 << CP0C3_CTXTC))
+                || (env->CP0_Config3 & (1 << CP0C3_SM))){
+            env->CP0_Context = arg1;
+        }
+    }
+}
+
+void helper_mtgc0_contextconfig (target_ulong arg1)
+{
+    if ((env->Guest.CP0_Config3 & (1 << CP0C3_CTXTC))
+            || (env->Guest.CP0_Config3 & (1 << CP0C3_SM))){
+        env->Guest.CP0_Context = arg1;
+    }
+}
+
+
 void helper_mtc0_pagemask (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {

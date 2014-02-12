@@ -5868,16 +5868,8 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Context";
             break;
         case 1:
-            if (guest_mode) {
-                gen_helper_check_gpsi_cp0();
-                gen_helper_check_gpsi_mg();
-                gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
-                rn = "Guest.ContextConfig";
-            }
-            else {
-                gen_mtc0_store32(arg, offsetof(CPUState, CP0_ContextConfig));
-                rn = "ContextConfig";
-            }
+            gen_helper_mtc0_contextconfig(arg);
+            rn = "ContextConfig";
             break;
         default:
             goto die;
@@ -6516,7 +6508,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             rn = "Guest.Context";
             break;
         case 1:
-            gen_mtc0_store32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
+            gen_helper_mtgc0_contextconfig(arg);
             rn = "Guest.ContextConfig";
             break;
         default:
