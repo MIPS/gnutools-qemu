@@ -17356,6 +17356,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
          gen_st(ctx, op, rt, rs, imm);
          break;
     case OPC_SC:
+         check_insn_opc_removed(ctx, ISA_MIPS32R6);
          gen_st_cond(ctx, op, rt, rs, imm);
          break;
     case OPC_CACHE:
