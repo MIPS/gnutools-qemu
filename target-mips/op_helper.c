@@ -6146,10 +6146,37 @@ void helper_mttc0_debug(target_ulong arg1)
 
 void helper_mtc0_performance0 (target_ulong arg1)
 {
-    if (env->hflags & MIPS_HFLAG_GUEST) {
-        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
-            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+    uint32_t mask = 0x000007FF;
+    if(env->CP0_Config3 & (1 << CP0C3_VZ)) {
+        // VZ
+        if (env->hflags & MIPS_HFLAG_GUEST) {
+            if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+                helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            }
+            if (!(env->Guest.CP0_Config1 & (1 << CP0C1_PC))) {
+                return;
+            }
         }
+        else {
+            mask |= 0x01800000;
+        }
+    }
+
+    /*
+     * . Guest Config1PC=0, then performance counters are unimplemented
+     *   in the guest context, access is UNPREDICTABLE.
+     * . Guest Config1PC=1, the performance counters are virtually
+     *   shared by root and guest contexts.
+    */
+    env->CP0_Performance0 = (env->CP0_Performance0 & ~mask) | (arg1 & mask);
+}
+
+void helper_mtgc0_performance0 (target_ulong arg1)
+{
+    uint32_t mask = 0x000007FF;
+
+    if (!(env->Guest.CP0_Config1 & (1 << CP0C1_PC))) {
+        return;
     }
     /*
      * . Guest Config1PC=0, then performance counters are unimplemented
@@ -6157,7 +6184,7 @@ void helper_mtc0_performance0 (target_ulong arg1)
      * . Guest Config1PC=1, the performance counters are virtually
      *   shared by root and guest contexts.
     */
-    env->CP0_Performance0 = arg1 & 0x018007FF;
+    env->CP0_Performance0 = (env->CP0_Performance0 & ~mask) | (arg1 & mask);
 }
 
 void helper_mtc0_taglo (target_ulong arg1)

@@ -5296,7 +5296,9 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
              *   shared by root and guest contexts.
             */
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Performance0));
-            rn = "Performance0";
+            /* EC 24:23 read-only 0 in guest contexts.*/
+            tcg_gen_andi_tl(arg, arg, 0xFE7FFFFF);
+            rn = "Guest.Performance0";
             break;
         case 1 ... 7: //n
         // fixme : VZ
@@ -5664,6 +5666,8 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
              *   shared by root and guest contexts.
             */
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_Performance0));
+            /* EC 24:23 read-only 0 in guest contexts.*/
+            tcg_gen_andi_tl(arg, arg, 0xFE7FFFFF);
             rn = "Guest.Performance0";
             break;
         default:
@@ -6728,10 +6732,10 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         break;
     case 25:
         switch (sel) {
-//        case 0:
-//            gen_helper_mtc0_performance0(arg);
-//            rn = "Performance0";
-//            break;
+        case 0:
+            gen_helper_mtgc0_performance0(arg);
+            rn = "Guest.Performance0";
+            break;
         default:
             goto die;
         }
