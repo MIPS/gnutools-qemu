@@ -420,6 +420,7 @@ struct CPUMIPSState {
 #define CP0C4_IE   29
 #define CP0C4_M    31
     int32_t CP0_Config5;
+#define CP0C5_SBRI 6
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
@@ -510,6 +511,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
 
 #define MIPS_HFLAG_CB    0x100000  /* Compact branch */
+#define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
     uint32_t last_instr;           /* Needed for BadInstr  */
@@ -805,7 +807,8 @@ static inline void compute_hflags(CPUMIPSState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2);
+                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
+                     MIPS_HFLAG_SBRI);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -834,6 +837,11 @@ static inline void compute_hflags(CPUMIPSState *env)
     }
     if (env->CP0_Status & (1 << CP0St_FR)) {
         env->hflags |= MIPS_HFLAG_F64;
+    }
+    if (!(env->insn_flags & ISA_MIPS32R6) || // in preR6: SDBBP available
+        !(env->hflags & MIPS_HFLAG_KSU) || // in Kernel mode: SDBBP available
+        (env->CP0_Config5 & (1 << CP0C5_SBRI))) { // otherwise: bit must be set
+        env->hflags |= MIPS_HFLAG_SBRI;
     }
     if (env->insn_flags & ASE_DSPR2) {
         /* Enables access MIPS DSP resources, now our cpu is DSP ASER2,

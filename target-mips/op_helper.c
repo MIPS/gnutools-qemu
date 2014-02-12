@@ -1702,6 +1702,13 @@ void helper_mtc0_config2(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Config2 = (env->CP0_Config2 & 0x8FFF0FFF);
 }
 
+void helper_mtc0_config5(CPUMIPSState *env, target_ulong arg1)
+{
+    if (env->insn_flags & ISA_MIPS32R6) {
+        env->CP0_Config5 = (arg1 & (1 << CP0C5_SBRI));
+    }
+}
+
 void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
 {
     target_long mask = env->CP0_LLAddr_rw_bitmask;
