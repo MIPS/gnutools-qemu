@@ -5356,6 +5356,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 18:
         switch (sel) {
         case 0 ... 7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_1e0i(mfc0_watchlo, arg, sel);
             rn = "WatchLo";
             break;
@@ -5366,6 +5367,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 19:
         switch (sel) {
         case 0 ...7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_1e0i(mfc0_watchhi, arg, sel);
             rn = "WatchHi";
             break;
@@ -6000,6 +6002,7 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 18:
         switch (sel) {
         case 0 ... 7:
+            MTC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_0e1i(mtc0_watchlo, arg, sel);
             rn = "WatchLo";
             break;
@@ -6010,6 +6013,7 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 19:
         switch (sel) {
         case 0 ... 7:
+            MTC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_0e1i(mtc0_watchhi, arg, sel);
             rn = "WatchHi";
             break;
@@ -6670,6 +6674,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 18:
         switch (sel) {
         case 0 ... 7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_1e0i(dmfc0_watchlo, arg, sel);
             rn = "WatchLo";
             break;
@@ -6680,6 +6685,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 19:
         switch (sel) {
         case 0 ... 7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_1e0i(mfc0_watchhi, arg, sel);
             rn = "WatchHi";
             break;
@@ -7317,6 +7323,7 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 18:
         switch (sel) {
         case 0 ... 7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_0e1i(mtc0_watchlo, arg, sel);
             rn = "WatchLo";
             break;
@@ -7327,6 +7334,7 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 19:
         switch (sel) {
         case 0 ... 7:
+            MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_WR)))
             gen_helper_0e1i(mtc0_watchhi, arg, sel);
             rn = "WatchHi";
             break;
