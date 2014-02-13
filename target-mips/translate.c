@@ -5448,6 +5448,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         }
         break;
     case 25:
+        MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_PC)))
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Performance0));
@@ -6104,6 +6105,7 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         }
         break;
     case 25:
+        MTC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_PC)))
         switch (sel) {
         case 0:
             gen_helper_mtc0_performance0(cpu_env, arg);
@@ -6764,6 +6766,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         }
         break;
     case 25:
+        MFC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_PC)))
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Performance0));
@@ -7421,6 +7424,7 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         }
         break;
     case 25:
+        MTC0_RESERVED_IF(!(env->CP0_Config1 & (1 << CP0C1_PC)))
         switch (sel) {
         case 0:
             gen_helper_mtc0_performance0(cpu_env, arg);
