@@ -1728,7 +1728,8 @@ void helper_mtc0_watchlo(CPUMIPSState *env, target_ulong arg1, uint32_t sel)
 
 void helper_mtc0_watchhi(CPUMIPSState *env, target_ulong arg1, uint32_t sel)
 {
-    env->CP0_WatchHi[sel] = (arg1 & 0x40FF0FF8);
+    target_ulong mask = 0x40FF0FF8;
+    env->CP0_WatchHi[sel] = (arg1 & mask) | (env->CP0_WatchHi[sel] & ~mask);
     env->CP0_WatchHi[sel] &= ~(env->CP0_WatchHi[sel] & arg1 & 0x7);
 }
 
