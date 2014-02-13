@@ -5895,9 +5895,11 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
-            /* Stop translation as we may have switched the execution mode */
-            ctx->bstate = BS_STOP;
+            if (env->CP0_SRSCtl >> CP0SRSCtl_HSS) { /* Skip if HSS = 0 */
+                gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
+                /* Stop translation as we may have switched the execution mode */
+                ctx->bstate = BS_STOP;
+            }
             rn = "SRSMap";
             break;
         default:
@@ -7216,9 +7218,11 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
-            /* Stop translation as we may have switched the execution mode */
-            ctx->bstate = BS_STOP;
+            if (env->CP0_SRSCtl >> CP0SRSCtl_HSS) { /* Skip if HSS = 0 */
+                gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
+                /* Stop translation as we may have switched the execution mode */
+                ctx->bstate = BS_STOP;
+            }
             rn = "SRSMap";
             break;
         default:
