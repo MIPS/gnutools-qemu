@@ -1586,7 +1586,19 @@ void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_srsctl(CPUMIPSState *env, target_ulong arg1)
 {
-    uint32_t mask = (0xf << CP0SRSCtl_ESS) | (0xf << CP0SRSCtl_PSS);
+    uint32_t srs_hss = (env->CP0_SRSCtl >> CP0SRSCtl_HSS) & 0xf;
+    uint32_t arg_ess = (arg1 >> CP0SRSCtl_ESS) & 0xf;
+    uint32_t arg_pss = (arg1 >> CP0SRSCtl_PSS) & 0xf;
+    uint32_t mask = 0;
+
+    if (arg_ess <= srs_hss) {
+        mask |= 0xf << CP0SRSCtl_ESS;
+    }
+
+    if (arg_pss <= srs_hss) {
+        mask |= 0xf << CP0SRSCtl_PSS;
+    }
+
     env->CP0_SRSCtl = (env->CP0_SRSCtl & ~mask) | (arg1 & mask);
 }
 
