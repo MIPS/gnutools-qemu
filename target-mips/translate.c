@@ -5077,7 +5077,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-//            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
+            tcg_gen_movi_tl(arg, 0);
             rn = "ContextConfig";
             break;
         case 2:
@@ -5724,7 +5724,6 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-//            gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
             break;
         case 2:
@@ -6396,7 +6395,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-//            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
+            tcg_gen_movi_tl(arg, 0);
             rn = "ContextConfig";
             break;
         case 2:
@@ -7036,7 +7035,6 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-//           gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
            break;
         case 2:
