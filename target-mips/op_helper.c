@@ -1500,11 +1500,14 @@ void helper_mtc0_entryhi(CPUMIPSState *env, target_ulong arg1)
     }
 
     /* 1k pages not implemented */
-    val = arg1 & mask;
 #if defined(TARGET_MIPS64)
-    val &= env->SEGMask;
+    if ((arg1 >> 62) == 0x2) {
+        mask &= ~(0x3ull << 62); // reserved value
+    }
+    mask &= env->SEGMask;
 #endif
     old = env->CP0_EntryHi;
+    val = (arg1 & mask) | (old & ~mask);
     env->CP0_EntryHi = val;
     if (env->CP0_Config3 & (1 << CP0C3_MT)) {
         sync_c0_entryhi(env, env->current_tc);
