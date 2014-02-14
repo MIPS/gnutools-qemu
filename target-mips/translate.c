@@ -4897,8 +4897,12 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 0:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
-            rn = "Index";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
+                rn = "Index";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -4972,20 +4976,22 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 2:
         switch (sel) {
         case 0:
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
 #if defined(TARGET_MIPS64)
-        {
-            TCGv_i64 tmp = tcg_const_i64(3ull << 62);
-            tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
-            tcg_gen_and_i64(tmp, arg, tmp);
-            tcg_gen_shri_i64(tmp, tmp, 32);
-            tcg_gen_or_i64(arg, arg, tmp);
-            tcg_gen_ext32s_i64(arg, arg);
-            tcg_temp_free_i64(tmp);
-        }
+                TCGv_i64 tmp = tcg_const_i64(3ull << 62);
+                tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
+                tcg_gen_and_i64(tmp, arg, tmp);
+                tcg_gen_shri_i64(tmp, tmp, 32);
+                tcg_gen_or_i64(arg, arg, tmp);
+                tcg_gen_ext32s_i64(arg, arg);
+                tcg_temp_free_i64(tmp);
 #else
-            tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
+                tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
 #endif
-            rn = "EntryLo0";
+                rn = "EntryLo0";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -5029,20 +5035,22 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 3:
         switch (sel) {
         case 0:
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
 #if defined(TARGET_MIPS64)
-        {
-            TCGv_i64 tmp = tcg_const_i64(3ull << 62);
-            tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
-            tcg_gen_and_i64(tmp, arg, tmp);
-            tcg_gen_shri_i64(tmp, tmp, 32);
-            tcg_gen_or_i64(arg, arg, tmp);
-            tcg_gen_ext32s_i64(arg, arg);
-            tcg_temp_free_i64(tmp);
-        }
+                TCGv_i64 tmp = tcg_const_i64(3ull << 62);
+                tcg_gen_ld_i64(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
+                tcg_gen_and_i64(tmp, arg, tmp);
+                tcg_gen_shri_i64(tmp, tmp, 32);
+                tcg_gen_or_i64(arg, arg, tmp);
+                tcg_gen_ext32s_i64(arg, arg);
+                tcg_temp_free_i64(tmp);
 #else
-            tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
+                tcg_gen_ld_i32(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
 #endif
-            rn = "EntryLo1";
+                rn = "EntryLo1";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
@@ -5051,9 +5059,13 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 4:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "Context";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "Context";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
 //            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
@@ -5071,8 +5083,12 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 5:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
-            rn = "PageMask";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
+                rn = "PageMask";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -5086,8 +5102,12 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 6:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
-            rn = "Wired";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
+                rn = "Wired";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -5163,9 +5183,13 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
     case 10:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "EntryHi";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "EntryHi";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
@@ -6173,8 +6197,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 0:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
-            rn = "Index";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
+                rn = "Index";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -6248,8 +6276,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 2:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
-            rn = "EntryLo0";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
+                rn = "EntryLo0";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ASE_MT);
@@ -6293,8 +6325,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 3:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
-            rn = "EntryLo1";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
+                rn = "EntryLo1";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
@@ -6303,8 +6339,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 4:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
-            rn = "Context";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
+                rn = "Context";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
 //            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
@@ -6321,8 +6361,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 5:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
-            rn = "PageMask";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
+                rn = "PageMask";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -6336,8 +6380,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 6:
         switch (sel) {
         case 0:
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
-            rn = "Wired";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
+                rn = "Wired";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
@@ -6412,8 +6460,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
     case 10:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
-            rn = "EntryHi";
+            if (env->tlb->tlb_type == MMU_TYPE_R4000) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
+                rn = "EntryHi";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
