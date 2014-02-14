@@ -4895,6 +4895,18 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
     tcg_gen_st_tl(arg, cpu_env, off);
 }
 
+#define MFC0_RESERVED_IF(condition)             \
+    if (condition) {                            \
+        tcg_gen_movi_tl(arg, 0);                \
+        break;                                  \
+    }
+
+
+#define MTC0_RESERVED_IF(condition)             \
+    if (condition) {                            \
+        break;                                  \
+    }
+
 static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -4914,17 +4926,17 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
             rn = "MVPConf1";
             break;
@@ -4944,37 +4956,37 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_YQMask));
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
             rn = "VPEOpt";
             break;
@@ -5003,37 +5015,37 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcstatus(arg, cpu_env);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcbind(arg, cpu_env);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcrestart(arg, cpu_env);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tchalt(arg, cpu_env);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tccontext(arg, cpu_env);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcschedule(arg, cpu_env);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcschefback(arg, cpu_env);
             rn = "TCScheFBack";
             break;
@@ -5593,17 +5605,17 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             /* ignored */
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             /* ignored */
             rn = "MVPConf1";
             break;
@@ -5618,37 +5630,37 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_yqmask(cpu_env, arg);
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeopt(cpu_env, arg);
             rn = "VPEOpt";
             break;
@@ -5665,37 +5677,37 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcstatus(cpu_env, arg);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcbind(cpu_env, arg);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcrestart(cpu_env, arg);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tchalt(cpu_env, arg);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tccontext(cpu_env, arg);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcschedule(cpu_env, arg);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcschefback(cpu_env, arg);
             rn = "TCScheFBack";
             break;
@@ -6253,17 +6265,17 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
             rn = "MVPConf1";
             break;
@@ -6283,37 +6295,37 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_YQMask));
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
             rn = "VPEOpt";
             break;
@@ -6332,37 +6344,37 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcstatus(arg, cpu_env);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mfc0_tcbind(arg, cpu_env);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_dmfc0_tcrestart(arg, cpu_env);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_dmfc0_tchalt(arg, cpu_env);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_dmfc0_tccontext(arg, cpu_env);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_dmfc0_tcschedule(arg, cpu_env);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MFC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_dmfc0_tcschefback(arg, cpu_env);
             rn = "TCScheFBack";
             break;
@@ -6904,17 +6916,17 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             /* ignored */
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             /* ignored */
             rn = "MVPConf1";
             break;
@@ -6929,37 +6941,37 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_yqmask(cpu_env, arg);
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_vpeopt(cpu_env, arg);
             rn = "VPEOpt";
             break;
@@ -6976,37 +6988,37 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             }
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcstatus(cpu_env, arg);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcbind(cpu_env, arg);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcrestart(cpu_env, arg);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tchalt(cpu_env, arg);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tccontext(cpu_env, arg);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcschedule(cpu_env, arg);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            MTC0_RESERVED_IF(!(ctx->insn_flags & ASE_MT))
             gen_helper_mtc0_tcschefback(cpu_env, arg);
             rn = "TCScheFBack";
             break;
