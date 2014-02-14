@@ -352,6 +352,36 @@ static mips_def_t mips_defs[] =
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
         .mmu_type = MMU_TYPE_R4000,
     },
+    {
+        .name = "MIPS32R6-generic",
+        .CP0_PRid = 0x00010000,
+        .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AR) |
+                       (MMU_TYPE_R4000 << CP0C0_MT),
+        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (31 << CP0C1_MMU) |
+                       (2 << CP0C1_IS) | (4 << CP0C1_IL) | (3 << CP0C1_IA) |
+                       (2 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
+                       (0 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
+        .CP0_Config2 = MIPS_CONFIG2,
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_ULRI)  |
+                       (1 << CP0C3_RXI) | (1 << CP0C3_BP) | (1 << CP0C3_BI) |
+                       (1 << CP0C3_M),
+        .CP0_Config4 = (3 << CP0C4_IE) | (0xfc << CP0C4_KScrExist) | (1 << CP0C4_M),
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x305BFF1F,
+        .CP0_PageGrain = (1 << CP0PG_XIE) | (1 << CP0PG_RIE) | (1 << CP0PG_IEC),
+        .CP0_PageGrain_rw_bitmask = 0,//(1 << CP0PG_IEC), // temproary - for mmu tests
+        .CP1_fcr0 = (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
+                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+                    (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
+        .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R6 | INSN_TLBINV,
+        .mmu_type = MMU_TYPE_R4000,
+    },
 #if defined(TARGET_MIPS64)
     {
         .name = "R4000",
