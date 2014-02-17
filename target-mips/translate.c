@@ -17680,6 +17680,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_MDMX:
         check_insn(ctx, ASE_MDMX);
         /* MDMX: Not implemented. */
+        break;
     case R6_PC_RELATIVE:
         switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
         case R6_OPC_ADDIUP:
