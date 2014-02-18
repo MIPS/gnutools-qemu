@@ -5141,9 +5141,13 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "ContextConfig";
             break;
         case 2:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
-            tcg_gen_ext32s_tl(arg, arg);
-            rn = "UserLocal";
+            if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+                tcg_gen_ext32s_tl(arg, arg);
+                rn = "UserLocal";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
@@ -5790,8 +5794,10 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "ContextConfig";
             break;
         case 2:
-            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
-            rn = "UserLocal";
+            if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+                rn = "UserLocal";
+            }
             break;
         default:
             goto die;
@@ -6467,8 +6473,12 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "ContextConfig";
             break;
         case 2:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
-            rn = "UserLocal";
+            if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+                tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+                rn = "UserLocal";
+            } else {
+                tcg_gen_movi_tl(arg, 0);
+            }
             break;
         default:
             goto die;
@@ -7109,8 +7119,10 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "ContextConfig";
            break;
         case 2:
-            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
-            rn = "UserLocal";
+            if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_UserLocal));
+                rn = "UserLocal";
+            }
             break;
         default:
             goto die;

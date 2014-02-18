@@ -1483,7 +1483,13 @@ void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
 {
-    env->CP0_HWREna = arg1 & 0x2000000F;
+    uint32_t mask = 0x0000000F;
+
+    if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+        mask |= 0x20000000;
+    }
+
+    env->CP0_HWREna = arg1 & mask;
 }
 
 void helper_mtc0_count(CPUMIPSState *env, target_ulong arg1)
@@ -2440,11 +2446,12 @@ target_ulong helper_rdhwr_ccres(CPUMIPSState *env)
 
 target_ulong helper_rdhwr_ulr(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 29)))
+    if ((env->hflags & MIPS_HFLAG_CP0) &&
+        (env->CP0_HWREna & (1 << 29))) {
         return env->CP0_UserLocal;
-    else
+    } else {
         helper_raise_exception(env, EXCP_RI);
+    }
 
     return 0;
 }
