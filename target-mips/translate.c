@@ -16095,7 +16095,6 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
     break;
     case R6_OPC_DCLO:
     case R6_OPC_DCLZ:
-        check_insn(ctx, ISA_MIPS64);
         check_mips_64(ctx);
         gen_cl(ctx, op1, rd, rs);
         break;
@@ -16488,7 +16487,6 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
         switch (op2) {
         case R6_OPC_ALIGN ... R6_OPC_ALIGN_END:
             // instruction promoted from DSP ASE (OPC_BALIGN)
-            check_insn(ctx, ISA_MIPS32R6);
             {
                 TCGv t0, t1;
                 sa &= 3;
@@ -16505,7 +16503,6 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
             break;
         case R6_OPC_BITSWAP:
             // instruction promoted from DSP ASE (OPC_BITREV)
-            check_insn(ctx, ISA_MIPS32R6);
             gen_helper_bitswap(cpu_gpr[rd], cpu_gpr[rt]);
             break;
         }
@@ -16522,7 +16519,6 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
         switch(op2) {
         case R6_OPC_DALIGN ... R6_OPC_DALIGN_END:
             // instruction promoted from DSP ASE (OPC_DBALIGN)
-            check_insn(ctx, ISA_MIPS64R6);
             check_mips_64(ctx);
             sa &= 7;
             TCGv t0, t1;
@@ -17251,10 +17247,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
 #if defined(TARGET_MIPS64)
         case R6_OPC_DAHI:
+            check_insn(ctx, ISA_MIPS32R6);
             tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 32);
             MIPS_DEBUG("dahi %s, %04x", regnames[rs], imm);
             break;
         case R6_OPC_DATI:
+            check_insn(ctx, ISA_MIPS32R6);
             tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 48);
             MIPS_DEBUG("dati %s, %04x", regnames[rs], imm);
             break;
@@ -17503,6 +17501,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 }
                 break;
             case R6_OPC_BC1NEZ:
+                check_insn(ctx, ISA_MIPS32R6);
                 gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
                                 rt, imm << 2);
                 break;
