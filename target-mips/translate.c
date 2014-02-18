@@ -1117,7 +1117,7 @@ enum {
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
 static TCGv cpu_HI[MIPS_DSP_ACC], cpu_LO[MIPS_DSP_ACC], cpu_ACX[MIPS_DSP_ACC];
-static TCGv cpu_dspctrl, btarget, bcond;
+static TCGv cpu_dspctrl, btarget, bcond, fslot;
 static TCGv_i32 hflags;
 static TCGv_i32 fpu_fcr0, fpu_fcr31;
 static TCGv_i64 fpu_f64[32];
@@ -1758,6 +1758,36 @@ static target_ulong pc_relative_pc (DisasContext *ctx)
 
     pc &= ~(target_ulong)3;
     return pc;
+}
+
+/* Generate code to generate RI exception if in forbidden slot */
+static inline void gen_check_forbidden_slot(DisasContext *ctx)
+{
+    int l1 = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_EQ, fslot, 0, l1);
+    generate_exception(ctx, EXCP_RI);
+    gen_set_label(l1);
+}
+
+/* Generate RI exception if in delay slot */
+static inline int check_delay_slot(DisasContext *ctx)
+{
+    if (ctx->hflags & MIPS_HFLAG_BMASK) {
+        generate_exception(ctx, EXCP_RI);
+        return 1;
+    }
+    return 0;
+}
+
+static inline void gen_check_delay_fbn_slot(DisasContext *ctx)
+{
+    if (ctx->insn_flags & ISA_MIPS32R6) {
+        if (!check_delay_slot(ctx)) {
+            /* No point in generating code to check fbn slot if we already
+               generated the exception */
+            gen_check_forbidden_slot(ctx);
+        }
+    }
 }
 
 /* Load */
@@ -4197,7 +4227,7 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
-    if (ctx->hflags & MIPS_HFLAG_BMASK) {
+    if (check_delay_slot(ctx)) {
 #ifdef MIPS_DEBUG_DISAS
         if(ctx->hflags & MIPS_HFLAG_CB) {
             LOG_DISAS("Branch in forbidden slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
@@ -4206,8 +4236,11 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
             LOG_DISAS("Branch in delay slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
         }
 #endif
-        generate_exception(ctx, EXCP_RI);
         goto out;
+    } else {
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            gen_check_forbidden_slot(ctx);
+        }
     }
 
     /* Load needed operands */
@@ -4498,7 +4531,6 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
-
 /* Compact Branches */
 static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         int rs, int rt, int32_t offset)
@@ -4509,7 +4541,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
-    if (ctx->hflags & MIPS_HFLAG_BMASK) {
+    if (check_delay_slot(ctx)) {
 #ifdef MIPS_DEBUG_DISAS
         if(ctx->hflags & MIPS_HFLAG_CB) {
             LOG_DISAS("Branch in forbidden slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
@@ -4518,8 +4550,11 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
             LOG_DISAS("Branch in delay slot at PC 0x" TARGET_FMT_lx "\n", ctx->pc);
         }
 #endif
-        generate_exception(ctx, EXCP_RI);
         goto out;
+    } else {
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            gen_check_forbidden_slot(ctx);
+        }
     }
 
     /* Load needed operands */
@@ -8152,12 +8187,14 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         gen_helper_tlbr(cpu_env);
         break;
     case OPC_ERET:
+        gen_check_delay_fbn_slot(ctx);
         opn = "eret";
         check_insn(ctx, ISA_MIPS2);
         gen_helper_eret(cpu_env);
         ctx->bstate = BS_EXCP;
         break;
     case OPC_DERET:
+        gen_check_delay_fbn_slot(ctx);
         opn = "deret";
         check_insn(ctx, ISA_MIPS32);
         if (!(ctx->hflags & MIPS_HFLAG_DM)) {
@@ -8169,6 +8206,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         }
         break;
     case OPC_WAIT:
+        gen_check_delay_fbn_slot(ctx);
         opn = "wait";
         check_insn(ctx, ISA_MIPS3 | ISA_MIPS32);
         /* If we get an exception, we want to restart at next instruction */
@@ -16232,6 +16270,10 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
     case OPC_SLL:          /* Shift with immediate */
+        if (sa == 5) { /* PAUSE = NOP */
+            gen_check_delay_fbn_slot(ctx);
+        }
+        /* Fallthrough */
     case OPC_SRA:
         gen_shift_imm(ctx, op1, rd, rt, sa);
         break;
@@ -17882,9 +17924,19 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             /* capture the most recent branch instruction prior to delay slot */
             gen_save_current_opc(last_br_instr, ctx.opcode);
         }
+        if (num_insns == 0) {
+            /* Assuming that forbidden slot can only exist as the first
+               instruction in a translation block. 
+               We have just translated the first instruction, so we are
+               leaving forbidden slot. */
+            tcg_gen_movi_tl(fslot, 0);
+        }
         if (ctx.hflags & MIPS_HFLAG_CB) {
             // compact branch. execute a branch now
-            // fixme: Forbidden slot for not taken path
+            if (ctx.hflags & MIPS_HFLAG_BC) {
+                // If branch not taken, set forbidden slot flag
+                tcg_gen_setcondi_tl(TCG_COND_EQ, fslot, bcond, 0);
+            }
             is_delay = 1;
         }
         if (is_delay) {
@@ -18342,6 +18394,8 @@ void mips_tcg_init(void)
     last_br_instr = tcg_global_mem_new_i32(TCG_AREG0,
                                            offsetof(CPUMIPSState, last_br_instr),
                                            "last_br_instr");
+    fslot = tcg_global_mem_new(TCG_AREG0,
+                               offsetof(CPUMIPSState, fslot), "fslot");
 
     inited = 1;
 }

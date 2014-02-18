@@ -514,6 +514,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
+    target_ulong fslot;          /* Indicates forbidden slot */
     uint32_t last_instr;           /* Needed for BadInstr  */
     uint32_t last_br_instr;        /* Needed for BadInstrP */
 
