@@ -2962,6 +2962,54 @@ static inline void gen_r6_ld (target_long addr, int reg, int memidx,
     tcg_temp_free(t0);
 }
 
+static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
+{
+    target_long offset = ((int32_t)ctx->opcode << 13) >> 11;
+
+    switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
+    case R6_OPC_ADDIUP:
+        if (rs != 0) {
+            tcg_gen_movi_tl(cpu_gpr[rs], calc_pc_add(ctx->pc, offset));
+        }
+        break;
+    case R6_OPC_LWP:
+        gen_r6_ld(ctx->pc + offset, rs, ctx->mem_idx, MO_TESL);
+        break;
+#if defined(TARGET_MIPS64)
+    case R6_OPC_LWUP:
+        gen_r6_ld(ctx->pc + offset, rs, ctx->mem_idx, MO_TEUL);
+        break;
+#endif
+    default:
+        switch (MASK_R6_PC_RELATIVE_TOP5BITS(ctx->opcode)) {
+        case R6_OPC_AUIP:
+            if (rs != 0) {
+                tcg_gen_movi_tl(cpu_gpr[rs], calc_pc_add(ctx->pc, imm << 16));
+            }
+            break;
+        case R6_OPC_ALUIP:
+            if (rs != 0) {
+                tcg_gen_movi_tl(cpu_gpr[rs],
+                                ~0xFFFF & calc_pc_add(ctx->pc, imm << 16));
+            }
+            break;
+#if defined(TARGET_MIPS64)
+        case R6_OPC_LDP: // bits 18 and 19 are part of immediate
+        case R6_OPC_LDP + (1 << 16):
+        case R6_OPC_LDP + (2 << 16):
+        case R6_OPC_LDP + (3 << 16):
+            gen_r6_ld((ctx->pc & ~0x7) + offset, rs, ctx->mem_idx, MO_TEQ);
+            break;
+#endif
+        default:
+            MIPS_INVAL("R6_PC_RELATIVE");
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    }
+}
+
 static void gen_r6_muldiv(DisasContext *ctx, int opc, int rd, int rs, int rt)
 {
     const char *opn = "r6 mul/div";
@@ -17696,51 +17744,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         /* MDMX: Not implemented. */
         break;
     case R6_PC_RELATIVE:
-        switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
-        case R6_OPC_ADDIUP:
-        {
-            target_long offset = ((int32_t)ctx->opcode << 13) >> 11;
-            tcg_gen_movi_tl(cpu_gpr[rs],
-                            calc_pc_add(ctx->pc, offset));
-        }
-        break;
-        case R6_OPC_LWP:
-            gen_r6_ld(ctx->pc + (((int32_t)ctx->opcode << 13) >> 11),
-                      rs, ctx->mem_idx, MO_TESL);
-        break;
-#if defined(TARGET_MIPS64)
-        case R6_OPC_LWUP:
-            gen_r6_ld(ctx->pc + (((int32_t)ctx->opcode << 13) >> 11),
-                      rs, ctx->mem_idx, MO_TEUL);
-        break;
-#endif
-        default:
-            op1 = MASK_R6_PC_RELATIVE_TOP5BITS(ctx->opcode);
-            switch (op1) {
-            case R6_OPC_AUIP:
-                tcg_gen_movi_tl(cpu_gpr[rs],
-                                calc_pc_add(ctx->pc, imm << 16));
-                break;
-            case R6_OPC_ALUIP:
-                tcg_gen_movi_tl(cpu_gpr[rs],
-                                ~0xFFFF & calc_pc_add(ctx->pc, imm << 16));
-                break;
-#if defined(TARGET_MIPS64)
-            case R6_OPC_LDP: // bits 18 and 19 are part of immediate
-            case R6_OPC_LDP + (1 << 16):
-            case R6_OPC_LDP + (2 << 16):
-            case R6_OPC_LDP + (3 << 16):
-                gen_r6_ld((ctx->pc & ~0x7) + (((int32_t)ctx->opcode << 13) >> 11),
-                          rs, ctx->mem_idx, MO_TEQ);
-                break;
-#endif
-            default:
-                MIPS_INVAL("R6_PC_RELATIVE");
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-            break;
-        }
+        check_insn(ctx, ISA_MIPS32R6);
+        gen_r6_pc_relative(ctx, rs, imm);
         break;
     default:            /* Invalid */
         MIPS_INVAL("major opcode");
