@@ -5466,7 +5466,13 @@ void helper_mtc0_hwrena (target_ulong arg1)
         }
     }
     else {
-        env->CP0_HWREna = arg1 & 0x2000000F;
+        uint32_t mask = 0x0000000F;
+
+        if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+            mask |= 0x20000000;
+        }
+
+        env->CP0_HWREna = arg1 & mask;
     }
 }
 
@@ -7302,12 +7308,12 @@ target_ulong helper_rdhwr_ccres(void)
 
 target_ulong helper_rdhwr_ulr(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 29)))
+    if ((env->hflags & MIPS_HFLAG_CP0) &&
+        (env->CP0_HWREna & (1 << 29))) {
         return env->CP0_UserLocal;
-    else
+    } else {
         helper_raise_exception(EXCP_RI);
-
+    }
     return 0;
 }
 
