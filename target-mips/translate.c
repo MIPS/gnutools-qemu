@@ -16518,10 +16518,14 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
                 sa &= 3;
                 t0 = tcg_temp_new();
                 t1 = tcg_temp_new();
-                gen_load_gpr(t0, rs);
-                tcg_gen_shli_tl(t1, cpu_gpr[rt], 8 * sa);
-                tcg_gen_shri_tl(t0, t0, 8 * (4 - sa));
-                tcg_gen_or_tl(cpu_gpr[rd], t1, t0);
+                tcg_gen_shli_tl(t0, cpu_gpr[rt], 8 * sa);
+                if (sa == 0) { // avoid undefined
+                    tcg_gen_mov_tl(cpu_gpr[rd], t0);
+                } else {
+                    tcg_gen_ext32u_tl(t1, cpu_gpr[rs]);
+                    tcg_gen_shri_tl(t1, t1, 8 * (4 - sa));
+                    tcg_gen_or_tl(cpu_gpr[rd], t0, t1);
+                }
                 tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
                 tcg_temp_free(t0);
                 tcg_temp_free(t1);
@@ -16551,12 +16555,12 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
             t0 = tcg_temp_new();
             t1 = tcg_temp_new();
             tcg_gen_shli_tl(t0, cpu_gpr[rt], 8 * sa);
-            if (sa == 0)
-                // avoid undefined
-                tcg_gen_sari_tl(t1, cpu_gpr[rs], 63);
-            else
-                tcg_gen_sari_tl(t1, cpu_gpr[rs], 8 * (8 - sa));
-            tcg_gen_or_tl(cpu_gpr[rd], t1, t0);
+            if (sa == 0) { // avoid undefined
+                tcg_gen_mov_tl(cpu_gpr[rd], t0);
+            } else {
+                tcg_gen_shri_tl(t1, cpu_gpr[rs], 8 * (8 - sa));
+                tcg_gen_or_tl(cpu_gpr[rd], t1, t0);
+            }
             tcg_temp_free(t0);
             tcg_temp_free(t1);
             break;
