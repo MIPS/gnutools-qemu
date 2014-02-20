@@ -16085,6 +16085,13 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
         break;
     case R6_OPC_CLO:
     case R6_OPC_CLZ:
+        if (((ctx->opcode >> 6) & 0x1f) != 1) {
+            /* Major opcode and function field is shared with preR6 MFHI/MTHI.
+               We need additionally to check bits 6:10 to make sure that
+               we don't run preR6 MFHI/MTHI as R6 CLO/CLZ */
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
         gen_cl(ctx, op1, rd, rs);
         break;
     case R6_OPC_SDBBP:
@@ -16107,6 +16114,13 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
     break;
     case R6_OPC_DCLO:
     case R6_OPC_DCLZ:
+        if (((ctx->opcode >> 6) & 0x1f) != 1) {
+            /* Major opcode and function field is shared with preR6 MFHI/MTHI.
+               We need additionally to check bits 6:10 to make sure that
+               we don't run preR6 MFHI/MTHI as R6 CLO/CLZ */
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
         check_mips_64(ctx);
         gen_cl(ctx, op1, rd, rs);
         break;
