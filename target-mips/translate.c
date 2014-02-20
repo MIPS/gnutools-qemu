@@ -17392,6 +17392,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     /* Branch */
     case R6_OPC_BLEZC: // BGEZC, BGEC and OPC_BLEZL
         if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rt == 0) {
+                generate_exception(ctx, EXCP_RI);
+                break;
+            }
             // BLEZC, BGEZC, BGEC
             gen_compute_compact_branch(ctx, op, rs, rt, imm << 2);
         }
@@ -17402,6 +17406,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
     case R6_OPC_BGTZC: // BLTZC, BLTC and OPC_BGTZL
         if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rt == 0) {
+                generate_exception(ctx, EXCP_RI);
+                break;
+            }
             // BGTZC, BLTZC, BLTC
             gen_compute_compact_branch(ctx, op, rs, rt, imm << 2);
         }
