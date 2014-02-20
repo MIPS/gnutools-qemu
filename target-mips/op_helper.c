@@ -2625,7 +2625,14 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t reg)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        env->active_fpu.fcr31 = arg1 | (0x007c0000 & env->active_fpu.fcr31);
+        {
+            uint32_t ronly_mask = 0x007c0000;
+            if (env->insn_flags & ISA_MIPS32R6) {
+                ronly_mask |= 0xfe800000;
+            }
+            env->active_fpu.fcr31 = (arg1 & ~ronly_mask) | 
+                     (env->active_fpu.fcr31 & ronly_mask);
+        }
         break;
     default:
         return;
