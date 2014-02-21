@@ -17437,26 +17437,25 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_BLEZALC: // BGEZALC, BGEUC and OPC_BLEZ
-        if (ctx->insn_flags & ISA_MIPS32R6) {
+        if (rt == 0) {
+            // OPC_BLEZ
+            gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
+        } else {
+            check_insn(ctx, ISA_MIPS32R6);
             // BLEZALC, BGEZALC, BGEUC
             gen_compute_compact_branch(ctx, op, rs, rt, imm << 2);
         }
-        else {
-            // OPC_BLEZ
-            gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
-        }
         break;
     case R6_OPC_BGTZALC: // BLTZALC, BLTUC and OPC_BGTZ
-        if (ctx->insn_flags & ISA_MIPS32R6) {
+        if (rt == 0) {
+            // OPC_BGTZ
+            gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
+        } else {
+            check_insn(ctx, ISA_MIPS32R6);
             // BGTZALC, BLTZALC, BLTUC
             gen_compute_compact_branch(ctx, op, rs, rt, imm << 2);
         }
-        else {
-            // OPC_BGTZ
-            gen_compute_branch(ctx, op, 4, rs, rt, imm << 2);
-        }
         break;
-
     case OPC_BEQL:
     case OPC_BNEL:
          check_insn_opc_removed(ctx, ISA_MIPS32R6);
