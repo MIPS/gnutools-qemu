@@ -3795,19 +3795,23 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
                  float32_unordered(fsth1, fsth0, &env->active_fpu.fp_status)  || float32_le(fsth0, fsth1, &env->active_fpu.fp_status))
 
 /* R6 compare operations */
-#define FOP_CONDN_D(op, cond)                                       \
-uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState *env, uint64_t fdt0,   \
-                         uint64_t fdt1)                             \
-{                                                                   \
-    uint64_t c;                                                     \
-    c = cond;                                                       \
-    update_fcr31(env, GETPC());                                     \
-    if (c) {                                                        \
-        return -1;                                                  \
-    }                                                               \
-    else {                                                          \
-        return 0;                                                   \
-    }                                                               \
+#define FOP_CONDN_D(op, cond)                                                 \
+uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState *env, uint64_t fdt0,             \
+                         uint64_t fdt1)                                       \
+{                                                                             \
+    uint64_t c;                                                               \
+    uint32_t ignore_flush = ~(float_flag_input_denormal |                     \
+                              float_flag_output_denormal);                    \
+    c = cond;                                                                 \
+    ignore_flush &= get_float_exception_flags(&env->active_fpu.fp_status);    \
+    set_float_exception_flags(ignore_flush, &env->active_fpu.fp_status);      \
+    update_fcr31(env, GETPC());                                               \
+    if (c) {                                                                  \
+        return -1;                                                            \
+    }                                                                         \
+    else {                                                                    \
+        return 0;                                                             \
+    }                                                                         \
 }
 
 /* NOTE: the comma operator will make "cond" to eval to false,
@@ -3837,19 +3841,23 @@ FOP_CONDN_D(sor,  (float64_le(fdt1, fdt0, &env->active_fpu.fp_status) || float64
 FOP_CONDN_D(sune, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
 FOP_CONDN_D(sne,  (float64_lt(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
 
-#define FOP_CONDN_S(op, cond)                                       \
-uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,   \
-                         uint32_t fst1)                             \
-{                                                                   \
-    uint64_t c;                                                     \
-    c = cond;                                                       \
-    update_fcr31(env, GETPC());                                     \
-    if (c) {                                                        \
-        return -1;                                                  \
-    }                                                               \
-    else {                                                          \
-        return 0;                                                   \
-    }                                                               \
+#define FOP_CONDN_S(op, cond)                                                 \
+uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,             \
+                         uint32_t fst1)                                       \
+{                                                                             \
+    uint64_t c;                                                               \
+    uint32_t ignore_flush = ~(float_flag_input_denormal |                     \
+                              float_flag_output_denormal);                    \
+    c = cond;                                                                 \
+    ignore_flush &= get_float_exception_flags(&env->active_fpu.fp_status);    \
+    set_float_exception_flags(ignore_flush, &env->active_fpu.fp_status);      \
+    update_fcr31(env, GETPC());                                               \
+    if (c) {                                                                  \
+        return -1;                                                            \
+    }                                                                         \
+    else {                                                                    \
+        return 0;                                                             \
+    }                                                                         \
 }
 
 /* NOTE: the comma operator will make "cond" to eval to false,
