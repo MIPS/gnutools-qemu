@@ -619,14 +619,8 @@ int cpu_exec(CPUArchState *env)
                    spans two pages, we cannot safely do a direct
                    jump. */
                 if (next_tb != 0 && tb->page_addr[1] == -1) {
-#ifdef MIPSSIM_COMPAT
-                    if (!sv_enabled()) {
-#endif
                     tb_add_jump((TranslationBlock *)(next_tb & ~TB_EXIT_MASK),
                                 next_tb & TB_EXIT_MASK, tb);
-#ifdef MIPSSIM_COMPAT
-                    }
-#endif
                 }
                 spin_unlock(&tcg_ctx.tb_ctx.tb_lock);
 
@@ -638,19 +632,8 @@ int cpu_exec(CPUArchState *env)
                 barrier();
                 if (likely(!cpu->exit_request)) {
                     tc_ptr = tb->tc_ptr;
-#ifdef MIPSSIM_COMPAT
-                    if (sv_enabled()) {
-                        trace_cpu_state(cpu, 0);
-                        sv_target_disas(env, tb->pc, 4, 0);
-                    }
-#endif
                     /* execute the generated code */
                     next_tb = cpu_tb_exec(cpu, tc_ptr);
-#ifdef MIPSSIM_COMPAT
-                    if (sv_enabled()) {
-                        trace_cpu_state(cpu, 0);
-                    }
-#endif
                     switch (next_tb & TB_EXIT_MASK) {
                     case TB_EXIT_REQUESTED:
                         /* Something asked us to stop executing

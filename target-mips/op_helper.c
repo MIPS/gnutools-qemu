@@ -28,126 +28,6 @@
 
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
-
-#ifdef MIPSSIM_COMPAT
-#include "sysemu/sysemu.h"
-#include "mips-avp.h"
-
-void helper_avp_ok(void)
-{
-    puts("ok");
-    qemu_system_shutdown_request();
-}
-
-void helper_avp_fail(void)
-{
-    puts("fail");
-    qemu_system_shutdown_request();
-}
-
-int cpu_mips_cacheability(CPUMIPSState *env, target_ulong vaddr, int rw)
-{
-    // this function doesn't care of kernel/super/user mode as it is a debug only function.
-    // FIXME: MIPS64
-    hwaddr physical;
-    int prot;
-    int cca = 2;// uncached by default
-
-    if (vaddr <= (int32_t)0x7FFFFFFFUL) {
-        /* useg */
-        if ((env->CP0_Status) & (1 << CP0St_ERL)) {
-            cca = 2;
-        }
-        //tlb based
-        if (env->tlb->map_address == &r4k_map_address) {
-            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
-        }
-        //fixed mapping
-        else if (env->tlb->map_address == &fixed_mmu_map_address) {
-            //From KU field of Config Register
-            cca = (env->CP0_Config0 >> CP0C0_KU) & 0x7;
-        }
-    }
-    else if (vaddr < (int32_t)0xA0000000UL) {
-        /* kseg0 */
-        //From K0 field of Config Register
-        cca = (env->CP0_Config0) & 0x7;
-    }
-    else if (vaddr < (int32_t)0xC0000000UL) {
-        /* kseg1 */
-        cca = 2; // Uncached
-    }
-    else if (vaddr < (int32_t)0xE0000000UL) {
-        /* sseg (kseg2) */
-        //tlb based
-        if (env->tlb->map_address == &r4k_map_address) {
-            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
-        }
-        //fixed mapping
-        else if (env->tlb->map_address == &fixed_mmu_map_address) {
-            //From K23 field of Config Register
-            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
-        }
-    }
-    else {
-        /* kseg3 */
-        //tlb based
-        if (env->tlb->map_address == &r4k_map_address) {
-            r4k_map_address_debug(env, &physical, &prot, &cca, vaddr, rw, 0);
-        }
-        //fixed mapping
-        else if (env->tlb->map_address == &fixed_mmu_map_address) {
-            //From K23 field of Config Register
-            cca = (env->CP0_Config0 >> CP0C0_K23) & 0x7;
-        }
-    }
-    return cca;
-}
-#endif
-#endif
-
-#ifdef MIPSSIM_COMPAT
-void helper_trace_mem_access(CPUMIPSState *env,
-                                           target_ulong val,
-                                           target_ulong addr,
-                                           uint32_t rw_size)
-{
-#ifndef CONFIG_USER_ONLY
-    sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
-            (rw_size >> 16)? "Write":"Read",
-            addr,
-            (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
-            cpu_mips_cacheability(env, addr, rw_size >> 16)
-            );
-#else
-    sv_log(" : Memory %s ["TARGET_FMT_lx"] = ",
-            (rw_size >> 16)? "Write":"Read",
-            addr);
-#endif
-
-    switch(rw_size & 0xffff)
-    {
-    case 1:
-        sv_log("%02x\n", (uint8_t) val);
-        break;
-    case 2:
-        sv_log("%04x\n", (uint16_t) val);
-        break;
-    case 4:
-        sv_log("%08x\n", (uint32_t) val);
-        break;
-    case 8:
-        sv_log("%016lx\n", (uint64_t) val);
-        break;
-    default:
-        sv_log("\n");
-        break;
-    }
-}
-void helper_trace_reg_access(CPUMIPSState *env, target_ulong val)
-{
-    sv_log("reg = "TARGET_FMT_lx"\n", val);
-}
 #endif
 
 /*****************************************************************************/
@@ -2068,26 +1948,6 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
     tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) & ~mask) << 12;
-
-#ifdef MIPSSIM_COMPAT
-    sv_log("FILL TLB index %d, ", idx);
-    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
-    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
-    sv_log("mask 0x%08x ", tlb->PageMask);
-    sv_log("G %x ", tlb->G);
-    sv_log("V0 %x ", tlb->V0);
-    sv_log("V1 %x ", tlb->V1);
-    sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->D1);
-    sv_log("ASID %08x\n", tlb->ASID);
-
-    sv_log(" : Write TLB Entry[%d] = ", idx);
-    sv_log("%08x ", env->CP0_PageMask);
-    sv_log(TARGET_FMT_lx" ", env->CP0_EntryHi);
-    sv_log(TARGET_FMT_lx" ", env->CP0_EntryLo1);
-    sv_log(TARGET_FMT_lx"\n", env->CP0_EntryLo0);
-#endif
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
@@ -2124,14 +1984,6 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
     uint8_t ASID;
     bool G, V0, D0, V1, D1;
 
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBWI ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBWI ");
-#endif
-#endif
-
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     tlb = &env->tlb->mmu.r4k.tlb[idx];
     VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
@@ -2159,13 +2011,6 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
 
 void r4k_helper_tlbwr(CPUMIPSState *env)
 {
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBWR ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBWR ");
-#endif
-#endif
     int idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     int r = cpu_mips_get_random(env);
     if ((r == idx) && !(env->CP0_Index & 0x80000000)) {
@@ -2223,16 +2068,6 @@ void r4k_helper_tlbp(CPUMIPSState *env)
 
         env->CP0_Index |= 0x80000000;
     }
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBP ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBP ");
-#endif
-    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
-    sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
-    sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
-#endif
 }
 
 void r4k_helper_tlbr(CPUMIPSState *env)
@@ -2268,21 +2103,6 @@ void r4k_helper_tlbr(CPUMIPSState *env)
                         ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
                         (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
     }
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) : TLBR ");
-#else
-    sv_log("Info (MIPS32_TLB) : TLBR ");
-#endif
-    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
-    sv_log(" G %x ", tlb->G);
-    sv_log("V0 %x ", tlb->V0);
-    sv_log("V1 %x ", tlb->V1);
-    sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->D1);
-    sv_log("ASID tlb=0x%08x ", tlb->ASID);
-    sv_log("EnHi="TARGET_FMT_lx"\n", env->CP0_EntryHi & 0xff);
-#endif
 }
 
 void helper_tlbwi(CPUMIPSState *env)
