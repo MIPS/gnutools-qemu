@@ -7252,6 +7252,7 @@ void helper_hypcall (void)
 // bad instruction here
     helper_raise_exception_err(EXCP_GUESTEXIT, HC);
     compute_hflags(env);
+    cpu_mips_silence_irq_guest(env);
 }
 
 void helper_deret (void)

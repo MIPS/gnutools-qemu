@@ -976,6 +976,7 @@ void cpu_mips_clear_guest_timer(CPUState *env);
 void cpu_mips_soft_irq(CPUState *env, int irq, int level);
 void cpu_mips_soft_irq_guest(CPUState *env, int irq, int level);
 void cpu_mips_check_irq_guest(CPUState *env);
+void cpu_mips_silence_irq_guest(CPUState *env);
 
 /* helper.c */
 int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,

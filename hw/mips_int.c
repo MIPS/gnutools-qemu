@@ -74,6 +74,14 @@ void cpu_mips_check_irq_guest(CPUState *env)
     }
 }
 
+void cpu_mips_silence_irq_guest(CPUState *env)
+{
+    // There is no pending root interrupt in guest mode.
+    // As the root context interrupt system is always active,
+    // even during guest mode execution.
+    cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+}
+
 void cpu_mips_irq_init_cpu(CPUState *env)
 {
     qemu_irq *qi;

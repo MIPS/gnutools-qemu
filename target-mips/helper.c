@@ -670,6 +670,7 @@ void do_interrupt (CPUState *env)
         env->hflags &= ~MIPS_HFLAG_GUEST;
         env->exitGuest = 0;
         tlb_flush (env, 1);
+        cpu_mips_silence_irq_guest(env);
     }
 
     //take exception as root by now
@@ -678,6 +679,7 @@ void do_interrupt (CPUState *env)
     {
         env->hflags &= ~MIPS_HFLAG_GUEST;
         tlb_flush (env, 1);
+        cpu_mips_silence_irq_guest(env);
     }
 
     if (qemu_log_enabled() && env->exception_index != EXCP_EXT_INTERRUPT) {
@@ -898,6 +900,7 @@ void do_interrupt (CPUState *env)
             env->hflags &= ~MIPS_HFLAG_GUEST;
             env->error_code &= ~0x10;
             tlb_flush (env, 1);
+            cpu_mips_silence_irq_guest(env);
         }
         if (env->hflags & MIPS_HFLAG_GUEST) {
             env->Guest.CP0_Cause = (env->Guest.CP0_Cause & ~(0x3 << CP0Ca_CE)) |
@@ -946,6 +949,7 @@ void do_interrupt (CPUState *env)
             // Take it as root exception
             env->hflags &= ~MIPS_HFLAG_GUEST;
             tlb_flush (env, 1);
+            cpu_mips_silence_irq_guest(env);
         }
         cause = 26;
         goto set_EPC;
