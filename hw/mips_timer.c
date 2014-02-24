@@ -126,6 +126,18 @@ static void cpu_mips_guest_timer_expire(CPUState *env)
     qemu_irq_raise(env->guest_irq[(env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
 }
 
+void cpu_mips_inject_guest_timer(CPUState *env)
+{
+    env->Guest.CP0_Cause |= 1 << CP0Ca_TI;
+    qemu_irq_raise(env->guest_irq[(env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
+}
+
+void cpu_mips_clear_guest_timer(CPUState *env)
+{
+    env->CP0_Cause &= ~(1 << CP0Ca_TI);
+    qemu_irq_lower(env->irq[(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
+}
+
 uint32_t cpu_mips_get_count (CPUState *env)
 {
     if (env->CP0_Cause & (1 << CP0Ca_DC)) {

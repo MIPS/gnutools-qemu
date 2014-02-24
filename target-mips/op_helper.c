@@ -5596,10 +5596,23 @@ void helper_mtc0_guestctl1 (target_ulong arg1)
 
 void helper_mtc0_guestctl2 (target_ulong arg1)
 {
-    // non-eic
-    uint32_t mask = 0x3C00FC1F;
-    env->CP0_GuestCtl2 = (env->CP0_GuestCtl2 & ~mask) | (arg1 & mask);
-    // fixme eic mode
+    uint32_t mask;
+    if ( (env->Guest.CP0_Config3 & (1 << CP0C3_VEIC)) &&
+            (env->Guest.CP0_IntCtl & (0x1f << CP0IntCtl_VS)) &&
+            (env->Guest.CP0_Cause & (1 << CP0Ca_IV)) &&
+            !(env->Guest.CP0_Status & (1 << CP0St_BEV)) ) {
+        // EIC
+        mask = 0x3F3CFFFF;
+        env->CP0_GuestCtl2 = (env->CP0_GuestCtl2 & ~mask) | (arg1 & mask);
+    }
+    else {
+        // Non-EIC
+        mask = 0x3F00FC00;
+        env->CP0_GuestCtl2 = (env->CP0_GuestCtl2 & ~mask) | (arg1 & mask);
+
+        env->Guest.CP0_Cause &= ~0xFC00;
+        env->Guest.CP0_Cause |= (env->CP0_GuestCtl2 & 0xFC00);
+    }
 }
 
 void helper_mtc0_guestctl3 (target_ulong arg1)
@@ -5798,7 +5811,7 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
             mask &= ~0xF020FC7C;
         }
         else if (guest == 2) {
-            mask |= 0xF020007C;
+            mask |= 0xF020FC7C;
         }
 
         old = cpu->Guest.CP0_Cause;
@@ -5809,6 +5822,15 @@ static void mtc0_cause(CPUState *cpu, target_ulong arg1, int guest)
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
             return;
         }
+        if (guest == 2 && ((old >> CP0Ca_TI) & 1) == 1 && ((arg1 >> CP0Ca_TI) & 1) == 0) {
+            arg1 &= ~(1 << (((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) + CP0Ca_IP));
+            cpu_mips_clear_guest_timer(env);
+        }
+        else if (guest == 2 && ((old >> CP0Ca_TI) & 1) == 0 && ((arg1 >> CP0Ca_TI) & 1) == 1) {
+            arg1 |= (1 << (((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) + CP0Ca_IP));
+            cpu_mips_inject_guest_timer(env);
+        }
+
         cpu->Guest.CP0_Cause = (cpu->Guest.CP0_Cause & ~mask) | (arg1 & mask);
 
         /* The value of Guest.Cause/DC has no direct effect on the calculation
@@ -7183,7 +7205,9 @@ static void set_pc (target_ulong error_pc)
 
 void helper_eret (void)
 {
+    int pre_mode;
     debug_pre_eret();
+    pre_mode = env->hflags & MIPS_HFLAG_GUEST;
     if (env->hflags & MIPS_HFLAG_GUEST) {
         env->Guest.llbit = 0;
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
@@ -7215,6 +7239,11 @@ void helper_eret (void)
     }
     compute_hflags(env);
     debug_post_eret();
+    if (pre_mode != MIPS_HFLAG_GUEST && env->hflags & MIPS_HFLAG_GUEST) {
+        // switching into Guest mode.
+        // It is required to check if there is a pending interrupt.
+        cpu_mips_check_irq_guest(env);
+    }
 }
 
 void helper_hypcall (void)

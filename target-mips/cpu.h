@@ -519,6 +519,7 @@ struct CPUMIPSState {
 #define CP0Ca_IV   23
 #define CP0Ca_WP   22
 #define CP0Ca_RIPL  10
+#define CP0Ca_IP2   10
 #define CP0Ca_IP    8
 #define CP0Ca_IP_mask 0x0000FF00
 #define CP0Ca_EC    2
@@ -818,7 +819,12 @@ static inline int cpu_mips_hw_guest_interrupts_pending(CPUState *env)
 {
     int r;
     int32_t irq;
-    int guest_timer_intterrupt;
+    int guest_timer_interrupt;
+
+    if (!(env->Guest.CP0_Status & (1 << CP0St_IE))) {
+        /* Interrupts are disabled */
+        return 0;
+    }
 
     if ( (env->Guest.CP0_Config3 & (1 << CP0C3_VEIC)) &&
             (env->Guest.CP0_IntCtl & (0x1f << CP0IntCtl_VS)) &&
@@ -837,15 +843,15 @@ static inline int cpu_mips_hw_guest_interrupts_pending(CPUState *env)
     }
     else {
         // Guest in non-EIC mode
-        irq = (env->CP0_Cause >> CP0Ca_IP) & 0x3f;
+        irq = ((env->Guest.CP0_Cause >> CP0Ca_IP2) & 0x3f) << 2;
         if (!(env->CP0_GuestCtl0 & CP0GuestCtl0_PT)) {
             if (env->CP0_GuestCtl0 & CP0GuestCtl0_G2) {
                 r = (env->CP0_GuestCtl2 >> CP0GuestCtl2_VIP) & 0x3f;
             }
             else {
                 // FIXME VZ
-//                r = Root_HW_VIP[5:0]
-                r = (env->CP0_Cause >> CP0Ca_IP) & 0x3f;
+                // r = Root_HW_VIP[5:0]
+                r = (env->Guest.CP0_Cause >> CP0Ca_IP2) & 0x3f;
             }
         }
         else {
@@ -855,22 +861,19 @@ static inline int cpu_mips_hw_guest_interrupts_pending(CPUState *env)
             }
             else {
                 // FIXME VZ
-//                r = Root_HW_VIP[5:0] OR (irq[7:2] AND Root.GuestCtl0PIP[5:0])
+                // r = Root_HW_VIP[5:0] OR (irq[7:2] AND Root.GuestCtl0PIP[5:0])
                 r = ((env->CP0_Cause >> CP0Ca_IP) & 0x3f) |
                         ((irq >> 2) & ((env->CP0_GuestCtl0 >> CP0GuestCtl0_PIP) & 0x3f));
             }
 
         }
+        r = r << 2;
+        guest_timer_interrupt = (env->Guest.CP0_Cause >> CP0Ca_TI) & 1;
+        guest_timer_interrupt |= (env->Guest.CP0_Cause >> (((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) + CP0Ca_IP)) & 1;
+        r |= guest_timer_interrupt << ((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
+        //    r = r OR (PCIEvent << Guest.IntCtlIPPCI)
+        r |= (env->Guest.CP0_Cause >> CP0Ca_IP) & 3;
     }
-    r = r << 2;
-//    env->guest_irq[(env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]
-//    env->Guest.CP0_Cause |= 1 << (irq + CP0Ca_IP);
-    r |= ((env->Guest.CP0_Cause >> (env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) & 1) << ((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
-    guest_timer_intterrupt = (env->Guest.CP0_Cause >> CP0Ca_TI) & 1;
-    guest_timer_intterrupt |= (env->Guest.CP0_Cause >> (((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7) + CP0Ca_IP)) & 1;
-    r |= guest_timer_intterrupt << ((env->Guest.CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
-//    r = r OR (PCIEvent << Guest.IntCtlIPPCI)
-    r |= env->Guest.CP0_Cause >> CP0Ca_IP & 3;
     return r;
 }
 
@@ -966,10 +969,13 @@ void cpu_mips_start_count(CPUState *env);
 void cpu_mips_stop_count(CPUState *env);
 void cpu_mips_store_count_guest (CPUState *env, uint32_t count);
 void cpu_mips_store_compare_guest (CPUState *env, uint32_t value);
+void cpu_mips_inject_guest_timer(CPUState *env);
+void cpu_mips_clear_guest_timer(CPUState *env);
 
 /* mips_int.c */
 void cpu_mips_soft_irq(CPUState *env, int irq, int level);
 void cpu_mips_soft_irq_guest(CPUState *env, int irq, int level);
+void cpu_mips_check_irq_guest(CPUState *env);
 
 /* helper.c */
 int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
@@ -1035,7 +1041,8 @@ static inline int cpu_has_work(CPUState *env)
        wake-up the CPU, however most of the implementations only
        check for interrupts that can be taken. */
     if ((env->interrupt_request & CPU_INTERRUPT_HARD) &&
-        cpu_mips_hw_interrupts_pending(env)) {
+        (cpu_mips_hw_interrupts_pending(env) ||
+                cpu_mips_hw_guest_interrupts_pending(env))) {
         has_work = 1;
     }
 

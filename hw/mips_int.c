@@ -67,6 +67,12 @@ static void cpu_mips_guest_irq_request(void *opaque, int irq, int level)
     }
 }
 
+void cpu_mips_check_irq_guest(CPUState *env)
+{
+    if (env->Guest.CP0_Cause & CP0Ca_IP_mask) {
+        cpu_interrupt(env, CPU_INTERRUPT_HARD);
+    }
+}
 
 void cpu_mips_irq_init_cpu(CPUState *env)
 {
