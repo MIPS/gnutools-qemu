@@ -4985,6 +4985,12 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
             rn = "Guest.ContextConfig";
             break;
+        case 2:
+            gen_helper_check_gpsi_cp0();
+            gen_helper_check_gpsi_og();
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_UserLocal));
+            rn = "Guest.UserLocal";
+            break;
         default:
             goto die;
         }
@@ -5455,6 +5461,10 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_ContextConfig));
             rn = "Guest.ContextConfig";
             break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_UserLocal));
+            rn = "Guest.UserLocal";
+            break;
         default:
             goto die;
         }
@@ -5893,10 +5903,8 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "ContextConfig";
             break;
         case 2:
-            if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
-                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUState, CP0_UserLocal));
-                rn = "UserLocal";
-            }
+            gen_helper_mtc0_userlocal(arg);
+            rn = "UserLocal";
             break;
         default:
             goto die;
@@ -6545,6 +6553,10 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 1:
             gen_helper_mtgc0_contextconfig(arg);
             rn = "Guest.ContextConfig";
+            break;
+        case 2:
+            gen_helper_mtgc0_userlocal(arg);
+            rn = "Guest.UserLocal";
             break;
         default:
             goto die;
@@ -15796,6 +15808,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     //4
     CHK_ROOT_CP0_REG(CP0_Context,               "C0CTXT      ");
     CHK_ROOT_CP0_REG(CP0_ContextConfig,         "C0CTXTCFG   ");
+    CHK_ROOT_CP0_REG(CP0_UserLocal,             "C0USERLOCAL ");
 
     //5
     CHK_ROOT_CP0_REG(CP0_PageMask,              "C0PMASK     ");
@@ -15978,6 +15991,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
     CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
+    CHK_CP0_REG(Guest.CP0_UserLocal,       "Guest.C0USERLOCAL");
     CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
     CHK_CP0_REG(Guest.CP0_HWREna,          "Guest.C0HWRENA");
     CHK_CP0_REG(Guest.CP0_Status,          "Guest.C0STAT ");

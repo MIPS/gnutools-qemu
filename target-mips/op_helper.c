@@ -5338,6 +5338,30 @@ void helper_mtgc0_contextconfig (target_ulong arg1)
     }
 }
 
+void helper_mtc0_userlocal(target_ulong arg1)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))
+                || (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else if (env->Guest.CP0_Config3 & (1 << CP0C3_ULRI)) {
+            env->Guest.CP0_UserLocal = arg1;
+        }
+    }
+    else {
+        if (env->CP0_Config3 & (1 << CP0C3_ULRI)){
+            env->CP0_UserLocal = arg1;
+        }
+    }
+}
+
+void helper_mtgc0_userlocal(target_ulong arg1)
+{
+    if (env->Guest.CP0_Config3 & (1 << CP0C3_ULRI)){
+        env->Guest.CP0_UserLocal= arg1;
+    }
+}
 
 void helper_mtc0_pagemask (target_ulong arg1)
 {
@@ -5456,17 +5480,21 @@ void helper_mtc0_srsconf4 (target_ulong arg1)
 
 void helper_mtc0_hwrena (target_ulong arg1)
 {
+    uint32_t mask = 0x0000000F;
     if (env->hflags & MIPS_HFLAG_GUEST) {
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
                 (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            env->Guest.CP0_HWREna = arg1 & 0x0000000F;
+            if (env->Guest.CP0_Config3 & (1 << CP0C3_ULRI)) {
+                mask |= 0x20000000;
+            }
+
+            env->Guest.CP0_HWREna = arg1 & mask;
         }
     }
     else {
-        uint32_t mask = 0x0000000F;
 
         if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
             mask |= 0x20000000;
@@ -5478,7 +5506,11 @@ void helper_mtc0_hwrena (target_ulong arg1)
 
 void helper_mtgc0_hwrena (target_ulong arg1)
 {
-    env->Guest.CP0_HWREna = arg1 & 0x0000000F;
+    uint32_t mask = 0x0000000F;
+    if (env->Guest.CP0_Config3 & (1 << CP0C3_ULRI)) {
+        mask |= 0x20000000;
+    }
+    env->Guest.CP0_HWREna = arg1 & mask;
 }
 
 void helper_mtc0_count (target_ulong arg1)
@@ -7308,13 +7340,29 @@ target_ulong helper_rdhwr_ccres(void)
 
 target_ulong helper_rdhwr_ulr(void)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) &&
-        (env->CP0_HWREna & (1 << 29))) {
-        return env->CP0_UserLocal;
-    } else {
-        helper_raise_exception(EXCP_RI);
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if ((env->hflags & MIPS_HFLAG_KSU) != MIPS_HFLAG_KM) {
+            if (!(env->Guest.CP0_HWREna & (1 << 29))
+                    && !(env->Guest.CP0_Status & (1 << CP0St_CU0))) {
+                helper_raise_exception(EXCP_RI);
+                return 0;
+            }
+        }
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+            return 0;
+        }
+        return env->Guest.CP0_UserLocal;
     }
-    return 0;
+    else {
+        if ((env->hflags & MIPS_HFLAG_CP0) ||
+            (env->CP0_HWREna & (1 << 29))) {
+            return env->CP0_UserLocal;
+        } else {
+            helper_raise_exception(EXCP_RI);
+        }
+        return 0;
+    }
 }
 
 void helper_pmon (int function)

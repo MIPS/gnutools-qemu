@@ -282,6 +282,7 @@ typedef struct CPUMIPSPrvState_t {
     uint64_t CP0_EntryLo1;
     target_ulong CP0_Context;
     target_ulong CP0_ContextConfig;
+    target_ulong CP0_UserLocal;
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
     int32_t CP0_Wired;
