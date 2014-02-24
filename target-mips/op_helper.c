@@ -5659,10 +5659,6 @@ void helper_mtc0_status (target_ulong arg1)
     if (env->hflags & MIPS_HFLAG_GUEST) {
         // Guest mode
         mask &= ~0x180000; // SR and NMI are Read-only in Guest mode
-        if ((env->hflags & MIPS_HFLAG_SM) ||
-                ((env->Guest.CP0_Config0 >> CP0C0_MT) & 3) == 3 /*MMU_TYPE_FMT*/) {
-            mask &= ~0x00000008; //SM
-        }
         if (!((env->Guest.CP0_Config1 >> CP0C1_FP) & 1)) {
             mask &= ~(0x20000000 | 0x04000000); //CU1, FR
         }
