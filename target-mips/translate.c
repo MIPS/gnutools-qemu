@@ -15991,6 +15991,7 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     CHK_CP0_REG(Guest.CP0_Compare,         "Guest.C0COMP ");
     CHK_CP0_REG(Guest.CP0_Context,         "Guest.C0CTXT ");
+    CHK_CP0_REG(Guest.CP0_ContextConfig,   "Guest.C0CTXTCFG");
     CHK_CP0_REG(Guest.CP0_UserLocal,       "Guest.C0USERLOCAL");
     CHK_CP0_REG(Guest.CP0_PageMask,        "Guest.C0PMASK");
     CHK_CP0_REG(Guest.CP0_HWREna,          "Guest.C0HWRENA");
