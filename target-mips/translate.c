@@ -8789,12 +8789,15 @@ static void gen_sel_s (DisasContext *ctx, enum fopcode op1, int fd, int ft, int 
 
     switch (op1) {
     case R6_OPC_SEL_S:
+        tcg_gen_andi_i32(fp0, fp0, 1);
         tcg_gen_movcond_i32(TCG_COND_NE, fp0, fp0, t1, fp1, fp2);
         break;
     case R6_OPC_SELEQZ_S:
+        tcg_gen_andi_i32(fp1, fp1, 1);
         tcg_gen_movcond_i32(TCG_COND_NE, fp0, fp1, t1, t1, fp2);
         break;
     case R6_OPC_SELNEZ_S:
+        tcg_gen_andi_i32(fp1, fp1, 1);
         tcg_gen_movcond_i32(TCG_COND_EQ, fp0, fp1, t1, t1, fp2);
         break;
     default:
@@ -8822,12 +8825,15 @@ static void gen_sel_d (DisasContext *ctx, enum fopcode op1, int fd, int ft, int 
 
     switch (op1) {
     case R6_OPC_SEL_D:
+        tcg_gen_andi_i64(fp0, fp0, 1);
         tcg_gen_movcond_i64(TCG_COND_NE, fp0, fp0, t1, fp1, fp2);
         break;
     case R6_OPC_SELEQZ_D:
+        tcg_gen_andi_i64(fp1, fp1, 1);
         tcg_gen_movcond_i64(TCG_COND_NE, fp0, fp1, t1, t1, fp2);
         break;
     case R6_OPC_SELNEZ_D:
+        tcg_gen_andi_i64(fp1, fp1, 1);
         tcg_gen_movcond_i64(TCG_COND_EQ, fp0, fp1, t1, t1, fp2);
         break;
     default:
