@@ -461,6 +461,7 @@ enum {
     OPC_DSHD       = (0x05 << 6) | OPC_DBSHFL,
     R6_OPC_DALIGN     = (0x08 << 6) | OPC_DBSHFL, // 01.imm3
     R6_OPC_DALIGN_END = (0x0F << 6) | OPC_DBSHFL, // 01.000 to 01.111
+    R6_OPC_DBITSWAP   = (0x00 << 6) | OPC_DBSHFL, // 00000
 };
 
 /* MIPS DSP REGIMM opcodes */
@@ -16582,6 +16583,7 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
         case R6_OPC_BITSWAP:
             // instruction promoted from DSP ASE (OPC_BITREV)
             gen_helper_bitswap(cpu_gpr[rd], cpu_gpr[rt]);
+            tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
             break;
         }
         break;
@@ -16611,6 +16613,9 @@ static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
             }
             tcg_temp_free(t0);
             tcg_temp_free(t1);
+            break;
+        case R6_OPC_DBITSWAP:
+            gen_helper_bitswap(cpu_gpr[rd], cpu_gpr[rt]);
             break;
         }
         break;
@@ -17182,6 +17187,7 @@ static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
         op2 = MASK_DBSHFL(ctx->opcode);
         switch(op2) {
         case R6_OPC_DALIGN ... R6_OPC_DALIGN_END:
+        case R6_OPC_DBITSWAP:
             check_insn(ctx, ISA_MIPS32R6);
             decode_opc_special3_r6(env, ctx);
             break;

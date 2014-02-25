@@ -1290,6 +1290,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"align",   "d,v,t",    0x7C000220, 0xFC00073F, WR_d|RD_s|RD_t,     0,      I32R6  },
 {"dalign",  "d,v,t",    0x7C000224, 0xFC00063F, WR_d|RD_s|RD_t,     0,      I64R6  },
 {"bitswap", "d,w",      0x7C000020, 0xFFE007FF, WR_d|RD_t,          0,      I32R6  },
+{"dbitswap","d,w",      0x7C000024, 0xFFE007FF, WR_d|RD_t,          0,      I64R6  },
 {"balc",    "+p",       0xE8000000, 0xfc000000, UBD|WR_31,          0,      I32R6  },
 {"bc",      "+p",       0xC8000000, 0xfc000000, UBD|WR_31,          0,      I32R6  },
 {"jic",     "t,o",      0xD8000000, 0xffe00000, UBD|RD_t,           0,      I32R6  },
