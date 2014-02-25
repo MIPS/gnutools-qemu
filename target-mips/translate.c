@@ -4975,7 +4975,6 @@ static inline void gen_mtc0_store32 (TCGv arg, target_ulong off)
 
 static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 {
-    tcg_gen_ext32s_tl(arg, arg);
     tcg_gen_st_tl(arg, cpu_env, off);
 }
 
