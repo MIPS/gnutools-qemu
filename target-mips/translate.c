@@ -16277,7 +16277,8 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
     case OPC_SLL:          /* Shift with immediate */
-        if (sa == 5) { /* PAUSE = NOP */
+        if (sa == 5 && rd == 0 && 
+            rs == 0 && rt == 0) { /* PAUSE = NOP */
             gen_check_delay_fbn_slot(ctx);
         }
         /* Fallthrough */
