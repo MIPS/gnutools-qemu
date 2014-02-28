@@ -10,7 +10,7 @@ static void gen_sll_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -68,13 +68,15 @@ static void gen_slli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -117,7 +119,7 @@ static void gen_sra_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -175,13 +177,15 @@ static void gen_srai_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -224,7 +228,7 @@ static void gen_srl_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -282,13 +286,15 @@ static void gen_srli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -331,7 +337,7 @@ static void gen_bclr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -389,13 +395,15 @@ static void gen_bclri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -438,7 +446,7 @@ static void gen_bset_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -496,13 +504,15 @@ static void gen_bseti_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -545,7 +555,7 @@ static void gen_bneg_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -603,13 +613,15 @@ static void gen_bnegi_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -652,7 +664,7 @@ static void gen_binsl_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -711,13 +723,15 @@ static void gen_binsli_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -761,7 +775,7 @@ static void gen_binsr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -820,13 +834,15 @@ static void gen_binsri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -870,7 +886,7 @@ static void gen_addv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -916,7 +932,7 @@ static void gen_addvi_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -959,7 +975,7 @@ static void gen_subv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1005,7 +1021,7 @@ static void gen_subvi_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1048,7 +1064,7 @@ static void gen_max_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1095,7 +1111,7 @@ static void gen_maxi_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1138,7 +1154,7 @@ static void gen_max_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1184,7 +1200,7 @@ static void gen_maxi_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1227,7 +1243,7 @@ static void gen_min_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1274,7 +1290,7 @@ static void gen_mini_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1317,7 +1333,7 @@ static void gen_min_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1363,7 +1379,7 @@ static void gen_mini_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1406,7 +1422,7 @@ static void gen_max_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1452,7 +1468,7 @@ static void gen_min_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1498,7 +1514,7 @@ static void gen_ceq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1545,7 +1561,7 @@ static void gen_ceqi_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1588,7 +1604,7 @@ static void gen_clt_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1635,7 +1651,7 @@ static void gen_clti_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1678,7 +1694,7 @@ static void gen_clt_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1724,7 +1740,7 @@ static void gen_clti_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1767,7 +1783,7 @@ static void gen_cle_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1814,7 +1830,7 @@ static void gen_clei_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1857,7 +1873,7 @@ static void gen_cle_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1903,7 +1919,7 @@ static void gen_clei_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -1948,7 +1964,7 @@ static void gen_ld_df(CPUState *env, DisasContext *ctx) {
 
     int16_t offset = s10 << df;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     /* 
      *  set element granularity to 8 bits (df = 0) because the load
@@ -1993,7 +2009,7 @@ static void gen_st_df(CPUState *env, DisasContext *ctx) {
 
     int16_t offset = s10 << df;
 
-    check_msa_access(env, ctx, wd, -1, -1);
+    if (!check_msa_access(env, ctx, wd, -1, -1)) return;
 
     /* 
      *  set element granularity to 8 bits (df = 0) because the store
@@ -2048,13 +2064,15 @@ static void gen_sat_s_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -2109,13 +2127,15 @@ static void gen_sat_u_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -2158,7 +2178,7 @@ static void gen_add_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2204,7 +2224,7 @@ static void gen_adds_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2250,7 +2270,7 @@ static void gen_adds_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2296,7 +2316,7 @@ static void gen_adds_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2342,7 +2362,7 @@ static void gen_ave_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2388,7 +2408,7 @@ static void gen_ave_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2434,7 +2454,7 @@ static void gen_aver_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2480,7 +2500,7 @@ static void gen_aver_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2526,7 +2546,7 @@ static void gen_subs_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2572,7 +2592,7 @@ static void gen_subs_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2618,7 +2638,7 @@ static void gen_subsus_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2664,7 +2684,7 @@ static void gen_subsuu_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2710,7 +2730,7 @@ static void gen_asub_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2756,7 +2776,7 @@ static void gen_asub_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2802,7 +2822,7 @@ static void gen_mulv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2848,7 +2868,7 @@ static void gen_maddv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2895,7 +2915,7 @@ static void gen_msubv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2942,7 +2962,7 @@ static void gen_div_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -2988,7 +3008,7 @@ static void gen_div_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3034,7 +3054,7 @@ static void gen_mod_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3080,7 +3100,7 @@ static void gen_mod_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3128,10 +3148,12 @@ static void gen_dotp_s_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3179,10 +3201,12 @@ static void gen_dotp_u_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3230,10 +3254,12 @@ static void gen_dpadd_s_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3282,10 +3308,12 @@ static void gen_dpadd_u_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3334,10 +3362,12 @@ static void gen_dpsub_s_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3386,10 +3416,12 @@ static void gen_dpsub_u_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3436,7 +3468,7 @@ static void gen_sld_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv trt = tcg_temp_new();
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3479,18 +3511,22 @@ static void gen_sldi_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -3521,7 +3557,7 @@ static void gen_splat_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv trt = tcg_temp_new();
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3564,18 +3600,22 @@ static void gen_splati_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -3606,7 +3646,7 @@ static void gen_pckev_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3636,7 +3676,7 @@ static void gen_pckod_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3666,7 +3706,7 @@ static void gen_ilvl_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3696,7 +3736,7 @@ static void gen_ilvr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3726,7 +3766,7 @@ static void gen_ilvev_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3756,7 +3796,7 @@ static void gen_ilvod_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3786,7 +3826,7 @@ static void gen_vshf_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -3816,7 +3856,7 @@ static void gen_srar_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3874,13 +3914,15 @@ static void gen_srari_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -3923,7 +3965,7 @@ static void gen_srlr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -3981,13 +4023,15 @@ static void gen_srlri_df(CPUState *env, DisasContext *ctx) {
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -4032,10 +4076,12 @@ static void gen_hadd_s_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -4083,10 +4129,12 @@ static void gen_hadd_u_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -4134,10 +4182,12 @@ static void gen_hsub_s_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -4185,10 +4235,12 @@ static void gen_hsub_u_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -4233,7 +4285,7 @@ static void gen_and_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4262,7 +4314,7 @@ static void gen_andi_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4291,7 +4343,7 @@ static void gen_or_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4320,7 +4372,7 @@ static void gen_ori_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4349,7 +4401,7 @@ static void gen_nor_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4378,7 +4430,7 @@ static void gen_nori_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4407,7 +4459,7 @@ static void gen_xor_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4436,7 +4488,7 @@ static void gen_xori_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4465,7 +4517,7 @@ static void gen_bmnz_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4494,7 +4546,7 @@ static void gen_bmnzi_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4523,7 +4575,7 @@ static void gen_bmz_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4552,7 +4604,7 @@ static void gen_bmzi_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4581,7 +4633,7 @@ static void gen_bsel_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -4610,7 +4662,7 @@ static void gen_bseli_b(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4643,10 +4695,12 @@ static void gen_shf_df(CPUState *env, DisasContext *ctx) {
 
     /* check df: double format not allowed */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4675,7 +4729,7 @@ static void gen_bnz_v(CPUState *env, DisasContext *ctx) {
     int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
@@ -4708,7 +4762,7 @@ static void gen_bz_v(CPUState *env, DisasContext *ctx) {
     int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
@@ -4744,11 +4798,13 @@ static void gen_fill_df(CPUState *env, DisasContext *ctx) {
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -4776,7 +4832,7 @@ static void gen_pcnt_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4816,7 +4872,7 @@ static void gen_nloc_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4856,7 +4912,7 @@ static void gen_nlzc_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4909,25 +4965,31 @@ static void gen_copy_s_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, -1);
+    if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -4967,25 +5029,31 @@ static void gen_copy_u_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, -1);
+    if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -5025,25 +5093,31 @@ static void gen_insert_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -5087,18 +5161,22 @@ static void gen_insve_df(CPUState *env, DisasContext *ctx) {
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -5129,7 +5207,7 @@ static void gen_bnz_df(CPUState *env, DisasContext *ctx) {
     int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);
@@ -5166,7 +5244,7 @@ static void gen_bz_df(CPUState *env, DisasContext *ctx) {
     int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);
@@ -5203,7 +5281,7 @@ static void gen_ldi_df(CPUState *env, DisasContext *ctx) {
     s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -5237,7 +5315,7 @@ static void gen_fcaf_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5271,7 +5349,7 @@ static void gen_fcun_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5305,7 +5383,7 @@ static void gen_fceq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5339,7 +5417,7 @@ static void gen_fcueq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5373,7 +5451,7 @@ static void gen_fclt_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5407,7 +5485,7 @@ static void gen_fcult_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5441,7 +5519,7 @@ static void gen_fcle_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5475,7 +5553,7 @@ static void gen_fcule_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5509,7 +5587,7 @@ static void gen_fsaf_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5543,7 +5621,7 @@ static void gen_fsun_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5577,7 +5655,7 @@ static void gen_fseq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5611,7 +5689,7 @@ static void gen_fsueq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5645,7 +5723,7 @@ static void gen_fslt_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5679,7 +5757,7 @@ static void gen_fsult_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5713,7 +5791,7 @@ static void gen_fsle_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5747,7 +5825,7 @@ static void gen_fsule_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5781,7 +5859,7 @@ static void gen_fadd_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5815,7 +5893,7 @@ static void gen_fsub_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5849,7 +5927,7 @@ static void gen_fmul_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5883,7 +5961,7 @@ static void gen_fdiv_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5917,7 +5995,7 @@ static void gen_fmadd_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5951,7 +6029,7 @@ static void gen_fmsub_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -5985,7 +6063,7 @@ static void gen_fexp2_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6019,7 +6097,7 @@ static void gen_fexdo_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6053,7 +6131,7 @@ static void gen_ftq_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6087,7 +6165,7 @@ static void gen_fmin_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6121,7 +6199,7 @@ static void gen_fmin_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6155,7 +6233,7 @@ static void gen_fmax_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6189,7 +6267,7 @@ static void gen_fmax_a_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6223,7 +6301,7 @@ static void gen_fcor_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6257,7 +6335,7 @@ static void gen_fcune_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6291,7 +6369,7 @@ static void gen_fcne_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6323,7 +6401,7 @@ static void gen_mul_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6371,7 +6449,7 @@ static void gen_madd_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6420,7 +6498,7 @@ static void gen_msub_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6471,7 +6549,7 @@ static void gen_fsor_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6505,7 +6583,7 @@ static void gen_fsune_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6539,7 +6617,7 @@ static void gen_fsne_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -6571,7 +6649,7 @@ static void gen_mulr_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6619,7 +6697,7 @@ static void gen_maddr_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6668,7 +6746,7 @@ static void gen_msubr_q_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -6718,7 +6796,7 @@ static void gen_fclass_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -6762,7 +6840,7 @@ static void gen_ftrunc_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6793,7 +6871,7 @@ static void gen_ftrunc_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6824,7 +6902,7 @@ static void gen_fsqrt_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6855,7 +6933,7 @@ static void gen_frsqrt_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6886,7 +6964,7 @@ static void gen_frcp_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6917,7 +6995,7 @@ static void gen_frint_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6948,7 +7026,7 @@ static void gen_flog2_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -6979,7 +7057,7 @@ static void gen_fexupl_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7010,7 +7088,7 @@ static void gen_fexupr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7041,7 +7119,7 @@ static void gen_ffql_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7072,7 +7150,7 @@ static void gen_ffqr_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7103,7 +7181,7 @@ static void gen_ftint_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7134,7 +7212,7 @@ static void gen_ftint_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7165,7 +7243,7 @@ static void gen_ffint_s_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7196,7 +7274,7 @@ static void gen_ffint_u_df(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -7222,7 +7300,7 @@ static void gen_ctcmsa(CPUState *env, DisasContext *ctx) {
     uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
     uint8_t cd = (ctx->opcode >> 6) & 0x1f /* cd [10:6] */;
 
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcd = tcg_const_i32(cd);
@@ -7245,7 +7323,7 @@ static void gen_cfcmsa(CPUState *env, DisasContext *ctx) {
     uint8_t cs = (ctx->opcode >> 11) & 0x1f /* cs [15:11] */;
     uint8_t rd = (ctx->opcode >> 6) & 0x1f /* rd [10:6] */;
 
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcs = tcg_const_i32(cs);
@@ -7268,7 +7346,7 @@ static void gen_move_v(CPUState *env, DisasContext *ctx) {
     uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
     uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
