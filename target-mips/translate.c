@@ -8352,7 +8352,7 @@ static void gen_compute_branch1_r6(DisasContext *ctx, uint32_t op,
     gen_load_fpr64(ctx, t0, ft);
     tcg_gen_andi_i64(t0, t0, 1);
 
-    btarget = calc_pc_add(ctx->pc, offset);
+    btarget = calc_pc_add(ctx->pc + 4, offset);
 
     switch (op) {
     case R6_OPC_BC1EQZ:
