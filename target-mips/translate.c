@@ -4729,7 +4729,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
             break;
         case R6_OPC_BOVC: // BEQZALC, BEQC
         case R6_OPC_BNVC: // BNEZALC, BNEC
-            if (rs <= rt && rs != 0) {
+            if (rs >= rt) {
                 // BOVC, BNVC
                 TCGv t0 = tcg_temp_local_new();
                 TCGv t1 = tcg_temp_local_new();
@@ -4756,7 +4756,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
                 tcg_temp_free(t1);
                 tcg_temp_free(tadd);
             }
-            else if (rs <= rt && rs == 0) {
+            else if (rs < rt && rs == 0) {
                 // BEQZALC, BNEZALC
                 if (opc == R6_OPC_BEQZALC) {
                     // BEQZALC
