@@ -291,12 +291,19 @@ void mips_sv_disas(FILE *out, CPUState *env, target_ulong code, target_ulong ins
 
     uint32_t opcode;
 
+#ifndef CONFIG_USER_ONLY
     fprintf(out, "%s : " TARGET_FMT_lx " " TARGET_FMT_lx " %u: ",
             env->cpu_model_str,
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
             cpu_mips_cacheability(env, pc, 0)
             );
+#else
+    fprintf(out, "%s : " TARGET_FMT_lx ": ",
+            env->cpu_model_str,
+            pc
+            );
+#endif
 
     if (!(env->hflags & MIPS_HFLAG_M16)) {
         opcode = ldl_code(pc);

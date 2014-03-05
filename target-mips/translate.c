@@ -36,7 +36,9 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-//#define MIPS_DEBUG_DISAS
+#ifndef MIPS_DEBUG_DISAS
+#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
+#endif
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 #define MIPS_DEBUG_XPA
 

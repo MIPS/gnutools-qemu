@@ -51,6 +51,7 @@ void helper_avp_fail(void)
 #endif
 
 #ifdef SV_SUPPORT
+#ifndef CONFIG_USER_ONLY
 int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
 {
     // this function doesn't care of kernel/super/user mode as it is a debug only function.
@@ -109,9 +110,11 @@ int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
     }
     return cca;
 }
+#endif
 
 void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_size)
 {
+#ifndef CONFIG_USER_ONLY
     sv_log("%s : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
             env->cpu_model_str,
             (rw_size >> 16)? "Write":"Read",
@@ -119,6 +122,13 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
             cpu_mips_cacheability(env, addr, rw_size >> 16)
             );
+#else
+    sv_log("%s : Memory %s ["TARGET_FMT_lx"] = ",
+            env->cpu_model_str,
+            (rw_size >> 16)? "Write":"Read",
+            addr
+            );
+#endif
 
     switch(rw_size & 0xffff)
     {

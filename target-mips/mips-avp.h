@@ -13,4 +13,8 @@ extern char *cpu_config_name;
 
 #endif
 
+#ifdef SV_SUPPORT
+void sv_log_init(const char * filename);
+#endif
+
 #endif /* MIPS_AVP_H_ */

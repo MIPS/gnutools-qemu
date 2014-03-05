@@ -167,6 +167,9 @@ int main(int argc, char **argv)
 
 #include "ui/qemu-spice.h"
 
+#if defined(MIPSSIM_COMPAT) || defined(SV_SUPPORT)
+#include "target-mips/mips-avp.h"
+#endif
 //#define DEBUG_NET
 //#define DEBUG_SLIRP
 
@@ -233,13 +236,6 @@ int boot_menu;
 uint8_t *boot_splash_filedata;
 int boot_splash_filedata_size;
 uint8_t qemu_extra_params_fw[2];
-#ifdef MIPSSIM_COMPAT
-char *cpu_model_name;
-char *cpu_config_name;
-#ifdef SV_SUPPORT
-FILE *svtracefile;
-#endif
-#endif
 
 typedef struct FWBootEntry FWBootEntry;
 
@@ -318,21 +314,6 @@ static void mips_avp_clean_up(void)
     if (cpu_model_name) {
         free(cpu_model_name);
         cpu_model_name = NULL;
-    }
-}
-#endif
-
-#ifdef SV_SUPPORT
-static void sv_log_init(const char * filename)
-{
-    if (svtracefile){
-        fclose(svtracefile);
-        svtracefile = NULL;
-    }
-    svtracefile = fopen(filename, "w");
-    if (!svtracefile){
-        perror(filename);
-        _exit(1);
     }
 }
 #endif

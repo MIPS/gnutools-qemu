@@ -18,7 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef MIPSSIM_COMPAT
+#if defined(MIPSSIM_COMPAT) || defined(SV_SUPPORT)
 #include "mips-avp.h"
 #endif
 /* CPU / CPU family specific config register values. */
@@ -1569,3 +1569,25 @@ static void msa_reset(CPUMIPSState *env)
     /* clear float_status nan mode */
     set_default_nan_mode(0, &env->active_msa.fp_status);
 }
+
+#ifdef MIPSSIM_COMPAT
+char *cpu_model_name;
+char *cpu_config_name;
+#endif
+
+#ifdef SV_SUPPORT
+FILE *svtracefile;
+
+void sv_log_init(const char * filename)
+{
+    if (svtracefile){
+        fclose(svtracefile);
+        svtracefile = NULL;
+    }
+    svtracefile = fopen(filename, "w");
+    if (!svtracefile){
+        perror(filename);
+        _exit(1);
+    }
+}
+#endif
