@@ -160,7 +160,7 @@ enum {
     R6_OPC_ALUIP  = R6_PC_RELATIVE | (0x1f << 16),
 
     /* Other */
-    R6_OPC_LDP    = R6_PC_RELATIVE | (6 << 19),
+    R6_OPC_LDP    = R6_PC_RELATIVE | (6 << 18),
 };
 
 /* MIPS special opcodes */
@@ -3029,7 +3029,7 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         case R6_OPC_LDP + (1 << 16):
         case R6_OPC_LDP + (2 << 16):
         case R6_OPC_LDP + (3 << 16):
-            gen_r6_ld((ctx->pc & ~0x7) + offset, rs, ctx->mem_idx, MO_TEQ);
+            gen_r6_ld((ctx->pc & ~0x7) + ((((int32_t)ctx->opcode << 14)) >> 11), rs, ctx->mem_idx, MO_TEQ);
             break;
 #endif
         default:
