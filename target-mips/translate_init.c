@@ -406,6 +406,7 @@ static mips_def_t mips_defs[] =
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_ULRI)  | (1 << CP0C3_RXI) |
                        (1 << CP0C3_BP) | (1 << CP0C3_BI) | (1 << CP0C3_M),
         .CP0_Config4 = (3 << CP0C4_IE) | (0xfc << CP0C4_KScrExist) | (1 << CP0C4_M),
+        .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -576,6 +577,7 @@ static mips_def_t mips_defs[] =
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_ULRI)  | (1 << CP0C3_RXI) |
                        (1 << CP0C3_BP) | (1 << CP0C3_BI) | (1 << CP0C3_M),
         .CP0_Config4 = (3 << CP0C4_IE) | (0xfc << CP0C4_KScrExist) | (1 << CP0C4_M),
+        .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
