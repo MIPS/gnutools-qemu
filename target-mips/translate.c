@@ -18755,6 +18755,12 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
     //17
     CHK_CP0_REG64(lladdr,                        "C0LLA       ");
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
+            sv_log(" : Write MAAR[%2d]     = %016" PRIx64 "\n", i, env->CP0_MAAR[i]);
+        }
+    }
+    CHK_CP0_REG(CP0_MAARI,                       "C0MAARI     ");
     //...
 
     //18
