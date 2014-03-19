@@ -334,7 +334,11 @@ struct CPUMIPSState {
 #define CP0PG_XIE 30
 #define CP0PG_ELPA 29
 #define CP0PG_IEC 27
+    target_ulong CP0_PWBase;
+    target_ulong CP0_PWField;
+    target_ulong CP0_PWSize;
     int32_t CP0_Wired;
+    int32_t CP0_PWCtl;
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
@@ -473,6 +477,7 @@ struct CPUMIPSState {
 #define CP0C3_MSAP  28
 #define CP0C3_BP 27
 #define CP0C3_BI 26
+#define CP0C3_PW   24
 #define CP0C3_ISA_ON_EXC 16
 #define CP0C3_ULRI 13
 #define CP0C3_RXI  12
