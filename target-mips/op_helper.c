@@ -132,7 +132,7 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
         sv_log("%08x\n", (uint32_t) val);
         break;
     case 8:
-        sv_log("%016lx", (uint64_t) val);
+        sv_log("%016lx\n", (uint64_t) val);
         break;
     default:
         sv_log("\n");
