@@ -4970,6 +4970,28 @@ void helper_mtc0_pagegrain (target_ulong arg1)
     }
 }
 
+void helper_mtc0_pwfield (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
+#else
+        env->CP0_PWField = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
+void helper_mtc0_pwsize (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWSize = arg1 & 0x3F7FFFFFFFULL;
+#else
+        env->CP0_PWSize = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
 void helper_mtc0_wired (target_ulong arg1)
 {
     env->CP0_Wired = arg1 % env->tlb->nb_tlb;
@@ -4998,6 +5020,18 @@ void helper_mtc0_srsconf3 (target_ulong arg1)
 void helper_mtc0_srsconf4 (target_ulong arg1)
 {
     env->CP0_SRSConf4 |= arg1 & env->CP0_SRSConf4_rw_bitmask;
+}
+
+void helper_mtc0_pwctl (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+        // PWEn = 0. Hardware page table walking is not implemented.
+#ifdef TARGET_MIPS64
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
+#else
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x0000003F);
+#endif
+    }
 }
 
 void helper_mtc0_hwrena (target_ulong arg1)
