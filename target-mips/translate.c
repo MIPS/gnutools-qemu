@@ -8241,6 +8241,8 @@ static void gen_compute_branch1(DisasContext *ctx, uint32_t op,
     const char *opn = "cp1 cond branch";
     TCGv_i32 t0 = tcg_temp_new_i32();
 
+    gen_check_delay_fbn_slot(ctx);
+
     if (cc != 0)
         check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
 
@@ -8353,8 +8355,10 @@ static void gen_compute_branch1_r6(DisasContext *ctx, uint32_t op,
 {
     target_ulong btarget;
     const char *opn = "cp1 cond branch";
-
     TCGv_i64 t0 = tcg_temp_new_i64();
+
+    gen_check_delay_fbn_slot(ctx);
+
     gen_load_fpr64(ctx, t0, ft);
     tcg_gen_andi_i64(t0, t0, 1);
 
