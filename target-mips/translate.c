@@ -18769,6 +18769,10 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_PageMask,                    "C0PMASK     ");
     CHK_CP0_REG(CP0_PageGrain,                   "C0PGRAIN    ");
 
+    CHK_CP0_REG_ULONG(CP0_PWBase,                "C0PWBASE    ");
+    CHK_CP0_REG_ULONG(CP0_PWField,               "C0PWFIELD   ");
+    CHK_CP0_REG_ULONG(CP0_PWSize,                "C0PWSIZE    ");
+
     //6
     CHK_CP0_REG(CP0_Wired,                       "C0WIRED     ");
     CHK_CP0_REG(CP0_SRSConf0,                    "C0SRSCONF   ");
@@ -18776,6 +18780,7 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_SRSConf2,                    "C0SRSCONF2  ");
     CHK_CP0_REG(CP0_SRSConf3,                    "C0SRSCONF3  ");
     CHK_CP0_REG(CP0_SRSConf4,                    "C0SRSCONF4  ");
+    CHK_CP0_REG(CP0_PWCtl,                       "C0PWCTL     ");
 
     //7
     CHK_CP0_REG(CP0_HWREna,                      "C0HWRENA    ");
