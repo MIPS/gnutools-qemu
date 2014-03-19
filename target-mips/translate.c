@@ -2345,8 +2345,9 @@ static void gen_logic_imm(DisasContext *ctx, uint32_t opc,
     {
         if (rs != 0 && ctx->insn_flags & ISA_MIPS32R6) {
             // OPC_AUI
-            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rs], imm << 16);
-            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            TCGv t0 = tcg_const_tl(imm << 16);
+            gen_op_addr_add(ctx, cpu_gpr[rt], cpu_gpr[rs], t0);
+            tcg_temp_free(t0);
             MIPS_DEBUG("aui %s, %s, %04x", regnames[rt], regnames[rs], imm);
         } else {
             tcg_gen_movi_tl(cpu_gpr[rt], imm << 16);
