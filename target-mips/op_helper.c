@@ -2451,7 +2451,7 @@ target_ulong helper_rdhwr_ccres(CPUMIPSState *env)
 
 target_ulong helper_rdhwr_ulr(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) &&
+    if ((env->hflags & MIPS_HFLAG_CP0) ||
         (env->CP0_HWREna & (1 << 29))) {
         return env->CP0_UserLocal;
     } else {
