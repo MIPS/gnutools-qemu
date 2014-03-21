@@ -17829,8 +17829,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         check_mips_64(ctx);
         gen_arith_imm(ctx, op, rt, rs, imm);
         break;
-#endif
-#ifndef TARGET_MIPS64
+#else
     case R6_OPC_BNVC: // BNEZALC, BNEC
         if (ctx->insn_flags & ISA_MIPS32R6) {
             gen_compute_compact_branch(ctx, op, rs, rt, imm << 2);
@@ -17839,6 +17838,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             MIPS_INVAL("major opcode");
             generate_exception(ctx, EXCP_RI);
         }
+        break;
 #endif
     case OPC_JALX:
         check_insn(ctx, ASE_MIPS16 | ASE_MICROMIPS);
