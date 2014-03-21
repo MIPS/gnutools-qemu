@@ -848,3 +848,18 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
                              (0x0 << CP0MVPC1_PCX) | (0x0 << CP0MVPC1_PCP2) |
                              (0x1 << CP0MVPC1_PCP1);
 }
+
+#ifdef MIPSSIM_COMPAT
+void sv_log_init(const char * filename)
+{
+    if (svtracefile){
+        fclose(svtracefile);
+        svtracefile = NULL;
+    }
+    svtracefile = fopen(filename, "w");
+    if (!svtracefile){
+        perror(filename);
+        _exit(1);
+    }
+}
+#endif

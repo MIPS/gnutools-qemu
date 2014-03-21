@@ -2990,6 +2990,13 @@ static inline void gen_r6_ld (target_long addr, int reg, int memidx,
 {
     TCGv t0 = tcg_const_tl(addr);
     tcg_gen_qemu_ld_tl(t0, t0, memidx, memop);
+#ifdef MIPSSIM_COMPAT
+    TCGv taddr;
+    taddr = tcg_temp_new();
+    tcg_gen_movi_tl(taddr, addr);
+    gen_helper_0e2i(trace_mem_access, t0, taddr, 1 << (memop & MO_SIZE));
+    tcg_temp_free(taddr);
+#endif
     gen_store_gpr(t0, reg);
     tcg_temp_free(t0);
 }

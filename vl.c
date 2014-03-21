@@ -574,19 +574,6 @@ static void mips_avp_clean_up(void)
         cpu_model_name = NULL;
     }
 }
-
-static void sv_log_init(const char * filename)
-{
-    if (svtracefile){
-        fclose(svtracefile);
-        svtracefile = NULL;
-    }
-    svtracefile = fopen(filename, "w");
-    if (!svtracefile){
-        perror(filename);
-        _exit(1);
-    }
-}
 #endif
 
 static int default_driver_check(QemuOpts *opts, void *opaque)
