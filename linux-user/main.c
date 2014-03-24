@@ -34,6 +34,10 @@
 #include "qemu-timer.h"
 #include "envlist.h"
 
+#ifdef SV_SUPPORT
+#include "target-mips/mips-avp.h"
+#endif
+
 #define DEBUG_LOGFILE "/tmp/qemu.log"
 
 char *exec_path;
@@ -2164,6 +2168,11 @@ void cpu_loop(CPUMIPSState *env)
         cpu_exec_start(env);
         trapnr = cpu_mips_exec(env);
         cpu_exec_end(env);
+#ifdef SV_SUPPORT
+        if (sv_enabled()) {
+            fflush(svtracefile);
+        }
+#endif
         switch(trapnr) {
         case EXCP_SYSCALL:
             syscall_num = env->active_tc.gpr[2] - 4000;
@@ -3505,6 +3514,10 @@ int main(int argc, char **argv, char **envp)
                  info->start_stack);
         qemu_log("brk         0x" TARGET_ABI_FMT_lx "\n", info->brk);
         qemu_log("entry       0x" TARGET_ABI_FMT_lx "\n", info->entry);
+
+#ifdef SV_SUPPORT
+        sv_log_init("qemu.svtrace");
+#endif
     }
 
     target_set_brk(info->brk);

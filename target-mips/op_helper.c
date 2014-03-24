@@ -51,6 +51,7 @@ void helper_avp_fail(void)
 #endif
 
 #ifdef SV_SUPPORT
+#ifndef CONFIG_USER_ONLY
 int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
 {
     // this function doesn't care of kernel/super/user mode as it is a debug only function.
@@ -109,9 +110,11 @@ int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw)
     }
     return cca;
 }
+#endif
 
 void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_size)
 {
+#ifndef CONFIG_USER_ONLY
     sv_log("%s : %s(%s%d) - Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %u] = ",
             env->cpu_model_str,
             (env->hflags & MIPS_HFLAG_GUEST)? "Guest":"Root",
@@ -122,6 +125,13 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
             cpu_mips_cacheability(env, addr, rw_size >> 16)
             );
+#else
+    sv_log("%s : Memory %s ["TARGET_FMT_lx"] = ",
+            env->cpu_model_str,
+            (rw_size >> 16)? "Write":"Read",
+            addr
+            );
+#endif
 
     switch(rw_size & 0xffff)
     {
@@ -135,7 +145,7 @@ void helper_trace_mem_access(target_ulong val, target_ulong addr, uint32_t rw_si
         sv_log("%08x\n", (uint32_t) val);
         break;
     case 8:
-        sv_log("%016lx", (uint64_t) val);
+        sv_log("%016lx\n", (uint64_t) val);
         break;
     default:
         sv_log("\n");
@@ -4671,6 +4681,17 @@ target_ulong helper_mfgc0_lladdr (void)
     return (int32_t)(env->Guest.lladdr >> env->CP0_LLAddr_shift);
 }
 
+target_ulong helper_mfc0_maar (void)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        return (int32_t) env->CP0_MAAR[env->CP0_MAARI];
+    }
+    return 0;
+}
+
 target_ulong helper_mfc0_watchlo (uint32_t sel)
 {
     return (int32_t)env->CP0_WatchLo[sel];
@@ -4735,6 +4756,17 @@ target_ulong helper_dmfc0_tcschefback (void)
 target_ulong helper_dmfc0_lladdr (void)
 {
     return env->lladdr >> env->CP0_LLAddr_shift;
+}
+
+target_ulong helper_dmfc0_maar (void)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        return env->CP0_MAAR[env->CP0_MAARI];
+    }
+    return 0;
 }
 
 target_ulong helper_dmfc0_watchlo (uint32_t sel)
@@ -5127,6 +5159,29 @@ target_ulong helper_mfhgc0_lladdr(void)
     return xpa_mfhc0_common(&env->Guest.lladdr, &env->Guest.CP0_PageGrain);
 }
 
+void helper_mthc0_maar (target_ulong arg1)
+{
+    uint64_t high_mask = 0x007FFFFFULL;
+    uint64_t low_mask =  0xFFFFF003ULL;
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        env->CP0_MAAR[env->CP0_MAARI] = ((arg1 & high_mask) << 32) |
+                (env->CP0_MAAR[env->CP0_MAARI] & low_mask);
+    }
+}
+
+target_ulong helper_mfhc0_maar (void)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        return env->CP0_MAAR[env->CP0_MAARI] >> 32;
+    }
+    return 0;
+}
 #endif
 
 void helper_mtc0_tcstatus (target_ulong arg1)
@@ -5432,6 +5487,28 @@ void helper_mtgc0_pagegrain (target_ulong arg1)
     helper_mtc0_pagegrain_guest(env, arg1);
 }
 
+void helper_mtc0_pwfield (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
+#else
+        env->CP0_PWField = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
+void helper_mtc0_pwsize (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWSize = arg1 & 0x3F7FFFFFFFULL;
+#else
+        env->CP0_PWSize = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
 void helper_mtc0_wired (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -5476,6 +5553,18 @@ void helper_mtc0_srsconf3 (target_ulong arg1)
 void helper_mtc0_srsconf4 (target_ulong arg1)
 {
     env->CP0_SRSConf4 |= arg1 & env->CP0_SRSConf4_rw_bitmask;
+}
+
+void helper_mtc0_pwctl (target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+        // PWEn = 0. Hardware page table walking is not implemented.
+#ifdef TARGET_MIPS64
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
+#else
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x0000003F);
+#endif
+    }
 }
 
 void helper_mtc0_hwrena (target_ulong arg1)
@@ -6123,6 +6212,36 @@ void helper_mtgc0_lladdr (target_ulong arg1)
     arg1 = arg1 << env->CP0_LLAddr_shift;
 
     env->Guest.lladdr = (env->Guest.lladdr & ~mask) | (arg1 & mask);
+}
+
+void helper_mtc0_maar (target_ulong arg1)
+{
+    uint64_t mask = 0x7FFFFFFFFFF003ULL;
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        env->CP0_MAAR[env->CP0_MAARI]= arg1 & mask;
+    }
+}
+
+void helper_mtc0_maari (target_ulong arg1)
+{
+    int index = arg1 & 0x3f;
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+    if (index == 0x3f) {
+        // Software may write all ones to INDEX to determine the
+        // maximum value supported.
+        env->CP0_MAARI = MIPS_MAAR_MAX - 1;
+    }
+    else if (index < MIPS_MAAR_MAX) {
+        env->CP0_MAARI = arg1;
+    }
+    // Other than the all ones, if the
+    // value written is not supported, then INDEX is unchanged
+    // from its previous value.
 }
 
 void helper_mtc0_watchlo (target_ulong arg1, uint32_t sel)

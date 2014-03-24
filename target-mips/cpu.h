@@ -212,6 +212,7 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_TC_MAX 5
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
+#define MIPS_MAAR_MAX 16 // Must be an even number.
 
 #if defined(HOST_WORDS_BIGENDIAN)
 #define DSP_QUAD_HI     0
@@ -382,7 +383,11 @@ struct CPUMIPSState {
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
 #define CP0PG_ELPA 29
+    target_ulong CP0_PWBase;
+    target_ulong CP0_PWField;
+    target_ulong CP0_PWSize;
     int32_t CP0_Wired;
+    int32_t CP0_PWCtl;
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
@@ -569,6 +574,7 @@ struct CPUMIPSState {
 #define CP0C3_M    31
 #define CP0C3_CMGCR 29
 #define CP0C3_MSAP  28
+#define CP0C3_PW   24
 #define CP0C3_VZ   23
 #define CP0C3_IPLW 21
 #define CP0C3_EICW 21
@@ -606,9 +612,12 @@ struct CPUMIPSState {
 #define CP0C5_MSAEn  27
 #define CP0C5_MVH    5
 #define CP0C5_LLB    4
+#define CP0C5_MRP    3
 #define CP0C5_UFR    2
     int32_t CP0_Config6;
     int32_t CP0_Config7;
+    uint64_t CP0_MAAR[MIPS_MAAR_MAX];
+    int32_t CP0_MAARI;
     /* XXX: Maybe make LLAddr per-TC? */
     uint64_t lladdr;
     target_ulong llbit;
@@ -956,8 +965,10 @@ int cpu_mips_signal_handler(int host_signum, void *pinfo, void *puc);
 void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
                     int flags);
 int cpu_mips_cacheability(CPUState *env, target_ulong vaddr, int rw);
+#if !defined(CONFIG_USER_ONLY)
 int r4k_map_address_debug(CPUState *env, target_phys_addr_t *physical, int *prot, int *cca,
                      target_ulong address, int rw, int access_type);
+#endif
 #endif
 
 /* mips_timer.c */

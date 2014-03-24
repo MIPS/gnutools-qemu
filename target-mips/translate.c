@@ -36,7 +36,9 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-//#define MIPS_DEBUG_DISAS
+#ifndef MIPS_DEBUG_DISAS
+#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
+#endif
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 #define MIPS_DEBUG_XPA
 
@@ -4052,6 +4054,10 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mfhc0_lladdr(arg);
             rn = "LLAddr";
             break;
+        case 1:
+            gen_helper_mfhc0_maar(arg);
+            rn = "MAAR";
+            break;
         default:
             goto mfhc0_read0;
         }
@@ -4127,6 +4133,10 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mthc0_lladdr(arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mthc0_maar(arg);
+            rn = "MAAR";
             break;
         default:
             goto mthc0_nop;
@@ -4429,6 +4439,18 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -4463,6 +4485,10 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -4666,6 +4692,14 @@ static void gen_mfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mfc0_lladdr(arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mfc0_maar(arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -5010,6 +5044,20 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageGrain));
             rn = "Guest.PageGrain";
             break;
+        case 5:
+            if(env->CP0_Config3 & (1 << CP0C3_PW)) {
+                gen_mtc0_store32(arg, offsetof(CPUState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(arg);
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -5025,6 +5073,10 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         case 1 ... 5:
             gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(arg);
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -5257,6 +5309,14 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         case 0:
             gen_helper_mfc0_lladdr(arg);
             rn = "Guest.LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(arg);
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -6990,6 +7050,18 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -7024,6 +7096,10 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -7195,6 +7271,14 @@ static void gen_dmfc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 0:
             gen_helper_dmfc0_lladdr(arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_dmfc0_maar(arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -7594,6 +7678,20 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             gen_helper_mtc0_pagegrain(arg);
             rn = "PageGrain";
             break;
+        case 5:
+            if(env->CP0_Config3 & (1 << CP0C3_PW)) {
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(arg);
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -7628,6 +7726,10 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(arg);
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -7806,6 +7908,14 @@ static void gen_dmtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 0:
             gen_helper_mtc0_lladdr(arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(arg);
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -15814,13 +15924,24 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
     CHK_ROOT_CP0_REG(CP0_PageMask,              "C0PMASK     ");
     CHK_ROOT_CP0_REG(CP0_PageGrain,             "C0PGRAIN    ");
 
+#ifdef TARGET_MIPS64
+    CHK_ROOT_CP0_REG64(CP0_PWBase,              "C0PWBASE    ");
+    CHK_ROOT_CP0_REG64(CP0_PWField,             "C0PWFIELD   ");
+    CHK_ROOT_CP0_REG64(CP0_PWSize,              "C0PWSIZE    ");
+#else
+    CHK_ROOT_CP0_REG(CP0_PWBase,                "C0PWBASE    ");
+    CHK_ROOT_CP0_REG(CP0_PWField,               "C0PWFIELD   ");
+    CHK_ROOT_CP0_REG(CP0_PWSize,                "C0PWSIZE    ");
+#endif
+
     //6
-    CHK_ROOT_CP0_REG(CP0_Wired,                 "C0WIRED     ");
-    CHK_ROOT_CP0_REG(CP0_SRSConf0,              "C0SRSCONF   ");
-    CHK_ROOT_CP0_REG(CP0_SRSConf1,              "C0SRSCONF1  ");
-    CHK_ROOT_CP0_REG(CP0_SRSConf2,              "C0SRSCONF2  ");
-    CHK_ROOT_CP0_REG(CP0_SRSConf3,              "C0SRSCONF3  ");
-    CHK_ROOT_CP0_REG(CP0_SRSConf4,              "C0SRSCONF4  ");
+    CHK_CP0_REG(CP0_Wired,                 "C0WIRED     ");
+    CHK_CP0_REG(CP0_SRSConf0,              "C0SRSCONF   ");
+    CHK_CP0_REG(CP0_SRSConf1,              "C0SRSCONF1  ");
+    CHK_CP0_REG(CP0_SRSConf2,              "C0SRSCONF2  ");
+    CHK_CP0_REG(CP0_SRSConf3,              "C0SRSCONF3  ");
+    CHK_CP0_REG(CP0_SRSConf4,              "C0SRSCONF4  ");
+    CHK_CP0_REG(CP0_PWCtl,                 "C0PWCTL     ");
 
     //7
     CHK_ROOT_CP0_REG(CP0_HWREna,                "C0HWRENA    ");
@@ -15872,6 +15993,12 @@ void cpu_mips_trace_state(CPUState *env, FILE *f, fprintf_function cpu_fprintf,
 
     //17
     CHK_ROOT_CP0_REG(lladdr,                    "C0LLA       ");
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
+            sv_log("%s : Write MAAR[%2d]     = %016" PRIx64 "\n", env->cpu_model_str, i, env->CP0_MAAR[i]);
+        }
+    }
+    CHK_CP0_REG(CP0_MAARI,                 "C0MAARI     ");
     if(env_prev.llbit != env->llbit) {
         PRINT_TRACE_CTXT();
         sv_log("Write C0LL         = %u\n", (unsigned) env->llbit);
