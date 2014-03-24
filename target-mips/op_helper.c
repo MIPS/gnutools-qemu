@@ -178,11 +178,13 @@ static bool isRootMode(void)
     return false;
 }
 
+#if !defined(CONFIG_USER_ONLY)
 // Convert index from Root to Guest
 static inline int32_t convert_tlb_index(const CPUState * env, int index)
 {
     return env->tlb->nb_tlb - index - 1;
 }
+#endif
 
 static inline void compute_hflags(CPUState *env)
 {
