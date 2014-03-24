@@ -233,10 +233,11 @@ static void mips_timer_cb (void *opaque)
 #if 0 || defined(MIPSSIM_COMPAT)
     qemu_log("%s\n", __func__);
 #endif
+#if defined(SV_SUPPORT)
     sv_log("Root - Timer interrupt at %ld\n", qemu_get_clock_ns(vm_clock));
     sv_log("timer callback Root.Compare=%u Root.Count=%u\n",
              env->CP0_Compare, env->CP0_Count);
-
+#endif
     if (env->CP0_Cause & (1 << CP0Ca_DC))
         return;
 
@@ -255,9 +256,11 @@ static void mips_guest_timer_cb (void *opaque)
 #if 0 || defined(MIPSSIM_COMPAT)
     qemu_log("%s\n", __func__);
 #endif
+#if defined(SV_SUPPORT)
     sv_log("Guest - Timer interrupt at %ld\n", qemu_get_clock_ns(vm_clock));
     sv_log("timer callback Guest.Compare=%u Guest.Count=%u\n",
              env->Guest.CP0_Compare, env->Guest.CP0_Count);
+#endif
     if (env->Guest.CP0_Cause & (1 << CP0Ca_DC))
         return;
     /* ??? This callback should occur when the counter is exactly equal to

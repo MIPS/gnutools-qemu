@@ -115,7 +115,9 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
             if (!(n ? tlb->V1 : tlb->V0)) {
+#ifdef SV_SUPPORT
                 sv_log("TLB[%i] INVALID address = %08x, mask = %08x, (VPN = %08x), tag = %08x\n", i,  (unsigned)address, (unsigned)mask, (unsigned)VPN, (unsigned)tag);
+#endif
                 return TLBRET_INVALID;
             }
             /*else if (tlb->hardware_invalid) {
@@ -129,11 +131,15 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
                     *prot |= PAGE_WRITE;
                 return TLBRET_MATCH;
             }
+#ifdef SV_SUPPORT
             sv_log("tlb dirty %d\n", i);
+#endif
             return TLBRET_DIRTY;
         }
     }
+#ifdef SV_SUPPORT
     sv_log("tlb nomatch\n");
+#endif
     return TLBRET_NOMATCH;
 }
 
@@ -265,7 +271,9 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
         }
         if (ret != TLBRET_MATCH) {
             // guest exception
+#ifdef SV_SUPPORT
             sv_log("guest exception %d\n", ret);
+#endif
             return ret;
         }
         //root tlb lookup with ignoring root asid
@@ -293,7 +301,9 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
             env->hflags &= ~MIPS_HFLAG_GUEST;
 //            env->hflags |= MIPS_HFLAG_ROOT;
 #endif
+#ifdef SV_SUPPORT
             sv_log("root exception (%x) %x %d\n", env->hflags & MIPS_HFLAG_GUEST, (unsigned) address, ret);
+#endif
             *physical = gpa;
             ret += TLBRET_GUESTEXIT;
         }
@@ -537,17 +547,23 @@ int cpu_mips_handle_mmu_fault (CPUState *env, target_ulong address, int rw,
                 env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
                 env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
                 env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
+#ifdef SV_SUPPORT
                 sv_log("Guest: Root.TLB miss: updating guestctl0 = %08x\n", env->CP0_GuestCtl0);
+#endif
             }
             else {
                 env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
+#ifdef SV_SUPPORT
                 sv_log("Guest: Guest.TLB miss: updating guestctl0 = %08x\n", env->CP0_GuestCtl0);
+#endif
             }
         }
+#ifdef SV_SUPPORT
         else {
             // physical contains error address
             sv_log("Root: Root.TLB miss - calling raise_mmu_exception\n");
         }
+#endif
         raise_mmu_exception(env, physical, rw, ret);
         ret = 1;
     }
@@ -763,7 +779,9 @@ void do_interrupt (CPUState *env)
                 offset = 0x200;
 
                 if (env->Guest.CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
+#ifdef SV_SUPPORT
                     sv_log("config3 = %x\n", env->Guest.CP0_Config3);
+#endif
                     /* Vectored Interrupts.  */
                     unsigned int spacing;
                     unsigned int vector;
@@ -797,7 +815,9 @@ void do_interrupt (CPUState *env)
                 offset = 0x200;
 
                 if (env->CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
+#ifdef SV_SUPPORT
                     sv_log("config3 = %x\n", env->CP0_Config3);
+#endif
                     /* Vectored Interrupts.  */
                     unsigned int spacing;
                     unsigned int vector;
@@ -988,7 +1008,9 @@ void do_interrupt (CPUState *env)
             env->active_tc.PC += offset;
             set_hflags_for_handler(env);
             env->Guest.CP0_Cause = (env->Guest.CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
+#ifdef SV_SUPPORT
             sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+#endif
 
             /* When GuestCtl0ExtFCD=1,
              * then no Guest Hardware Field Change exception is triggered.*/
@@ -1000,7 +1022,9 @@ void do_interrupt (CPUState *env)
                  */
                 if ( (CHK_CHANGES(CP0St_EXL, 1) && (env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_MC))) ||
                         (CHK_CHANGES(CP0St_TS, 1) && (env->Guest.CP0_Status & (1 << CP0St_TS))) ) {
+#ifdef SV_SUPPORT
                     sv_log("GHFC root mode exception\n");
+#endif
                     env->exception_index = EXCP_GUESTEXIT;
                     env->error_code = GHFC;
                     cpu_loop_exit(env);

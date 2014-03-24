@@ -193,16 +193,20 @@ static inline void compute_hflags(CPUState *env)
                      MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_GUEST | 
                      MIPS_HFLAG_FPU_ROOT | MIPS_HFLAG_DSP_ROOT);
     if (isGuestMode()) {
+#ifdef SV_SUPPORT
         sv_log("Switching GUESTMODE (GuestCtl1: RID=%x ID=%x)\n", 
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff,
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff);
+#endif
         env->hflags |= MIPS_HFLAG_GUEST;
         tlb_flush (env, 1);
     }
     if (isRootMode()) {
+#ifdef SV_SUPPORT
         sv_log("Switching ROOTMODE (GuestCtl1: RID=%x ID=%x)\n",
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_RID) & 0xff,
                (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff);
+#endif
         env->hflags &= ~MIPS_HFLAG_GUEST;
         tlb_flush (env, 1);
     }
@@ -394,7 +398,9 @@ void helper_guest_reserved_implementation (void)
      * AVP test requires this block but it is wrong
      */
     else if (env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_OG)) {
+#ifdef SV_SUPPORT
         sv_log("Wrong-------------Reserved for Implementation registers GPSI because OG\n");
+#endif
         helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
     }
     /* till here
@@ -5070,7 +5076,9 @@ target_ulong helper_mfhc0_entrylo1 (void)
 void helper_mthc0_taglo(target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
         sv_log("MTHC0 ERROR - TagLo doesn't exist in guest context\n");
+#endif
     } else {
         xpa_mthc0_common(&env->CP0_TagLo, arg1, &env->CP0_PageGrain);
     }
@@ -5079,7 +5087,9 @@ void helper_mthc0_taglo(target_ulong arg1)
 target_ulong helper_mfhc0_taglo(void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
         sv_log("MFHC0 ERROR - TagLo doesn't exist in guest context\n");
+#endif
         return 0;
     } else {
         return xpa_mfhc0_common(&env->CP0_TagLo, &env->CP0_PageGrain);
@@ -5111,7 +5121,9 @@ target_ulong helper_mfhc0_lladdr(void)
 void helper_mthc0_entryhi (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
         sv_log("MTHC0 WARNING - ignoring upper 32-bit Guest.EntryHi write attempt\n");
+#endif
     } else {
         if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
             arg1 &= (1 << (env->PABITS - 32)) - 1;
@@ -5124,7 +5136,9 @@ void helper_mthc0_entryhi (target_ulong arg1)
 target_ulong helper_mfhc0_entryhi (void)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
         sv_log("MTHC0 WARNING - trying to read from upper 32-bit Guest.EntryHi\n");
+#endif
         return 0;
     } else {
         return xpa_mfhc0_common(&env->CP0_EntryHi, &env->CP0_PageGrain);
@@ -6162,7 +6176,9 @@ void helper_mtc0_config5 (target_ulong arg1)
                             && (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) ||
                     (COMPARE_BITS(env->CP0_Config5, arg1, CP0C5_UFR, 1)))) {
 //            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
+#ifdef SV_SUPPORT
             sv_log("ERR: MTC0/Config5MSAEn in Guest mode should cause GSFC\n");
+#endif
         }
         else {
             env->Guest.CP0_Config5 = (arg1 & 0x08000004)
@@ -6712,7 +6728,9 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
         if ((*CP0_EntryHi >> CP0EntryHiEHINV) & 1) {
             tlb->hardware_invalid = 1;
             inv_ignore = true;
+#ifdef SV_SUPPORT
             sv_log("INV ");
+#endif
         }
     }
 
@@ -6721,7 +6739,7 @@ static void r4k_fill_tlb (int idx, bool guestTLB)
                            CP0_EntryLo0, CP0_EntryLo1);
     }
 
-#ifdef MIPSSIM_COMPAT
+#ifdef SV_SUPPORT
     sv_log("FILL TLB index %d, ", guestTLB ? convert_tlb_index(env, idx) : idx);
     sv_log("%s ", tlb->hardware_invalid ? "Disabled" : "Enabled");
     sv_log("%s ", tlb->isGuestCtx ? "G" : "R");
@@ -6824,10 +6842,12 @@ static inline void invalidateMatching(int index, int guestId, uint8_t ASID, bool
     if (!tlb->G && tlb->ASID == ASID && tlb->GuestID == guestId 
         && !tlb->hardware_invalid && tlb->isGuestCtx == isGuestCtx) {
         tlb->hardware_invalid = 1;
+#ifdef SV_SUPPORT
         sv_log("TLB invalidated: Entry[%d] ASID=%d, guestId=%d, isGuestCtx=%d "
                "- %08x 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
                index, tlb->ASID, tlb->GuestID, tlb->isGuestCtx, tlb->PageMask,
                tlb->VPN, tlb->PFN[0], tlb->PFN[1]);
+#endif
     }
 }
 
@@ -6840,11 +6860,12 @@ static inline void invalidateFlushMatching(int index, int guestId, bool isGuestC
     if (tlb->GuestID == guestId && !tlb->hardware_invalid &&
         tlb->isGuestCtx == isGuestCtx) {
         tlb->hardware_invalid = 1;
-
+#ifdef SV_SUPPORT
         sv_log("TLB invalidated: Entry[%d] guestId=%d, isGuestCtx=%d - %08x "
                " 0x%016" PRIx64 " 0x%016" PRIx64 " 0x%016" PRIx64 "\n", index,
                tlb->GuestID, tlb->isGuestCtx, tlb->PageMask, tlb->VPN,
                tlb->PFN[0], tlb->PFN[1]);
+#endif
     }
 }
 
@@ -6867,12 +6888,16 @@ void r4k_helper_tlbginv (int flush)
     idx = (env->Guest.CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     r4k_invalidate_tlb(env, idx, 0);
     if (flush) {
+#ifdef SV_SUPPORT
         sv_log("index %d\n", idx);
+#endif
         for (i = 0; i < env->tlb->nb_tlb; i++) {
             invalidateFlushMatching(i, guestId, isGuestCtx);
         }
     } else {
+#ifdef SV_SUPPORT
         sv_log("ASID=%d index %d\n", ASID, idx);
+#endif
         for (i = 0; i < env->tlb->nb_tlb; i++) {
             invalidateMatching(i, guestId, ASID, isGuestCtx);
         }
@@ -6886,9 +6911,10 @@ void r4k_helper_tlbinv (int flush)
     uint8_t ASID;
     bool isGuestCtx;
     int i;
+#ifdef SV_SUPPORT
     bool guestMode = env->hflags & MIPS_HFLAG_GUEST;
 
-#ifdef SV_SUPPORT
+
 #if defined(TARGET_MIPS64)
     sv_log("Info (MIPS64_TLB) %s: %s - TLBINV%s", env->cpu_model_str,
            guestMode ? "Guest" : "Root", flush ? "F " : " ");
@@ -6911,12 +6937,16 @@ void r4k_helper_tlbinv (int flush)
         r4k_invalidate_tlb(env, idx, 0);
     }
     if (flush) {
+#ifdef SV_SUPPORT
         sv_log("index %d\n", idx);
+#endif
         for (i = 0; i < env->tlb->nb_tlb; i++) {
             invalidateFlushMatching(i, guestId, isGuestCtx);
         }
     } else {
+#ifdef SV_SUPPORT
         sv_log("ASID=%d index %d\n", ASID, idx);
+#endif
         for (i = 0; i < env->tlb->nb_tlb; i++) {
             invalidateMatching(i, guestId, ASID, isGuestCtx);
         }
