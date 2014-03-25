@@ -5044,20 +5044,6 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             gen_mfc0_load32(arg, offsetof(CPUState, Guest.CP0_PageGrain));
             rn = "Guest.PageGrain";
             break;
-        case 5:
-            if(env->CP0_Config3 & (1 << CP0C3_PW)) {
-                gen_mtc0_store32(arg, offsetof(CPUState, CP0_PWBase));
-            }
-            rn = "PWBase";
-            break;
-        case 6:
-            gen_helper_mtc0_pwfield(arg);
-            rn = "PWField";
-            break;
-        case 7:
-            gen_helper_mtc0_pwsize(arg);
-            rn = "PWSize";
-            break;
         default:
             goto die;
         }
@@ -5073,10 +5059,6 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         case 1 ... 5:
             gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
-            break;
-        case 6:
-            gen_helper_mtc0_pwctl(arg);
-            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -5309,14 +5291,6 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         case 0:
             gen_helper_mfc0_lladdr(arg);
             rn = "Guest.LLAddr";
-            break;
-        case 1:
-            gen_helper_mtc0_maar(arg);
-            rn = "MAAR";
-            break;
-        case 2:
-            gen_helper_mtc0_maari(arg);
-            rn = "MAARI";
             break;
         default:
             goto die;
@@ -5981,6 +5955,23 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             gen_helper_mtc0_pagegrain(arg);
             rn = "PageGrain";
             break;
+        case 5:
+            MTC0_GUEST_GPSI_ALWAYS(); // Optional in guest mode
+            if(env->CP0_Config3 & (1 << CP0C3_PW)) {
+                gen_mtc0_store32(arg, offsetof(CPUState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            MTC0_GUEST_GPSI_ALWAYS(); // Optional in guest mode
+            gen_helper_mtc0_pwfield(arg);
+            rn = "PWField";
+            break;
+        case 7:
+            MTC0_GUEST_GPSI_ALWAYS(); // Optional in guest mode
+            gen_helper_mtc0_pwsize(arg);
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -6020,6 +6011,11 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             check_insn(env, ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            MTC0_GUEST_GPSI_ALWAYS(); // Optional in guest mode
+            gen_helper_mtc0_pwctl(arg);
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -6263,6 +6259,16 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 0:
             gen_helper_mtc0_lladdr(arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            MTC0_GUEST_GPSI_ALWAYS();
+            gen_helper_mtc0_maar(arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            MTC0_GUEST_GPSI_ALWAYS();
+            gen_helper_mtc0_maari(arg);
+            rn = "MAARI";
             break;
         default:
             goto die;
