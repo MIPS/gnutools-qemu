@@ -257,6 +257,12 @@ static inline void compute_hflags(CPUState *env)
                 env->hflags |= MIPS_HFLAG_COP1X;
             }
         }
+        if (env->insn_flags & ASE_MSA) {
+            if ((env->CP0_Config5 & (1 << CP0C5_MSAEn)) &&
+                    (env->Guest.CP0_Config5 & (1 << CP0C5_MSAEn))) {
+                env->hflags |= MIPS_HFLAG_MSA;
+            }
+        }
     }
     else {
         if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
@@ -6182,13 +6188,9 @@ void helper_mtc0_config5 (target_ulong arg1)
         //                   Applicable only if MSA implemented.)
         //         : UFR. (User FR enable, Release 5 optional feature)
         else if ( (!(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD))) &&
-                    ((COMPARE_BITS(env->CP0_Config5, arg1, CP0C5_MSAEn, 1)
-                            && (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) ||
-                    (COMPARE_BITS(env->CP0_Config5, arg1, CP0C5_UFR, 1)))) {
-//            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
-#ifdef SV_SUPPORT
-            sv_log("ERR: MTC0/Config5MSAEn in Guest mode should cause GSFC\n");
-#endif
+                    ((COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_MSAEn, 1)) ||
+                    (COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_UFR, 1)))) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
             env->Guest.CP0_Config5 = (arg1 & 0x08000004)

@@ -14708,18 +14708,38 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 static inline void check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        if (unlikely((env->Guest.CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+            generate_exception(ctx, EXCP_RI);
+        }
 
-    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
-      generate_exception(ctx, EXCP_RI);
+        if (unlikely((env->Guest.CP0_Status & (1 << CP0St_CU1)) != 0 &&
+                     (env->Guest.CP0_Status & (1 << CP0St_FR )) == 0)) {
+            generate_exception(ctx, EXCP_RI);
+        }
+
+        if (unlikely((env->Guest.CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
+            generate_exception(ctx, EXCP_MSADIS);
+        }
+
+        if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
+            generate_exception_err(ctx, EXCP_MSADIS, 0x10);
+            // 0x10 indicates root exception
+        }
     }
+    else {
+        if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+            generate_exception(ctx, EXCP_RI);
+        }
 
-    if (unlikely((env->CP0_Status & (1 << CP0St_CU1)) != 0 &&
-                 (env->CP0_Status & (1 << CP0St_FR )) == 0)) {
-      generate_exception(ctx, EXCP_RI);
-    }
+        if (unlikely((env->CP0_Status & (1 << CP0St_CU1)) != 0 &&
+                     (env->CP0_Status & (1 << CP0St_FR )) == 0)) {
+            generate_exception(ctx, EXCP_RI);
+        }
 
-    if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
-      generate_exception(ctx, EXCP_MSADIS);
+        if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
+            generate_exception(ctx, EXCP_MSADIS);
+        }
     }
 
     if (env->active_msa.msair & MSAIR_WRP_BIT) {

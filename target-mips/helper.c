@@ -953,6 +953,14 @@ void do_interrupt (CPUState *env)
         goto set_EPC;
     case EXCP_MSADIS:
         cause = 21;
+        // VZ-ASE Onion model
+        if (env->error_code >= 0x10) {
+            // MSA is enabled in Guest mode but disabled in Root mode
+            // Take it as root exception
+            env->hflags &= ~MIPS_HFLAG_GUEST;
+            tlb_flush (env, 1);
+            cpu_mips_silence_irq_guest(env);
+        }
         goto set_EPC;
     case EXCP_MDMX:
         cause = 22;
