@@ -14784,6 +14784,7 @@ static void decode_opc (CPUState *env, DisasContext *ctx, int *is_branch)
 #else
         env->CP0_BadVAddr = ctx->pc;
         generate_exception(ctx, EXCP_AdEL);
+        ctx->bstate = BS_EXCP;
         return;
 #endif
     }
