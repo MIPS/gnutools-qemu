@@ -3920,6 +3920,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 
 #define MTC0_GUEST_RESERVED_ARCHITECTURE() { \
     if (ctx->hflags & MIPS_HFLAG_GUEST) { \
+        save_cpu_state(ctx, 1); \
         gen_helper_guest_reserved_architecture(); \
         break; \
     } \
@@ -3927,6 +3928,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 
 #define MTC0_GUEST_RESERVED_IMPLEMENTATION() { \
     if (ctx->hflags & MIPS_HFLAG_GUEST) { \
+        save_cpu_state(ctx, 1); \
         gen_helper_guest_reserved_implementation(); \
         break; \
     } \
@@ -3956,6 +3958,8 @@ static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
 
 static void check_guest_mfthc0(DisasContext *ctx, int reg, int sel)
 {
+    save_cpu_state(ctx, 1);
+
     switch (reg) {
     case 2:
         switch (sel) {
@@ -4015,6 +4019,10 @@ mfthc0_reserved_arch:
 static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
+
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        save_cpu_state(ctx, 1);
+    }
 
     // EntryLo, EntryHi, TagLo, LLA,
     switch (reg) {
@@ -4094,6 +4102,10 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
     if (sel != 0) {
         check_insn(env, ctx, ISA_MIPS32);
+    }
+
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        save_cpu_state(ctx, 1);
     }
 
     // EntryLo, EntryHi, TagLo, LLA,
@@ -4943,6 +4955,8 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
     if (sel != 0)
         check_insn(env, ctx, ISA_MIPS32);
 
+    save_cpu_state(ctx, 1);
+
     switch (reg) {
     case 0:
         switch (sel) {
@@ -5778,6 +5792,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
 
     if (use_icount)
         gen_io_start();
+
+    if (guest_mode) {
+        save_cpu_state(ctx, 1);
+    }
 
     switch (reg) {
     case 0:
@@ -8886,6 +8904,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
     case OPC_HYPCALL:
         opn = "hypcall";
         check_insn(env, ctx, ASE_VZ);
+        save_cpu_state(ctx, 1);
         gen_helper_hypcall();
         ctx->bstate = BS_EXCP;
         break;
@@ -10964,6 +10983,10 @@ gen_rdhwr (CPUState *env, DisasContext *ctx, int rt, int rd)
 
     check_insn(env, ctx, ISA_MIPS32R2);
     t0 = tcg_temp_new();
+
+    if (ctx->hflags & MIPS_HFLAG_GUEST) {
+        save_cpu_state(ctx, 1);
+    }
 
     switch (rd) {
     case 0:
