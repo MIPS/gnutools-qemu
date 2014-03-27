@@ -5477,7 +5477,7 @@ static void helper_mtc0_pagegrain_guest(CPUState *env, target_ulong arg1)
     if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&       // Root - LPA supported
         (env->CP0_PageGrain & (1 << CP0PG_ELPA)) &&    // Root - LPA enabled
         (env->Guest.CP0_Config3 & (1 << CP0C3_LPA))) { // Guest - LPA supported
-        env->Guest.CP0_PageGrain |= arg1 & (1 << CP0PG_ELPA);
+        env->Guest.CP0_PageGrain = arg1 & (1 << CP0PG_ELPA);
     } else {
         env->Guest.CP0_PageGrain = 0;
     }
@@ -5500,7 +5500,7 @@ void helper_mtc0_pagegrain (target_ulong arg1)
     }
     else {
         if (env->CP0_Config3 & (1 << CP0C3_LPA)) {
-            env->CP0_PageGrain |= arg1 & (1 << CP0PG_ELPA);
+            env->CP0_PageGrain = arg1 & (1 << CP0PG_ELPA);
         } else {
             env->CP0_PageGrain = 0;
         }
@@ -6169,11 +6169,19 @@ void helper_mtgc0_config3 (target_ulong arg1)
     if (((env->Guest.CP0_Config3 >> CP0C3_ISA) & 3) >= 2) {
         mask |= (1 << CP0C3_ISA_ON_EXC);
     }
+    if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&
+            (env->CP0_PageGrain & (1 << CP0PG_ELPA))) {
+        mask |= (1 << CP0C3_LPA);
+    }
 
     env->Guest.CP0_Config3 = (env->Guest.CP0_Config3 & (~mask)) | (arg1 & mask);
 
     if (!(env->Guest.CP0_Config3 & (1 << CP0C3_DSPP))) {
         env->Guest.CP0_Status &= ~(1 << CP0St_MX);
+    }
+
+    if (!(env->Guest.CP0_Config3 & (1 << CP0C3_LPA))) {
+        env->Guest.CP0_PageGrain &= ~(1 << CP0PG_ELPA);
     }
 }
 
