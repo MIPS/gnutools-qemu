@@ -4539,6 +4539,36 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
+#ifdef TARGET_MIPS64
+static void gen_detect_input_overflow(TCGv_i64 ret, TCGv_i64 input1, TCGv_i64 input2)
+{
+    TCGv_i64 input1_overflow = tcg_temp_local_new_i64();
+    TCGv_i64 input2_overflow = tcg_temp_local_new_i64();
+    TCGv_i64 above_max = tcg_temp_local_new_i64();
+    TCGv_i64 below_min = tcg_temp_local_new_i64();
+
+    tcg_gen_setcondi_i64(TCG_COND_LT, below_min, input1, (int32_t)(1U << 31));
+    tcg_gen_setcondi_i64(TCG_COND_GT, above_max, input1, (1U << 31) - 1);
+    tcg_gen_or_i64(input1_overflow, above_max, below_min);
+
+    tcg_gen_setcondi_i64(TCG_COND_LT, below_min, input2, (int32_t)(1U << 31));
+    tcg_gen_setcondi_i64(TCG_COND_GT, above_max, input2, (1U << 31) - 1);
+    tcg_gen_or_i64(input2_overflow, above_max, below_min);
+
+    tcg_gen_or_i64(ret, input1_overflow, input2_overflow);
+
+    tcg_temp_free_i64(below_min);
+    tcg_temp_free_i64(above_max);
+    tcg_temp_free_i64(input2_overflow);
+    tcg_temp_free_i64(input1_overflow);
+}
+#else
+static void gen_detect_input_overflow(TCGv_i32 ret, TCGv_i32 input1, TCGv_i32 input2)
+{
+    tcg_gen_movi_i32(ret, 0);
+}
+#endif
+
 /* Compact Branches */
 static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         int rs, int rt, int32_t offset)
@@ -4741,8 +4771,10 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
                 TCGv t0 = tcg_temp_local_new();
                 TCGv t1 = tcg_temp_local_new();
                 TCGv tadd = tcg_temp_local_new();
+                TCGv input_overflow = tcg_temp_local_new();
                 gen_load_gpr(t0, rs);
                 gen_load_gpr(t1, rt);
+                gen_detect_input_overflow(input_overflow, t0, t1);
                 tcg_gen_ext32s_tl(t0, t0);
                 tcg_gen_ext32s_tl(t1, t1);
                 tcg_gen_add_tl(tadd, t0, t1);
@@ -4750,15 +4782,18 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
                 tcg_gen_xor_tl(t0, t0, t1);
                 tcg_gen_xor_tl(t1, tadd, t1);
                 tcg_gen_andc_tl(t0, t1, t0);
+                tcg_gen_setcondi_tl(TCG_COND_LT, tadd, t0, 0);
                 if (opc == R6_OPC_BOVC) {
                     // BOVC
-                    tcg_gen_setcondi_tl(TCG_COND_LT, bcond, t0, 0);
+                    tcg_gen_or_tl(bcond, tadd, input_overflow);
                 }
                 else {
                     // BNVC
-                    tcg_gen_setcondi_tl(TCG_COND_GE, bcond, t0, 0);
+                    tcg_gen_nor_tl(tadd, tadd, input_overflow);
+                    tcg_gen_andi_tl(bcond, tadd, 1);
                 }
                 /* operands of same sign, result different sign */
+                tcg_temp_free(input_overflow);
                 tcg_temp_free(t0);
                 tcg_temp_free(t1);
                 tcg_temp_free(tadd);
