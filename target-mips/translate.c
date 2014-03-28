@@ -4978,7 +4978,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
         switch (sel) {
         case 0:
             gen_helper_mfc0_random(arg);
-            rn = "Random";
+            rn = "Guest.Random";
             break;
         case 1 ... 7:
             gen_helper_guest_reserved_architecture();
@@ -5098,7 +5098,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
             gen_helper_check_gpsi_bg();
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_BadVAddr));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "BadVAddr";
+            rn = "Guest.BadVAddr";
             break;
         default:
             goto die;
@@ -5328,7 +5328,7 @@ static void gen_mfc0_guest (CPUState *env, DisasContext *ctx, TCGv arg, int reg,
 //            gen_helper_1i(mfc0_watchhi, arg, sel);
             gen_helper_guest_reserved_architecture();
             tcg_gen_movi_tl(arg, 0);
-            rn = "WatchHi";
+            rn = "Guest.WatchHi";
             break;
         default:
             goto die;
@@ -5646,7 +5646,7 @@ static void gen_mfgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, Guest.CP0_EPC));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "EPC";
+            rn = "Guest.EPC";
             break;
         default:
             goto die;
@@ -6719,7 +6719,7 @@ static void gen_mtgc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int 
         switch (sel) {
         case 0:
             gen_helper_mtgc0_compare(arg);
-            rn = "Compare";
+            rn = "Guest.Compare";
             break;
         default:
             goto die;
