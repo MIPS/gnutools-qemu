@@ -75,7 +75,8 @@ enum {
     OPC_BLEZL    = (0x16 << 26),
     OPC_BGTZ     = (0x07 << 26),
     OPC_BGTZL    = (0x17 << 26),
-    OPC_JALX     = (0x1D << 26),  /* MIPS 16 only */
+    OPC_JALX     = (0x1D << 26),  /* MIPS 16 only, removed in R6 */
+    R6_OPC_DAUI  = (0x1D << 26),
     OPC_JALXS    = OPC_JALX | 0x5,
     /* Load and stores */
     OPC_LDL      = (0x1A << 26),
@@ -17892,10 +17893,22 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
 #endif
-    case OPC_JALX:
-        check_insn(ctx, ASE_MIPS16 | ASE_MICROMIPS);
-        offset = (int32_t)(ctx->opcode & 0x3FFFFFF) << 2;
-        gen_compute_branch(ctx, op, 4, rs, rt, offset);
+    case R6_OPC_DAUI: // and OPC_JALX
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+#if defined(TARGET_MIPS64)
+            // R6_OPC_DAUI
+            tcg_gen_addi_i64(cpu_gpr[rt], cpu_gpr[rs], imm << 16);
+            MIPS_DEBUG("daui %s, %s, %04x", regnames[rt], regnames[rs], imm);
+#else
+            generate_exception(ctx, EXCP_RI);
+            MIPS_INVAL("major opcode");
+#endif
+        } else {
+            // OPC_JALX
+            check_insn(ctx, ASE_MIPS16 | ASE_MICROMIPS);
+            offset = (int32_t)(ctx->opcode & 0x3FFFFFF) << 2;
+            gen_compute_branch(ctx, op, 4, rs, rt, offset);
+        }
         break;
     case OPC_MDMX:
         check_insn(ctx, ASE_MDMX);
