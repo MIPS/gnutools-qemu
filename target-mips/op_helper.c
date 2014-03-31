@@ -178,6 +178,10 @@ static bool isRootMode(void)
     return false;
 }
 
+// Compare bits between two variables
+#define COMPARE_BITS(A, B, POS, MASK) \
+    ((((A) >> (POS)) & (MASK)) != (((B) >> (POS)) & (MASK)))
+
 #if !defined(CONFIG_USER_ONLY)
 // Convert index from Root to Guest
 static inline int32_t convert_tlb_index(const CPUState * env, int index)
@@ -5494,6 +5498,13 @@ void helper_mtc0_pagegrain (target_ulong arg1)
                 (((env->CP0_GuestCtl0 >> CP0GuestCtl0_AT) & 3) == 1)) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
+        else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+                COMPARE_BITS(env->Guest.CP0_PageGrain, arg1, CP0PG_ELPA, 1) &&
+                (env->CP0_Config3 & (1 << CP0C3_LPA)) &&
+                (env->CP0_PageGrain & (1 << CP0PG_ELPA)) &&
+                (env->Guest.CP0_Config3 & (1 << CP0C3_LPA)) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
+        }
         else {
             helper_mtc0_pagegrain_guest(env, arg1);
         }
@@ -5767,10 +5778,6 @@ void helper_mtc0_guestctl0ext (target_ulong arg1)
     uint32_t mask = 0x3f;
     env->CP0_GuestCtl0Ext = (env->CP0_GuestCtl0Ext & ~mask) | (arg1 & mask);
 }
-
-// Compare bits between two variables
-#define COMPARE_BITS(A, B, POS, MASK) \
-    ((((A) >> (POS)) & (MASK)) != (((B) >> (POS)) & (MASK)))
 
 void helper_mtc0_status (target_ulong arg1)
 {
@@ -6195,9 +6202,14 @@ void helper_mtc0_config5 (target_ulong arg1)
         // Config5 : MSAEn. (Enable for MIPS SIMD Architecture module.
         //                   Applicable only if MSA implemented.)
         //         : UFR. (User FR enable, Release 5 optional feature)
-        else if ( (!(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD))) &&
-                    ((COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_MSAEn, 1)) ||
-                    (COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_UFR, 1)))) {
+        else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+                COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_MSAEn, 1) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
+        }
+        else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+        // FIXME: not sure with SFC1 which is for status probably.
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_SFC1)) &&
+                COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_UFR, 1) ) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
