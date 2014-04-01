@@ -6214,26 +6214,59 @@ void helper_mtgc0_config2 (target_ulong arg1)
 
 void helper_mtgc0_config3 (target_ulong arg1)
 {
-    // M, MSAP, BPG(MIPS64), ULRI, DSP2P, DSPP, CTXTC, ITL, LPA,VEIC, VINT,SP,CDMM,MT,SM,TL are optional Root writable.
-    uint32 mask = 0;//0x90002FFF;
-    if ((env->CP0_Config3 & (1 << CP0C3_DSPP))) {
-        mask |= (1 << CP0C3_DSPP);
-    }
-    if ((env->CP0_Config3 & (1 << CP0C3_DSP2P))) {
-        mask |= (1 << CP0C3_DSP2P);
-    }
-    if ((env->CP0_Config3 & (1 << CP0C3_ITL))) {
-        mask |= (1 << CP0C3_ITL);
-    }
-    if ((env->CP0_Config3 & (1 << CP0C3_CDMM))) {
-        mask |= (1 << CP0C3_CDMM);
-    }
+    uint32 mask = 0;
+    //ISAOnExc is RW if MIPS32 and microMIPS instruction set are implemented.
     if (((env->Guest.CP0_Config3 >> CP0C3_ISA) & 3) >= 2) {
         mask |= (1 << CP0C3_ISA_ON_EXC);
+    }
+
+    // M, MSAP, BPG(MIPS64), ULRI, DSP2P, DSPP, CTXTC, ITL, LPA, VEIC, VINT,
+    // SP, CDMM, MT, SM, TL are optional Root writable.
+    if (env->CP0_Config3 & (1 << CP0C3_M)) {
+        mask |= (1 << CP0C3_M);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        mask |= (1 << CP0C3_MSAP);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
+        mask |= (1 << CP0C3_ULRI);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_DSP2P)) {
+        mask |= (1 << CP0C3_DSP2P);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_DSPP)) {
+        mask |= (1 << CP0C3_DSPP);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_CTXTC)) {
+        mask |= (1 << CP0C3_CTXTC);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_ITL)) {
+        mask |= (1 << CP0C3_ITL);
     }
     if ((env->CP0_Config3 & (1 << CP0C3_LPA)) &&
             (env->CP0_PageGrain & (1 << CP0PG_ELPA))) {
         mask |= (1 << CP0C3_LPA);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_VEIC)) {
+        mask |= (1 << CP0C3_VEIC);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_VInt)) {
+        mask |= (1 << CP0C3_VInt);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_SP)) {
+        mask |= (1 << CP0C3_SP);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_CDMM)) {
+        mask |= (1 << CP0C3_CDMM);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_MT)) {
+        mask |= (1 << CP0C3_MT);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_SM)) {
+        mask |= (1 << CP0C3_SM);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_TL)) {
+        mask |= (1 << CP0C3_TL);
     }
 
     env->Guest.CP0_Config3 = (env->Guest.CP0_Config3 & (~mask)) | (arg1 & mask);
@@ -6258,6 +6291,7 @@ void helper_mtc0_config5 (target_ulong arg1)
         //                   Applicable only if MSA implemented.)
         //         : UFR. (User FR enable, Release 5 optional feature)
         else if ( !(env->CP0_GuestCtl0Ext & (1 << CP0GuestCtl0Ext_FCD)) &&
+                (env->Guest.CP0_Config3 & (1 << CP0C3_MSAP)) &&
                 COMPARE_BITS(env->Guest.CP0_Config5, arg1, CP0C5_MSAEn, 1) ) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
