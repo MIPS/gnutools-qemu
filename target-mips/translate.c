@@ -16152,12 +16152,13 @@ static void gen_mipsdsp_accinsn(DisasContext *ctx, uint32_t op1, uint32_t op2,
 
 static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
 {
-    int rs, rt, rd;
+    int rs, rt, rd, sa;
     uint32_t op1, op2;
 
     rs = (ctx->opcode >> 21) & 0x1f;
     rt = (ctx->opcode >> 16) & 0x1f;
     rd = (ctx->opcode >> 11) & 0x1f;
+    sa = (ctx->opcode >> 6) & 0x1f;
 
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
@@ -16197,14 +16198,13 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
         break;
     case R6_OPC_CLO:
     case R6_OPC_CLZ:
-        if (((ctx->opcode >> 6) & 0x1f) != 1) {
+        if (rt == 0 && sa == 1) {
             /* Major opcode and function field is shared with preR6 MFHI/MTHI.
-               We need additionally to check bits 6:10 to make sure that
-               we don't run preR6 MFHI/MTHI as R6 CLO/CLZ */
+               We need additionally to check other fields */
+            gen_cl(ctx, op1, rd, rs);
+        } else {
             generate_exception(ctx, EXCP_RI);
-            break;
         }
-        gen_cl(ctx, op1, rd, rs);
         break;
     case R6_OPC_SDBBP:
         if (ctx->hflags & MIPS_HFLAG_SBRI) {
@@ -16226,15 +16226,14 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
     break;
     case R6_OPC_DCLO:
     case R6_OPC_DCLZ:
-        if (((ctx->opcode >> 6) & 0x1f) != 1) {
+        if (rt == 0 && sa == 1) {
             /* Major opcode and function field is shared with preR6 MFHI/MTHI.
-               We need additionally to check bits 6:10 to make sure that
-               we don't run preR6 MFHI/MTHI as R6 CLO/CLZ */
+               We need additionally to check other fields */
+            check_mips_64(ctx);
+            gen_cl(ctx, op1, rd, rs);
+        } else {
             generate_exception(ctx, EXCP_RI);
-            break;
         }
-        check_mips_64(ctx);
-        gen_cl(ctx, op1, rd, rs);
         break;
     case OPC_DMULT ... OPC_DDIVU:
         op2 = MASK_R6_MULDIV(ctx->opcode);
