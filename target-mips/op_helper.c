@@ -5378,6 +5378,35 @@ void helper_mttc0_tcschefback (target_ulong arg1)
         other->tcs[other_tc].CP0_TCScheFBack = arg1;
 }
 
+static inline target_ulong update_context(int32_t config3,
+        target_ulong contextconfig, target_ulong context, target_ulong arg,
+        int root_write)
+{
+// masking from ContextConfig when Config3_CTXTC = 1 or Config3_SM = 1
+#define CTXT_PTEBASE(x) (~((x) | ((x) - 1)))
+#define CTXT_BADVPN2(x) (x)
+#define CTXT_0(x) (((x) | ((x) - 1)) ^ (x))
+
+// masking when Config3_CTXTC = 0 and Config3_SM = 0
+    target_ulong mask = ~0x7FFFFF;
+
+    if ((config3 & (1 << CP0C3_CTXTC))
+            || (config3 & (1 << CP0C3_SM))) {
+        mask = CTXT_PTEBASE(contextconfig);
+        if (root_write) {
+// Context.BadVPN2 is Guest CP0 Read-only Fields Writable from Root Mode
+            mask |= CTXT_BADVPN2(contextconfig);
+        }
+        if (config3 & (1 << CP0C3_CTXTC)) {
+            mask |= CTXT_0(contextconfig);
+        }
+    }
+    else if (root_write) {
+        mask |= 0x007ffff0;
+    }
+    return (context & ~mask) | (arg & mask);
+}
+
 void helper_mtc0_context (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -5386,17 +5415,32 @@ void helper_mtc0_context (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
         }
         else {
-            env->Guest.CP0_Context = (env->Guest.CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
+            env->Guest.CP0_Context =
+                    update_context(env->Guest.CP0_Config3,
+                            env->Guest.CP0_ContextConfig,
+                            env->Guest.CP0_Context,
+                            arg1,
+                            0);
         }
     }
     else {
-        env->CP0_Context = (env->CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
+        env->CP0_Context =
+                update_context(env->CP0_Config3,
+                        env->CP0_ContextConfig,
+                        env->CP0_Context,
+                        arg1,
+                        0);
     }
 }
 
 void helper_mtgc0_context (target_ulong arg1)
 {
-    env->Guest.CP0_Context = (env->Guest.CP0_Context & 0xF) | (arg1 & ~0x4);
+    env->Guest.CP0_Context =
+            update_context(env->Guest.CP0_Config3,
+                    env->Guest.CP0_ContextConfig,
+                    env->Guest.CP0_Context,
+                    arg1,
+                    1);
 }
 
 void helper_mtc0_contextconfig (target_ulong arg1)
@@ -5414,7 +5458,7 @@ void helper_mtc0_contextconfig (target_ulong arg1)
     else {
         if ((env->CP0_Config3 & (1 << CP0C3_CTXTC))
                 || (env->CP0_Config3 & (1 << CP0C3_SM))){
-            env->CP0_Context = arg1;
+            env->CP0_ContextConfig = arg1;
         }
     }
 }
@@ -5423,7 +5467,7 @@ void helper_mtgc0_contextconfig (target_ulong arg1)
 {
     if ((env->Guest.CP0_Config3 & (1 << CP0C3_CTXTC))
             || (env->Guest.CP0_Config3 & (1 << CP0C3_SM))){
-        env->Guest.CP0_Context = arg1;
+        env->Guest.CP0_ContextConfig = arg1;
     }
 }
 

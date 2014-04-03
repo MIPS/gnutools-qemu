@@ -16321,6 +16321,9 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
     env->CP0_ContextConfig = env->cpu_model->CP0_ContextConfig;
+    if (!env->CP0_ContextConfig) {
+        env->CP0_ContextConfig = 0x007ffff0;
+    }
     env->CP0_LLAddr_rw_bitmask = env->cpu_model->CP0_LLAddr_rw_bitmask
                                  << env->cpu_model->CP0_LLAddr_shift;
     env->CP0_LLAddr_shift = env->cpu_model->CP0_LLAddr_shift;
@@ -16402,6 +16405,9 @@ void cpu_reset (CPUMIPSState *env)
 
         env->Guest.CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
         env->Guest.CP0_ContextConfig = env->cpu_model->Guest.CP0_ContextConfig;
+        if (!env->Guest.CP0_ContextConfig) {
+            env->Guest.CP0_ContextConfig = 0x007ffff0;
+        }
     }
 
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
