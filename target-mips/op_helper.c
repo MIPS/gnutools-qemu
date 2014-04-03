@@ -5196,14 +5196,12 @@ target_ulong helper_mfhgc0_lladdr(void)
 
 void helper_mthc0_maar (target_ulong arg1)
 {
-    uint64_t high_mask = 0x007FFFFFULL;
-    uint64_t low_mask =  0xFFFFF003ULL;
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return;
     }
+
     if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        env->CP0_MAAR[env->CP0_MAARI] = ((arg1 & high_mask) << 32) |
-                (env->CP0_MAAR[env->CP0_MAARI] & low_mask);
+        xpa_mthc0_common(&env->CP0_MAAR[env->CP0_MAARI], arg1, &env->CP0_PageGrain);
     }
 }
 
@@ -5212,8 +5210,9 @@ target_ulong helper_mfhc0_maar (void)
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return 0;
     }
+
     if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        return env->CP0_MAAR[env->CP0_MAARI] >> 32;
+        return xpa_mfhc0_common(&env->CP0_MAAR[env->CP0_MAARI], &env->CP0_PageGrain);
     }
     return 0;
 }
