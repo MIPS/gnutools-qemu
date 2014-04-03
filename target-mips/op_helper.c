@@ -5196,6 +5196,12 @@ target_ulong helper_mfhgc0_lladdr(void)
 
 void helper_mthc0_maar (target_ulong arg1)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
+        sv_log("MTHC0 WARNING - Guest MAAR is not implemented\n");
+#endif
+        return;
+    }
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return;
     }
@@ -5207,6 +5213,12 @@ void helper_mthc0_maar (target_ulong arg1)
 
 target_ulong helper_mfhc0_maar (void)
 {
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+#ifdef SV_SUPPORT
+        sv_log("MFHC0 WARNING - Guest MAAR is not implemented\n");
+#endif
+        return 0;
+    }
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return 0;
     }
