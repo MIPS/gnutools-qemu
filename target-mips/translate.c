@@ -5712,7 +5712,8 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         switch (sel) {
         case 0:
             /* EJTAG support */
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DESAVE));
+            tcg_gen_ext32s_tl(arg, arg);
             rn = "DESAVE";
             break;
         case 2 ... 7:
@@ -6374,7 +6375,7 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
         switch (sel) {
         case 0:
             /* EJTAG support */
-            gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
+            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
         case 2 ... 7:
@@ -7049,7 +7050,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         switch (sel) {
         case 0:
             /* EJTAG support */
-            gen_dmfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
         case 2 ... 7:
@@ -7711,7 +7712,7 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
         switch (sel) {
         case 0:
             /* EJTAG support */
-            gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DESAVE));
             rn = "DESAVE";
             break;
         case 2 ... 7:
