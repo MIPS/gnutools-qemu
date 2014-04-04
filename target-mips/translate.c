@@ -3075,6 +3075,12 @@ static void gen_r6_muldiv(DisasContext *ctx, int opc, int rd, int rs, int rt)
     const char *opn = "r6 mul/div";
     TCGv t0, t1;
 
+    if (rd == 0) {
+        /* Treat as NOP. */
+        MIPS_DEBUG("NOP");
+        return;
+    }
+
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
 
@@ -16239,9 +16245,13 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
     {
         int imm2 = (ctx->opcode >> 6) & 0x3;
         TCGv t0 = tcg_temp_new();
+        TCGv t1 = tcg_temp_new();
         gen_load_gpr(t0, rs);
+        gen_load_gpr(t1, rt);
         tcg_gen_shli_tl(t0, t0, imm2 + 1);
-        tcg_gen_add_tl(cpu_gpr[rd], t0, cpu_gpr[rt]);
+        tcg_gen_add_tl(t0, t0, t1);
+        gen_store_gpr(t0, rd);
+        tcg_temp_free(t1);
         tcg_temp_free(t0);
     }
     break;
@@ -17421,12 +17431,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
         case R6_OPC_DAHI:
             check_insn(ctx, ISA_MIPS32R6);
-            tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 32);
+            if (rs != 0) { // NOP if rs == 0
+                tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 32);
+            }
             MIPS_DEBUG("dahi %s, %04x", regnames[rs], imm);
             break;
         case R6_OPC_DATI:
             check_insn(ctx, ISA_MIPS32R6);
-            tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 48);
+            if (rs != 0) { // NOP if rs == 0
+                tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 48);
+            }
             MIPS_DEBUG("dati %s, %04x", regnames[rs], imm);
             break;
 #endif
@@ -17917,7 +17931,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         if (ctx->insn_flags & ISA_MIPS32R6) {
 #if defined(TARGET_MIPS64)
             // R6_OPC_DAUI
-            tcg_gen_addi_i64(cpu_gpr[rt], cpu_gpr[rs], imm << 16);
+            if (rt != 0) { // NOP if rt == 0
+                TCGv_i64 t0 = tcg_temp_new_i64();
+                gen_load_gpr(t0, rs);
+                tcg_gen_addi_i64(cpu_gpr[rt], t0, imm << 16);
+                tcg_temp_free_i64(t0);
+            }
             MIPS_DEBUG("daui %s, %s, %04x", regnames[rt], regnames[rs], imm);
 #else
             generate_exception(ctx, EXCP_RI);
