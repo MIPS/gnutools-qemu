@@ -1267,13 +1267,22 @@ static inline void gen_store_ACX (TCGv t, int reg)
 }
 
 /* Moves to/from shadow registers. */
-static inline void gen_load_srsgpr (int from, int to)
+static inline void gen_load_srsgpr (CPUMIPSState *env, int from, int to)
 {
-    TCGv t0 = tcg_temp_new();
+    if (to == 0) {
+        return;
+    } else if (from == 0) {
+        tcg_gen_movi_tl(cpu_gpr[to], 0);
+        return;
+    }
 
-    if (from == 0)
-        tcg_gen_movi_tl(t0, 0);
-    else {
+    if ((env->CP0_SRSCtl >> CP0SRSCtl_HSS) == 0) {
+        // If HSS == 0 then perform reg-to-reg copy
+        if (from != to) {
+            tcg_gen_mov_tl(cpu_gpr[to], cpu_gpr[from]);
+        }
+    } else {
+        TCGv t0 = tcg_temp_new();
         TCGv_i32 t2 = tcg_temp_new_i32();
         TCGv_ptr addr = tcg_temp_new_ptr();
 
@@ -1285,16 +1294,28 @@ static inline void gen_load_srsgpr (int from, int to)
         tcg_gen_add_ptr(addr, cpu_env, addr);
 
         tcg_gen_ld_tl(t0, addr, sizeof(target_ulong) * from);
+        gen_store_gpr(t0, to);
         tcg_temp_free_ptr(addr);
         tcg_temp_free_i32(t2);
+        tcg_temp_free(t0);
     }
-    gen_store_gpr(t0, to);
-    tcg_temp_free(t0);
 }
 
-static inline void gen_store_srsgpr (int from, int to)
+static inline void gen_store_srsgpr (CPUMIPSState *env, int from, int to)
 {
-    if (to != 0) {
+    if (to == 0) {
+        return;
+    } else if (from == 0) {
+        tcg_gen_movi_tl(cpu_gpr[to], 0);
+        return;
+    }
+
+    if ((env->CP0_SRSCtl >> CP0SRSCtl_HSS) == 0) {
+        // If HSS == 0 then perform reg-to-reg copy
+        if (from != to) {
+            tcg_gen_mov_tl(cpu_gpr[to], cpu_gpr[from]);
+        }
+    } else {
         TCGv t0 = tcg_temp_new();
         TCGv_i32 t2 = tcg_temp_new_i32();
         TCGv_ptr addr = tcg_temp_new_ptr();
@@ -12956,12 +12977,12 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
         case RDPGPR:
             check_cp0_enabled(ctx);
             check_insn(ctx, ISA_MIPS32R2);
-            gen_load_srsgpr(rt, rs);
+            gen_load_srsgpr(env, rt, rs);
             break;
         case WRPGPR:
             check_cp0_enabled(ctx);
             check_insn(ctx, ISA_MIPS32R2);
-            gen_store_srsgpr(rt, rs);
+            gen_store_srsgpr(env, rt, rs);
             break;
         default:
             goto pool32axf_invalid;
@@ -17490,11 +17511,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_RDPGPR:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_load_srsgpr(rt, rd);
+            gen_load_srsgpr(env, rt, rd);
             break;
         case OPC_WRPGPR:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_store_srsgpr(rt, rd);
+            gen_store_srsgpr(env, rt, rd);
             break;
         default:
             MIPS_INVAL("cp0");
