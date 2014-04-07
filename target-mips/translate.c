@@ -9233,6 +9233,7 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
         break;
     case OPC_CTC1:
         gen_load_gpr(t0, rt);
+        save_cpu_state(ctx, 1);
         gen_helper_1i(ctc1, t0, fs);
         /* Stop translation as we may have changed hflags */
         ctx->bstate = BS_STOP;
