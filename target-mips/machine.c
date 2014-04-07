@@ -69,7 +69,7 @@ void cpu_save(QEMUFile *f, void *opaque)
                           (env->tlb->mmu.r4k.tlb[i].D1 << 0));
         uint8_t asid;
 
-        qemu_put_betls(f, &env->tlb->mmu.r4k.tlb[i].VPN);
+        qemu_put_be64s(f, &env->tlb->mmu.r4k.tlb[i].VPN);
         qemu_put_be32s(f, &env->tlb->mmu.r4k.tlb[i].PageMask);
         asid = env->tlb->mmu.r4k.tlb[i].ASID;
         qemu_put_8s(f, &asid);
@@ -113,9 +113,9 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_SRSConf3);
     qemu_put_sbe32s(f, &env->CP0_SRSConf4);
     qemu_put_sbe32s(f, &env->CP0_HWREna);
-    qemu_put_betls(f, &env->CP0_BadVAddr);
+    qemu_put_be64s(f, &env->CP0_BadVAddr);
     qemu_put_sbe32s(f, &env->CP0_Count);
-    qemu_put_betls(f, &env->CP0_EntryHi);
+    qemu_put_be64s(f, &env->CP0_EntryHi);
     qemu_put_sbe32s(f, &env->CP0_Compare);
     qemu_put_sbe32s(f, &env->CP0_Status);
     qemu_put_sbe32s(f, &env->CP0_IntCtl);
@@ -221,7 +221,7 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
         uint16_t flags;
         uint8_t asid;
 
-        qemu_get_betls(f, &env->tlb->mmu.r4k.tlb[i].VPN);
+        qemu_get_be64s(f, &env->tlb->mmu.r4k.tlb[i].VPN);
         qemu_get_be32s(f, &env->tlb->mmu.r4k.tlb[i].PageMask);
         qemu_get_8s(f, &asid);
         env->tlb->mmu.r4k.tlb[i].ASID = asid;
@@ -272,9 +272,9 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_SRSConf3);
     qemu_get_sbe32s(f, &env->CP0_SRSConf4);
     qemu_get_sbe32s(f, &env->CP0_HWREna);
-    qemu_get_betls(f, &env->CP0_BadVAddr);
+    qemu_get_be64s(f, &env->CP0_BadVAddr);
     qemu_get_sbe32s(f, &env->CP0_Count);
-    qemu_get_betls(f, &env->CP0_EntryHi);
+    qemu_get_be64s(f, &env->CP0_EntryHi);
     qemu_get_sbe32s(f, &env->CP0_Compare);
     qemu_get_sbe32s(f, &env->CP0_Status);
     qemu_get_sbe32s(f, &env->CP0_IntCtl);
