@@ -8703,6 +8703,20 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
             tcg_temp_free_i32(fp0);
         }
         gen_store_gpr(t0, rt);
+#if !defined(TARGET_MIPS64)
+        /* Workaround for the issue with MFC1 + LL, where the whole 64-bit
+           value is used on 32-bit core even though MIPS -> TCG translation
+           looks correct.
+           TCG Liveness analysis seems to have issues when mixing 64-bit and
+           32-bit temps. We end up using the whole 64-bit value, so if
+           FPR bits [31:0] contain correct memory address, but FPR bits [63:32]!=0
+           then LL could access incorrect memory address.
+           The wo workaruond is to terminate translation block on MFC1, 
+           to make sure that correct value is stored in a GPR.
+
+           Further TCG / i386 investigation is needed */
+        ctx->bstate = BS_STOP;
+#endif
         opn = "mfc1";
         break;
     case OPC_MTC1:
