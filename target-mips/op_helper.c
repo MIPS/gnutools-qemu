@@ -11046,9 +11046,6 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
                                float32_sqrt(W(pws, i), 
                                             &env->active_msa.fp_status), 
                                32);
-
-          printf("frsqrt.w 0x%08x <-- 0x%08x\n", W(pwx, i), W(pws, i));
-
          } DONE_ALL_ELEMENTS;
         break;
 

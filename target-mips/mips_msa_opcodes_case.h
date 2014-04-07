@@ -585,5 +585,8 @@ static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
     }
 
     MIPS_INVAL("MSA instruction");
-    generate_exception(ctx, EXCP_RI);
+
+    if (check_msa_access(env, ctx, -1, -1, -1))
+        generate_exception(ctx, EXCP_RI);
+
 } // end of gen_msa()

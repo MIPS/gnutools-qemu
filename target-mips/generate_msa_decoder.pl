@@ -162,7 +162,10 @@ HERECODE
 
     print OPCASE <<'HERECODE';
     MIPS_INVAL("MSA instruction");
-    generate_exception(ctx, EXCP_RI);
+
+    if (check_msa_access(env, ctx, -1, -1, -1))
+        generate_exception(ctx, EXCP_RI);
+
 } // end of gen_msa()
 HERECODE
 
@@ -577,12 +580,16 @@ C_END
         n = dfn & 0x3;
         df = 3;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
     int df_bits = 8 * (1 << df);
     if ( n >= wrlen / df_bits ) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 C_END
@@ -595,7 +602,9 @@ C_END
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
@@ -621,7 +630,9 @@ C_END
         m = dfm & 0x7;
         df = 0;
     } else {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 C_END
@@ -650,7 +661,7 @@ C_END
 $declare_str
     int16_t offset = s10 << df;
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     /* 
      *  set element granularity to 8 bits (df = 0) because the load
@@ -686,7 +697,7 @@ C_END
 $declare_str
     int16_t offset = s10 << df;
 
-    check_msa_access(env, ctx, wd, -1, -1);
+    if (!check_msa_access(env, ctx, wd, -1, -1)) return;
 
     /* 
      *  set element granularity to 8 bits (df = 0) because the store
@@ -736,14 +747,16 @@ C_END
           $func_body .= <<"C_END";
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 C_END
         }
 
         $func_body .= <<"C_END";
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -794,14 +807,16 @@ C_END
           $func_body .= <<"C_END";
     /* check df: byte format not allowed */
     if (df == 0) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 
 C_END
         }
 
         $func_body .= <<"C_END";
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -850,7 +865,7 @@ C_END
         $func_body .= <<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -895,7 +910,7 @@ C_END
         $func_body .= <<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -934,7 +949,7 @@ C_END
         $func_body .= <<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -960,7 +975,7 @@ C_END
         $func_body .= <<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -984,7 +999,7 @@ C_END
         $func_body .= <<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wt, ws, wd);
+    if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
     TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -1011,7 +1026,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1045,14 +1060,16 @@ C_END
 
     /* check df: double format not allowed */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 C_END
         }
 
         $func_body .= <<"C_END";
 
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1077,7 +1094,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -1115,7 +1132,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -1157,7 +1174,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -1192,7 +1209,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -1217,7 +1234,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);
@@ -1249,7 +1266,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wt, -1, -1);
+    if (!check_msa_access(env, ctx, wt, -1, -1)) return;
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
@@ -1277,7 +1294,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1302,7 +1319,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1328,7 +1345,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
@@ -1354,7 +1371,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv trt = tcg_temp_new();
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
@@ -1379,7 +1396,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, wd);
+    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1400,7 +1417,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv_i32 ts10 = tcg_const_i32(s10);
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1425,7 +1442,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trt = tcg_temp_new();
     TCGv trs = tcg_temp_new();
@@ -1494,7 +1511,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, -1);
+    if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -1518,7 +1535,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, ws, ws, -1);
+    if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -1544,11 +1561,13 @@ $declare_str
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
     if (df == 3) {
-        generate_exception(ctx, EXCP_RI);
+        if (check_msa_access(env, ctx, -1, -1, -1))
+            generate_exception(ctx, EXCP_RI);
+        return;
     }
 #endif
 
-    check_msa_access(env, ctx, wd, wd, wd);
+    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv trs = tcg_temp_new();
     TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
@@ -1573,7 +1592,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcd = tcg_const_i32(cd);
@@ -1592,7 +1611,7 @@ C_END
         $func_body .=<<"C_END";
 
 $declare_str
-    check_msa_access(env, ctx, -1, -1, -1);
+    if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
     TCGv telm = tcg_temp_new();
     TCGv_i32 tcs = tcg_const_i32(cs);

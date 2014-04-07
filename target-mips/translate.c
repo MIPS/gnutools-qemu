@@ -12871,21 +12871,24 @@ static int decode_micromips_opc (CPUState *env, DisasContext *ctx, int *is_branc
 
 /* MIPS SIMD Architecture (MSA)  */
 
-static inline void check_msa_access(CPUState *env, DisasContext *ctx,
+static inline int check_msa_access(CPUState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
 
     if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
       generate_exception(ctx, EXCP_RI);
+      return 0;
     }
 
     if (unlikely((env->CP0_Status & (1 << CP0St_CU1)) != 0 &&
                  (env->CP0_Status & (1 << CP0St_FR )) == 0)) {
       generate_exception(ctx, EXCP_RI);
+      return 0;
     }
 
     if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
       generate_exception(ctx, EXCP_MSADIS);
+      return 0;
     }
 
     if (env->active_msa.msair & MSAIR_WRP_BIT) {
@@ -12910,8 +12913,10 @@ static inline void check_msa_access(CPUState *env, DisasContext *ctx,
 
       if (unlikely(env->active_msa.msarequest != 0)) {
         generate_exception(ctx, EXCP_MSADIS);
+        return 0;
       }
     }
+    return 1;
 }
 
 static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
