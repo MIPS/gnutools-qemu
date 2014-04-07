@@ -2,6 +2,10 @@ static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
 {
     uint32_t opcode = ctx->opcode;
 
+    // save cpu state for the case of exceptions.
+    // further work required as this can impact performance.
+    save_cpu_state(ctx, 1);
+
     /* !!! It must do longest prefix match here! */
 
     switch (opcode & 0xffff003f) {
