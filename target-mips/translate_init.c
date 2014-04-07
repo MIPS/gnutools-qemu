@@ -1098,7 +1098,7 @@ static mips_def_t mips_defs[] =
         .CP0_Config1 = 0xfea35191, // WR, EP disabled,
         .CP0_Config2 = 0x80000447,
         // FIXME: DSP DSP2P should be disabled
-        .CP0_Config3 = 0x90802c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM disabled
+        .CP0_Config3 = 0x90002c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM and VZ disabled
         .CP0_Config4 = 0xc01c0000, // MMUExtDef:00(Reserved)
         .CP0_Config5 = 0x00000028, // EVA, LLB disabled
         .CP0_Config7 = 0x80010800, // IAR, IVAD, ES disabled
