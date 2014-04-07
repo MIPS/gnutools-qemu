@@ -7615,6 +7615,11 @@ target_ulong helper_rdhwr_ulr(void)
                 return 0;
             }
         }
+        // UNDEFINED in the specification.
+        if (!(env->Guest.CP0_Config3 & (1 << CP0C3_ULRI))) {
+            helper_raise_exception(EXCP_RI);
+            return 0;
+        }
         if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0))) {
             helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
             return 0;
