@@ -4256,7 +4256,7 @@ print_insn_mips (bfd_vma memaddr,
 
 	      if (strcmp(op->name, "bovc") == 0 || strcmp(op->name, "bnvc") == 0) {
 	          if (((word >> OP_SH_RS) & OP_MASK_RS)
-	                  > ((word >> OP_SH_RT) & OP_MASK_RT)) {
+	                  < ((word >> OP_SH_RT) & OP_MASK_RT)) {
 	              continue;
 	          }
 	      }
