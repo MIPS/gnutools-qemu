@@ -478,7 +478,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0xC07FF
+#define MIPS_HFLAG_TMASK  0x2C07FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -851,7 +851,7 @@ static inline void compute_hflags(CPUMIPSState *env)
     }
     if (!(env->insn_flags & ISA_MIPS32R6) || // in preR6: SDBBP available
         !(env->hflags & MIPS_HFLAG_KSU) || // in Kernel mode: SDBBP available
-        (env->CP0_Config5 & (1 << CP0C5_SBRI))) { // otherwise: bit must be set
+        !(env->CP0_Config5 & (1 << CP0C5_SBRI))) { // otherwise: bit must be cleared
         env->hflags |= MIPS_HFLAG_SBRI;
     }
     if (env->insn_flags & ASE_DSPR2) {
