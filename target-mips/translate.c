@@ -11107,9 +11107,6 @@ static void handle_delay_slot (CPUState *env, DisasContext *ctx,
         case MIPS_HFLAG_BR:
             /* unconditional branch to register */
             MIPS_DEBUG("branch to register");
-#ifndef SV_SUPPORT
-// This block of code is trimming target address
-// vz_dyn_cfgx test does expect invalid address exception
             if (env->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS)) {
                 TCGv t0 = tcg_temp_new();
                 TCGv_i32 t1 = tcg_temp_new_i32();
@@ -11123,9 +11120,7 @@ static void handle_delay_slot (CPUState *env, DisasContext *ctx,
                 tcg_temp_free_i32(t1);
 
                 tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
-            } else
-#endif
-            {
+            } else {
                 tcg_gen_mov_tl(cpu_PC, btarget);
             }
             if (ctx->singlestep_enabled) {

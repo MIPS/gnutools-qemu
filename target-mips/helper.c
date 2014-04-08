@@ -92,12 +92,7 @@ int r4k_map_address (CPUState *env, target_phys_addr_t *physical, int *prot,
             guestId = 0;
         }
     }
-#ifdef SV_SUPPORT
-    if (address & 1) {
-        sv_log("tlb badaddr\n");
-        return TLBRET_BADADDR;
-    }
-#endif
+
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
         /* 1k pages are not supported. */
