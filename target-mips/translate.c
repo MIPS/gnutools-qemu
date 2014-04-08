@@ -16369,6 +16369,16 @@ static void decode_opc_special_legacy (CPUMIPSState *env, DisasContext *ctx)
     case OPC_JR:
         gen_compute_branch(ctx, op1, 4, rs, rd, sa);
         break;
+    case OPC_SPIM:
+#ifdef MIPS_STRICT_STANDARD
+        MIPS_INVAL("SPIM");
+        generate_exception(ctx, EXCP_RI);
+#else
+        /* Implemented as RI exception for now. */
+        MIPS_INVAL("spim (unofficial)");
+        generate_exception(ctx, EXCP_RI);
+#endif
+        break;
     default:            /* Invalid */
         MIPS_INVAL("special_legacy");
         generate_exception(ctx, EXCP_RI);
@@ -16471,16 +16481,6 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_BREAK:
         generate_exception(ctx, EXCP_BREAK);
-        break;
-    case OPC_SPIM:
-#ifdef MIPS_STRICT_STANDARD
-        MIPS_INVAL("SPIM");
-        generate_exception(ctx, EXCP_RI);
-#else
-        /* Implemented as RI exception for now. */
-        MIPS_INVAL("spim (unofficial)");
-        generate_exception(ctx, EXCP_RI);
-#endif
         break;
     case OPC_SYNC:
         /* Treat as NOP. */
