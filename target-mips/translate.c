@@ -8662,6 +8662,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
             switch(opc1)
             {
             case OPC_MFGC0:
+                check_insn(env, ctx, ASE_VZ);
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
                     generate_exception(ctx, EXCP_RI);
                     break;
@@ -8674,6 +8675,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 opn = "mfgc0";
                 break;
             case OPC_MTGC0:
+                check_insn(env, ctx, ASE_VZ);
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
                     generate_exception(ctx, EXCP_RI);
                     break;
@@ -8689,6 +8691,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 break;
 #if !defined(TARGET_MIPS64)
             case OPC_MFHGC0:
+                check_insn(env, ctx, ASE_VZ);
                 check_mfthc0(env, ctx);
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
                     generate_exception(ctx, EXCP_RI);
@@ -8702,6 +8705,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
                 opn = "mfhgc0";
                 break;
             case OPC_MTHGC0:
+                check_insn(env, ctx, ASE_VZ);
                 check_mfthc0(env, ctx);
                 if (ctx->hflags & MIPS_HFLAG_GUEST) {
                     generate_exception(ctx, EXCP_RI);
@@ -8835,25 +8839,28 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         gen_helper_tlbr();
         break;
     case OPC_TLBGWI:
-        // FIXME: VZ
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbgwi";
         if (!env->guest_tlb->helper_tlbwi)
             goto die;
         gen_helper_tlbgwi();
         break;
     case OPC_TLBGWR:
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbgwr";
         if (!env->guest_tlb->helper_tlbwr)
             goto die;
         gen_helper_tlbgwr();
         break;
     case OPC_TLBGP:
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbgp";
         if (!env->guest_tlb->helper_tlbp)
             goto die;
         gen_helper_tlbgp();
         break;
     case OPC_TLBGR:
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbgr";
         if (!env->guest_tlb->helper_tlbr)
             goto die;
@@ -8868,6 +8875,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         } // if not supported - treat as NOP
         break;
     case OPC_TLBGINV:
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbginv";
         if (!env->guest_tlb->helper_tlbinv)
             goto die;
@@ -8884,6 +8892,7 @@ static void gen_cp0 (CPUState *env, DisasContext *ctx, uint32_t opc, int rt, int
         } // if not supported - treat as NOP
         break;
     case OPC_TLBGINVF:
+        check_insn(env, ctx, ASE_VZ);
         opn = "tlbginvf";
         if (!env->guest_tlb->helper_tlbinv)
             goto die;
