@@ -6222,9 +6222,13 @@ void helper_mtgc0_config3 (target_ulong arg1)
 
     // M, MSAP, BPG(MIPS64), ULRI, DSP2P, DSPP, CTXTC, ITL, LPA, VEIC, VINT,
     // SP, CDMM, MT, SM, TL are optional Root writable.
-    if (env->CP0_Config3 & (1 << CP0C3_M)) {
-        mask |= (1 << CP0C3_M);
-    }
+
+    // vz_exc_gpsi_cp0_17_of_32 fails if this block enabled
+    // However the accessing implemented but disabled register is UNDEFINED
+//    if (env->CP0_Config3 & (1 << CP0C3_M)) {
+//        mask |= (1 << CP0C3_M);
+//    }
+
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         mask |= (1 << CP0C3_MSAP);
     }
