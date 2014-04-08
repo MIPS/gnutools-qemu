@@ -11,7 +11,6 @@
 extern char *cpu_model_name;
 extern char *cpu_config_name;
 
-void sv_log_init(const char * filename);
 #endif
 
 #endif /* MIPS_AVP_H_ */

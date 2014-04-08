@@ -34,9 +34,6 @@
 #include "qemu/timer.h"
 #include "qemu/envlist.h"
 #include "elf.h"
-#ifdef MIPSSIM_COMPAT
-#include "target-mips/mips-avp.h"
-#endif
 
 char *exec_path;
 
@@ -2405,11 +2402,6 @@ void cpu_loop(CPUMIPSState *env)
         cpu_exec_start(cs);
         trapnr = cpu_mips_exec(env);
         cpu_exec_end(cs);
-#ifdef MIPSSIM_COMPAT
-        if (sv_enabled()) {
-            fflush(svtracefile);
-        }
-#endif
         switch(trapnr) {
         case EXCP_SYSCALL:
             env->active_tc.PC += 4;
@@ -4029,10 +4021,6 @@ int main(int argc, char **argv, char **envp)
                  info->start_stack);
         qemu_log("brk         0x" TARGET_ABI_FMT_lx "\n", info->brk);
         qemu_log("entry       0x" TARGET_ABI_FMT_lx "\n", info->entry);
-
-#ifdef MIPSSIM_COMPAT
-        sv_log_init("qemu.svtrace");
-#endif
     }
 
     target_set_brk(info->brk);
