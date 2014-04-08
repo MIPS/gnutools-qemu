@@ -7526,10 +7526,16 @@ target_ulong helper_rdhwr_cc(void)
     }
     else {
         if ((env->hflags & MIPS_HFLAG_CP0) ||
-            (env->CP0_HWREna & (1 << 2)))
+            (env->CP0_HWREna & (1 << 2))) {
+#if !defined(CONFIG_USER_ONLY)
+            return (int32_t)cpu_mips_get_count(env);
+#else
             return env->CP0_Count;
-        else
+#endif
+        }
+        else {
             helper_raise_exception(EXCP_RI);
+        }
     }
 
     return 0;
