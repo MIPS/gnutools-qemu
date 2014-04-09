@@ -1138,8 +1138,9 @@ static mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3D4AFF1F,
-        .CP1_fcr0 = (1 << FCR0_HAS2008) | (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x03 << FCR0_PRID),
+        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_HAS2008) | (1 << FCR0_F64) |
+                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+                    (1 << FCR0_S) | (0x03 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 40,
         // FIXME: DSP DSPR2 should be disabled
