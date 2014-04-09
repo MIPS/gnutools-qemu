@@ -214,15 +214,11 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 #if 0
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
-    int GuestID = -1;
     if (guest_mode) {
         guestCtx = 1;
 //        sv_log("guest mode translation\n");
         target_phys_addr_t gpa;
 
-        if (!(env->CP0_GuestCtl0 >> CP0GuestCtl0_RAD)) {
-            GuestID = (env->CP0_GuestCtl1 >> CP0GuestCtl1_ID) & 0xff;
-        }
         // Lookup to Config0 CP0C0_MT
         if (address <= (int32_t)0x7FFFFFFFUL) {
             /* useg */
@@ -271,31 +267,10 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 #endif
             return ret;
         }
-        //root tlb lookup with ignoring root asid
-        //guestid = n
-        //root tlb
-//        int GExcCode = if(ret)
 //        sv_log("GVA->GPA done\n");
         guestCtx = 0;
         ret = env->tlb->map_address(env, physical, prot, gpa, rw, guestCtx);
         if (ret != TLBRET_MATCH) {
-#if 0
-            // root exception
-            // switch to root mode?
-            // clear GM bit
-            env->CP0_GuestCtl0 &= ~(1 << CP0GuestCtl0_GM);
-            env->CP0_GuestCtl0 |= (1 << CP0GuestCtl0_GM);
-            // clear GExcCode bits
-            env->CP0_GuestCtl0 &= ~(0x1F << CP0GuestCtl0_GExcCode);
-            if(ret == TLBRET_NOMATCH) {
-                env->CP0_GuestCtl0 |= (GVA << CP0GuestCtl0_GExcCode);
-            }
-            else {
-                env->CP0_GuestCtl0 |= (GPA << CP0GuestCtl0_GExcCode);
-            }
-            env->hflags &= ~MIPS_HFLAG_GUEST;
-//            env->hflags |= MIPS_HFLAG_ROOT;
-#endif
 #ifdef SV_SUPPORT
             sv_log("root exception (%x) %x %d\n", env->hflags & MIPS_HFLAG_GUEST, (unsigned) address, ret);
 #endif
