@@ -1119,7 +1119,7 @@ static mips_def_t mips_defs[] =
         .SEGBITS = 32,
         .PABITS = 40,
         // FIXME: DSP DSPR2 should be disabled
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        .insn_flags = CPU_MIPS32R2 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
