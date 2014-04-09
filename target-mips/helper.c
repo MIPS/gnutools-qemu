@@ -214,6 +214,14 @@ static int get_physical_address (CPUState *env, target_phys_addr_t *physical,
 #if 0
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
+
+    if ((rw == 2) && (address & 3) &&
+        !(env->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS))) {
+        /* Address Error exception should occur prior to TLB exception
+           if we fetch instruction from an unaligned address */
+        return TLBRET_BADADDR;
+    }
+
     if (guest_mode) {
         guestCtx = 1;
 //        sv_log("guest mode translation\n");
