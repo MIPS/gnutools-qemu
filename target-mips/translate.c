@@ -1471,32 +1471,39 @@ generate_exception (DisasContext *ctx, int excp)
     gen_helper_0e0i(raise_exception, excp);
 }
 
+#if defined(TARGET_MIPS64)
+static inline int is_wrapping_needed (DisasContext *ctx)
+{
+    if (!(ctx->hflags & MIPS_HFLAG_X)) {
+        /* If not R6 then wrap only in User Mode */
+        if ((ctx->insn_flags & ISA_MIPS64R6) ||
+            ((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+#endif
+
 /* Addresses computation */
 static inline void gen_op_addr_add (DisasContext *ctx, TCGv ret, TCGv arg0, TCGv arg1)
 {
     tcg_gen_add_tl(ret, arg0, arg1);
 
 #if defined(TARGET_MIPS64)
-    /* For compatibility with 32-bit code, data reference in user mode
-       with Status_UX = 0 should be casted to 32-bit and sign extended.
-       See the MIPS64 PRA manual, section 4.10. */
-    if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
-        !(ctx->hflags & MIPS_HFLAG_UX)) {
+    if (is_wrapping_needed(ctx)) {
         tcg_gen_ext32s_i64(ret, ret);
     }
 #endif
 }
 
 /* Addresses computation (translation time) */
-static target_long memory_address (DisasContext *ctx, target_long base, target_long offset)
+static target_long addr_add (DisasContext *ctx, target_long base, target_long offset)
 {
     target_long sum = base + offset;
 
 #if defined(TARGET_MIPS64)
-    /* memory_address performs mode-dependent address space wrapping for compatibility
-       between MIPS32 and MIPS64. */
-    if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
-        !(ctx->hflags & MIPS_HFLAG_UX)) {
+    if (is_wrapping_needed(ctx)) {
         sum = (int32_t)sum;
     }
 #endif
@@ -3040,20 +3047,20 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
     case R6_OPC_ADDIUP:
         if (rs != 0) {
             offset = ((int32_t)ctx->opcode << 13) >> 11;
-            addr = memory_address(ctx, ctx->pc, offset);
+            addr = addr_add(ctx, ctx->pc, offset);
             tcg_gen_movi_tl(cpu_gpr[rs], addr);
         }
         break;
     case R6_OPC_LWP:
         offset = ((int32_t)ctx->opcode << 13) >> 11;
-        addr = memory_address(ctx, ctx->pc, offset);
+        addr = addr_add(ctx, ctx->pc, offset);
         gen_r6_ld(addr, rs, ctx->mem_idx, MO_TESL);
         break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_LWUP:
         check_mips_64(ctx);
         offset = ((int32_t)ctx->opcode << 13) >> 11;
-        addr = memory_address(ctx, ctx->pc, offset);
+        addr = addr_add(ctx, ctx->pc, offset);
         gen_r6_ld(addr, rs, ctx->mem_idx, MO_TEUL);
         break;
 #endif
@@ -3062,14 +3069,14 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         case R6_OPC_AUIP:
             if (rs != 0) {
                 offset = imm << 16;
-                addr = memory_address(ctx, ctx->pc, offset);
+                addr = addr_add(ctx, ctx->pc, offset);
                 tcg_gen_movi_tl(cpu_gpr[rs], addr);
             }
             break;
         case R6_OPC_ALUIP:
             if (rs != 0) {
                 offset = imm << 16;
-                addr = ~0xFFFF & memory_address(ctx, ctx->pc, offset);
+                addr = ~0xFFFF & addr_add(ctx, ctx->pc, offset);
                 tcg_gen_movi_tl(cpu_gpr[rs], addr);
             }
             break;
@@ -3080,7 +3087,7 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         case R6_OPC_LDP + (3 << 16):
             check_mips_64(ctx);
             offset = (((int32_t)ctx->opcode << 14)) >> 11;
-            addr = memory_address(ctx, (ctx->pc & ~0x7), offset);
+            addr = addr_add(ctx, (ctx->pc & ~0x7), offset);
             gen_r6_ld(addr, rs, ctx->mem_idx, MO_TEQ);
             break;
 #endif
@@ -4654,7 +4661,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = memory_address(ctx, ctx->pc + 4, offset);
+        btgt = addr_add(ctx, ctx->pc + 4, offset);
         if (rs <= rt && rs == 0) {
             // BEQZALC, BNEZALC
             blink = 31;
@@ -4665,7 +4672,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = memory_address(ctx, ctx->pc + 4, offset);
+        btgt = addr_add(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BLEZALC: // BGEZALC, BGEUC
     case R6_OPC_BGTZALC: // BLTZALC, BLTUC
@@ -4677,11 +4684,11 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = memory_address(ctx, ctx->pc + 4, offset);
+        btgt = addr_add(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
-        btgt = memory_address(ctx, ctx->pc + 4, offset);
+        btgt = addr_add(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BEQZC:
     case R6_OPC_BNEZC:
@@ -4689,7 +4696,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
             // BEQZC, BNEZC
             gen_load_gpr(t0, rs);
             bcond_compute = 1;
-            btgt = memory_address(ctx, ctx->pc + 4, offset);
+            btgt = addr_add(ctx, ctx->pc + 4, offset);
         }
         else {
             // JIC, JIALC
@@ -8446,7 +8453,7 @@ static void gen_compute_branch1_r6(DisasContext *ctx, uint32_t op,
     gen_load_fpr64(ctx, t0, ft);
     tcg_gen_andi_i64(t0, t0, 1);
 
-    btarget = memory_address(ctx, ctx->pc + 4, offset);
+    btarget = addr_add(ctx, ctx->pc + 4, offset);
 
     switch (op) {
     case R6_OPC_BC1EQZ:
