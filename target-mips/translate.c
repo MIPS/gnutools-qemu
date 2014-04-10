@@ -3037,6 +3037,7 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_LWUP:
+        check_mips_64(ctx);
         gen_r6_ld(ctx->pc + offset, rs, ctx->mem_idx, MO_TEUL);
         break;
 #endif
@@ -3058,6 +3059,7 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         case R6_OPC_LDP + (1 << 16):
         case R6_OPC_LDP + (2 << 16):
         case R6_OPC_LDP + (3 << 16):
+            check_mips_64(ctx);
             gen_r6_ld((ctx->pc & ~0x7) + ((((int32_t)ctx->opcode << 14)) >> 11), rs, ctx->mem_idx, MO_TEQ);
             break;
 #endif
@@ -16257,6 +16259,7 @@ static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
         break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_DLSA:
+        check_mips_64(ctx);
     {
         int imm2 = (ctx->opcode >> 6) & 0x3;
         TCGv t0 = tcg_temp_new();
@@ -17446,6 +17449,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
         case R6_OPC_DAHI:
             check_insn(ctx, ISA_MIPS32R6);
+            check_mips_64(ctx);
             if (rs != 0) { // NOP if rs == 0
                 tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 32);
             }
@@ -17453,6 +17457,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case R6_OPC_DATI:
             check_insn(ctx, ISA_MIPS32R6);
+            check_mips_64(ctx);
             if (rs != 0) { // NOP if rs == 0
                 tcg_gen_addi_i64(cpu_gpr[rs], cpu_gpr[rs], (int64_t)imm << 48);
             }
@@ -17946,6 +17951,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         if (ctx->insn_flags & ISA_MIPS32R6) {
 #if defined(TARGET_MIPS64)
             // R6_OPC_DAUI
+            check_mips_64(ctx);
             if (rt != 0) { // NOP if rt == 0
                 TCGv_i64 t0 = tcg_temp_new_i64();
                 gen_load_gpr(t0, rs);
