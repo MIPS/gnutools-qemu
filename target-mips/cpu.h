@@ -302,7 +302,9 @@ typedef struct CPUMIPSPrvState_t {
     int32_t CP0_Config1;
     int32_t CP0_Config2;
     int32_t CP0_Config3;
+    uint32_t CP0_Config4_rw_bitmask;
     int32_t CP0_Config4;
+    uint32_t CP0_Config5_rw_bitmask;
     int32_t CP0_Config5;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
@@ -595,6 +597,7 @@ struct CPUMIPSState {
 #define CP0C3_MT   2
 #define CP0C3_SM   1
 #define CP0C3_TL   0
+    uint32_t CP0_Config4_rw_bitmask;
     int32_t CP0_Config4;
 #define CP0C4_M             31
 #define CP0C4_IE            29
@@ -607,12 +610,18 @@ struct CPUMIPSState {
 #define CP0C4_FTLBWays      4
 #define CP0C4_FTLBSets      0
 #define CP0C4_MMUSizeExt    0
+    uint32_t CP0_Config5_rw_bitmask;
     int32_t CP0_Config5;
-#define CP0C5_MSAEn  27
-#define CP0C5_MVH    5
-#define CP0C5_LLB    4
-#define CP0C5_MRP    3
-#define CP0C5_UFR    2
+#define CP0C5_M        31
+#define CP0C5_K        30
+#define CP0C5_CV       29
+#define CP0C5_EVA      28
+#define CP0C5_MSAEn    27
+#define CP0C5_MVH      5
+#define CP0C5_LLB      4
+#define CP0C5_MRP      3
+#define CP0C5_UFR      2
+#define CP0C5_NFExists 0
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     uint64_t CP0_MAAR[MIPS_MAAR_MAX];

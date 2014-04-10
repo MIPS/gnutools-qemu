@@ -6191,6 +6191,27 @@ void helper_mtgc0_config3 (target_ulong arg1)
     }
 }
 
+void helper_mtc0_config4(target_ulong arg1)
+{
+    if (env->hflags & MIPS_HFLAG_GUEST) {
+        if (!(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CP0)) ||
+                !(env->CP0_GuestCtl0 & (1 << CP0GuestCtl0_CF)) ) {
+            helper_raise_exception_err(EXCP_GUESTEXIT, GPSI);
+        }
+        else {
+            env->Guest.CP0_Config4 =
+                    (env->Guest.CP0_Config4 &
+                            (~env->Guest.CP0_Config4_rw_bitmask)) |
+                    (arg1 & env->Guest.CP0_Config4_rw_bitmask);
+        }
+    }
+    else {
+        env->CP0_Config4 =
+                (env->CP0_Config4 & (~env->CP0_Config4_rw_bitmask)) |
+                (arg1 & env->CP0_Config4_rw_bitmask);
+    }
+}
+
 void helper_mtc0_config5 (target_ulong arg1)
 {
     if (env->hflags & MIPS_HFLAG_GUEST) {
@@ -6212,15 +6233,18 @@ void helper_mtc0_config5 (target_ulong arg1)
             helper_raise_exception_err(EXCP_GUESTEXIT, GSFC);
         }
         else {
-            env->Guest.CP0_Config5 = (arg1 & 0x08000004)
-                | (env->Guest.CP0_Config5 & ~0x08000004);
+            env->CP0_Config5 =
+                    (env->Guest.CP0_Config5 &
+                            (~env->Guest.CP0_Config5_rw_bitmask)) |
+                    (arg1 & env->Guest.CP0_Config5_rw_bitmask);
         }
     }
     else {
         // Segmentation control is not implemented
         // K CV bits are ignored
-        env->CP0_Config5 = (arg1 & 0x08000004)
-            | (env->CP0_Config5 & ~0x08000004);
+        env->CP0_Config5 =
+                (env->CP0_Config5 & (~env->CP0_Config5_rw_bitmask)) |
+                (arg1 & env->CP0_Config5_rw_bitmask);
     }
 }
 

@@ -48,6 +48,12 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
+#define MIPS_CONFIG4                                              \
+((0 << CP0C4_M))
+
+#define MIPS_CONFIG5                                              \
+((0 << CP0C5_M))
+
 /* MMU types, the first four entries have the same layout as the
    CP0C0_MT field.  */
 enum mips_mmu_types {
@@ -68,7 +74,9 @@ struct mips_def_t {
     int32_t CP0_Config2;
     int32_t CP0_Config3;
     int32_t CP0_Config4;
+    int32_t CP0_Config4_rw_bitmask;
     int32_t CP0_Config5;
+    int32_t CP0_Config5_rw_bitmask;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     target_ulong CP0_LLAddr_rw_bitmask;
@@ -104,7 +112,9 @@ struct mips_def_t {
         int32_t CP0_Config1;
         int32_t CP0_Config2;
         int32_t CP0_Config3;
+        int32_t CP0_Config4_rw_bitmask;
         int32_t CP0_Config4;
+        int32_t CP0_Config5_rw_bitmask;
         int32_t CP0_Config5;
         int32_t CP0_Config6; //optional
         int32_t CP0_Config7; //optional
@@ -1100,7 +1110,9 @@ static mips_def_t mips_defs[] =
         // FIXME: DSP DSP2P should be disabled
         .CP0_Config3 = 0x90002c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM and VZ disabled
         .CP0_Config4 = 0xc01c0000, // MMUExtDef:00(Reserved)
+        .CP0_Config4_rw_bitmask = 0,
         .CP0_Config5 = 0x00000028, // EVA, LLB disabled
+        .CP0_Config5_rw_bitmask = 0x08000004,
         .CP0_Config7 = 0x80010800, // IAR, IVAD, ES disabled
         .CP0_GuestCtl0 = 0x0c4c00fc,
         .Guest.CP0_Config0 = 0x80040482,
@@ -1108,7 +1120,9 @@ static mips_def_t mips_defs[] =
         .Guest.CP0_Config2 = 0x80000000,
         .Guest.CP0_Config3 = 0x90002c00,
         .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config4_rw_bitmask = 0,
         .Guest.CP0_Config5 = 0x00000020,
+        .Guest.CP0_Config5_rw_bitmask = 0x08000004,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,

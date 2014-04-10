@@ -6262,12 +6262,10 @@ static void gen_mtc0 (CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
             rn = "Config3";
             break;
         case 4:
-            if (guest_mode) {
-                gen_helper_check_gpsi_cp0();
-                gen_helper_check_gpsi_cf();
-            }
-            /* currently ignored */
+            gen_helper_mtc0_config4(arg);
             rn = "Config4";
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
             break;
         case 5:
             gen_helper_mtc0_config5(arg);
@@ -16330,7 +16328,9 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_Config2 = env->cpu_model->CP0_Config2;
     env->CP0_Config3 = env->cpu_model->CP0_Config3;
     env->CP0_Config4 = env->cpu_model->CP0_Config4;
+    env->CP0_Config4_rw_bitmask = env->cpu_model->CP0_Config4_rw_bitmask;
     env->CP0_Config5 = env->cpu_model->CP0_Config5;
+    env->CP0_Config5_rw_bitmask = env->cpu_model->CP0_Config5_rw_bitmask;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
     env->CP0_ContextConfig = env->cpu_model->CP0_ContextConfig;
@@ -16407,7 +16407,11 @@ void cpu_reset (CPUMIPSState *env)
         env->Guest.CP0_Config2 = env->cpu_model->Guest.CP0_Config2;
         env->Guest.CP0_Config3 = env->cpu_model->Guest.CP0_Config3;
         env->Guest.CP0_Config4 = env->cpu_model->Guest.CP0_Config4;
+        env->Guest.CP0_Config4_rw_bitmask =
+                env->cpu_model->Guest.CP0_Config4_rw_bitmask;
         env->Guest.CP0_Config5 = env->cpu_model->Guest.CP0_Config5;
+        env->Guest.CP0_Config5_rw_bitmask =
+                env->cpu_model->Guest.CP0_Config5_rw_bitmask;
         env->Guest.CP0_Config6 = env->cpu_model->Guest.CP0_Config6;
         env->Guest.CP0_Config7 = env->cpu_model->Guest.CP0_Config7;
 
