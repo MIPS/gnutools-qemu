@@ -16364,6 +16364,7 @@ void cpu_reset (CPUMIPSState *env)
     env->CP0_SRSConf4 = env->cpu_model->CP0_SRSConf4;
     env->insn_flags = env->cpu_model->insn_flags;
 
+    env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
 #if defined(CONFIG_USER_ONLY)
     env->hflags = MIPS_HFLAG_UM;
     /* Enable access to the SYNCI_Step register.  */
@@ -16467,7 +16468,7 @@ void cpu_reset (CPUMIPSState *env)
     }
 #endif
     env->exception_index = EXCP_NONE;
-    env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
+
     if (env->insn_flags & (ISA_MIPS32R2 | ISA_MIPS64)) {
         if (env->CP0_Config1 & (1 << CP0C1_FP)) {
             env->hflags |= MIPS_HFLAG_COP1X;
