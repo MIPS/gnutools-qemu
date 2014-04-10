@@ -465,7 +465,7 @@ DEF_HELPER_1(yield, tl, tl)
 
 /* CP1 functions */
 DEF_HELPER_1(cfc1, tl, i32)
-DEF_HELPER_2(ctc1, void, tl, i32)
+DEF_HELPER_3(ctc1, void, tl, i32, i32)
 
 DEF_HELPER_1(float_cvtd_s, i64, i32)
 DEF_HELPER_1(float_cvtd_w, i64, i32)

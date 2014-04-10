@@ -7752,11 +7752,21 @@ static unsigned int ieee_rm[] = {
 
 target_ulong helper_cfc1 (uint32_t reg)
 {
-    target_ulong arg1;
+    target_ulong arg1 = 0;
 
     switch (reg) {
     case 0:
         arg1 = (int32_t)env->active_fpu.fcr0;
+        break;
+    case 1:
+        /* UFR Support (MIPS32R5 feature) - Read Status FR */
+        if (env->active_fpu.fcr0 & (1 << FCR0_UFRP)) {
+            if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
+                arg1 = (int32_t)((env->CP0_Status & (1  << CP0St_FR)) >> CP0St_FR);
+            } else {
+                helper_raise_exception(EXCP_RI);
+            }
+        }
         break;
     case 25:
         arg1 = ((env->active_fpu.fcr31 >> 24) & 0xfe) | ((env->active_fpu.fcr31 >> 23) & 0x1);
@@ -7775,9 +7785,31 @@ target_ulong helper_cfc1 (uint32_t reg)
     return arg1;
 }
 
-void helper_ctc1 (target_ulong arg1, uint32_t reg)
+void helper_ctc1 (target_ulong arg1, uint32_t fs, uint32_t rt)
 {
-    switch(reg) {
+    switch(fs) {
+    case 1:
+        /* UFR Alias (MIPS32R5 feature) - Reset Status FR */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_UFRP)) && (rt == 0)))
+            return;
+        if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
+            env->CP0_Status &= ~(1 << CP0St_FR);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
+    case 4:
+        /* UNFR Alias (MIPS32R5 feature) - Set Status FR */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_UFRP)) && (rt == 0)))
+            return;
+        if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
+            env->CP0_Status |= (1 << CP0St_FR);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(EXCP_RI);
+        }
+        break;
     case 25:
         if (arg1 & 0xffffff00)
             return;
