@@ -1487,6 +1487,22 @@ static inline void gen_op_addr_add (DisasContext *ctx, TCGv ret, TCGv arg0, TCGv
 #endif
 }
 
+/* Addresses computation (translation time) */
+static target_long memory_address (DisasContext *ctx, target_long base, target_long offset)
+{
+    target_long sum = base + offset;
+
+#if defined(TARGET_MIPS64)
+    /* memory_address performs mode-dependent address space wrapping for compatibility
+       between MIPS32 and MIPS64. */
+    if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
+        !(ctx->hflags & MIPS_HFLAG_UX)) {
+        sum = (int32_t)sum;
+    }
+#endif
+    return sum;
+}
+
 static inline void check_cp0_enabled(DisasContext *ctx)
 {
     if (unlikely(!(ctx->hflags & MIPS_HFLAG_CP0)))
@@ -2999,21 +3015,6 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
     MIPS_DEBUG("%s %s", opn, regnames[reg]);
 }
 
-static target_long calc_pc_add (target_long base, target_long offset)
-{
-    target_long sum = base + offset;
-#if defined (TARGET_MIPS64)
-    // address sum extend
-#define ADDR_EXT_MIN (-((int64_t)1 << 31))
-#define ADDR_EXT_MAX  (((int64_t)1 << 31) - 1)
-    if (base >= ADDR_EXT_MIN && base <= ADDR_EXT_MAX 
-        && offset >= ADDR_EXT_MIN && offset <= ADDR_EXT_MAX) {
-        sum = (int32_t)sum;
-    }
-#endif
-    return sum;
-}
-
 static inline void gen_r6_ld (target_long addr, int reg, int memidx, 
                               TCGMemOp memop)
 {
@@ -3032,34 +3033,44 @@ static inline void gen_r6_ld (target_long addr, int reg, int memidx,
 
 static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
 {
-    target_long offset = ((int32_t)ctx->opcode << 13) >> 11;
+    target_long offset;
+    target_long addr;
 
     switch (MASK_R6_PC_RELATIVE_TOP2BITS(ctx->opcode)) {
     case R6_OPC_ADDIUP:
         if (rs != 0) {
-            tcg_gen_movi_tl(cpu_gpr[rs], calc_pc_add(ctx->pc, offset));
+            offset = ((int32_t)ctx->opcode << 13) >> 11;
+            addr = memory_address(ctx, ctx->pc, offset);
+            tcg_gen_movi_tl(cpu_gpr[rs], addr);
         }
         break;
     case R6_OPC_LWP:
-        gen_r6_ld(ctx->pc + offset, rs, ctx->mem_idx, MO_TESL);
+        offset = ((int32_t)ctx->opcode << 13) >> 11;
+        addr = memory_address(ctx, ctx->pc, offset);
+        gen_r6_ld(addr, rs, ctx->mem_idx, MO_TESL);
         break;
 #if defined(TARGET_MIPS64)
     case R6_OPC_LWUP:
         check_mips_64(ctx);
-        gen_r6_ld(ctx->pc + offset, rs, ctx->mem_idx, MO_TEUL);
+        offset = ((int32_t)ctx->opcode << 13) >> 11;
+        addr = memory_address(ctx, ctx->pc, offset);
+        gen_r6_ld(addr, rs, ctx->mem_idx, MO_TEUL);
         break;
 #endif
     default:
         switch (MASK_R6_PC_RELATIVE_TOP5BITS(ctx->opcode)) {
         case R6_OPC_AUIP:
             if (rs != 0) {
-                tcg_gen_movi_tl(cpu_gpr[rs], calc_pc_add(ctx->pc, imm << 16));
+                offset = imm << 16;
+                addr = memory_address(ctx, ctx->pc, offset);
+                tcg_gen_movi_tl(cpu_gpr[rs], addr);
             }
             break;
         case R6_OPC_ALUIP:
             if (rs != 0) {
-                tcg_gen_movi_tl(cpu_gpr[rs],
-                                ~0xFFFF & calc_pc_add(ctx->pc, imm << 16));
+                offset = imm << 16;
+                addr = ~0xFFFF & memory_address(ctx, ctx->pc, offset);
+                tcg_gen_movi_tl(cpu_gpr[rs], addr);
             }
             break;
 #if defined(TARGET_MIPS64)
@@ -3068,7 +3079,9 @@ static inline void gen_r6_pc_relative (DisasContext *ctx, int rs, int16_t imm)
         case R6_OPC_LDP + (2 << 16):
         case R6_OPC_LDP + (3 << 16):
             check_mips_64(ctx);
-            gen_r6_ld((ctx->pc & ~0x7) + ((((int32_t)ctx->opcode << 14)) >> 11), rs, ctx->mem_idx, MO_TEQ);
+            offset = (((int32_t)ctx->opcode << 14)) >> 11;
+            addr = memory_address(ctx, (ctx->pc & ~0x7), offset);
+            gen_r6_ld(addr, rs, ctx->mem_idx, MO_TEQ);
             break;
 #endif
         default:
@@ -4641,7 +4654,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = calc_pc_add(ctx->pc + 4, offset);
+        btgt = memory_address(ctx, ctx->pc + 4, offset);
         if (rs <= rt && rs == 0) {
             // BEQZALC, BNEZALC
             blink = 31;
@@ -4652,7 +4665,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = calc_pc_add(ctx->pc + 4, offset);
+        btgt = memory_address(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BLEZALC: // BGEZALC, BGEUC
     case R6_OPC_BGTZALC: // BLTZALC, BLTUC
@@ -4664,11 +4677,11 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
         bcond_compute = 1;
-        btgt = calc_pc_add(ctx->pc + 4, offset);
+        btgt = memory_address(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BC:
     case R6_OPC_BALC:
-        btgt = calc_pc_add(ctx->pc + 4, offset);
+        btgt = memory_address(ctx, ctx->pc + 4, offset);
         break;
     case R6_OPC_BEQZC:
     case R6_OPC_BNEZC:
@@ -4676,7 +4689,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
             // BEQZC, BNEZC
             gen_load_gpr(t0, rs);
             bcond_compute = 1;
-            btgt = calc_pc_add(ctx->pc + 4, offset);
+            btgt = memory_address(ctx, ctx->pc + 4, offset);
         }
         else {
             // JIC, JIALC
@@ -4685,27 +4698,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
 
             gen_load_gpr(tbase, rt);
             tcg_gen_movi_tl(toffset, offset);
-            tcg_gen_add_tl(btarget, tbase, toffset);
-#ifdef TARGET_MIPS64
-            TCGv tmin = tcg_temp_local_new();
-            TCGv tmax = tcg_temp_local_new();
-            int lexit = gen_new_label();
-
-            tcg_gen_movi_tl(tmin, ADDR_EXT_MIN);
-            tcg_gen_movi_tl(tmax, ADDR_EXT_MAX);
-
-            tcg_gen_brcond_tl(TCG_COND_LT, tbase, tmin, lexit);
-            tcg_gen_brcond_tl(TCG_COND_GT, tbase, tmax, lexit);
-
-            tcg_gen_brcond_tl(TCG_COND_LT, toffset, tmin, lexit);
-            tcg_gen_brcond_tl(TCG_COND_GT, toffset, tmax, lexit);
-
-            tcg_gen_ext32s_tl(btarget, btarget);
-
-            gen_set_label(lexit);
-            tcg_temp_free(tmin);
-            tcg_temp_free(tmax);
-#endif
+            gen_op_addr_add(ctx, btarget, tbase, toffset);
             tcg_temp_free(tbase);
             tcg_temp_free(toffset);
         }
@@ -8453,7 +8446,7 @@ static void gen_compute_branch1_r6(DisasContext *ctx, uint32_t op,
     gen_load_fpr64(ctx, t0, ft);
     tcg_gen_andi_i64(t0, t0, 1);
 
-    btarget = calc_pc_add(ctx->pc + 4, offset);
+    btarget = memory_address(ctx, ctx->pc + 4, offset);
 
     switch (op) {
     case R6_OPC_BC1EQZ:
