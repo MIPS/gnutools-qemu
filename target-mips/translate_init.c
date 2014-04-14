@@ -1111,7 +1111,6 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_R4000,
     },
     {
-        // at the moment proAptivVZ + XPA + MSA
         .name = "P5600",
         .CP0_PRid = 0x0001A820,
         .CP0_Config0 = 0x80040482,
@@ -1145,6 +1144,42 @@ static mips_def_t mips_defs[] =
         .PABITS = 40,
         // FIXME: DSP DSPR2 should be disabled
         .insn_flags = CPU_MIPS32R2 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "P5600VZ", // Enabled VZ (experimental)
+        .CP0_PRid = 0x0001A820,
+        .CP0_Config0 = 0x80040482,
+        .CP0_Config1 = 0xfea35191, // WR, EP disabled,
+        .CP0_Config2 = 0x80000447,
+        // FIXME: DSP DSP2P should be disabled
+        .CP0_Config3 = 0x90802c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM disabled
+        .CP0_Config4 = 0xc01c0000, // MMUExtDef:00(Reserved)
+        .CP0_Config4_rw_bitmask = 0,
+        .CP0_Config5 = 0x00000028, // EVA, LLB disabled
+        .CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_Config7 = 0x00010800, // WII, IAR, IVAD, ES disabled
+        .CP0_GuestCtl0 = 0x0c4c00fc,
+        .Guest.CP0_Config0 = 0x80040482,
+        .Guest.CP0_Config1 = 0xfea35191,
+        .Guest.CP0_Config2 = 0x80000000,
+        .Guest.CP0_Config3 = 0x90002c00,
+        .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config4_rw_bitmask = 0,
+        .Guest.CP0_Config5 = 0x00000020,
+        .Guest.CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x3D4AFF1F,
+        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_HAS2008) | (1 << FCR0_F64) |
+                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+                    (1 << FCR0_S) | (0x03 << FCR0_PRID),
+        .SEGBITS = 32,
+        .PABITS = 40,
+        // FIXME: DSP DSPR2 should be disabled
+        .insn_flags = CPU_MIPS32R2 | ASE_DSP | ASE_DSPR2 | ASE_MSA | ASE_VZ,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
