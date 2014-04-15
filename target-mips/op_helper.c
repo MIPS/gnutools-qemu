@@ -1801,7 +1801,7 @@ void helper_mtc0_maari (CPUMIPSState *env, target_ulong arg1)
         env->CP0_MAARI = MIPS_MAAR_MAX - 1;
     }
     else if (index < MIPS_MAAR_MAX) {
-        env->CP0_MAARI = arg1;
+        env->CP0_MAARI = index;
     }
     // Other than the all ones, if the
     // value written is not supported, then INDEX is unchanged
