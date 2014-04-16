@@ -52,6 +52,7 @@ typedef struct ResetData {
 
 #ifdef MIPSSIM_COMPAT
 /* For AVPS:
+ *  Use -bios to load Boot hex file
  *  Use -kernel to load first ELF file (as usual)
  *  Use -initrd to load second MIPS 'hex' file (normally a binary image)
  *  Leave the starting point as the reset vector
@@ -327,23 +328,22 @@ mips_mipssim_init (ram_addr_t ram_size,
     /* Load a BIOS / boot exception handler image. */
     if (bios_name == NULL)
         bios_name = BIOS_FILENAME;
-#ifdef SV_SUPPORT
-    /* Use -bios to load test.hex for SV against IASim */
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
     if (filename) {
+#if defined(SV_SUPPORT) || defined(MIPSSIM_COMPAT)
+        // AVP - load Boot*.hex file
+        // SV  - load test.hex (AVP IASim image)
         bios_size = load_mips_hex(filename);
-    } else {
-        bios_size = -1;
-    }
-    if (bios_size < 0 && !kernel_filename) {
 #else
-    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
-    if (filename) {
         bios_size = load_image_targphys(filename, 0x1fc00000LL, BIOS_SIZE);
+#endif
         g_free(filename);
     } else {
         bios_size = -1;
     }
+#ifdef SV_SUPPORT
+    if (bios_size < 0 && !kernel_filename) {
+#else
     if ((bios_size < 0 || bios_size > BIOS_SIZE) && !kernel_filename) {
 #endif
         /* Bail out if we have neither a kernel image nor boot vector code. */

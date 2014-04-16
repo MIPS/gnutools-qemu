@@ -18,7 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef MIPSSIM_COMPAT
+#if defined(MIPSSIM_COMPAT) || defined(SV_SUPPORT)
 #include "mips-avp.h"
 #endif
 /* CPU / CPU family specific config register values. */
@@ -48,6 +48,12 @@
  (0 << CP0C3_VEIC) | (0 << CP0C3_VInt) | (0 << CP0C3_SP) |        \
  (0 << CP0C3_SM) | (0 << CP0C3_TL))
 
+#define MIPS_CONFIG4                                              \
+((0 << CP0C4_M))
+
+#define MIPS_CONFIG5                                              \
+((0 << CP0C5_M))
+
 /* MMU types, the first four entries have the same layout as the
    CP0C0_MT field.  */
 enum mips_mmu_types {
@@ -68,7 +74,9 @@ struct mips_def_t {
     int32_t CP0_Config2;
     int32_t CP0_Config3;
     int32_t CP0_Config4;
+    int32_t CP0_Config4_rw_bitmask;
     int32_t CP0_Config5;
+    int32_t CP0_Config5_rw_bitmask;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     target_ulong CP0_LLAddr_rw_bitmask;
@@ -94,6 +102,24 @@ struct mips_def_t {
     int32_t CP0_ContextConfig;
     int insn_flags;
     enum mips_mmu_types mmu_type;
+    int32_t CP0_GuestCtl0;
+    int32_t CP0_GuestCtl1;
+    int32_t CP0_GuestCtl2;
+    int32_t CP0_GuestCtl3;
+    int32_t CP0_GuestCtl0Ext;
+    struct Guest_t {
+        int32_t CP0_Config0;
+        int32_t CP0_Config1;
+        int32_t CP0_Config2;
+        int32_t CP0_Config3;
+        int32_t CP0_Config4_rw_bitmask;
+        int32_t CP0_Config4;
+        int32_t CP0_Config5_rw_bitmask;
+        int32_t CP0_Config5;
+        int32_t CP0_Config6; //optional
+        int32_t CP0_Config7; //optional
+        int32_t CP0_ContextConfig;
+    } Guest;
 };
 
 /*****************************************************************************/
@@ -668,19 +694,29 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt) |
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_M)| (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
                        (1 << CP0C3_MSAP),
+        .CP0_Config4 = MIPS_CONFIG4 | (1 << CP0C4_M),
+        .CP0_Config4_rw_bitmask = 0,
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR),
+        /* CP0C5_UFR is R/W if an FPU is present and if
+           the User modeFR changing feature is present,
+           i.e. if FCR0_CR2 is set. Otherwise CP0C5_UFR is 0. */
+        .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
+                                  (1 << CP0C5_CV) | (0 << CP0C5_EVA) |
+                                  (1 << CP0C5_MSAEn) | (1 << CP0C5_UFR) |
+                                  (0 << CP0C5_NFExists),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3778FF1F,
-        .CP1_fcr0 = (1 << FCR0_CR2) | (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -1034,32 +1070,116 @@ static mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_R4000,
     },
     {
-        .name = "Allegro",
-        .CP0_PRid = 0x0001a300,
+        .name = "proAptivVZ",
+        .CP0_PRid = 0x0001a304,
+/*
         .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
                     (MMU_TYPE_R4000 << CP0C0_MT),
-        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (15 << CP0C1_MMU) |
+        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (63 << CP0C1_MMU) |
                        (0 << CP0C1_IS) | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VZ) |
-                       (0 << CP0C3_CMGCR) |
-                       (1 << CP0C3_MSAP) | (0 << CP0C3_VInt) | 
-                       (1 << CP0C3_LPA) | (1 << CP0C3_M) |
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_VZ) |
+                       (1 << CP0C3_CMGCR) | (0 << CP0C3_VInt) |
                        (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP),
-        .CP0_Config4 = (1 << CP0C4_M),
-        .CP0_Config5 = (1 << CP0C5_MVH),
+*/
+        .CP0_Config0 = 0x80040482,
+        .CP0_Config1 = 0xfea35191,
+        .CP0_Config2 = 0x80000447,
+        .CP0_Config3 = 0xa0802c00,
+        .CP0_Config4 = 0xc01c0000,
+        .CP0_Config5 = 0x00000000,
+        .CP0_Config7 = 0x80010800,
+        .CP0_GuestCtl0 = 0x0c4c00fc,
+        .Guest.CP0_Config0 = 0x80040482,
+        .Guest.CP0_Config1 = 0xfea35191,
+        .Guest.CP0_Config2 = 0x80000000,
+        .Guest.CP0_Config3 = 0x80002c00,
+        .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config5 = 0x00000000,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x3d78FF1F,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
+        .CP0_Status_rw_bitmask = 0x3D4AFF1F,
+        .CP1_fcr0 = (1 << FCR0_HAS2008) | (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
         .SEGBITS = 32,
+        .PABITS = 32,
+        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_VZ,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "P5600",
+        .CP0_PRid = 0x0001A820,
+        .CP0_Config0 = 0x80040482,
+        .CP0_Config1 = 0xfea35191, // WR, EP disabled,
+        .CP0_Config2 = 0x80000447,
+        // FIXME: DSP DSP2P should be disabled
+        .CP0_Config3 = 0x90002c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM and VZ disabled
+        .CP0_Config4 = 0xc01c0000, // MMUExtDef:00(Reserved)
+        .CP0_Config4_rw_bitmask = 0,
+        .CP0_Config5 = 0x00000028, // EVA, LLB disabled
+        .CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_Config7 = 0x00010800, // WII, IAR, IVAD, ES disabled
+        .CP0_GuestCtl0 = 0x0c4c00fc,
+        .Guest.CP0_Config0 = 0x80040482,
+        .Guest.CP0_Config1 = 0xfea35191,
+        .Guest.CP0_Config2 = 0x80000000,
+        .Guest.CP0_Config3 = 0x90002c00,
+        .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config4_rw_bitmask = 0,
+        .Guest.CP0_Config5 = 0x00000020,
+        .Guest.CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x3D4AFF1F,
+        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_HAS2008) | (1 << FCR0_F64) |
+                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+                    (1 << FCR0_S) | (0x03 << FCR0_PRID),
+        .SEGBITS = 32,
         .PABITS = 40,
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        // FIXME: DSP DSPR2 should be disabled
+        .insn_flags = CPU_MIPS32R2 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
+        .mmu_type = MMU_TYPE_R4000,
+    },
+    {
+        .name = "P5600VZ", // Enabled VZ (experimental)
+        .CP0_PRid = 0x0001A820,
+        .CP0_Config0 = 0x80040482,
+        .CP0_Config1 = 0xfea35191, // WR, EP disabled,
+        .CP0_Config2 = 0x80000447,
+        // FIXME: DSP DSP2P should be disabled
+        .CP0_Config3 = 0x90802c80, //0x90802280, // CMGCR, BP, BI SC, RXI, VInt, CDMM disabled
+        .CP0_Config4 = 0xc01c0000, // MMUExtDef:00(Reserved)
+        .CP0_Config4_rw_bitmask = 0,
+        .CP0_Config5 = 0x00000028, // EVA, LLB disabled
+        .CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_Config7 = 0x00010800, // WII, IAR, IVAD, ES disabled
+        .CP0_GuestCtl0 = 0x0c4c00fc,
+        .Guest.CP0_Config0 = 0x80040482,
+        .Guest.CP0_Config1 = 0xfea35191,
+        .Guest.CP0_Config2 = 0x80000000,
+        .Guest.CP0_Config3 = 0x90002c00,
+        .Guest.CP0_Config4 = 0xc01c0000,
+        .Guest.CP0_Config4_rw_bitmask = 0,
+        .Guest.CP0_Config5 = 0x00000020,
+        .Guest.CP0_Config5_rw_bitmask = 0x08000004,
+        .CP0_LLAddr_rw_bitmask = 0,
+        .CP0_LLAddr_shift = 4,
+        .SYNCI_Step = 32,
+        .CCRes = 2,
+        .CP0_Status_rw_bitmask = 0x3D4AFF1F,
+        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_HAS2008) | (1 << FCR0_F64) |
+                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+                    (1 << FCR0_S) | (0x03 << FCR0_PRID),
+        .SEGBITS = 32,
+        .PABITS = 40,
+        // FIXME: DSP DSPR2 should be disabled
+        .insn_flags = CPU_MIPS32R2 | ASE_DSP | ASE_DSPR2 | ASE_MSA | ASE_VZ,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
@@ -1358,11 +1478,21 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;
     env->tlb->helper_tlbp = r4k_helper_tlbp;
     env->tlb->helper_tlbr = r4k_helper_tlbr;
+    env->tlb->helper_tlbinv = r4k_helper_tlbinv;
+
+    env->guest_tlb->map_address = &r4k_map_address;
+    env->guest_tlb->helper_tlbwi = r4k_helper_tlbgwi;
+    env->guest_tlb->helper_tlbwr = r4k_helper_tlbwr;
+    env->guest_tlb->helper_tlbp = r4k_helper_tlbgp;
+    env->guest_tlb->helper_tlbr = r4k_helper_tlbgr;
+    env->guest_tlb->helper_tlbwr = r4k_helper_tlbgwr;
+    env->guest_tlb->helper_tlbinv = r4k_helper_tlbginv;
 }
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
     env->tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
+    env->guest_tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
 
     switch (def->mmu_type) {
         case MMU_TYPE_NONE:
@@ -1452,6 +1582,22 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
         CHECK_SET_CONFIG(insn_flags, int);
         CHECK_SET_CONFIG(CP0_ContextConfig, uint32_t);
+
+        CHECK_SET_CONFIG(CP0_GuestCtl0, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl1, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl2, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl3, uint32_t);
+        CHECK_SET_CONFIG(CP0_GuestCtl0Ext, uint32_t);
+
+        CHECK_SET_CONFIG(Guest.CP0_Config0, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config1, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config2, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config3, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config4, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config5, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config6, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_Config7, uint32_t);
+        CHECK_SET_CONFIG(Guest.CP0_ContextConfig, uint32_t);
 
         cpu_abort(env, "Unknown override option %s\n", name);
     }
@@ -1569,3 +1715,25 @@ static void msa_reset(CPUMIPSState *env)
     /* clear float_status nan mode */
     set_default_nan_mode(0, &env->active_msa.fp_status);
 }
+
+#ifdef MIPSSIM_COMPAT
+char *cpu_model_name;
+char *cpu_config_name;
+#endif
+
+#ifdef SV_SUPPORT
+FILE *svtracefile;
+
+void sv_log_init(const char * filename)
+{
+    if (svtracefile){
+        fclose(svtracefile);
+        svtracefile = NULL;
+    }
+    svtracefile = fopen(filename, "w");
+    if (!svtracefile){
+        perror(filename);
+        _exit(1);
+    }
+}
+#endif
