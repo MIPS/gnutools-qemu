@@ -145,7 +145,7 @@ static long load_mips_hex(const char *filename)
         }
 
         /* put the data into the physical memory */
-        cpu_physical_memory_write_rom(addr << 2, (uint8_t *)&data, 4);
+        cpu_physical_memory_write_rom(&address_space_memory, addr << 2, (uint8_t *)&data, 4);
 
         size += 4;
     } while (!feof(fd));

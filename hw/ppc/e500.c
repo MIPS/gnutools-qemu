@@ -238,6 +238,7 @@ static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
        the first node as boot node and be happy */
     for (i = smp_cpus - 1; i >= 0; i--) {
         CPUState *cpu;
+        PowerPCCPU *pcpu;
         char cpu_name[128];
         uint64_t cpu_release_addr = MPC8544_SPIN_BASE + (i * 0x20);
 
@@ -246,14 +247,16 @@ static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
             continue;
         }
         env = cpu->env_ptr;
+        pcpu = POWERPC_CPU(cpu);
 
         snprintf(cpu_name, sizeof(cpu_name), "/cpus/PowerPC,8544@%x",
-                 cpu->cpu_index);
+                 ppc_get_vcpu_dt_id(pcpu));
         qemu_fdt_add_subnode(fdt, cpu_name);
         qemu_fdt_setprop_cell(fdt, cpu_name, "clock-frequency", clock_freq);
         qemu_fdt_setprop_cell(fdt, cpu_name, "timebase-frequency", tb_freq);
         qemu_fdt_setprop_string(fdt, cpu_name, "device_type", "cpu");
-        qemu_fdt_setprop_cell(fdt, cpu_name, "reg", cpu->cpu_index);
+        qemu_fdt_setprop_cell(fdt, cpu_name, "reg",
+                              ppc_get_vcpu_dt_id(pcpu));
         qemu_fdt_setprop_cell(fdt, cpu_name, "d-cache-line-size",
                               env->dcache_line_size);
         qemu_fdt_setprop_cell(fdt, cpu_name, "i-cache-line-size",
@@ -469,14 +472,13 @@ static void ppce500_cpu_reset_sec(void *opaque)
 {
     PowerPCCPU *cpu = opaque;
     CPUState *cs = CPU(cpu);
-    CPUPPCState *env = &cpu->env;
 
     cpu_reset(cs);
 
     /* Secondary CPU starts in halted state for now. Needs to change when
        implementing non-kernel boot. */
     cs->halted = 1;
-    env->exception_index = EXCP_HLT;
+    cs->exception_index = EXCP_HLT;
 }
 
 static void ppce500_cpu_reset(void *opaque)
@@ -647,7 +649,7 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
         input = (qemu_irq *)env->irq_inputs;
         irqs[i][OPENPIC_OUTPUT_INT] = input[PPCE500_INPUT_INT];
         irqs[i][OPENPIC_OUTPUT_CINT] = input[PPCE500_INPUT_CINT];
-        env->spr[SPR_BOOKE_PIR] = cs->cpu_index = i;
+        env->spr_cb[SPR_BOOKE_PIR].default_value = cs->cpu_index = i;
         env->mpic_iack = MPC8544_CCSRBAR_BASE +
                          MPC8544_MPIC_REGS_OFFSET + 0xa0;
 

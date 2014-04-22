@@ -26,12 +26,18 @@ typedef struct DisasContext {
     int aarch64;
     int current_pl;
     GHashTable *cp_regs;
+    uint64_t features; /* CPU features bits */
 #define TMP_A64_MAX 16
     int tmp_a64_count;
     TCGv_i64 tmp_a64[TMP_A64_MAX];
 } DisasContext;
 
 extern TCGv_ptr cpu_env;
+
+static inline int arm_dc_feature(DisasContext *dc, int feature)
+{
+    return (dc->features & (1ULL << feature)) != 0;
+}
 
 /* target-specific extra values for is_jmp */
 /* These instructions trap after executing, so the A32/T32 decoder must
@@ -44,6 +50,8 @@ extern TCGv_ptr cpu_env;
  * emitting unreachable code at the end of the TB in the A64 decoder
  */
 #define DISAS_EXC 6
+/* WFE */
+#define DISAS_WFE 7
 
 #ifdef TARGET_AARCH64
 void a64_translate_init(void);

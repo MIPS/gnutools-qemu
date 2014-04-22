@@ -20,6 +20,8 @@
 #include "block/block.h"
 #include "block/nbd.h"
 #include "qemu/main-loop.h"
+#include "qemu/sockets.h"
+#include "qemu/error-report.h"
 #include "block/snapshot.h"
 
 #include <stdarg.h>
@@ -201,6 +203,56 @@ static void termsig_handler(int signum)
     qemu_notify_event();
 }
 
+static void combine_addr(char *buf, size_t len, const char* address,
+                         uint16_t port)
+{
+    /* If the address-part contains a colon, it's an IPv6 IP so needs [] */
+    if (strstr(address, ":")) {
+        snprintf(buf, len, "[%s]:%u", address, port);
+    } else {
+        snprintf(buf, len, "%s:%u", address, port);
+    }
+}
+
+static int tcp_socket_incoming(const char *address, uint16_t port)
+{
+    char address_and_port[128];
+    Error *local_err = NULL;
+
+    combine_addr(address_and_port, 128, address, port);
+    int fd = inet_listen(address_and_port, NULL, 0, SOCK_STREAM, 0, &local_err);
+
+    if (local_err != NULL) {
+        qerror_report_err(local_err);
+        error_free(local_err);
+    }
+    return fd;
+}
+
+static int unix_socket_incoming(const char *path)
+{
+    Error *local_err = NULL;
+    int fd = unix_listen(path, NULL, 0, &local_err);
+
+    if (local_err != NULL) {
+        qerror_report_err(local_err);
+        error_free(local_err);
+    }
+    return fd;
+}
+
+static int unix_socket_outgoing(const char *path)
+{
+    Error *local_err = NULL;
+    int fd = unix_connect(path, &local_err);
+
+    if (local_err != NULL) {
+        qerror_report_err(local_err);
+        error_free(local_err);
+    }
+    return fd;
+}
+
 static void *show_parts(void *arg)
 {
     char *device = arg;
@@ -236,19 +288,19 @@ static void *nbd_client_thread(void *arg)
     ret = nbd_receive_negotiate(sock, NULL, &nbdflags,
                                 &size, &blocksize);
     if (ret < 0) {
-        goto out;
+        goto out_socket;
     }
 
     fd = open(device, O_RDWR);
     if (fd < 0) {
         /* Linux-only, we can use %m in printf.  */
         fprintf(stderr, "Failed to open %s: %m", device);
-        goto out;
+        goto out_socket;
     }
 
     ret = nbd_init(fd, sock, nbdflags, size, blocksize);
     if (ret < 0) {
-        goto out;
+        goto out_fd;
     }
 
     /* update partition table */
@@ -264,12 +316,16 @@ static void *nbd_client_thread(void *arg)
 
     ret = nbd_client(fd);
     if (ret) {
-        goto out;
+        goto out_fd;
     }
     close(fd);
     kill(getpid(), SIGTERM);
     return (void *) EXIT_SUCCESS;
 
+out_fd:
+    close(fd);
+out_socket:
+    closesocket(sock);
 out:
     kill(getpid(), SIGTERM);
     return (void *) EXIT_FAILURE;
@@ -303,6 +359,11 @@ static void nbd_accept(void *opaque)
     socklen_t addr_len = sizeof(addr);
 
     int fd = accept(server_fd, (struct sockaddr *)&addr, &addr_len);
+    if (fd < 0) {
+        perror("accept");
+        return;
+    }
+
     if (state >= TERMINATE) {
         close(fd);
         return;
@@ -376,6 +437,7 @@ int main(int argc, char **argv)
     memset(&sa_sigterm, 0, sizeof(sa_sigterm));
     sa_sigterm.sa_handler = termsig_handler;
     sigaction(SIGTERM, &sa_sigterm, NULL);
+    qemu_init_exec_dir(argv[0]);
 
     while ((ch = getopt_long(argc, argv, sopt, lopt, &opt_ind)) != -1) {
         switch (ch) {
@@ -597,7 +659,7 @@ int main(int argc, char **argv)
 
     bs = bdrv_new("hda");
     srcpath = argv[optind];
-    ret = bdrv_open(bs, srcpath, NULL, flags, drv, &local_err);
+    ret = bdrv_open(&bs, srcpath, NULL, NULL, flags, drv, &local_err);
     if (ret < 0) {
         errno = -ret;
         err(EXIT_FAILURE, "Failed to bdrv_open '%s': %s", argv[optind],

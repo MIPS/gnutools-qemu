@@ -504,7 +504,7 @@ static void fw_cfg_machine_ready(struct Notifier *n, void *data)
 {
     size_t len;
     FWCfgState *s = container_of(n, FWCfgState, machine_ready);
-    char *bootindex = get_boot_devices_list(&len);
+    char *bootindex = get_boot_devices_list(&len, false);
 
     fw_cfg_add_file(s, "bootorder", (uint8_t*)bootindex, len);
 }
@@ -584,8 +584,8 @@ static void fw_cfg_realize(DeviceState *dev, Error **errp)
 }
 
 static Property fw_cfg_properties[] = {
-    DEFINE_PROP_HEX32("ctl_iobase", FWCfgState, ctl_iobase, -1),
-    DEFINE_PROP_HEX32("data_iobase", FWCfgState, data_iobase, -1),
+    DEFINE_PROP_UINT32("ctl_iobase", FWCfgState, ctl_iobase, -1),
+    DEFINE_PROP_UINT32("data_iobase", FWCfgState, data_iobase, -1),
     DEFINE_PROP_END_OF_LIST(),
 };
 

@@ -96,8 +96,16 @@ static void mirror_iteration_done(MirrorOp *op, int ret)
         bitmap_set(s->cow_bitmap, chunk_num, nb_chunks);
     }
 
+    qemu_iovec_destroy(&op->qiov);
     g_slice_free(MirrorOp, op);
-    qemu_coroutine_enter(s->common.co, NULL);
+
+    /* Enter coroutine when it is not sleeping.  The coroutine sleeps to
+     * rate-limit itself.  The coroutine will eventually resume since there is
+     * a sleep timeout so don't wake it early.
+     */
+    if (s->common.busy) {
+        qemu_coroutine_enter(s->common.co, NULL);
+    }
 }
 
 static void mirror_write_complete(void *opaque, int ret)
@@ -138,11 +146,12 @@ static void mirror_read_complete(void *opaque, int ret)
                     mirror_write_complete, op);
 }
 
-static void coroutine_fn mirror_iteration(MirrorBlockJob *s)
+static uint64_t coroutine_fn mirror_iteration(MirrorBlockJob *s)
 {
     BlockDriverState *source = s->common.bs;
     int nb_sectors, sectors_per_chunk, nb_chunks;
     int64_t end, sector_num, next_chunk, next_sector, hbitmap_next_sector;
+    uint64_t delay_ns;
     MirrorOp *op;
 
     s->sector_num = hbitmap_iter_next(&s->hbi);
@@ -230,7 +239,12 @@ static void coroutine_fn mirror_iteration(MirrorBlockJob *s)
         nb_chunks += added_chunks;
         next_sector += added_sectors;
         next_chunk += added_chunks;
-    } while (next_sector < end);
+        if (!s->synced && s->common.speed) {
+            delay_ns = ratelimit_calculate_delay(&s->limit, added_sectors);
+        } else {
+            delay_ns = 0;
+        }
+    } while (delay_ns == 0 && next_sector < end);
 
     /* Allocate a MirrorOp that is used as an AIO callback.  */
     op = g_slice_new(MirrorOp);
@@ -267,6 +281,7 @@ static void coroutine_fn mirror_iteration(MirrorBlockJob *s)
     trace_mirror_one_iteration(s, sector_num, nb_sectors);
     bdrv_aio_readv(source, sector_num, &op->qiov, nb_sectors,
                    mirror_read_complete, op);
+    return delay_ns;
 }
 
 static void mirror_free_init(MirrorBlockJob *s)
@@ -361,7 +376,7 @@ static void coroutine_fn mirror_run(void *opaque)
     bdrv_dirty_iter_init(bs, s->dirty_bitmap, &s->hbi);
     last_pause_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
     for (;;) {
-        uint64_t delay_ns;
+        uint64_t delay_ns = 0;
         int64_t cnt;
         bool should_complete;
 
@@ -385,8 +400,10 @@ static void coroutine_fn mirror_run(void *opaque)
                 qemu_coroutine_yield();
                 continue;
             } else if (cnt != 0) {
-                mirror_iteration(s);
-                continue;
+                delay_ns = mirror_iteration(s);
+                if (delay_ns == 0) {
+                    continue;
+                }
             }
         }
 
@@ -431,17 +448,10 @@ static void coroutine_fn mirror_run(void *opaque)
         }
 
         ret = 0;
-        trace_mirror_before_sleep(s, cnt, s->synced);
+        trace_mirror_before_sleep(s, cnt, s->synced, delay_ns);
         if (!s->synced) {
             /* Publish progress */
             s->common.offset = (end - cnt) * BDRV_SECTOR_SIZE;
-
-            if (s->common.speed) {
-                delay_ns = ratelimit_calculate_delay(&s->limit, sectors_per_chunk);
-            } else {
-                delay_ns = 0;
-            }
-
             block_job_sleep_ns(&s->common, QEMU_CLOCK_REALTIME, delay_ns);
             if (block_job_is_cancelled(&s->common)) {
                 break;
@@ -519,9 +529,6 @@ static void mirror_complete(BlockJob *job, Error **errp)
 
     ret = bdrv_open_backing_file(s->target, NULL, &local_err);
     if (ret < 0) {
-        char backing_filename[PATH_MAX];
-        bdrv_get_full_backing_filename(s->target, backing_filename,
-                                       sizeof(backing_filename));
         error_propagate(errp, local_err);
         return;
     }
@@ -630,11 +637,56 @@ void commit_active_start(BlockDriverState *bs, BlockDriverState *base,
                          BlockDriverCompletionFunc *cb,
                          void *opaque, Error **errp)
 {
+    int64_t length, base_length;
+    int orig_base_flags;
+    int ret;
+    Error *local_err = NULL;
+
+    orig_base_flags = bdrv_get_flags(base);
+
     if (bdrv_reopen(base, bs->open_flags, errp)) {
         return;
     }
+
+    length = bdrv_getlength(bs);
+    if (length < 0) {
+        error_setg_errno(errp, -length,
+                         "Unable to determine length of %s", bs->filename);
+        goto error_restore_flags;
+    }
+
+    base_length = bdrv_getlength(base);
+    if (base_length < 0) {
+        error_setg_errno(errp, -base_length,
+                         "Unable to determine length of %s", base->filename);
+        goto error_restore_flags;
+    }
+
+    if (length > base_length) {
+        ret = bdrv_truncate(base, length);
+        if (ret < 0) {
+            error_setg_errno(errp, -ret,
+                            "Top image %s is larger than base image %s, and "
+                             "resize of base image failed",
+                             bs->filename, base->filename);
+            goto error_restore_flags;
+        }
+    }
+
     bdrv_ref(base);
     mirror_start_job(bs, base, speed, 0, 0,
-                     on_error, on_error, cb, opaque, errp,
+                     on_error, on_error, cb, opaque, &local_err,
                      &commit_active_job_driver, false, base);
+    if (error_is_set(&local_err)) {
+        error_propagate(errp, local_err);
+        goto error_restore_flags;
+    }
+
+    return;
+
+error_restore_flags:
+    /* ignore error and errp for bdrv_reopen, because we want to propagate
+     * the original error */
+    bdrv_reopen(base, orig_base_flags, NULL);
+    return;
 }

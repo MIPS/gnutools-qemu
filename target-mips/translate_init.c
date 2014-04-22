@@ -25,20 +25,20 @@
 
 /* Have config1, uncached coherency */
 #define MIPS_CONFIG0                                              \
-  ((1 << CP0C0_M) | (0x2 << CP0C0_K0))
+  ((1U << CP0C0_M) | (0x2 << CP0C0_K0))
 
 /* Have config2, no coprocessor2 attached, no MDMX support attached,
    no performance counters, watch registers present,
    no code compression, EJTAG present, no FPU */
 #define MIPS_CONFIG1                                              \
-((1 << CP0C1_M) |                                                 \
+((1U << CP0C1_M) |                                                \
  (0 << CP0C1_C2) | (0 << CP0C1_MD) | (0 << CP0C1_PC) |            \
  (1 << CP0C1_WR) | (0 << CP0C1_CA) | (1 << CP0C1_EP) |            \
  (0 << CP0C1_FP))
 
 /* Have config3, no tertiary/secondary caches implemented */
 #define MIPS_CONFIG2                                              \
-((1 << CP0C2_M))
+((1U << CP0C2_M))
 
 /* No config4, no DSP ASE, no large physaddr (PABITS),
    no external interrupt controller, no vectored interrupts,
@@ -295,16 +295,16 @@ static mips_def_t mips_defs[] =
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x95 << FCR0_PRID),
         .CP0_SRSCtl = (0xf << CP0SRSCtl_HSS),
         .CP0_SRSConf0_rw_bitmask = 0x3fffffff,
-        .CP0_SRSConf0 = (1 << CP0SRSC0_M) | (0x3fe << CP0SRSC0_SRS3) |
+        .CP0_SRSConf0 = (1U << CP0SRSC0_M) | (0x3fe << CP0SRSC0_SRS3) |
                     (0x3fe << CP0SRSC0_SRS2) | (0x3fe << CP0SRSC0_SRS1),
         .CP0_SRSConf1_rw_bitmask = 0x3fffffff,
-        .CP0_SRSConf1 = (1 << CP0SRSC1_M) | (0x3fe << CP0SRSC1_SRS6) |
+        .CP0_SRSConf1 = (1U << CP0SRSC1_M) | (0x3fe << CP0SRSC1_SRS6) |
                     (0x3fe << CP0SRSC1_SRS5) | (0x3fe << CP0SRSC1_SRS4),
         .CP0_SRSConf2_rw_bitmask = 0x3fffffff,
-        .CP0_SRSConf2 = (1 << CP0SRSC2_M) | (0x3fe << CP0SRSC2_SRS9) |
+        .CP0_SRSConf2 = (1U << CP0SRSC2_M) | (0x3fe << CP0SRSC2_SRS9) |
                     (0x3fe << CP0SRSC2_SRS8) | (0x3fe << CP0SRSC2_SRS7),
         .CP0_SRSConf3_rw_bitmask = 0x3fffffff,
-        .CP0_SRSConf3 = (1 << CP0SRSC3_M) | (0x3fe << CP0SRSC3_SRS12) |
+        .CP0_SRSConf3 = (1U << CP0SRSC3_M) | (0x3fe << CP0SRSC3_SRS12) |
                     (0x3fe << CP0SRSC3_SRS11) | (0x3fe << CP0SRSC3_SRS10),
         .CP0_SRSConf4_rw_bitmask = 0x3fffffff,
         .CP0_SRSConf4 = (0x3fe << CP0SRSC4_SRS15) |
@@ -349,8 +349,8 @@ static mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_M),
-        .CP0_Config4 = MIPS_CONFIG4 | (1 << CP0C4_M),
+        .CP0_Config3 = MIPS_CONFIG3 | (1U << CP0C3_M),
+        .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M),
         .CP0_Config4_rw_bitmask = 0,
         .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
@@ -368,29 +368,6 @@ static mips_def_t mips_defs[] =
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
-        .mmu_type = MMU_TYPE_R4000,
-    },
-    {
-        .name = "proAptiv",
-        .CP0_PRid = 0x0001a300,
-        .CP0_Config0 = MIPS_CONFIG0 | (0x1 << CP0C0_AR) |
-                    (MMU_TYPE_R4000 << CP0C0_MT),
-        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (15 << CP0C1_MMU) |
-                       (0 << CP0C1_IS) | (3 << CP0C1_IL) | (1 << CP0C1_IA) |
-                       (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
-                       (1 << CP0C1_CA),
-        .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (0 << CP0C3_VInt) | (1 << CP0C3_DSPP),
-        .CP0_LLAddr_rw_bitmask = 0,
-        .CP0_LLAddr_shift = 4,
-        .SYNCI_Step = 32,
-        .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x3d78FF1F,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x02 << FCR0_PRID),
-        .SEGBITS = 32,
-        .PABITS = 32,
-        .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -545,12 +522,12 @@ static mips_def_t mips_defs[] =
                        (2 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1 << CP0C3_DSPP),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x37FBFFFF,
+        .CP0_Status_rw_bitmask = 0x36FBFFFF,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
@@ -559,7 +536,7 @@ static mips_def_t mips_defs[] =
            in some places...
         .PABITS = 59, */ /* the architectural limit */
         .PABITS = 36,
-        .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D | ASE_DSP | ASE_DSPR2,
+        .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -716,6 +693,8 @@ static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 
 static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
+    MIPSCPU *cpu = mips_env_get_cpu(env);
+
     env->tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
 
     switch (def->mmu_type) {
@@ -732,7 +711,7 @@ static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
         case MMU_TYPE_R6000:
         case MMU_TYPE_R8000:
         default:
-            cpu_abort(env, "MMU type not supported\n");
+            cpu_abort(CPU(cpu), "MMU type not supported\n");
     }
 }
 
@@ -751,6 +730,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
     uint32_t value, mask;
     char line[LINE_MAX];
     char name[LINE_MAX];
+    MIPSCPU *cpu = mips_env_get_cpu(env);
 
     if (!filename) {
         return;
@@ -758,7 +738,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
 
     fp = fopen(filename, "r");
     if (!fp) {
-        cpu_abort(env, "Cannot open config file '%s'\n", filename);
+        cpu_abort(CPU(cpu), "Cannot open config file '%s'\n", filename);
     }
 
     while (fgets(line, LINE_MAX, fp) != NULL) {
@@ -769,7 +749,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         res = sscanf(line, "%s %x %x", name, &value, &mask);
 
         if (res != 3) {
-            cpu_abort(env, "Bad line in configfile %s: %s\n", filename, line);
+            cpu_abort(CPU(cpu), "Bad line in configfile %s: %s\n", filename, line);
         }
 
         printf("INFO: overriding config: name=%s value=0x%x mask=0x%x\n",
@@ -806,7 +786,7 @@ static void cpu_config(CPUMIPSState *env, mips_def_t *def,
         CHECK_SET_CONFIG(CP0_SRSConf4, uint32_t);
         CHECK_SET_CONFIG(insn_flags, int);
 
-        cpu_abort(env, "Unknown override option %s\n", name);
+        cpu_abort(CPU(cpu), "Unknown override option %s\n", name);
     }
 }
 #endif /* MIPSSIM_COMPAT */
@@ -830,7 +810,7 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
        programmable cache partitioning implemented, number of allocatable
        and sharable TLB entries, MVP has allocatable TCs, 2 VPEs
        implemented, 5 TCs implemented. */
-    env->mvp->CP0_MVPConf0 = (1 << CP0MVPC0_M) | (1 << CP0MVPC0_TLBS) |
+    env->mvp->CP0_MVPConf0 = (1U << CP0MVPC0_M) | (1 << CP0MVPC0_TLBS) |
                              (0 << CP0MVPC0_GS) | (1 << CP0MVPC0_PCP) |
 // TODO: actually do 2 VPEs.
 //                             (1 << CP0MVPC0_TCA) | (0x1 << CP0MVPC0_PVPE) |
@@ -844,7 +824,7 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 
     /* Allocatable CP1 have media extensions, allocatable CP1 have FP support,
        no UDI implemented, no CP2 implemented, 1 CP1 implemented. */
-    env->mvp->CP0_MVPConf1 = (1 << CP0MVPC1_CIM) | (1 << CP0MVPC1_CIF) |
+    env->mvp->CP0_MVPConf1 = (1U << CP0MVPC1_CIM) | (1 << CP0MVPC1_CIF) |
                              (0x0 << CP0MVPC1_PCX) | (0x0 << CP0MVPC1_PCP2) |
                              (0x1 << CP0MVPC1_PCP1);
 }
