@@ -2705,9 +2705,10 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         do_raise_exception(env, EXCP_FPE, GETPC());
 }
 
-static inline int ieee_ex_to_mips(int xcpt)
+static inline int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
 {
     int ret = 0;
+    int flushToZero = env->active_fpu.fcr31 & (1 << 24);
     if (xcpt) {
         if (xcpt & float_flag_invalid) {
             ret |= FP_INVALID;
@@ -2721,10 +2722,31 @@ static inline int ieee_ex_to_mips(int xcpt)
         if (xcpt & float_flag_divbyzero) {
             ret |= FP_DIV0;
         }
-        if (xcpt & (float_flag_inexact |
-                    float_flag_input_denormal |
-                    float_flag_output_denormal)) {
+        if (xcpt & float_flag_inexact) {
             ret |= FP_INEXACT;
+        }
+
+        if (flushToZero) {
+            // Alternate Flush to Zero Underflow Handling
+            if (xcpt & float_flag_output_denormal) {
+               /* Flushing of tiny non-zero results causes Inexact and Underflow
+                  Exceptions to be signaled. */
+                ret |= FP_INEXACT;
+                ret |= FP_UNDERFLOW;
+            } else if (xcpt & float_flag_input_denormal) {
+                /* Flushing of subnormal input operands in all instructions
+                   except comparisons causes Inexact Exception to be signaled. */
+                ret |= FP_INEXACT;
+            }
+        } else {
+            // Underflow handling
+            if (xcpt & float_flag_output_denormal &&
+                (GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW)) {
+                /* When an underflow trap is enabled (through the FCSR Enable
+                   field bit), underflow is signaled when tininess is
+                   detected regardless of loss of accuracy */
+                ret |= FP_UNDERFLOW;
+            }
         }
     }
     return ret;
@@ -2732,7 +2754,7 @@ static inline int ieee_ex_to_mips(int xcpt)
 
 static inline void update_fcr31(CPUMIPSState *env, uintptr_t pc)
 {
-    int tmp = ieee_ex_to_mips(get_float_exception_flags(&env->active_fpu.fp_status));
+    int tmp = ieee_ex_to_mips(env, get_float_exception_flags(&env->active_fpu.fp_status));
 
     SET_FP_CAUSE(env->active_fpu.fcr31, tmp);
 
