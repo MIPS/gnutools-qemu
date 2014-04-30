@@ -288,7 +288,7 @@ INLINE flag extractFloat32Sign( float32 a )
 | If `a' is denormal and we are in flush-to-zero mode then set the
 | input-denormal exception and return zero. Otherwise just return the value.
 *----------------------------------------------------------------------------*/
-static float32 float32_squash_input_denormal(float32 a STATUS_PARAM)
+float32 float32_squash_input_denormal(float32 a STATUS_PARAM)
 {
     if (STATUS(flush_inputs_to_zero)) {
         if (extractFloat32Exp(a) == 0 && extractFloat32Frac(a) != 0) {
@@ -395,8 +395,8 @@ static float32 roundAndPackFloat32(flag zSign, int_fast16_t zExp, uint32_t zSig 
             return packFloat32( zSign, 0xFF, - ( roundIncrement == 0 ));
         }
         if ( zExp < 0 ) {
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat32(zSign, 0, 0);
             }
             isTiny =
@@ -473,7 +473,7 @@ INLINE flag extractFloat64Sign( float64 a )
 | If `a' is denormal and we are in flush-to-zero mode then set the
 | input-denormal exception and return zero. Otherwise just return the value.
 *----------------------------------------------------------------------------*/
-static float64 float64_squash_input_denormal(float64 a STATUS_PARAM)
+float64 float64_squash_input_denormal(float64 a STATUS_PARAM)
 {
     if (STATUS(flush_inputs_to_zero)) {
         if (extractFloat64Exp(a) == 0 && extractFloat64Frac(a) != 0) {
@@ -579,8 +579,8 @@ static float64 roundAndPackFloat64(flag zSign, int_fast16_t zExp, uint64_t zSig 
             return packFloat64( zSign, 0x7FF, - ( roundIncrement == 0 ));
         }
         if ( zExp < 0 ) {
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat64(zSign, 0, 0);
             }
             isTiny =
@@ -761,8 +761,8 @@ static floatx80
             goto overflow;
         }
         if ( zExp <= 0 ) {
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloatx80(zSign, 0, 0);
             }
             isTiny =
@@ -1103,8 +1103,8 @@ static float128
             return packFloat128( zSign, 0x7FFF, 0, 0 );
         }
         if ( zExp < 0 ) {
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat128(zSign, 0, 0, 0);
             }
             isTiny =
@@ -1628,6 +1628,26 @@ uint64 float32_to_uint64(float32 a STATUS_PARAM)
 
 /*----------------------------------------------------------------------------
 | Returns the result of converting the single-precision floating-point value
+| `a' to the 64-bit unsigned integer format.  The conversion is
+| performed according to the IEC/IEEE Standard for Binary Floating-Point
+| Arithmetic, except that the conversion is always rounded toward zero.  If
+| `a' is a NaN, the largest unsigned integer is returned.  Otherwise, if the
+| conversion overflows, the largest unsigned integer is returned.  If the
+| 'a' is negative, the result is rounded and zero is returned; values that do
+| not round to zero will raise the inexact flag.
+*----------------------------------------------------------------------------*/
+
+uint64 float32_to_uint64_round_to_zero(float32 a STATUS_PARAM)
+{
+    signed char current_rounding_mode = STATUS(float_rounding_mode);
+    set_float_rounding_mode(float_round_to_zero STATUS_VAR);
+    int64_t v = float32_to_uint64(a STATUS_VAR);
+    set_float_rounding_mode(current_rounding_mode STATUS_VAR);
+    return v;
+}
+
+/*----------------------------------------------------------------------------
+| Returns the result of converting the single-precision floating-point value
 | `a' to the 64-bit two's complement integer format.  The conversion is
 | performed according to the IEC/IEEE Standard for Binary Floating-Point
 | Arithmetic, except that the conversion is always rounded toward zero.  If
@@ -1897,10 +1917,10 @@ static float32 addFloat32Sigs( float32 a, float32 b, flag zSign STATUS_PARAM)
             return a;
         }
         if ( aExp == 0 ) {
+            if (aSig | bSig) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
+            }
             if (STATUS(flush_to_zero)) {
-                if (aSig | bSig) {
-                    float_raise(float_flag_output_denormal STATUS_VAR);
-                }
                 return packFloat32(zSign, 0, 0);
             }
             return packFloat32( zSign, 0, ( aSig + bSig )>>6 );
@@ -2366,12 +2386,23 @@ float32 float32_muladd(float32 a, float32 b, float32 c, int flags STATUS_PARAM)
                 return packFloat32(zSign ^ signflip, 0, 0);
             }
             /* Exact zero plus a denorm */
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat32(cSign ^ signflip, 0, 0);
             }
         }
         /* Zero plus something non-zero : just return the something */
+        if (flags & float_muladd_halve_result) {
+            if (cExp == 0) {
+                normalizeFloat32Subnormal(cSig, &cExp, &cSig);
+            }
+            /* Subtract one to halve, and one again because roundAndPackFloat32
+             * wants one less than the true exponent.
+             */
+            cExp -= 2;
+            cSig = (cSig | 0x00800000) << 7;
+            return roundAndPackFloat32(cSign ^ signflip, cExp, cSig STATUS_VAR);
+        }
         return packFloat32(cSign ^ signflip, cExp, cSig);
     }
 
@@ -2408,6 +2439,9 @@ float32 float32_muladd(float32 a, float32 b, float32 c, int flags STATUS_PARAM)
             /* Throw out the special case of c being an exact zero now */
             shift64RightJamming(pSig64, 32, &pSig64);
             pSig = pSig64;
+            if (flags & float_muladd_halve_result) {
+                pExp--;
+            }
             return roundAndPackFloat32(zSign, pExp - 1,
                                        pSig STATUS_VAR);
         }
@@ -2472,6 +2506,10 @@ float32 float32_muladd(float32 a, float32 b, float32 c, int flags STATUS_PARAM)
         zSig64 <<= shiftcount;
         zExp -= shiftcount;
     }
+    if (flags & float_muladd_halve_result) {
+        zExp--;
+    }
+
     shift64RightJamming(zSig64, 32, &zSig64);
     return roundAndPackFloat32(zSign, zExp, zSig64 STATUS_VAR);
 }
@@ -3623,10 +3661,10 @@ static float64 addFloat64Sigs( float64 a, float64 b, flag zSign STATUS_PARAM )
             return a;
         }
         if ( aExp == 0 ) {
+            if (aSig | bSig) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
+            }
             if (STATUS(flush_to_zero)) {
-                if (aSig | bSig) {
-                    float_raise(float_flag_output_denormal STATUS_VAR);
-                }
                 return packFloat64(zSign, 0, 0);
             }
             return packFloat64( zSign, 0, ( aSig + bSig )>>9 );
@@ -4082,12 +4120,23 @@ float64 float64_muladd(float64 a, float64 b, float64 c, int flags STATUS_PARAM)
                 return packFloat64(zSign ^ signflip, 0, 0);
             }
             /* Exact zero plus a denorm */
+            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat64(cSign ^ signflip, 0, 0);
             }
         }
         /* Zero plus something non-zero : just return the something */
+        if (flags & float_muladd_halve_result) {
+            if (cExp == 0) {
+                normalizeFloat64Subnormal(cSig, &cExp, &cSig);
+            }
+            /* Subtract one to halve, and one again because roundAndPackFloat64
+             * wants one less than the true exponent.
+             */
+            cExp -= 2;
+            cSig = (cSig | 0x0010000000000000ULL) << 10;
+            return roundAndPackFloat64(cSign ^ signflip, cExp, cSig STATUS_VAR);
+        }
         return packFloat64(cSign ^ signflip, cExp, cSig);
     }
 
@@ -4123,6 +4172,9 @@ float64 float64_muladd(float64 a, float64 b, float64 c, int flags STATUS_PARAM)
         if (!cSig) {
             /* Throw out the special case of c being an exact zero now */
             shift128RightJamming(pSig0, pSig1, 64, &pSig0, &pSig1);
+            if (flags & float_muladd_halve_result) {
+                pExp--;
+            }
             return roundAndPackFloat64(zSign, pExp - 1,
                                        pSig1 STATUS_VAR);
         }
@@ -4159,6 +4211,9 @@ float64 float64_muladd(float64 a, float64 b, float64 c, int flags STATUS_PARAM)
             zExp--;
         }
         shift128RightJamming(zSig0, zSig1, 64, &zSig0, &zSig1);
+        if (flags & float_muladd_halve_result) {
+            zExp--;
+        }
         return roundAndPackFloat64(zSign, zExp, zSig1 STATUS_VAR);
     } else {
         /* Subtraction */
@@ -4208,6 +4263,9 @@ float64 float64_muladd(float64 a, float64 b, float64 c, int flags STATUS_PARAM)
                 zSig0 = zSig1 << shiftcount;
                 zExp -= (shiftcount + 64);
             }
+        }
+        if (flags & float_muladd_halve_result) {
+            zExp--;
         }
         return roundAndPackFloat64(zSign, zExp, zSig0 STATUS_VAR);
     }
@@ -6056,10 +6114,10 @@ static float128 addFloat128Sigs( float128 a, float128 b, flag zSign STATUS_PARAM
         }
         add128( aSig0, aSig1, bSig0, bSig1, &zSig0, &zSig1 );
         if ( aExp == 0 ) {
+            if (zSig0 | zSig1) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
+            }
             if (STATUS(flush_to_zero)) {
-                if (zSig0 | zSig1) {
-                    float_raise(float_flag_output_denormal STATUS_VAR);
-                }
                 return packFloat128(zSign, 0, 0, 0);
             }
             return packFloat128( zSign, 0, zSig0, zSig1 );

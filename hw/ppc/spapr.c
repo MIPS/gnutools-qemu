@@ -26,6 +26,7 @@
  */
 #include "sysemu/sysemu.h"
 #include "hw/hw.h"
+#include "hw/fw-path-provider.h"
 #include "elf.h"
 #include "net/net.h"
 #include "sysemu/blockdev.h"
@@ -45,10 +46,13 @@
 #include "hw/pci/msi.h"
 
 #include "hw/pci/pci.h"
+#include "hw/scsi/scsi.h"
+#include "hw/virtio/virtio-scsi.h"
 
 #include "exec/address-spaces.h"
 #include "hw/usb.h"
 #include "qemu/config-file.h"
+#include "qemu/error-report.h"
 
 #include <libfdt.h>
 
@@ -79,6 +83,8 @@
 #define PHANDLE_XICP            0x00001111
 
 #define HTAB_SIZE(spapr)        (1ULL << ((spapr)->htab_shift))
+
+#define TYPE_SPAPR_MACHINE      "spapr-machine"
 
 sPAPREnvironment *spapr;
 
@@ -206,19 +212,20 @@ static int spapr_fixup_cpu_dt(void *fdt, sPAPREnvironment *spapr)
 
     CPU_FOREACH(cpu) {
         DeviceClass *dc = DEVICE_GET_CLASS(cpu);
+        int index = ppc_get_vcpu_dt_id(POWERPC_CPU(cpu));
         uint32_t associativity[] = {cpu_to_be32(0x5),
                                     cpu_to_be32(0x0),
                                     cpu_to_be32(0x0),
                                     cpu_to_be32(0x0),
                                     cpu_to_be32(cpu->numa_node),
-                                    cpu_to_be32(cpu->cpu_index)};
+                                    cpu_to_be32(index)};
 
-        if ((cpu->cpu_index % smt) != 0) {
+        if ((index % smt) != 0) {
             continue;
         }
 
         snprintf(cpu_model, 32, "/cpus/%s@%x", dc->fw_name,
-                 cpu->cpu_index);
+                 index);
 
         offset = fdt_path_offset(fdt, cpu_model);
         if (offset < 0) {
@@ -367,7 +374,7 @@ static void *spapr_create_fdt_skel(hwaddr initrd_base,
         CPUPPCState *env = &cpu->env;
         DeviceClass *dc = DEVICE_GET_CLASS(cs);
         PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cs);
-        int index = cs->cpu_index;
+        int index = ppc_get_vcpu_dt_id(cpu);
         uint32_t servers_prop[smp_threads];
         uint32_t gservers_prop[smp_threads * 2];
         char *nodename;
@@ -596,7 +603,9 @@ static void spapr_finalize_fdt(sPAPREnvironment *spapr,
                                hwaddr rtas_addr,
                                hwaddr rtas_size)
 {
-    int ret;
+    int ret, i;
+    size_t cb = 0;
+    char *bootlist;
     void *fdt;
     sPAPRPHBState *phb;
 
@@ -636,6 +645,21 @@ static void spapr_finalize_fdt(sPAPREnvironment *spapr,
     ret = spapr_fixup_cpu_dt(fdt, spapr);
     if (ret < 0) {
         fprintf(stderr, "Couldn't finalize CPU device tree properties\n");
+    }
+
+    bootlist = get_boot_devices_list(&cb, true);
+    if (cb && bootlist) {
+        int offset = fdt_path_offset(fdt, "/chosen");
+        if (offset < 0) {
+            exit(1);
+        }
+        for (i = 0; i < cb; i++) {
+            if (bootlist[i] == '\n') {
+                bootlist[i] = ' ';
+            }
+
+        }
+        ret = fdt_setprop_string(fdt, offset, "qemu,boot-list", bootlist);
     }
 
     if (!spapr->has_graphics) {
@@ -685,6 +709,7 @@ static void spapr_reset_htab(sPAPREnvironment *spapr)
     if (shift > 0) {
         /* Kernel handles htab, we don't need to allocate one */
         spapr->htab_shift = shift;
+        kvmppc_kern_htab = true;
     } else {
         if (!spapr->htab) {
             /* Allocate an htab if we don't yet have one */
@@ -740,8 +765,21 @@ static void spapr_cpu_reset(void *opaque)
     env->spr[SPR_HIOR] = 0;
 
     env->external_htab = (uint8_t *)spapr->htab;
+    if (kvm_enabled() && !env->external_htab) {
+        /*
+         * HV KVM, set external_htab to 1 so our ppc_hash64_load_hpte*
+         * functions do the right thing.
+         */
+        env->external_htab = (void *)1;
+    }
     env->htab_base = -1;
-    env->htab_mask = HTAB_SIZE(spapr) - 1;
+    /*
+     * htab_mask is the mask used to normalize hash value to PTEG index.
+     * htab_shift is log2 of hash table size.
+     * We have 8 hpte per group, and each hpte is 16 bytes.
+     * ie have 128 bytes per hpte entry.
+     */
+    env->htab_mask = (1ULL << ((spapr)->htab_shift - 7)) - 1;
     env->spr[SPR_SDR1] = (target_ulong)(uintptr_t)spapr->htab |
         (spapr->htab_shift - 18);
 }
@@ -765,13 +803,15 @@ static int spapr_vga_init(PCIBus *pci_bus)
 {
     switch (vga_interface_type) {
     case VGA_NONE:
+        return false;
+    case VGA_DEVICE:
+        return true;
     case VGA_STD:
         return pci_vga_init(pci_bus) != NULL;
     default:
         fprintf(stderr, "This vga model is not supported,"
                 "currently it only supports -vga std\n");
         exit(0);
-        break;
     }
 }
 
@@ -1305,20 +1345,15 @@ static void ppc_spapr_init(QEMUMachineInitArgs *args)
 
         kernel_size = load_elf(kernel_filename, translate_kernel_address, NULL,
                                NULL, &lowaddr, NULL, 1, ELF_MACHINE, 0);
-        if (kernel_size < 0) {
+        if (kernel_size == ELF_LOAD_WRONG_ENDIAN) {
             kernel_size = load_elf(kernel_filename,
                                    translate_kernel_address, NULL,
                                    NULL, &lowaddr, NULL, 0, ELF_MACHINE, 0);
             kernel_le = kernel_size > 0;
         }
         if (kernel_size < 0) {
-            kernel_size = load_image_targphys(kernel_filename,
-                                              KERNEL_LOAD_ADDR,
-                                              load_limit - KERNEL_LOAD_ADDR);
-        }
-        if (kernel_size < 0) {
-            fprintf(stderr, "qemu: could not load kernel '%s'\n",
-                    kernel_filename);
+            fprintf(stderr, "qemu: error loading %s: %s\n",
+                    kernel_filename, load_elf_strerror(kernel_size));
             exit(1);
         }
 
@@ -1366,6 +1401,24 @@ static void ppc_spapr_init(QEMUMachineInitArgs *args)
     assert(spapr->fdt_skel != NULL);
 }
 
+static int spapr_kvm_type(const char *vm_type)
+{
+    if (!vm_type) {
+        return 0;
+    }
+
+    if (!strcmp(vm_type, "HV")) {
+        return 1;
+    }
+
+    if (!strcmp(vm_type, "PR")) {
+        return 2;
+    }
+
+    error_report("Unknown kvm-type specified '%s'", vm_type);
+    exit(1);
+}
+
 static QEMUMachine spapr_machine = {
     .name = "pseries",
     .desc = "pSeries Logical Partition (PAPR compliant)",
@@ -1376,11 +1429,89 @@ static QEMUMachine spapr_machine = {
     .max_cpus = MAX_CPUS,
     .no_parallel = 1,
     .default_boot_order = NULL,
+    .kvm_type = spapr_kvm_type,
 };
 
-static void spapr_machine_init(void)
+/*
+ * Implementation of an interface to adjust firmware patch
+ * for the bootindex property handling.
+ */
+static char *spapr_get_fw_dev_path(FWPathProvider *p, BusState *bus,
+                                   DeviceState *dev)
 {
-    qemu_register_machine(&spapr_machine);
+#define CAST(type, obj, name) \
+    ((type *)object_dynamic_cast(OBJECT(obj), (name)))
+    SCSIDevice *d = CAST(SCSIDevice,  dev, TYPE_SCSI_DEVICE);
+    sPAPRPHBState *phb = CAST(sPAPRPHBState, dev, TYPE_SPAPR_PCI_HOST_BRIDGE);
+
+    if (d) {
+        void *spapr = CAST(void, bus->parent, "spapr-vscsi");
+        VirtIOSCSI *virtio = CAST(VirtIOSCSI, bus->parent, TYPE_VIRTIO_SCSI);
+        USBDevice *usb = CAST(USBDevice, bus->parent, TYPE_USB_DEVICE);
+
+        if (spapr) {
+            /*
+             * Replace "channel@0/disk@0,0" with "disk@8000000000000000":
+             * We use SRP luns of the form 8000 | (bus << 8) | (id << 5) | lun
+             * in the top 16 bits of the 64-bit LUN
+             */
+            unsigned id = 0x8000 | (d->id << 8) | d->lun;
+            return g_strdup_printf("%s@%"PRIX64, qdev_fw_name(dev),
+                                   (uint64_t)id << 48);
+        } else if (virtio) {
+            /*
+             * We use SRP luns of the form 01000000 | (target << 8) | lun
+             * in the top 32 bits of the 64-bit LUN
+             * Note: the quote above is from SLOF and it is wrong,
+             * the actual binding is:
+             * swap 0100 or 10 << or 20 << ( target lun-id -- srplun )
+             */
+            unsigned id = 0x1000000 | (d->id << 16) | d->lun;
+            return g_strdup_printf("%s@%"PRIX64, qdev_fw_name(dev),
+                                   (uint64_t)id << 32);
+        } else if (usb) {
+            /*
+             * We use SRP luns of the form 01000000 | (usb-port << 16) | lun
+             * in the top 32 bits of the 64-bit LUN
+             */
+            unsigned usb_port = atoi(usb->port->path);
+            unsigned id = 0x1000000 | (usb_port << 16) | d->lun;
+            return g_strdup_printf("%s@%"PRIX64, qdev_fw_name(dev),
+                                   (uint64_t)id << 32);
+        }
+    }
+
+    if (phb) {
+        /* Replace "pci" with "pci@800000020000000" */
+        return g_strdup_printf("pci@%"PRIX64, phb->buid);
+    }
+
+    return NULL;
 }
 
-machine_init(spapr_machine_init);
+static void spapr_machine_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+    FWPathProviderClass *fwc = FW_PATH_PROVIDER_CLASS(oc);
+
+    mc->qemu_machine = data;
+    fwc->get_dev_path = spapr_get_fw_dev_path;
+}
+
+static const TypeInfo spapr_machine_info = {
+    .name          = TYPE_SPAPR_MACHINE,
+    .parent        = TYPE_MACHINE,
+    .class_init    = spapr_machine_class_init,
+    .class_data    = &spapr_machine,
+    .interfaces = (InterfaceInfo[]) {
+        { TYPE_FW_PATH_PROVIDER },
+        { }
+    },
+};
+
+static void spapr_machine_register_types(void)
+{
+    type_register_static(&spapr_machine_info);
+}
+
+type_init(spapr_machine_register_types)

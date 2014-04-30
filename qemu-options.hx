@@ -328,9 +328,11 @@ possible drivers and properties, use @code{-device help} and
 ETEXI
 
 DEF("name", HAS_ARG, QEMU_OPTION_name,
-    "-name string1[,process=string2]\n"
+    "-name string1[,process=string2][,debug-threads=on|off]\n"
     "                set the name of the guest\n"
-    "                string1 sets the window title and string2 the process name (on Linux)\n",
+    "                string1 sets the window title and string2 the process name (on Linux)\n"
+    "                When debug-threads is enabled, individual threads are given a separate name (on Linux)\n"
+    "                NOTE: The thread names are for debugging and not a stable API.\n",
     QEMU_ARCH_ALL)
 STEXI
 @item -name @var{name}
@@ -339,6 +341,7 @@ Sets the @var{name} of the guest.
 This name will be displayed in the SDL window caption.
 The @var{name} will also be used for the VNC server.
 Also optionally set the top visible process name in Linux.
+Naming of individual threads can also be enabled on Linux to aid debugging.
 ETEXI
 
 DEF("uuid", HAS_ARG, QEMU_OPTION_uuid,
@@ -807,6 +810,7 @@ ETEXI
 DEF("display", HAS_ARG, QEMU_OPTION_display,
     "-display sdl[,frame=on|off][,alt_grab=on|off][,ctrl_grab=on|off]\n"
     "            [,window_close=on|off]|curses|none|\n"
+    "            gtk[,grab_on_hover=on|off]|\n"
     "            vnc=<display>[,<optargs>]\n"
     "                select display type\n", QEMU_ARCH_ALL)
 STEXI
@@ -830,6 +834,10 @@ graphics card, but its output will not be displayed to the QEMU
 user. This option differs from the -nographic option in that it
 only affects what is done with video output; -nographic also changes
 the destination of the serial and parallel port data.
+@item gtk
+Display video output in a GTK window. This interface provides drop-down
+menus and other UI elements to configure and control the VM during
+runtime.
 @item vnc
 Start a VNC server on display <arg>
 @end table
@@ -1035,7 +1043,7 @@ Rotate graphical output some deg left (only PXA LCD).
 ETEXI
 
 DEF("vga", HAS_ARG, QEMU_OPTION_vga,
-    "-vga [std|cirrus|vmware|qxl|xenfb|none]\n"
+    "-vga [std|cirrus|vmware|qxl|xenfb|tcx|cg3|none]\n"
     "                select video card type\n", QEMU_ARCH_ALL)
 STEXI
 @item -vga @var{type}
@@ -1060,6 +1068,14 @@ card.
 QXL paravirtual graphic card.  It is VGA compatible (including VESA
 2.0 VBE support).  Works best with qxl guest drivers installed though.
 Recommended choice when using the spice protocol.
+@item tcx
+(sun4m only) Sun TCX framebuffer. This is the default framebuffer for
+sun4m machines and offers both 8-bit and 24-bit colour depths at a
+fixed resolution of 1024x768.
+@item cg3
+(sun4m only) Sun cgthree framebuffer. This is a simple 8-bit framebuffer
+for sun4m machines available in both 1024x768 (OpenBIOS) and 1152x900 (OBP)
+resolutions aimed at people wishing to run older Solaris versions.
 @item none
 Disable VGA card.
 @end table

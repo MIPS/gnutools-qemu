@@ -15,6 +15,7 @@
 #include "hw/virtio/virtio.h"
 #include "hw/virtio/virtio-rng.h"
 #include "sysemu/rng.h"
+#include "qom/object_interfaces.h"
 
 static bool is_guest_ready(VirtIORNG *vrng)
 {
@@ -148,10 +149,21 @@ static void virtio_rng_device_realize(DeviceState *dev, Error **errp)
     if (vrng->conf.rng == NULL) {
         vrng->conf.default_backend = RNG_RANDOM(object_new(TYPE_RNG_RANDOM));
 
+        user_creatable_complete(OBJECT(vrng->conf.default_backend),
+                                &local_err);
+        if (local_err) {
+            error_propagate(errp, local_err);
+            object_unref(OBJECT(vrng->conf.default_backend));
+            return;
+        }
+
         object_property_add_child(OBJECT(dev),
                                   "default-backend",
                                   OBJECT(vrng->conf.default_backend),
                                   NULL);
+
+        /* The child property took a reference, we can safely drop ours now */
+        object_unref(OBJECT(vrng->conf.default_backend));
 
         object_property_set_link(OBJECT(dev),
                                  OBJECT(vrng->conf.default_backend),
@@ -163,12 +175,6 @@ static void virtio_rng_device_realize(DeviceState *dev, Error **errp)
     vrng->rng = vrng->conf.rng;
     if (vrng->rng == NULL) {
         error_set(errp, QERR_INVALID_PARAMETER_VALUE, "rng", "a valid object");
-        return;
-    }
-
-    rng_backend_open(vrng->rng, &local_err);
-    if (local_err) {
-        error_propagate(errp, local_err);
         return;
     }
 
@@ -220,7 +226,9 @@ static void virtio_rng_initfn(Object *obj)
     VirtIORNG *vrng = VIRTIO_RNG(obj);
 
     object_property_add_link(obj, "rng", TYPE_RNG_BACKEND,
-                             (Object **)&vrng->conf.rng, NULL);
+                             (Object **)&vrng->conf.rng,
+                             qdev_prop_allow_set_link_before_realize,
+                             OBJ_PROP_LINK_UNREF_ON_RELEASE, NULL);
 }
 
 static const TypeInfo virtio_rng_info = {

@@ -4,6 +4,7 @@
 #include "block/coroutine.h"
 #include "migration/migration.h"
 #include "migration/qemu-file.h"
+#include "trace.h"
 
 #define IO_BUF_SIZE 32768
 #define MAX_IOV_SIZE MIN(IOV_MAX, 64)
@@ -100,7 +101,14 @@ static int stdio_put_buffer(void *opaque, const uint8_t *buf, int64_t pos,
                             int size)
 {
     QEMUFileStdio *s = opaque;
-    return fwrite(buf, 1, size, s->stdio_file);
+    int res;
+
+    res = fwrite(buf, 1, size, s->stdio_file);
+
+    if (res != size) {
+        return -errno;
+    }
+    return res;
 }
 
 static int stdio_get_buffer(void *opaque, uint8_t *buf, int64_t pos, int size)
@@ -588,6 +596,7 @@ int qemu_fclose(QEMUFile *f)
         ret = f->last_error;
     }
     g_free(f);
+    trace_qemu_file_fclose();
     return ret;
 }
 

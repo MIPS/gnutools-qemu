@@ -153,8 +153,13 @@ typedef struct sPAPREnvironment {
 #define H_PP1             (1ULL<<(63-62))
 #define H_PP2             (1ULL<<(63-63))
 
-/* H_SET_MODE flags */
-#define H_SET_MODE_ENDIAN        4
+/* Values for 2nd argument to H_SET_MODE */
+#define H_SET_MODE_RESOURCE_SET_CIABR           1
+#define H_SET_MODE_RESOURCE_SET_DAWR            2
+#define H_SET_MODE_RESOURCE_ADDR_TRANS_MODE     3
+#define H_SET_MODE_RESOURCE_LE                  4
+
+/* Flags for H_SET_MODE_RESOURCE_LE */
 #define H_SET_MODE_ENDIAN_BIG    0
 #define H_SET_MODE_ENDIAN_LITTLE 1
 
@@ -348,12 +353,12 @@ static inline uint64_t ppc64_phys_to_real(uint64_t addr)
 
 static inline uint32_t rtas_ld(target_ulong phys, int n)
 {
-    return ldl_be_phys(ppc64_phys_to_real(phys + 4*n));
+    return ldl_be_phys(&address_space_memory, ppc64_phys_to_real(phys + 4*n));
 }
 
 static inline void rtas_st(target_ulong phys, int n, uint32_t val)
 {
-    stl_be_phys(ppc64_phys_to_real(phys + 4*n), val);
+    stl_be_phys(&address_space_memory, ppc64_phys_to_real(phys + 4*n), val);
 }
 
 typedef void (*spapr_rtas_fn)(PowerPCCPU *cpu, sPAPREnvironment *spapr,

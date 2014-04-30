@@ -81,6 +81,7 @@ static void qemu_announce_self_iter(NICState *nic, void *opaque)
     uint8_t buf[60];
     int len;
 
+    trace_qemu_announce_self_iter(qemu_ether_ntoa(&nic->conf->macaddr));
     len = announce_self_create(buf, nic->conf->macaddr.a);
 
     qemu_send_packet_raw(qemu_get_queue(nic), buf, len);
@@ -429,6 +430,7 @@ void vmstate_unregister(DeviceState *dev, const VMStateDescription *vmsd,
 
 static int vmstate_load(QEMUFile *f, SaveStateEntry *se, int version_id)
 {
+    trace_vmstate_load(se->idstr, se->vmsd ? se->vmsd->name : "(old)");
     if (!se->vmsd) {         /* Old style */
         return se->ops->load_state(f, se->opaque, version_id);
     }
@@ -437,6 +439,7 @@ static int vmstate_load(QEMUFile *f, SaveStateEntry *se, int version_id)
 
 static void vmstate_save(QEMUFile *f, SaveStateEntry *se)
 {
+    trace_vmstate_save(se->idstr, se->vmsd ? se->vmsd->name : "(old)");
     if (!se->vmsd) {         /* Old style */
         se->ops->save_state(f, se->opaque);
         return;
@@ -463,6 +466,7 @@ void qemu_savevm_state_begin(QEMUFile *f,
     SaveStateEntry *se;
     int ret;
 
+    trace_savevm_state_begin();
     QTAILQ_FOREACH(se, &savevm_handlers, entry) {
         if (!se->ops || !se->ops->set_params) {
             continue;
@@ -515,6 +519,7 @@ int qemu_savevm_state_iterate(QEMUFile *f)
     SaveStateEntry *se;
     int ret = 1;
 
+    trace_savevm_state_iterate();
     QTAILQ_FOREACH(se, &savevm_handlers, entry) {
         if (!se->ops || !se->ops->save_live_iterate) {
             continue;
@@ -527,13 +532,13 @@ int qemu_savevm_state_iterate(QEMUFile *f)
         if (qemu_file_rate_limit(f)) {
             return 0;
         }
-        trace_savevm_section_start();
+        trace_savevm_section_start(se->idstr, se->section_id);
         /* Section type */
         qemu_put_byte(f, QEMU_VM_SECTION_PART);
         qemu_put_be32(f, se->section_id);
 
         ret = se->ops->save_live_iterate(f, se->opaque);
-        trace_savevm_section_end(se->section_id);
+        trace_savevm_section_end(se->idstr, se->section_id);
 
         if (ret < 0) {
             qemu_file_set_error(f, ret);
@@ -554,6 +559,8 @@ void qemu_savevm_state_complete(QEMUFile *f)
     SaveStateEntry *se;
     int ret;
 
+    trace_savevm_state_complete();
+
     cpu_synchronize_all_states();
 
     QTAILQ_FOREACH(se, &savevm_handlers, entry) {
@@ -565,13 +572,13 @@ void qemu_savevm_state_complete(QEMUFile *f)
                 continue;
             }
         }
-        trace_savevm_section_start();
+        trace_savevm_section_start(se->idstr, se->section_id);
         /* Section type */
         qemu_put_byte(f, QEMU_VM_SECTION_END);
         qemu_put_be32(f, se->section_id);
 
         ret = se->ops->save_live_complete(f, se->opaque);
-        trace_savevm_section_end(se->section_id);
+        trace_savevm_section_end(se->idstr, se->section_id);
         if (ret < 0) {
             qemu_file_set_error(f, ret);
             return;
@@ -584,7 +591,7 @@ void qemu_savevm_state_complete(QEMUFile *f)
         if ((!se->ops || !se->ops->save_state) && !se->vmsd) {
             continue;
         }
-        trace_savevm_section_start();
+        trace_savevm_section_start(se->idstr, se->section_id);
         /* Section type */
         qemu_put_byte(f, QEMU_VM_SECTION_FULL);
         qemu_put_be32(f, se->section_id);
@@ -598,7 +605,7 @@ void qemu_savevm_state_complete(QEMUFile *f)
         qemu_put_be32(f, se->version_id);
 
         vmstate_save(f, se);
-        trace_savevm_section_end(se->section_id);
+        trace_savevm_section_end(se->idstr, se->section_id);
     }
 
     qemu_put_byte(f, QEMU_VM_EOF);
@@ -628,6 +635,7 @@ void qemu_savevm_state_cancel(void)
 {
     SaveStateEntry *se;
 
+    trace_savevm_state_cancel();
     QTAILQ_FOREACH(se, &savevm_handlers, entry) {
         if (se->ops && se->ops->cancel) {
             se->ops->cancel(se->opaque);
@@ -880,7 +888,7 @@ static int del_existing_snapshots(Monitor *mon, const char *name)
         if (bdrv_can_snapshot(bs) &&
             bdrv_snapshot_find(bs, snapshot, name) >= 0) {
             bdrv_snapshot_delete_by_id_or_name(bs, name, &err);
-            if (error_is_set(&err)) {
+            if (err) {
                 monitor_printf(mon,
                                "Error while deleting snapshot on device '%s':"
                                " %s\n",
@@ -1115,7 +1123,7 @@ void do_delvm(Monitor *mon, const QDict *qdict)
     while ((bs1 = bdrv_next(bs1))) {
         if (bdrv_can_snapshot(bs1)) {
             bdrv_snapshot_delete_by_id_or_name(bs, name, &err);
-            if (error_is_set(&err)) {
+            if (err) {
                 monitor_printf(mon,
                                "Error while deleting snapshot on device '%s':"
                                " %s\n",

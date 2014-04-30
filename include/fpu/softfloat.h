@@ -245,15 +245,25 @@ INLINE flag get_default_nan_mode(float_status *status)
 void float_raise( int8 flags STATUS_PARAM);
 
 /*----------------------------------------------------------------------------
+| If `a' is denormal and we are in flush-to-zero mode then set the
+| input-denormal exception and return zero. Otherwise just return the value.
+*----------------------------------------------------------------------------*/
+float32 float32_squash_input_denormal(float32 a STATUS_PARAM);
+float64 float64_squash_input_denormal(float64 a STATUS_PARAM);
+
+/*----------------------------------------------------------------------------
 | Options to indicate which negations to perform in float*_muladd()
 | Using these differs from negating an input or output before calling
 | the muladd function in that this means that a NaN doesn't have its
 | sign bit inverted before it is propagated.
+| We also support halving the result before rounding, as a special
+| case to support the ARM fused-sqrt-step instruction FRSQRTS.
 *----------------------------------------------------------------------------*/
 enum {
     float_muladd_negate_c = 1,
     float_muladd_negate_product = 2,
     float_muladd_negate_result = 4,
+    float_muladd_halve_result = 8,
 };
 
 /*----------------------------------------------------------------------------
@@ -332,6 +342,7 @@ uint32 float32_to_uint32( float32 STATUS_PARAM );
 uint32 float32_to_uint32_round_to_zero( float32 STATUS_PARAM );
 int64 float32_to_int64( float32 STATUS_PARAM );
 uint64 float32_to_uint64(float32 STATUS_PARAM);
+uint64 float32_to_uint64_round_to_zero(float32 STATUS_PARAM);
 int64 float32_to_int64_round_to_zero( float32 STATUS_PARAM );
 float64 float32_to_float64( float32 STATUS_PARAM );
 floatx80 float32_to_floatx80( float32 STATUS_PARAM );

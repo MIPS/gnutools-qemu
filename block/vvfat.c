@@ -1085,17 +1085,15 @@ DLOG(if (stderr == NULL) {
 
     opts = qemu_opts_create(&runtime_opts, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
-    if (error_is_set(&local_err)) {
-        qerror_report_err(local_err);
-        error_free(local_err);
+    if (local_err) {
+        error_propagate(errp, local_err);
         ret = -EINVAL;
         goto fail;
     }
 
     dirname = qemu_opt_get(opts, "dir");
     if (!dirname) {
-        qerror_report(ERROR_CLASS_GENERIC_ERROR, "vvfat block driver requires "
-                      "a 'dir' option");
+        error_setg(errp, "vvfat block driver requires a 'dir' option");
         ret = -EINVAL;
         goto fail;
     }
@@ -1121,6 +1119,7 @@ DLOG(if (stderr == NULL) {
         if (!s->fat_type) {
             s->fat_type = 16;
         }
+        s->first_sectors_number = 0x40;
         cyls = s->fat_type == 12 ? 64 : 1024;
         heads = 16;
         secs = 63;
@@ -1135,8 +1134,7 @@ DLOG(if (stderr == NULL) {
     case 12:
         break;
     default:
-        qerror_report(ERROR_CLASS_GENERIC_ERROR, "Valid FAT types are only "
-                      "12, 16 and 32");
+        error_setg(errp, "Valid FAT types are only 12, 16 and 32");
         ret = -EINVAL;
         goto fail;
     }
@@ -1149,7 +1147,6 @@ DLOG(if (stderr == NULL) {
 
     s->current_cluster=0xffffffff;
 
-    s->first_sectors_number=0x40;
     /* read only is the default for safety */
     bs->read_only = 1;
     s->qcow = s->write_target = NULL;
@@ -2936,15 +2933,13 @@ static int enable_write_target(BDRVVVFATState *s)
         goto err;
     }
 
-    s->qcow = bdrv_new("");
-
-    ret = bdrv_open(s->qcow, s->qcow_filename, NULL,
+    s->qcow = NULL;
+    ret = bdrv_open(&s->qcow, s->qcow_filename, NULL, NULL,
             BDRV_O_RDWR | BDRV_O_CACHE_WB | BDRV_O_NO_FLUSH, bdrv_qcow,
             &local_err);
     if (ret < 0) {
         qerror_report_err(local_err);
         error_free(local_err);
-        bdrv_unref(s->qcow);
         goto err;
     }
 

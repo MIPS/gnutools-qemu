@@ -206,7 +206,8 @@ static void update_irq(struct HPETTimer *timer, int set)
             }
         }
     } else if (timer_fsb_route(timer)) {
-        stl_le_phys(timer->fsb >> 32, timer->fsb & 0xffffffff);
+        stl_le_phys(&address_space_memory,
+                    timer->fsb >> 32, timer->fsb & 0xffffffff);
     } else if (timer->config & HPET_TN_TYPE_LEVEL) {
         s->isr |= mask;
         /* fold the ICH PIRQ# pin's internal inversion logic into hpet */
@@ -505,7 +506,8 @@ static void hpet_ram_write(void *opaque, hwaddr addr,
                 timer->cmp = (uint32_t)timer->cmp;
                 timer->period = (uint32_t)timer->period;
             }
-            if (activating_bit(old_val, new_val, HPET_TN_ENABLE)) {
+            if (activating_bit(old_val, new_val, HPET_TN_ENABLE) &&
+                hpet_enabled(s)) {
                 hpet_set_timer(timer);
             } else if (deactivating_bit(old_val, new_val, HPET_TN_ENABLE)) {
                 hpet_del_timer(timer);

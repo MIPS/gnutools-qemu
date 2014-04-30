@@ -304,7 +304,13 @@ static void virtio_scsi_command_complete(SCSIRequest *r, uint32_t status,
                                          size_t resid)
 {
     VirtIOSCSIReq *req = r->hba_private;
+    VirtIOSCSI *s = req->dev;
+    VirtIOSCSICommon *vs = VIRTIO_SCSI_COMMON(s);
     uint32_t sense_len;
+
+    if (r->io_canceled) {
+        return;
+    }
 
     req->resp.cmd->response = VIRTIO_SCSI_S_OK;
     req->resp.cmd->status = status;
@@ -313,7 +319,7 @@ static void virtio_scsi_command_complete(SCSIRequest *r, uint32_t status,
     } else {
         req->resp.cmd->resid = 0;
         sense_len = scsi_req_get_sense(r, req->resp.cmd->sense,
-                                       VIRTIO_SCSI_SENSE_SIZE);
+                                       vs->sense_size);
         req->resp.cmd->sense_len = tswap32(sense_len);
     }
     virtio_scsi_complete_req(req);
@@ -516,7 +522,7 @@ static void virtio_scsi_push_event(VirtIOSCSI *s, SCSIDevice *dev,
     evt->event = event;
     evt->reason = reason;
     if (!dev) {
-        assert(event == VIRTIO_SCSI_T_NO_EVENT);
+        assert(event == VIRTIO_SCSI_T_EVENTS_MISSED);
     } else {
         evt->lun[0] = 1;
         evt->lun[1] = dev->id;

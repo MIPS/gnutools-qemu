@@ -374,7 +374,7 @@ static int vhdx_update_header(BlockDriverState *bs, BDRVVHDXState *s,
         inactive_header->log_guid = *log_guid;
     }
 
-    vhdx_write_header(bs->file, inactive_header, header_offset, true);
+    ret = vhdx_write_header(bs->file, inactive_header, header_offset, true);
     if (ret < 0) {
         goto exit;
     }
@@ -402,9 +402,10 @@ int vhdx_update_headers(BlockDriverState *bs, BDRVVHDXState *s,
 }
 
 /* opens the specified header block from the VHDX file header section */
-static int vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s)
+static void vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s,
+                              Error **errp)
 {
-    int ret = 0;
+    int ret;
     VHDXHeader *header1;
     VHDXHeader *header2;
     bool h1_valid = false;
@@ -462,7 +463,6 @@ static int vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s)
     } else if (!h1_valid && h2_valid) {
         s->curr_header = 1;
     } else if (!h1_valid && !h2_valid) {
-        ret = -EINVAL;
         goto fail;
     } else {
         /* If both headers are valid, then we choose the active one by the
@@ -473,27 +473,22 @@ static int vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s)
         } else if (h2_seq > h1_seq) {
             s->curr_header = 1;
         } else {
-            ret = -EINVAL;
             goto fail;
         }
     }
 
     vhdx_region_register(s, s->headers[s->curr_header]->log_offset,
                             s->headers[s->curr_header]->log_length);
-
-    ret = 0;
-
     goto exit;
 
 fail:
-    qerror_report(ERROR_CLASS_GENERIC_ERROR, "No valid VHDX header found");
+    error_setg_errno(errp, -ret, "No valid VHDX header found");
     qemu_vfree(header1);
     qemu_vfree(header2);
     s->headers[0] = NULL;
     s->headers[1] = NULL;
 exit:
     qemu_vfree(buffer);
-    return ret;
 }
 
 
@@ -785,12 +780,20 @@ static int vhdx_parse_metadata(BlockDriverState *bs, BDRVVHDXState *s)
     le32_to_cpus(&s->logical_sector_size);
     le32_to_cpus(&s->physical_sector_size);
 
-    if (s->logical_sector_size == 0 || s->params.block_size == 0) {
+    if (s->params.block_size < VHDX_BLOCK_SIZE_MIN ||
+        s->params.block_size > VHDX_BLOCK_SIZE_MAX) {
         ret = -EINVAL;
         goto exit;
     }
 
-    /* both block_size and sector_size are guaranteed powers of 2 */
+    /* only 2 supported sector sizes */
+    if (s->logical_sector_size != 512 && s->logical_sector_size != 4096) {
+        ret = -EINVAL;
+        goto exit;
+    }
+
+    /* Both block_size and sector_size are guaranteed powers of 2, below.
+       Due to range checks above, s->sectors_per_block can never be < 256 */
     s->sectors_per_block = s->params.block_size / s->logical_sector_size;
     s->chunk_ratio = (VHDX_MAX_SECTORS_PER_BLOCK) *
                      (uint64_t)s->logical_sector_size /
@@ -878,7 +881,7 @@ static int vhdx_open(BlockDriverState *bs, QDict *options, int flags,
     int ret = 0;
     uint32_t i;
     uint64_t signature;
-
+    Error *local_err = NULL;
 
     s->bat = NULL;
     s->first_visible_write = true;
@@ -901,8 +904,10 @@ static int vhdx_open(BlockDriverState *bs, QDict *options, int flags,
      * header update */
     vhdx_guid_generate(&s->session_guid);
 
-    ret = vhdx_parse_header(bs, s);
-    if (ret < 0) {
+    vhdx_parse_header(bs, s, &local_err);
+    if (local_err != NULL) {
+        error_propagate(errp, local_err);
+        ret = -EINVAL;
         goto fail;
     }
 
@@ -1797,7 +1802,9 @@ static int vhdx_create(const char *filename, QEMUOptionParameter *options,
         goto exit;
     }
 
-    ret = bdrv_file_open(&bs, filename, NULL, BDRV_O_RDWR, &local_err);
+    bs = NULL;
+    ret = bdrv_open(&bs, filename, NULL, NULL, BDRV_O_RDWR | BDRV_O_PROTOCOL,
+                    NULL, &local_err);
     if (ret < 0) {
         error_propagate(errp, local_err);
         goto exit;
@@ -1810,13 +1817,13 @@ static int vhdx_create(const char *filename, QEMUOptionParameter *options,
     creator = g_utf8_to_utf16("QEMU v" QEMU_VERSION, -1, NULL,
                               &creator_items, NULL);
     signature = cpu_to_le64(VHDX_FILE_SIGNATURE);
-    bdrv_pwrite(bs, VHDX_FILE_ID_OFFSET, &signature, sizeof(signature));
+    ret = bdrv_pwrite(bs, VHDX_FILE_ID_OFFSET, &signature, sizeof(signature));
     if (ret < 0) {
         goto delete_and_exit;
     }
     if (creator) {
-        bdrv_pwrite(bs, VHDX_FILE_ID_OFFSET + sizeof(signature), creator,
-                    creator_items * sizeof(gunichar2));
+        ret = bdrv_pwrite(bs, VHDX_FILE_ID_OFFSET + sizeof(signature),
+                          creator, creator_items * sizeof(gunichar2));
         if (ret < 0) {
             goto delete_and_exit;
         }
