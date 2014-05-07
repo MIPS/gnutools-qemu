@@ -545,7 +545,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x2C07FF
+#define MIPS_HFLAG_TMASK  0x6C07FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -567,7 +567,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_X      0x00200 /* 64-bit mode enabled                */
 #define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
 #define MIPS_HFLAG_M16_SHIFT 10
-#define MIPS_HFLAG_MSA    0x01000
+#define MIPS_HFLAG_MSA    0x400000
     /* If translation is interrupted between the branch instruction and
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
