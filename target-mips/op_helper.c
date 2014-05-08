@@ -4040,26 +4040,27 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status) || float32
 #define DF_FLOAT_WORD   0
 #define DF_FLOAT_DOUBLE 1
 
-static void msa_check_index(uint32_t df, uint32_t n, uint32_t wrlen) {
+static void msa_check_index(CPUMIPSState *env,
+        uint32_t df, uint32_t n, uint32_t wrlen) {
     switch (df) {
     case DF_BYTE: /* b */
         if (n > wrlen / 8 - 1) {
-            helper_raise_exception(EXCP_RI);
+            helper_raise_exception(env, EXCP_RI);
         }
         break;
     case DF_HALF: /* h */
         if (n > wrlen / 16 - 1) {
-            helper_raise_exception(EXCP_RI);
+            helper_raise_exception(env, EXCP_RI);
         }
         break;
     case DF_WORD: /* w */
         if (n > wrlen / 32 - 1) {
-            helper_raise_exception(EXCP_RI);
+            helper_raise_exception(env, EXCP_RI);
         }
         break;
     case DF_DOUBLE: /* d */
         if (n > wrlen / 64 - 1) {
-            helper_raise_exception(EXCP_RI);
+            helper_raise_exception(env, EXCP_RI);
         }
         break;
     default:
@@ -4140,7 +4141,7 @@ static void msa_check_index(uint32_t df, uint32_t n, uint32_t wrlen) {
  *  ADD_A, ADDV, SUBV
  */
 
-int64_t helper_add_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_add_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
     uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
@@ -4148,12 +4149,12 @@ int64_t helper_add_a_df(int64_t arg1, int64_t arg2, uint32_t df)
     return abs_arg1 + abs_arg2;
 }
 
-int64_t helper_addv_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_addv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 + arg2;
 }
 
-int64_t helper_subv_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_subv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 - arg2;
 }
@@ -4163,7 +4164,7 @@ int64_t helper_subv_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  ADDS_A, ADDS_S, ADDS_U, SUBS_S, SUBS_U, SUBSUU_S, SUBSUS_U
  */
 
-int64_t helper_adds_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_adds_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t max_int = (uint64_t)DF_MAX_INT(df);
     uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
@@ -4176,7 +4177,7 @@ int64_t helper_adds_a_df(int64_t arg1, int64_t arg2, uint32_t df)
     }
 }
 
-int64_t helper_adds_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_adds_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t max_int = DF_MAX_INT(df);
     int64_t min_int = DF_MIN_INT(df);
@@ -4188,7 +4189,7 @@ int64_t helper_adds_s_df(int64_t arg1, int64_t arg2, uint32_t df)
     }
 }
 
-uint64_t helper_adds_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+uint64_t helper_adds_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
 {
     uint64_t max_uint = DF_MAX_UINT(df);
 
@@ -4198,7 +4199,7 @@ uint64_t helper_adds_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
     return (u_arg1 < max_uint - u_arg2) ? u_arg1 + u_arg2 : max_uint;
 }
 
-int64_t helper_subs_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_subs_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t max_int = DF_MAX_INT(df);
     int64_t min_int = DF_MIN_INT(df);
@@ -4211,7 +4212,7 @@ int64_t helper_subs_s_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_subs_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_subs_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4220,7 +4221,7 @@ int64_t helper_subs_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_subsuu_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_subsuu_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4239,7 +4240,7 @@ int64_t helper_subsuu_s_df(int64_t arg1, int64_t arg2, uint32_t df)
     }
 }
 
-int64_t helper_subsus_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_subsus_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t max_uint = DF_MAX_UINT(df);
@@ -4264,56 +4265,56 @@ int64_t helper_subsus_u_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  AND_V, ANDI_B, OR_V, ORBI_B, NOR_V, NORBI_B, XOR_V, XORI_B
  */
 
-void helper_and_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_and_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         D(pwd, i) = D(pws, i) & D(pwt, i);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_andi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_andi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         B(pwd, i) = B(pws, i) & arg2;
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_or_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_or_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         D(pwd, i) = D(pws, i) | D(pwt, i);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_ori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_ori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         B(pwd, i) = B(pws, i) | arg2;
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_nor_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_nor_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         D(pwd, i) = ~(D(pws, i) | D(pwt, i));
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_nori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_nori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         B(pwd, i) = ~(B(pws, i) | arg2);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_xor_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_xor_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         D(pwd, i) = D(pws, i) ^ D(pwt, i);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_xori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_xori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         B(pwd, i) = B(pws, i) ^ arg2;
@@ -4326,14 +4327,14 @@ void helper_xori_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
  *  ASUB_S, ASUB_U
  */
 
-int64_t helper_asub_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_asub_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     /* signed compare */
     return (arg1 < arg2) ?
         (uint64_t)(arg2 - arg1) : (uint64_t)(arg1 - arg2);
 }
 
-uint64_t helper_asub_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+uint64_t helper_asub_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4348,14 +4349,14 @@ uint64_t helper_asub_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
  *  AVE_S, AVE_U
  */
 
-int64_t helper_ave_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_ave_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     /* signed shift */
     return (arg1 >> 1) + (arg2 >> 1) + (arg1 & arg2 & 1);
 
 }
 
-uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+uint64_t helper_ave_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4369,14 +4370,14 @@ uint64_t helper_ave_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
  *  AVER_S, AVER_U
  */
 
-int64_t helper_aver_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_aver_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     /* signed shift */
     return (arg1 >> 1) + (arg2 >> 1) + ((arg1 | arg2) & 1);
 
 }
 
-uint64_t helper_aver_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
+uint64_t helper_aver_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4390,40 +4391,40 @@ uint64_t helper_aver_u_df(uint64_t arg1, uint64_t arg2, uint32_t df)
  *  BCLR, BNEG, BSET
  */
 
-int64_t helper_bclr_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_bclr_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
 
     return UNSIGNED(arg1 & (~(1LL << b_arg2)), df);
 }
 
-int64_t helper_bclri_df(int64_t arg1, uint32_t arg2, uint32_t df)
+int64_t helper_bclri_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
 {
-    return helper_bclr_df(arg1, arg2, df);
+    return helper_bclr_df(env, arg1, arg2, df);
 }
 
-int64_t helper_bneg_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_bneg_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
 
     return UNSIGNED(arg1 ^ (1LL << b_arg2), df);
 }
 
-int64_t helper_bnegi_df(int64_t arg1, uint32_t arg2, uint32_t df)
+int64_t helper_bnegi_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
 {
-    return helper_bneg_df(arg1, arg2, df);
+    return helper_bneg_df(env, arg1, arg2, df);
 }
 
-int64_t helper_bset_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_bset_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
 
     return UNSIGNED(arg1 | (1LL << b_arg2), df);
 }
 
-int64_t helper_bseti_df(int64_t arg1, uint32_t arg2, uint32_t df)
+int64_t helper_bseti_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
 {
-    return helper_bset_df(arg1, arg2, df);
+    return helper_bset_df(env, arg1, arg2, df);
 }
 
 
@@ -4431,7 +4432,7 @@ int64_t helper_bseti_df(int64_t arg1, uint32_t arg2, uint32_t df)
  *  BINSL, BINSR
  */
 
-int64_t helper_binsl_df(int64_t dest,
+int64_t helper_binsl_df(CPUMIPSState *env, int64_t dest,
                         int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
@@ -4448,13 +4449,13 @@ int64_t helper_binsl_df(int64_t dest,
     }
 }
 
-int64_t helper_binsli_df(int64_t dest,
+int64_t helper_binsli_df(CPUMIPSState *env, int64_t dest,
                          int64_t arg1, uint32_t arg2, uint32_t df)
 {
-    return helper_binsl_df(dest, arg1, arg2, df);
+    return helper_binsl_df(env, dest, arg1, arg2, df);
 }
 
-int64_t helper_binsr_df(int64_t dest,
+int64_t helper_binsr_df(CPUMIPSState *env, int64_t dest,
                         int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
@@ -4471,10 +4472,10 @@ int64_t helper_binsr_df(int64_t dest,
     }
 }
 
-int64_t helper_binsri_df(int64_t dest,
+int64_t helper_binsri_df(CPUMIPSState *env, int64_t dest,
                         int64_t arg1, uint32_t arg2, uint32_t df)
 {
-    return helper_binsr_df(dest, arg1, arg2, df);
+    return helper_binsr_df(env, dest, arg1, arg2, df);
 }
 
 
@@ -4485,14 +4486,14 @@ int64_t helper_binsri_df(int64_t dest,
 #define BIT_MOVE_IF_NOT_ZERO(dest, arg1, arg2, df) \
             dest = UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
 
-void helper_bmnz_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_bmnz_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         BIT_MOVE_IF_NOT_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_bmnzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_bmnzi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         BIT_MOVE_IF_NOT_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
@@ -4507,14 +4508,14 @@ void helper_bmnzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 #define BIT_MOVE_IF_ZERO(dest, arg1, arg2, df) \
             dest = UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
 
-void helper_bmz_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_bmz_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         BIT_MOVE_IF_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_bmzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_bmzi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         BIT_MOVE_IF_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
@@ -4529,14 +4530,14 @@ void helper_bmzi_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 #define BIT_SELECT(dest, arg1, arg2, df) \
             dest = UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
 
-void helper_bsel_v(void *pwd, void *pws, void *pwt, uint32_t wrlen)
+void helper_bsel_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         BIT_SELECT(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
     } DONE_ALL_ELEMENTS;
 }
 
-void helper_bseli_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
+void helper_bseli_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
 {
     ALL_B_ELEMENTS(i, wrlen) {
         BIT_SELECT(B(pwd, i), B(pws, i), arg2, DF_BYTE);
@@ -4548,7 +4549,7 @@ void helper_bseli_b(void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
  *  BNZ, BZ
  */
 
-target_ulong helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bnz_df(CPUMIPSState *env, void *p_arg, uint32_t df, uint32_t wrlen)
 {
     switch (df) {
     case DF_BYTE:
@@ -4595,12 +4596,12 @@ target_ulong helper_bnz_df(void *p_arg, uint32_t df, uint32_t wrlen)
     return 1;
 }
 
-target_ulong helper_bz_df(void *p_arg, uint32_t df, uint32_t wrlen)
+target_ulong helper_bz_df(CPUMIPSState *env, void *p_arg, uint32_t df, uint32_t wrlen)
 {
-    return !helper_bnz_df(p_arg, df, wrlen);
+    return !helper_bnz_df(env, p_arg, df, wrlen);
 }
 
-target_ulong helper_bnz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bnz_v(CPUMIPSState *env, void *p_arg, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         if (D(p_arg, i) != 0) {
@@ -4611,9 +4612,9 @@ target_ulong helper_bnz_v(void *p_arg, uint32_t wrlen)
     return 0;
 }
 
-target_ulong helper_bz_v(void *p_arg, uint32_t wrlen)
+target_ulong helper_bz_v(CPUMIPSState *env, void *p_arg, uint32_t wrlen)
 {
-    return !helper_bnz_v(p_arg, wrlen);
+    return !helper_bnz_v(env, p_arg, wrlen);
 }
 
 
@@ -4621,17 +4622,17 @@ target_ulong helper_bz_v(void *p_arg, uint32_t wrlen)
  *  CEQ, CLE_S, CLE_U, CLT_S, CLT_U
  */
 
-int64_t helper_ceq_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_ceq_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 == arg2 ? -1 : 0;
 }
 
-int64_t helper_cle_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_cle_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 <= arg2 ? -1 : 0;
 }
 
-int64_t helper_cle_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_cle_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4639,12 +4640,12 @@ int64_t helper_cle_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     return u_arg1 <= u_arg2 ? -1 : 0;
 }
 
-int64_t helper_clt_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_clt_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 < arg2 ? -1 : 0;
 }
 
-int64_t helper_clt_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_clt_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -4677,31 +4678,31 @@ int64_t helper_clt_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     int64_t o = UNSIGNED_ODD(a, df);
 
 
-int64_t helper_hadd_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_hadd_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return SIGNED_ODD(arg1, df) + SIGNED_EVEN(arg2, df);
 }
 
 
-int64_t helper_hadd_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_hadd_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return UNSIGNED_ODD(arg1, df) + UNSIGNED_EVEN(arg2, df);
 }
 
 
-int64_t helper_hsub_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_hsub_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return SIGNED_ODD(arg1, df) - SIGNED_EVEN(arg2, df);
 }
 
 
-int64_t helper_hsub_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_hsub_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return UNSIGNED_ODD(arg1, df) - UNSIGNED_EVEN(arg2, df);
 }
 
 
-int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_dotp_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
@@ -4709,7 +4710,7 @@ int64_t helper_dotp_s_df(int64_t arg1, int64_t arg2, uint32_t df)
     return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
 }
 
-int64_t helper_dotp_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_dotp_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
@@ -4718,7 +4719,7 @@ int64_t helper_dotp_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_dpadd_s_df(int64_t dest,
+int64_t helper_dpadd_s_df(CPUMIPSState *env, int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
@@ -4728,7 +4729,7 @@ int64_t helper_dpadd_s_df(int64_t dest,
 }
 
 
-int64_t helper_dpadd_u_df(int64_t dest,
+int64_t helper_dpadd_u_df(CPUMIPSState *env, int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
@@ -4737,7 +4738,7 @@ int64_t helper_dpadd_u_df(int64_t dest,
     return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
 }
 
-int64_t helper_dpsub_s_df(int64_t dest,
+int64_t helper_dpsub_s_df(CPUMIPSState *env, int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
@@ -4746,7 +4747,7 @@ int64_t helper_dpsub_s_df(int64_t dest,
     return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
 }
 
-int64_t helper_dpsub_u_df(int64_t dest,
+int64_t helper_dpsub_u_df(CPUMIPSState *env, int64_t dest,
                           int64_t arg1, int64_t arg2, uint32_t df)
 {
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
@@ -4764,7 +4765,7 @@ int64_t helper_dpsub_u_df(int64_t dest,
 #define WRLEN(wrlen_df) (wrlen_df >> 2)
 #define DF(wrlen_df) (wrlen_df & 0x03)
 
-void helper_ilvev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ilvev_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4809,11 +4810,11 @@ void helper_ilvev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
-void helper_ilvod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ilvod_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4858,11 +4859,11 @@ void helper_ilvod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
-void helper_ilvl_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ilvl_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4907,11 +4908,11 @@ void helper_ilvl_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
-void helper_ilvr_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ilvr_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -4956,11 +4957,11 @@ void helper_ilvr_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
-void helper_pckev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_pckev_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5005,11 +5006,11 @@ void helper_pckev_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
-void helper_pckod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_pckod_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5054,10 +5055,10 @@ void helper_pckod_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
-void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_vshf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5108,7 +5109,7 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
@@ -5118,7 +5119,7 @@ void helper_vshf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 #define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
 
-void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
+void helper_shf_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5149,7 +5150,7 @@ void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
@@ -5157,12 +5158,12 @@ void helper_shf_df(void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
  *  MADDV, MSUBV
  */
 
-int64_t helper_maddv_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_maddv_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return dest + arg1 * arg2;
 }
 
-int64_t helper_msubv_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_msubv_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return dest - arg1 * arg2;
 }
@@ -5172,7 +5173,7 @@ int64_t helper_msubv_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
  *  MAX, MIN
  */
 
-int64_t helper_max_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_max_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
     uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
@@ -5181,13 +5182,13 @@ int64_t helper_max_a_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_max_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_max_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 > arg2 ? arg1 : arg2;
 }
 
 
-int64_t helper_max_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_max_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -5196,7 +5197,7 @@ int64_t helper_max_u_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_min_a_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_min_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
     uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
@@ -5205,13 +5206,13 @@ int64_t helper_min_a_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_min_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_min_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 < arg2 ? arg1 : arg2;
 }
 
 
-int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_min_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -5224,14 +5225,14 @@ int64_t helper_min_u_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  SPLAT, and MOVE_V
  */
 
-void helper_splat_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
+void helper_splat_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     uint32_t n = rt % DF_ELEMENTS(df, wrlen);
 
-    msa_check_index(df, n, wrlen);
+    msa_check_index(env, df, n, wrlen);
 
     switch (df) {
     case DF_BYTE:
@@ -5264,7 +5265,7 @@ void helper_splat_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
     }
 }
 
-void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
+void helper_move_v(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen)
 {
     ALL_D_ELEMENTS(i, wrlen) {
         D(pwd, i) = D(pws, i);
@@ -5275,7 +5276,7 @@ void helper_move_v(void *pwd, void *pws, uint32_t wrlen)
 /*
  *  LDI, FILL, INSERT, INSVE
  */
-void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
+void helper_ldi_df(CPUMIPSState *env, void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
 {
     int64_t s64 = ((int64_t)s10 << 54) >> 54;
 
@@ -5310,7 +5311,7 @@ void helper_ldi_df(void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
     }
 }
 
-void helper_fill_df(void *pwd, target_ulong rs, uint32_t wrlen_df)
+void helper_fill_df(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5346,12 +5347,12 @@ void helper_fill_df(void *pwd, target_ulong rs, uint32_t wrlen_df)
     }
 }
 
-void helper_insert_df(void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
+void helper_insert_df(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
-    msa_check_index(df, n, wrlen);
+    msa_check_index(env, df, n, wrlen);
 
     switch (df) {
     case DF_BYTE:
@@ -5376,12 +5377,12 @@ void helper_insert_df(void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
     }
 }
 
-void helper_insve_df(void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
+void helper_insve_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
-    msa_check_index(df, n, wrlen);
+    msa_check_index(env, df, n, wrlen);
 
     switch (df) {
     case DF_BYTE:
@@ -5411,12 +5412,12 @@ void helper_insve_df(void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
  *  MULV, DIV_S, DIV_U, MOD_S, MOD_U
  */
 
-int64_t helper_mulv_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mulv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     return arg1 * arg2;
 }
 
-int64_t helper_div_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_div_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
   if (arg1 == DF_MIN_INT(df) && arg2 == -1)
     return DF_MIN_INT(df);
@@ -5424,7 +5425,7 @@ int64_t helper_div_s_df(int64_t arg1, int64_t arg2, uint32_t df)
   return arg2 ? arg1 / arg2 : 0;
 }
 
-int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_div_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -5432,7 +5433,7 @@ int64_t helper_div_u_df(int64_t arg1, int64_t arg2, uint32_t df)
     return u_arg2 ? u_arg1 / u_arg2 : 0;
 }
 
-int64_t helper_mod_s_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mod_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
   if (arg1 == DF_MIN_INT(df) && arg2 == -1)
     return 0;
@@ -5440,7 +5441,7 @@ int64_t helper_mod_s_df(int64_t arg1, int64_t arg2, uint32_t df)
   return arg2 ? arg1 % arg2 : 0;
 }
 
-int64_t helper_mod_u_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mod_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     uint64_t u_arg2 = UNSIGNED(arg2, df);
@@ -5453,7 +5454,7 @@ int64_t helper_mod_u_df(int64_t arg1, int64_t arg2, uint32_t df)
  *  NLZC, NLOC, and PCNT
  */
 
-int64_t helper_nlzc_df(int64_t arg, uint32_t df)
+int64_t helper_nlzc_df(CPUMIPSState *env, int64_t arg, uint32_t df)
 {
     /* Reference: Hacker's Delight, Section 5.3 Counting Leading 0's */
 
@@ -5476,13 +5477,13 @@ int64_t helper_nlzc_df(int64_t arg, uint32_t df)
     return n - x;
 }
 
-int64_t helper_nloc_df(int64_t arg, uint32_t df)
+int64_t helper_nloc_df(CPUMIPSState *env, int64_t arg, uint32_t df)
 {
-    return helper_nlzc_df(UNSIGNED((~arg), df), df);
+    return helper_nlzc_df(env, UNSIGNED((~arg), df), df);
 }
 
 
-int64_t helper_pcnt_df(int64_t arg, uint32_t df)
+int64_t helper_pcnt_df(CPUMIPSState *env, int64_t arg, uint32_t df)
 {
     /* Reference: Hacker's Delight, Section 5.1 Counting 1-Bits */
 
@@ -5505,7 +5506,7 @@ int64_t helper_pcnt_df(int64_t arg, uint32_t df)
  *  SAT
  */
 
-int64_t helper_sat_u_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_sat_u_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     uint64_t u_arg = UNSIGNED(arg, df);
     return  u_arg < M_MAX_UINT(m+1) ? u_arg :
@@ -5513,7 +5514,7 @@ int64_t helper_sat_u_df(int64_t arg, uint32_t m, uint32_t df)
 }
 
 
-int64_t helper_sat_s_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_sat_s_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     return arg < M_MIN_INT(m+1) ? M_MIN_INT(m+1) :
                                   arg > M_MAX_INT(m+1) ? M_MAX_INT(m+1) :
@@ -5525,33 +5526,33 @@ int64_t helper_sat_s_df(int64_t arg, uint32_t m, uint32_t df)
  *  SLL, SRA, SRL
  */
 
-int64_t helper_sll_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_sll_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
     return arg1 << b_arg2;
 }
 
 
-int64_t helper_slli_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_slli_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     return arg << m;
 }
 
 
-int64_t helper_sra_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_sra_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
     return arg1 >> b_arg2;
 }
 
 
-int64_t helper_srai_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_srai_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     return arg >> m;
 }
 
 
-int64_t helper_srl_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_srl_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     int32_t b_arg2 = BIT_POSITION(arg2, df);
@@ -5560,7 +5561,7 @@ int64_t helper_srl_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_srli_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_srli_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     uint64_t u_arg = UNSIGNED(arg, df);
 
@@ -5572,7 +5573,7 @@ int64_t helper_srli_df(int64_t arg, uint32_t m, uint32_t df)
  *  SRAR, SRLR
  */
 
-int64_t helper_srar_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_srar_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
 
@@ -5586,7 +5587,7 @@ int64_t helper_srar_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_srari_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_srari_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     if (m == 0) {
       return arg;
@@ -5598,7 +5599,7 @@ int64_t helper_srari_df(int64_t arg, uint32_t m, uint32_t df)
 }
 
 
-int64_t helper_srlr_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_srlr_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     uint64_t u_arg1 = UNSIGNED(arg1, df);
     int32_t b_arg2 = BIT_POSITION(arg2, df);
@@ -5613,7 +5614,7 @@ int64_t helper_srlr_df(int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_srlri_df(int64_t arg, uint32_t m, uint32_t df)
+int64_t helper_srlri_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
 {
     uint64_t u_arg = UNSIGNED(arg, df);
 
@@ -5631,7 +5632,7 @@ int64_t helper_srlri_df(int64_t arg, uint32_t m, uint32_t df)
  *  SLD
  */
 
-void helper_sld_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
+void helper_sld_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -5652,7 +5653,7 @@ void helper_sld_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
         }                                       \
     } while (0)
 
-    msa_check_index(df, n, wrlen);
+    msa_check_index(env, df, n, wrlen);
 
     switch (df) {
     case DF_BYTE:
@@ -5698,7 +5699,7 @@ void helper_sld_df(void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
         a = -a;                                 \
     }
 
-int64_t helper_mul_q_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mul_q_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_min  = DF_MIN_INT(df);
     int64_t q_max  = DF_MAX_INT(df);
@@ -5710,7 +5711,7 @@ int64_t helper_mul_q_df(int64_t arg1, int64_t arg2, uint32_t df)
     return (arg1 * arg2) >> (DF_BITS(df) - 1);
 }
 
-int64_t helper_mulr_q_df(int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_mulr_q_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_min  = DF_MIN_INT(df);
     int64_t q_max  = DF_MAX_INT(df);
@@ -5723,7 +5724,7 @@ int64_t helper_mulr_q_df(int64_t arg1, int64_t arg2, uint32_t df)
     return (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
 }
 
-int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_madd_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_prod, q_ret;
 
@@ -5737,7 +5738,7 @@ int64_t helper_madd_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_maddr_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_prod, q_ret;
 
@@ -5752,7 +5753,7 @@ int64_t helper_maddr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_msub_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_prod, q_ret;
 
@@ -5766,7 +5767,7 @@ int64_t helper_msub_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 }
 
 
-int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
+int64_t helper_msubr_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 {
     int64_t q_prod, q_ret;
 
@@ -5784,12 +5785,12 @@ int64_t helper_msubr_q_df(int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
 /* MSA helper */
 #include "mips_msa_helper_dummy.h"
 
-int64_t helper_load_wr_elem_s64(int32_t wreg, int32_t df, int32_t i)
+int64_t helper_load_wr_elem_s64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
 
     i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
     case DF_BYTE: /* b */
@@ -5806,19 +5807,19 @@ int64_t helper_load_wr_elem_s64(int32_t wreg, int32_t df, int32_t i)
     }
 }
 
-target_ulong helper_load_wr_elem_target_s64(int32_t wreg, int32_t df, int32_t i)
+target_ulong helper_load_wr_elem_target_s64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
 {
-  return (target_ulong)helper_load_wr_elem_s64(wreg, df, i);
+  return (target_ulong)helper_load_wr_elem_s64(env, wreg, df, i);
 }
 
 
 
-uint64_t helper_load_wr_elem_i64(int32_t wreg, int32_t df, int32_t i)
+uint64_t helper_load_wr_elem_i64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
 
     i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
     case DF_BYTE: /* b */
@@ -5835,18 +5836,18 @@ uint64_t helper_load_wr_elem_i64(int32_t wreg, int32_t df, int32_t i)
     }
 }
 
-target_ulong helper_load_wr_elem_target_i64(int32_t wreg, int32_t df, int32_t i)
+target_ulong helper_load_wr_elem_target_i64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
 {
-  return (target_ulong)helper_load_wr_elem_i64(wreg, df, i);
+  return (target_ulong)helper_load_wr_elem_i64(env, wreg, df, i);
 }
 
 
-void helper_store_wr_elem(uint64_t val, int32_t wreg, int32_t df, int32_t i)
+void helper_store_wr_elem(CPUMIPSState *env, uint64_t val, int32_t wreg, int32_t df, int32_t i)
 {
     int wrlen = 128;
 
     i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index((uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
+    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
 
     switch (df) {
     case DF_BYTE: /* b */
@@ -5867,9 +5868,9 @@ void helper_store_wr_elem(uint64_t val, int32_t wreg, int32_t df, int32_t i)
     }
 }
 
-void helper_store_wr_elem_target(target_ulong val, int32_t wreg, int32_t df, int32_t i)
+void helper_store_wr_elem_target(CPUMIPSState *env, target_ulong val, int32_t wreg, int32_t df, int32_t i)
 {
-  return helper_store_wr_elem((uint64_t)val, wreg, df, i);
+  return helper_store_wr_elem(env, (uint64_t)val, wreg, df, i);
 }
 
 
@@ -5880,12 +5881,12 @@ void helper_store_wr_elem_target(target_ulong val, int32_t wreg, int32_t df, int
  *  MSA Floating-point operations
  */
 
-static void clear_msacsr_cause(void) {
+static void clear_msacsr_cause(CPUMIPSState *env) {
     SET_FP_CAUSE(env->active_msa.msacsr, 0);
 }
 
 
-static void check_msacsr_cause(void)
+static void check_msacsr_cause(CPUMIPSState *env)
 {
   if ((GET_FP_CAUSE(env->active_msa.msacsr) &
        (GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)) == 0) {
@@ -5904,7 +5905,7 @@ static void check_msacsr_cause(void)
            GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED,
            GET_FP_CAUSE(env->active_msa.msacsr));
 #endif
-      helper_raise_exception(EXCP_MSAFPE);
+      helper_raise_exception(env, EXCP_MSAFPE);
   }
 }
 
@@ -5914,7 +5915,7 @@ static void check_msacsr_cause(void)
 #define CLEAR_IS_INEXACT   2
 #define RECIPROCAL_INEXACT 4
 
-static int update_msacsr(int action, int denormal)
+static int update_msacsr(CPUMIPSState *env, int action, int denormal)
 {
     int ieee_ex;
 
@@ -5944,7 +5945,7 @@ static int update_msacsr(int action, int denormal)
     if (ieee_ex) printf("\n");
 #endif
 
-    c = ieee_ex_to_mips(ieee_ex);
+    c = ieee_ex_to_mips(env, ieee_ex);
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
 
     /* Set Inexact (I) when flushing inputs to zero */
@@ -6032,7 +6033,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
+    c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6055,7 +6056,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(CLEAR_FS_UNDERFLOW, 0);                           \
+    c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6073,7 +6074,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG,                                \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
+    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6104,7 +6105,7 @@ static int update_msacsr(int action, int denormal)
                                     & (~float_flag_inexact),            \
       &env->active_msa.fp_status);                                      \
                                                                         \
-    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
+    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6122,7 +6123,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
+    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6140,7 +6141,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0, 0);                                            \
+    c = update_msacsr(env, 0, 0);                                       \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6158,7 +6159,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
                                      &env->active_msa.fp_status);       \
-    c = update_msacsr(float ## BITS ## _is_infinity(ARG) ||             \
+    c = update_msacsr(env, float ## BITS ## _is_infinity(ARG) ||        \
                       float ## BITS ## _is_quiet_nan(DEST)?             \
                       0 : RECIPROCAL_INEXACT,                           \
                       IS_DENORMAL(DEST, BITS));                         \
@@ -6179,7 +6180,7 @@ static int update_msacsr(int action, int denormal)
     set_float_exception_flags(0, &env->active_msa.fp_status);           \
     DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
                                     &env->active_msa.fp_status);        \
-    c = update_msacsr(0, IS_DENORMAL(DEST, BITS));                      \
+    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
                                                                         \
@@ -6197,14 +6198,14 @@ static int update_msacsr(int action, int denormal)
  *  FADD, FSUB, FMUL, FDIV
  */
 
-void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fadd_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6224,18 +6225,18 @@ void helper_fadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsub_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6255,18 +6256,18 @@ void helper_fsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmul_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6286,18 +6287,18 @@ void helper_fmul_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fdiv_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6317,8 +6318,8 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -6326,14 +6327,14 @@ void helper_fdiv_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
  *  FSQRT
  */
 
-void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_fsqrt_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6353,8 +6354,8 @@ void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -6362,14 +6363,14 @@ void helper_fsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
  *  FEXP2, FLOG2
  */
 
-void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fexp2_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6395,18 +6396,18 @@ void helper_fexp2_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_flog2_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6426,8 +6427,8 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -6435,14 +6436,14 @@ void helper_flog2_df(void *pwd, void *pws, uint32_t wrlen_df)
  *  FMADD, FMSUB
  */
 
-void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmadd_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6464,18 +6465,18 @@ void helper_fmadd_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmsub_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6499,8 +6500,8 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -6532,14 +6533,14 @@ void helper_fmsub_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
   X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
 
 
-void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmax_a_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6559,19 +6560,19 @@ void helper_fmax_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmax_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6607,19 +6608,19 @@ void helper_fmax_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmin_a_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6639,19 +6640,19 @@ void helper_fmin_a_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fmin_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6687,8 +6688,8 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -6723,7 +6724,7 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     }                                                                   \
     DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
                                                                         \
-    c = update_msacsr(CLEAR_IS_INEXACT, 0);                             \
+    c = update_msacsr(env, CLEAR_IS_INEXACT, 0);                        \
                                                                         \
     enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
     cause = c & enable;                                                 \
@@ -6795,13 +6796,13 @@ void helper_fmin_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 
 
 static void
-compare_af(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_af(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6821,28 +6822,28 @@ compare_af(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcaf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcaf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_af(pwd, pws, pwt, wrlen_df, 1);
+  compare_af(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsaf_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsaf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_af(pwd, pws, pwt, wrlen_df, 0);
+  compare_af(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 static void
-compare_eq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_eq(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6862,29 +6863,29 @@ compare_eq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fceq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fceq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_eq(pwd, pws, pwt, wrlen_df, 1);
+  compare_eq(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fseq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fseq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_eq(pwd, pws, pwt, wrlen_df, 0);
+  compare_eq(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_ueq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_ueq(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6904,29 +6905,29 @@ compare_ueq(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcueq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcueq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ueq(pwd, pws, pwt, wrlen_df, 1);
+  compare_ueq(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsueq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsueq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ueq(pwd, pws, pwt, wrlen_df, 0);
+  compare_ueq(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_ne(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_ne(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6946,28 +6947,28 @@ compare_ne(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcne_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ne(pwd, pws, pwt, wrlen_df, 1);
+  compare_ne(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsne_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsne_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ne(pwd, pws, pwt, wrlen_df, 0);
+  compare_ne(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 static void
-compare_une(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_une(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -6987,29 +6988,29 @@ compare_une(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcune_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcune_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_une(pwd, pws, pwt, wrlen_df, 1);
+  compare_une(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsune_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsune_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_une(pwd, pws, pwt, wrlen_df, 0);
+  compare_une(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_le(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_le(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7029,29 +7030,29 @@ compare_le(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcle_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_le(pwd, pws, pwt, wrlen_df, 1);
+  compare_le(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsle_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsle_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_le(pwd, pws, pwt, wrlen_df, 0);
+  compare_le(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_ule(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_ule(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7071,29 +7072,29 @@ compare_ule(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcule_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcule_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ule(pwd, pws, pwt, wrlen_df, 1);
+  compare_ule(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsule_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsule_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ule(pwd, pws, pwt, wrlen_df, 0);
+  compare_ule(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_lt(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_lt(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7113,29 +7114,29 @@ compare_lt(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fclt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fclt_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_lt(pwd, pws, pwt, wrlen_df, 1);
+  compare_lt(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fslt_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fslt_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_lt(pwd, pws, pwt, wrlen_df, 0);
+  compare_lt(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_ult(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_ult(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7155,29 +7156,29 @@ compare_ult(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcult_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcult_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ult(pwd, pws, pwt, wrlen_df, 1);
+  compare_ult(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsult_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsult_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_ult(pwd, pws, pwt, wrlen_df, 0);
+  compare_ult(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_un(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_un(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7197,29 +7198,29 @@ compare_un(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_fcun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcun_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_un(pwd, pws, pwt, wrlen_df, 1);
+  compare_un(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsun_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsun_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_un(pwd, pws, pwt, wrlen_df, 0);
+  compare_un(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
 static void
-compare_or(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
+compare_or(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7239,17 +7240,17 @@ compare_or(void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
-void helper_fcor_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fcor_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_or(pwd, pws, pwt, wrlen_df, 1);
+  compare_or(env, pwd, pws, pwt, wrlen_df, 1);
 }
 
-void helper_fsor_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fsor_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
-  compare_or(pwd, pws, pwt, wrlen_df, 0);
+  compare_or(env, pwd, pws, pwt, wrlen_df, 0);
 }
 
 
@@ -7315,7 +7316,7 @@ void helper_fsor_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
     } while (0)
 
 
-int64_t helper_fclass_df(int64_t arg, uint32_t df)
+int64_t helper_fclass_df(CPUMIPSState *env, int64_t arg, uint32_t df)
 {
     if (df == DF_WORD) {
         MSA_FLOAT_CLASS(arg, 32);
@@ -7347,7 +7348,7 @@ static float32 float32_from_float64(int64 a STATUS_PARAM) {
       return a < 0 ? (f_val | (1 << 31)) : f_val;
 }
 
-static float32 float32_from_float16(int16 a, flag ieee STATUS_PARAM) {
+static float32 float32_from_float16(int16_t a, flag ieee STATUS_PARAM) {
       float32 f_val;
 
       f_val = float16_to_float32((float16)a, ieee STATUS_VAR);
@@ -7365,7 +7366,7 @@ static float64 float64_from_float32(int32 a STATUS_PARAM) {
       return a < 0 ? (f_val | (1ULL << 63)) : f_val;
 }
 
-void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_fexdo_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7396,11 +7397,11 @@ void helper_fexdo_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, &wx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
-void helper_fexupl_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_fexupl_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7430,11 +7431,11 @@ void helper_fexupl_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, &wx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
-void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_fexupr_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7464,8 +7465,8 @@ void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, &wx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
 
@@ -7480,14 +7481,14 @@ void helper_fexupr_df(void *pwd, void *pws, uint32_t wrlen_df)
 #define float64_from_uint64 uint64_to_float64
 
 
-void helper_ffint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ffint_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7507,19 +7508,19 @@ void helper_ffint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ffint_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7539,19 +7540,19 @@ void helper_ffint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ftint_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7571,19 +7572,19 @@ void helper_ftint_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ftint_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7603,18 +7604,18 @@ void helper_ftint_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_ftrunc_s_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ftrunc_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7634,19 +7635,19 @@ void helper_ftrunc_s_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_ftrunc_u_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ftrunc_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7666,18 +7667,18 @@ void helper_ftrunc_u_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
-void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_frint_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7697,8 +7698,8 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -7706,7 +7707,7 @@ void helper_frint_df(void *pwd, void *pws, uint32_t wrlen_df)
  *  FFQ, FTQ
  */
 
-static float32 float32_from_q16(int16 a STATUS_PARAM)
+static float32 float32_from_q16(int16_t a STATUS_PARAM)
 {
     float32 f_val;
 
@@ -7728,7 +7729,7 @@ static float64 float64_from_q32(int32 a STATUS_PARAM)
     return f_val;
 }
 
-static int16 float32_to_q16(float32 a STATUS_PARAM)
+static int16_t float32_to_q16(float32 a STATUS_PARAM)
 {
     int32 q_val;
     int32 q_min = 0xffff8000;
@@ -7744,9 +7745,9 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     /* scaling */
     a = float32_scalbn(a, 15 STATUS_VAR);
 
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
-                              &env->active_msa.fp_status);
+    ieee_ex = get_float_exception_flags(status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
+                              STATUS_VAR);
 
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
@@ -7756,28 +7757,28 @@ static int16 float32_to_q16(float32 a STATUS_PARAM)
     /* conversion to int */
     q_val = float32_to_int32(a STATUS_VAR);
 
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
-                              &env->active_msa.fp_status);
+    ieee_ex = get_float_exception_flags(status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
+                              STATUS_VAR);
 
     if (ieee_ex & float_flag_invalid) {
-      set_float_exception_flags(ieee_ex & (~float_flag_invalid),
-                                &env->active_msa.fp_status);
+      set_float_exception_flags(ieee_ex & (~float_flag_invalid)
+                                STATUS_VAR);
       float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int32)a < 0 ? q_min : q_max;
     }
 
     if (q_val < q_min) {
       float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int16)q_min;
+      return (int16_t)q_min;
     }
 
     if (q_max < q_val) {
       float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int16)q_max;
+      return (int16_t)q_max;
     }
 
-    return (int16)q_val;
+    return (int16_t)q_val;
 }
 
 static int32 float64_to_q32(float64 a STATUS_PARAM)
@@ -7796,9 +7797,9 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     /* scaling */
     a = float64_scalbn(a, 31 STATUS_VAR);
 
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
-                              &env->active_msa.fp_status);
+    ieee_ex = get_float_exception_flags(status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
+                              STATUS_VAR);
 
     if (ieee_ex & float_flag_overflow) {
       float_raise( float_flag_inexact STATUS_VAR);
@@ -7808,13 +7809,13 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     /* conversion to integer */
     q_val = float64_to_int64(a STATUS_VAR);
 
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow),
-                              &env->active_msa.fp_status);
+    ieee_ex = get_float_exception_flags(status);
+    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
+                              STATUS_VAR);
 
     if (ieee_ex & float_flag_invalid) {
-      set_float_exception_flags(ieee_ex & (~float_flag_invalid),
-                                &env->active_msa.fp_status);
+      set_float_exception_flags(ieee_ex & (~float_flag_invalid)
+                                STATUS_VAR);
       float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
       return (int64)a < 0 ? q_min : q_max;
     }
@@ -7832,7 +7833,7 @@ static int32 float64_to_q32(float64 a STATUS_PARAM)
     return (int32)q_val;
 }
 
-void helper_ffql_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ffql_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7857,10 +7858,10 @@ void helper_ffql_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
-void helper_ffqr_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_ffqr_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
@@ -7885,17 +7886,17 @@ void helper_ffqr_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    helper_move_v(pwd, &wx, wrlen);
+    helper_move_v(env, pwd, &wx, wrlen);
 }
 
-void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
+void helper_ftq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7917,22 +7918,22 @@ void helper_ftq_df(void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 /*
  *  FRCP, FRSQRT
  */
 
-void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_frcp_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7952,19 +7953,19 @@ void helper_frcp_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
-void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
+void helper_frsqrt_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
 {
     uint32_t df = DF(wrlen_df);
     uint32_t wrlen = WRLEN(wrlen_df);
 
     wr_t wx, *pwx = &wx;
 
-    clear_msacsr_cause();
+    clear_msacsr_cause(env);
 
     switch (df) {
     case DF_WORD:
@@ -7990,8 +7991,8 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
       assert(0);
     }
 
-    check_msacsr_cause();
-    helper_move_v(pwd, pwx, wrlen);
+    check_msacsr_cause(env);
+    helper_move_v(env, pwd, pwx, wrlen);
 }
 
 
@@ -8000,7 +8001,7 @@ void helper_frsqrt_df(void *pwd, void *pws, uint32_t wrlen_df)
  *  MSA Control Register (MSACSR) instructions: CFCMSA, CTCMSA
  */
 
-target_ulong helper_cfcmsa(uint32_t cs)
+target_ulong helper_cfcmsa(CPUMIPSState *env, uint32_t cs)
 {
     switch (cs) {
     case MSAIR_REGISTER:
@@ -8058,7 +8059,7 @@ target_ulong helper_cfcmsa(uint32_t cs)
 }
 
 
-void helper_ctcmsa(target_ulong elm, uint32_t cd)
+void helper_ctcmsa(CPUMIPSState *env, target_ulong elm, uint32_t cd)
 {
     switch (cd) {
     case MSAIR_REGISTER:
@@ -8090,7 +8091,7 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
         /* check exception */
         if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
             & GET_FP_CAUSE(env->active_msa.msacsr)) {
-            helper_raise_exception(EXCP_MSAFPE);
+            helper_raise_exception(env, EXCP_MSAFPE);
         }
 
         return;
@@ -8152,13 +8153,13 @@ void helper_ctcmsa(target_ulong elm, uint32_t cd)
 
 #define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
 
-target_ulong helper_dlsa(target_ulong rt, target_ulong rs, uint32_t u2)
+target_ulong helper_dlsa(CPUMIPSState *env, target_ulong rt, target_ulong rs, uint32_t u2)
 {
   return LSA(rs, rt, u2);
 }
 
 
-target_ulong helper_lsa(target_ulong rt, target_ulong rs, uint32_t u2)
+target_ulong helper_lsa(CPUMIPSState *env, target_ulong rt, target_ulong rs, uint32_t u2)
 {
   return (uint32_t)LSA(rs, rt, u2);
 }
