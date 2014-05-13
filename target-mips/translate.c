@@ -135,6 +135,8 @@ enum {
     R6_OPC_JIALC    = (0x3E << 26), // [rs == r0]
     /* MDMX ASE specific */
     OPC_MDMX     = (0x1E << 26),
+    /* MSA ASE, same as MDMX */
+    OPC_MSA      = OPC_MDMX,
     /* Cache and prefetch */
     OPC_CACHE    = (0x2F << 26),
     OPC_PREF     = (0x33 << 26),
@@ -172,10 +174,16 @@ enum {
     OPC_ROTR     = OPC_SRL | (1 << 21),
     OPC_SRA      = 0x03 | OPC_SPECIAL,
     OPC_SLLV     = 0x04 | OPC_SPECIAL,
+
+    OPC_MSA_S05  = 0x05 | OPC_SPECIAL,
+
     OPC_SRLV     = 0x06 | OPC_SPECIAL, /* also ROTRV */
     OPC_ROTRV    = OPC_SRLV | (1 << 6),
     OPC_SRAV     = 0x07 | OPC_SPECIAL,
     OPC_DSLLV    = 0x14 | OPC_SPECIAL,
+
+    OPC_MSA_S15  = 0x15 | OPC_SPECIAL,
+
     OPC_DSRLV    = 0x16 | OPC_SPECIAL, /* also DROTRV */
     OPC_DROTRV   = OPC_DSRLV | (1 << 6),
     OPC_DSRAV    = 0x17 | OPC_SPECIAL,
@@ -941,6 +949,10 @@ enum {
     OPC_BC1      = (0x08 << 21) | OPC_CP1, /* bc */
     OPC_BC1ANY2  = (0x09 << 21) | OPC_CP1,
     OPC_BC1ANY4  = (0x0A << 21) | OPC_CP1,
+
+    OPC_MSA_C0B  = (0x0B << 21) | OPC_CP1,
+    OPC_MSA_C0F  = (0x0F << 21) | OPC_CP1,
+
     OPC_S_FMT    = (FMT_S << 21) | OPC_CP1,
     OPC_D_FMT    = (FMT_D << 21) | OPC_CP1,
     OPC_E_FMT    = (FMT_E << 21) | OPC_CP1,
@@ -950,6 +962,15 @@ enum {
     OPC_PS_FMT   = (FMT_PS << 21) | OPC_CP1,
     R6_OPC_BC1EQZ = (0x09 << 21) | OPC_CP1,
     R6_OPC_BC1NEZ = (0x0D << 21) | OPC_CP1,
+
+    OPC_MSA_C18  = (0x18 << 21) | OPC_CP1,
+    OPC_MSA_C19  = (0x19 << 21) | OPC_CP1,
+    OPC_MSA_C1A  = (0x1A << 21) | OPC_CP1,
+    OPC_MSA_C1B  = (0x1B << 21) | OPC_CP1,
+    OPC_MSA_C1C  = (0x1C << 21) | OPC_CP1,
+    OPC_MSA_C1D  = (0x1D << 21) | OPC_CP1,
+    OPC_MSA_C1E  = (0x1E << 21) | OPC_CP1,
+    OPC_MSA_C1F  = (0x1F << 21) | OPC_CP1,
 };
 
 #define MASK_CP1_FUNC(op)       MASK_CP1(op) | (op & 0x3F)
@@ -972,6 +993,7 @@ enum {
     OPC_BC1TANY4     = (0x01 << 16) | OPC_BC1ANY4,
 };
 
+#define OPC_CP1_MSA
 #define MASK_CP2(op)       MASK_OP_MAJOR(op) | (op & (0x1F << 21))
 
 enum {
@@ -8634,12 +8656,15 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
         break;
     case OPC_CTC1:
         gen_load_gpr(t0, rt);
+        save_cpu_state(ctx, 1);
         {
             TCGv_i32 fs_tmp = tcg_const_i32(fs);
 
             gen_helper_0e2i(ctc1, t0, fs_tmp, rt);
             tcg_temp_free_i32(fs_tmp);
         }
+        /* Stop translation as we may have changed hflags */
+        ctx->bstate = BS_STOP;
         opn = "ctc1";
         break;
 #if defined(TARGET_MIPS64)
@@ -17249,6 +17274,62 @@ static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
+/* MIPS SIMD Architecture (MSA)  */
+
+static inline int check_msa_access(CPUState *env, DisasContext *ctx,
+                                    int wt, int ws, int wd)
+{
+    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
+        generate_exception(ctx, EXCP_RI);
+        return 0;
+    }
+
+    if (unlikely((env->CP0_Status & (1 << CP0St_CU1)) != 0 &&
+                 (env->CP0_Status & (1 << CP0St_FR )) == 0)) {
+        generate_exception(ctx, EXCP_RI);
+        return 0;
+    }
+
+    if (unlikely((env->CP0_Config5 & (1 << CP0C5_MSAEn)) == 0)) {
+        generate_exception(ctx, EXCP_MSADIS);
+        return 0;
+    }
+
+    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+      int curr_request;
+
+      curr_request = 0;
+
+      if (wd != -1) {
+        curr_request |= (1 << wd);
+      }
+
+      if (wt != -1) {
+        curr_request |= (1 << wt);
+      }
+
+      if (ws != -1) {
+        curr_request |= (1 << ws);
+      }
+
+      env->active_msa.msarequest = curr_request
+        & (~env->active_msa.msaaccess | env->active_msa.msasave);
+
+      if (unlikely(env->active_msa.msarequest != 0)) {
+        generate_exception(ctx, EXCP_MSADIS);
+        return 0;
+      }
+    }
+    return 1;
+}
+
+static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
+                                     int wd) {
+    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+        env->active_msa.msamodify |= (1 << wd);
+    }
+}
+
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int32_t offset;
@@ -17290,6 +17371,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     imm = (int16_t)ctx->opcode;
     switch (op) {
     case OPC_SPECIAL:
+        op1 = MASK_SPECIAL(ctx->opcode);
+
+        if (op1 == OPC_MSA_S05 ||
+            op1 == OPC_MSA_S15) {
+          goto decode_msa;
+        }
         decode_opc_special(env, ctx);
         break;
     case OPC_SPECIAL2:
@@ -17576,9 +17663,24 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     case OPC_CP1:
+        op1 = MASK_CP1(ctx->opcode);
+
+        if (op1 == OPC_MSA_C0B ||
+            op1 == OPC_MSA_C0F ||
+            op1 == OPC_MSA_C18 ||
+            op1 == OPC_MSA_C19 ||
+            op1 == OPC_MSA_C1A ||
+            op1 == OPC_MSA_C1B ||
+            op1 == OPC_MSA_C1C ||
+            op1 == OPC_MSA_C1D ||
+            op1 == OPC_MSA_C1E ||
+            op1 == OPC_MSA_C1F) {
+          goto decode_msa;
+        }
+
         if (env->CP0_Config1 & (1 << CP0C1_FP)) {
             check_cp1_enabled(ctx);
-            op1 = MASK_CP1(ctx->opcode);
+
             switch (op1) {
             case OPC_MFHC1:
             case OPC_MTHC1:
@@ -17866,9 +17968,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_compute_branch(ctx, op, 4, rs, rt, offset);
         }
         break;
-    case OPC_MDMX:
-        check_insn(ctx, ASE_MDMX);
+    case OPC_MSA:
+    decode_msa:
         /* MDMX: Not implemented. */
+        check_insn(env, ctx, ASE_MDMX | ASE_MSA);
+        gen_msa(env, ctx, is_branch);
         break;
     case R6_PC_RELATIVE:
         check_insn(ctx, ISA_MIPS32R6);
@@ -18421,6 +18525,11 @@ void cpu_state_reset(CPUMIPSState *env)
         // R6: FR=0 mode in FPU not allowed
         env->CP0_Status |= (1 << CP0St_FR);
         env->CP0_Status_rw_bitmask &= ~(1 << CP0St_FR);
+    }
+
+    /* MSA */
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+        msa_reset(env);
     }
 
     compute_hflags(env);
