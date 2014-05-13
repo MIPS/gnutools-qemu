@@ -829,6 +829,51 @@ static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
                              (0x1 << CP0MVPC1_PCP1);
 }
 
+static void msa_reset(CPUMIPSState *env)
+{
+#ifdef CONFIG_USER_ONLY
+    /* MSA access enabled */
+    env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+
+    /* DSP and CP1 enabled, 64-bit FPRs */
+    env->CP0_Status |= (1 << CP0St_MX);
+    env->hflags |= MIPS_HFLAG_DSP;
+
+    env->CP0_Status |= (1 << CP0St_CU1) | (1 << CP0St_FR);
+    env->hflags |= MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X;
+#endif
+
+    /* Vector register partitioning not implemented */
+    env->active_msa.msair = 0;
+    env->active_msa.msaaccess  = 0xffffffff;
+    env->active_msa.msasave    = 0;
+    env->active_msa.msarequest = 0;
+
+    /* MSA CSR:
+       - non-signaling floating point exception mode off (NX bit is 0)
+       - Cause, Enables, and Flags are all 0
+       - round to nearest / ties to even (RM bits are 0) */
+    env->active_msa.msacsr = 0;
+
+    /* tininess detected after rounding.*/
+    set_float_detect_tininess(float_tininess_after_rounding,
+                              &env->active_msa.fp_status);
+
+    /* clear float_status exception flags */
+    set_float_exception_flags(0, &env->active_msa.fp_status);
+
+    /* set float_status rounding mode */
+    set_float_rounding_mode(float_round_nearest_even,
+                            &env->active_msa.fp_status);
+
+    /* set float_status flush modes */
+    set_flush_to_zero(0, &env->active_msa.fp_status);
+    set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
+
+    /* clear float_status nan mode */
+    set_default_nan_mode(0, &env->active_msa.fp_status);
+}
+
 #ifdef MIPSSIM_COMPAT
 void sv_log_init(const char * filename)
 {
