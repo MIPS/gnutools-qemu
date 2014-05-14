@@ -1,4 +1,4 @@
-static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
+static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
 {
     uint32_t opcode = ctx->opcode;
 
@@ -109,11 +109,9 @@ static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
     switch (opcode & 0xffe00000) {
         case OPC_BNZ_V:
             gen_bnz_v(env, ctx);
-            *is_branch = 1;
             return;
         case OPC_BZ_V:
             gen_bz_v(env, ctx);
-            *is_branch = 1;
             return;
     }
 
@@ -528,11 +526,9 @@ static void gen_msa(CPUState *env, DisasContext *ctx, int *is_branch)
     switch (opcode & 0xff800000) {
         case OPC_BNZ_df:
             gen_bnz_df(env, ctx);
-            *is_branch = 1;
             return;
         case OPC_BZ_df:
             gen_bz_df(env, ctx);
-            *is_branch = 1;
             return;
     }
 
