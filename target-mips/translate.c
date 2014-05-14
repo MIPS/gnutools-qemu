@@ -17389,7 +17389,7 @@ static void decode_opc_special3 (CPUMIPSState *env, DisasContext *ctx)
 
 /* MIPS SIMD Architecture (MSA)  */
 
-static inline int check_msa_access(CPUState *env, DisasContext *ctx,
+static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
                                     int wt, int ws, int wd)
 {
     if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
@@ -17436,7 +17436,7 @@ static inline int check_msa_access(CPUState *env, DisasContext *ctx,
     return 1;
 }
 
-static inline void update_msa_modify(CPUState *env, DisasContext *ctx,
+static inline void update_msa_modify(CPUMIPSState *env, DisasContext *ctx,
                                      int wd) {
     if (env->active_msa.msair & MSAIR_WRP_BIT) {
         env->active_msa.msamodify |= (1 << wd);
@@ -18084,8 +18084,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_MSA:
     decode_msa:
         /* MDMX: Not implemented. */
-        check_insn(env, ctx, ASE_MDMX | ASE_MSA);
-        gen_msa(env, ctx, is_branch);
+        check_insn(ctx, ASE_MDMX | ASE_MSA);
+        gen_msa(env, ctx);
         break;
     case R6_PC_RELATIVE:
         check_insn(ctx, ISA_MIPS32R6);
