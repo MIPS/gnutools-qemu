@@ -17443,6 +17443,11 @@ static inline void update_msa_modify(CPUMIPSState *env, DisasContext *ctx,
     }
 }
 
+
+#include "mips_msa_opcodes.h"
+#include "mips_msa_opcodes_gen.h"
+#include "mips_msa_opcodes_case.h"
+
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int32_t offset;
