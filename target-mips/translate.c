@@ -4997,7 +4997,7 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 #if !defined(TARGET_MIPS64)
 /* This code generates a "reserved instruction" exception if the
    CPU does not support MTHC0 and MFHC0 instructions. */
-static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
+static inline void check_mfthc0(CPUMIPSState *env, DisasContext *ctx)
 {
     if (unlikely(!(env->CP0_Config5 & (1 << CP0C5_MVH)))) {
         XPA_DEBUG("[XPA] mfthc0 NOT SUPPORTED.\n");
@@ -5005,7 +5005,7 @@ static inline void check_mfthc0(CPUState *env, DisasContext *ctx)
     }
 }
 
-static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_mfhc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
@@ -5018,7 +5018,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 2:
         switch (sel) {
         case 0:
-            gen_helper_mfhc0_entrylo0(arg);
+            gen_helper_mfhc0_entrylo0(arg, cpu_env);
             rn = "EntryLo0";
             break;
         default:
@@ -5028,7 +5028,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 3:
         switch (sel) {
         case 0:
-            gen_helper_mfhc0_entrylo1(arg);
+            gen_helper_mfhc0_entrylo1(arg, cpu_env);
             rn = "EntryLo1";
             break;
         default:
@@ -5038,7 +5038,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 17:
         switch (sel) {
         case 0:
-            gen_helper_mfhc0_lladdr(arg);
+            gen_helper_mfhc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
             break;
         default:
@@ -5051,7 +5051,7 @@ static void gen_mfhc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 2:
         case 4:
         case 6:
-            gen_helper_mfhc0_taglo(arg);
+            gen_helper_mfhc0_taglo(arg, cpu_env);
             rn = "TagLo";
             break;
         default:
@@ -5071,14 +5071,14 @@ mfhc0_read0:
     XPA_DEBUG("[XPA] mfhc0 - not 64-bit register (returning 0), rn %s, reg %d, sel %d\n", rn, reg, sel);
 }
 
-static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
+static void gen_mthc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
 
     check_mfthc0(env, ctx);
 
     if (sel != 0) {
-        check_insn(env, ctx, ISA_MIPS32);
+        check_insn(ctx, ISA_MIPS32);
     }
 
     XPA_DEBUG("[XPA] mthc0: reg %d, sel %d\n", reg, sel);
@@ -5088,7 +5088,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 2:
         switch (sel) {
         case 0:
-            gen_helper_mthc0_entrylo0(arg);
+            gen_helper_mthc0_entrylo0(cpu_env, arg);
             rn = "EntryLo0";
             break;
         default:
@@ -5098,7 +5098,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 3:
         switch (sel) {
         case 0:
-            gen_helper_mthc0_entrylo1(arg);
+            gen_helper_mthc0_entrylo1(cpu_env, arg);
             rn = "EntryLo1";
             break;
         default:
@@ -5108,7 +5108,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
     case 17:
         switch (sel) {
         case 0:
-            gen_helper_mthc0_lladdr(arg);
+            gen_helper_mthc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
             break;
         default:
@@ -5121,7 +5121,7 @@ static void gen_mthc0(CPUState *env, DisasContext *ctx, TCGv arg, int reg, int s
         case 2:
         case 4:
         case 6:
-            gen_helper_mthc0_taglo(arg);
+            gen_helper_mthc0_taglo(cpu_env, arg);
             rn = "TagLo";
             break;
         default:

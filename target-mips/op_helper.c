@@ -1093,7 +1093,7 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static void mtc0_entrylo_common(int isR6, target_ulong * CP0_EntryLo, target_ulong arg1,
+static void mtc0_entrylo_common(int isR6, uint64_t * CP0_EntryLo, target_ulong arg1,
                                 target_ulong rixi, uint32_t write_rixi_lshift) {
     target_ulong newval = (arg1 & 0x3FFFFFFF) | (rixi << write_rixi_lshift);
     if (isR6) {
@@ -1126,7 +1126,7 @@ void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 #endif
 
 #ifndef TARGET_MIPS64
-static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
+static inline void xpa_mthc0(CPUMIPSState *env, uint64_t * reg, target_ulong val)
 {
     if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
         val &= (1 << XPA_ADDITIONAL_BITS) - 1;
@@ -1134,7 +1134,7 @@ static inline void xpa_mthc0(uint64_t * reg, target_ulong val)
     }
 }
 
-static inline target_ulong xpa_mfhc0(const uint64_t * reg)
+static inline target_ulong xpa_mfhc0(CPUMIPSState *env, const uint64_t * reg)
 {
     if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
         return *reg >> 32;
@@ -1143,44 +1143,44 @@ static inline target_ulong xpa_mfhc0(const uint64_t * reg)
     }    
 }
 
-void helper_mthc0_entrylo0 (target_ulong arg1)
+void helper_mthc0_entrylo0 (CPUMIPSState *env, target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_EntryLo0, arg1);
+    xpa_mthc0(env, &env->CP0_EntryLo0, arg1);
 }
 
-target_ulong helper_mfhc0_entrylo0 (void)
+target_ulong helper_mfhc0_entrylo0 (CPUMIPSState *env)
 {
-    return xpa_mfhc0(&env->CP0_EntryLo0);
+    return xpa_mfhc0(env, &env->CP0_EntryLo0);
 }
 
-void helper_mthc0_entrylo1 (target_ulong arg1)
+void helper_mthc0_entrylo1 (CPUMIPSState *env, target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_EntryLo1, arg1);
+    xpa_mthc0(env, &env->CP0_EntryLo1, arg1);
 }
 
-target_ulong helper_mfhc0_entrylo1 (void)
+target_ulong helper_mfhc0_entrylo1 (CPUMIPSState *env)
 {
-    return xpa_mfhc0(&env->CP0_EntryLo1);
+    return xpa_mfhc0(env, &env->CP0_EntryLo1);
 }
 
-void helper_mthc0_taglo(target_ulong arg1)
+void helper_mthc0_taglo(CPUMIPSState *env, target_ulong arg1)
 {
-    xpa_mthc0(&env->CP0_TagLo, arg1);
+    xpa_mthc0(env, &env->CP0_TagLo, arg1);
 }
 
-target_ulong helper_mfhc0_taglo(void)
+target_ulong helper_mfhc0_taglo(CPUMIPSState *env)
 {
-    return xpa_mfhc0(&env->CP0_TagLo);
+    return xpa_mfhc0(env, &env->CP0_TagLo);
 }
 
-void helper_mthc0_lladdr (target_ulong arg1)
+void helper_mthc0_lladdr (CPUMIPSState *env, target_ulong arg1)
 {
-    xpa_mthc0(&env->lladdr, arg1);
+    xpa_mthc0(env, &env->lladdr, arg1);
 }
 
-target_ulong helper_mfhc0_lladdr (void)
+target_ulong helper_mfhc0_lladdr (CPUMIPSState *env)
 {
-    return xpa_mfhc0(&env->lladdr);
+    return xpa_mfhc0(env, &env->lladdr);
 }
 #endif
 
