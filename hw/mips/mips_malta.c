@@ -882,7 +882,7 @@ typedef struct {
     uint64_t buffer;
 } TestInfo;
 
-static uint64_t pae_test_read(void *opaque, target_phys_addr_t addr,
+static uint64_t pae_test_read(void *opaque, hwaddr addr,
                               unsigned size)
 {
     TestInfo * testinfo = opaque;
@@ -891,7 +891,7 @@ static uint64_t pae_test_read(void *opaque, target_phys_addr_t addr,
     return testinfo->buffer;
 }
 
-static void pae_test_write(void *opaque, target_phys_addr_t addr,
+static void pae_test_write(void *opaque, hwaddr addr,
                            uint64_t val, unsigned size)
 {
     TestInfo * testinfo = opaque;
@@ -915,14 +915,15 @@ static inline void pae_test_init(MemoryRegion *system_memory, uint64_t base,
     testinfo->name = malloc(20);
     sprintf(testinfo->name, "%d-bit PA", pa_bits);
 
-    memory_region_init_io(&testinfo->mem, &pae_test_struct, testinfo,
-                          testinfo->name, size);
+    memory_region_init_io(&testinfo->mem, NULL, &pae_test_struct, testinfo,
+                              testinfo->name, size);
     memory_region_add_subregion(system_memory, base, &testinfo->mem);
 }
 
 static inline void pae_test_register_memories(MemoryRegion *system_memory)
 {
     /* Register single memory pages under the following physical addresses:
+     * 0000 0000 2000 0000
        0000 0000 A000 0000
        0000 0001 2000 0000
        0000 0002 2000 0000
@@ -931,6 +932,7 @@ static inline void pae_test_register_memories(MemoryRegion *system_memory)
        0000 0080 2000 0000
      */
     int i;
+    pae_test_init(system_memory, (1ULL << 29), TARGET_PAGE_SIZE, 0);
     for (i = 32; i <= 40; i++)
     {
         pae_test_init(system_memory, (1ULL << (i - 1)) + (1ULL << 29), TARGET_PAGE_SIZE, i);
