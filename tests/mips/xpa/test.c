@@ -43,28 +43,28 @@ static inline void run_read_test(int elpa)
     if (elpa) {
         OUT_serial("TEST:READ,0000001020000000,0x37b:");
     } else {
-        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+        OUT_serial("TEST:READ,0000000020000000,0x40b:");
     }
     LDW(0x61020000, k);
 
     if (elpa) {
         OUT_serial("TEST:READ,0000002020000000,0x38b:");
     } else {
-        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+        OUT_serial("TEST:READ,0000000020000000,0x40b:");
     }
     LDW(0x62020000, k);
 
     if (elpa) {
         OUT_serial("TEST:READ,0000004020000000,0x39b:");
     } else {
-        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+        OUT_serial("TEST:READ,0000000020000000,0x40b:");
     }
     LDW(0x64020000, k);
 
     if (elpa) {
         OUT_serial("TEST:READ,0000008020000000,0x40b:");
     } else {
-        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+        OUT_serial("TEST:READ,0000000020000000,0x40b:");
     }
     LDW(0x68020000, k);
 }
@@ -92,28 +92,28 @@ static inline void run_test(int elpa)
     if (elpa) {
         OUT_serial("TEST:WRITE,0000001020000000,0x37b:");
     } else {
-        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x37b:");
+        OUT_serial("TEST:WRITE,0000000020000000,0x37b:");
     }
     STW(0x61020000, 0x0000037b);
 
     if (elpa) {
         OUT_serial("TEST:WRITE,0000002020000000,0x38b:");
     } else {
-        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x38b:");
+        OUT_serial("TEST:WRITE,0000000020000000,0x38b:");
     }
     STW(0x62020000, 0x0000038b);
 
     if (elpa) {
         OUT_serial("TEST:WRITE,0000004020000000,0x39b:");
     } else {
-        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x39b:");
+        OUT_serial("TEST:WRITE,0000000020000000,0x39b:");
     }
     STW(0x64020000, 0x0000039b);
 
     if (elpa) {
         OUT_serial("TEST:WRITE,0000008020000000,0x40b:");
     } else {
-        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x40b:");
+        OUT_serial("TEST:WRITE,0000000020000000,0x40b:");
     }
     STW(0x68020000, 0x0000040b);
 }

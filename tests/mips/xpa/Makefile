@@ -13,7 +13,7 @@ BIN_FILE = mips_program.bin
 all: build
 
 run: $(ELF_FILE)
-	$(QEMUDIR)qemu-system-mipsel -d in_asm,cpu -D qemu.log -kernel mips_program.elf -nographic -singlestep -cpu Allegro -no-reboot > run.log
+	$(QEMUDIR)qemu-system-mipsel -d in_asm,cpu -D qemu.log -kernel mips_program.elf -nographic -singlestep -cpu mips32r5-generic-xpa -no-reboot > run.log
 	python analyze.py
 
 build: $(BIN_FILE)
