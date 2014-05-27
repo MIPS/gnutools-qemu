@@ -5359,15 +5359,15 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "PageGrain";
             break;
         case 5:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWBase));
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWBase));
             rn = "PWBase";
             break;
         case 6:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWField));
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWField));
             rn = "PWField";
             break;
         case 7:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWSize));
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWSize));
             rn = "PWSize";
             break;
         default:
@@ -5410,7 +5410,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "SRSConf4";
             break;
         case 6:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWCtl));
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
             rn = "PWCtl";
             break;
         default:
@@ -6033,16 +6033,16 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             break;
         case 5:
             if(env->CP0_Config3 & (1 << CP0C3_PW)) {
-                gen_mtc0_store32(arg, offsetof(CPUState, CP0_PWBase));
+                gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_PWBase));
             }
             rn = "PWBase";
             break;
         case 6:
-            gen_helper_mtc0_pwfield(arg);
+            gen_helper_mtc0_pwfield(cpu_env, arg);
             rn = "PWField";
             break;
         case 7:
-            gen_helper_mtc0_pwsize(arg);
+            gen_helper_mtc0_pwsize(cpu_env, arg);
             rn = "PWSize";
             break;
         default:
@@ -6083,7 +6083,7 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
             rn = "SRSConf4";
             break;
         case 6:
-            gen_helper_mtc0_pwctl(arg);
+            gen_helper_mtc0_pwctl(cpu_env, arg);
             rn = "PWCtl";
             break;
         default:
@@ -6749,15 +6749,15 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "PageGrain";
             break;
         case 5:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWBase));
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
             rn = "PWBase";
             break;
         case 6:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWField));
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWField));
             rn = "PWField";
             break;
         case 7:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUState, CP0_PWSize));
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWSize));
             rn = "PWSize";
             break;
         default:
@@ -6800,7 +6800,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "SRSConf4";
             break;
         case 6:
-            gen_mfc0_load32(arg, offsetof(CPUState, CP0_PWCtl));
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
             rn = "PWCtl";
             break;
         default:
@@ -7417,16 +7417,16 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             break;
         case 5:
             if(env->CP0_Config3 & (1 << CP0C3_PW)) {
-                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUState, CP0_PWBase));
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
             }
             rn = "PWBase";
             break;
         case 6:
-            gen_helper_mtc0_pwfield(arg);
+            gen_helper_mtc0_pwfield(cpu_env, arg);
             rn = "PWField";
             break;
         case 7:
-            gen_helper_mtc0_pwsize(arg);
+            gen_helper_mtc0_pwsize(cpu_env, arg);
             rn = "PWSize";
             break;
         default:
@@ -7467,7 +7467,7 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
             rn = "SRSConf4";
             break;
         case 6:
-            gen_helper_mtc0_pwctl(arg);
+            gen_helper_mtc0_pwctl(cpu_env, arg);
             rn = "PWCtl";
             break;
         default:
