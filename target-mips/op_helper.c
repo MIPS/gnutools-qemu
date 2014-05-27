@@ -882,7 +882,7 @@ target_ulong helper_mfc0_lladdr(CPUMIPSState *env)
     return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
 }
 
-target_ulong helper_mfc0_maar (void)
+target_ulong helper_mfc0_maar (CPUMIPSState *env)
 {
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return 0;
@@ -959,7 +959,7 @@ target_ulong helper_dmfc0_lladdr(CPUMIPSState *env)
     return env->lladdr >> env->CP0_LLAddr_shift;
 }
 
-target_ulong helper_dmfc0_maar (void)
+target_ulong helper_dmfc0_maar (CPUMIPSState *env)
 {
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return 0;
@@ -1208,7 +1208,7 @@ void helper_mthc0_lladdr (CPUMIPSState *env, target_ulong arg1)
     xpa_mthc0(env, &env->lladdr, arg1);
 }
 
-void helper_mthc0_maar (target_ulong arg1)
+void helper_mthc0_maar (CPUMIPSState *env, target_ulong arg1)
 {
     uint64_t high_mask = 0x007FFFFFULL;
     uint64_t low_mask =  0xFFFFF003ULL;
@@ -1226,7 +1226,7 @@ target_ulong helper_mfhc0_lladdr (CPUMIPSState *env)
     return xpa_mfhc0(env, &env->lladdr);
 }
 
-target_ulong helper_mfhc0_maar (void)
+target_ulong helper_mfhc0_maar (CPUMIPSState *env)
 {
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return 0;
@@ -1744,7 +1744,7 @@ void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
     env->lladdr = (env->lladdr & ~mask) | (arg1 & mask);
 }
 
-void helper_mtc0_maar (target_ulong arg1)
+void helper_mtc0_maar (CPUMIPSState *env, target_ulong arg1)
 {
     uint64_t mask = 0x7FFFFFFFFFF003ULL;
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
@@ -1755,7 +1755,7 @@ void helper_mtc0_maar (target_ulong arg1)
     }
 }
 
-void helper_mtc0_maari (target_ulong arg1)
+void helper_mtc0_maari (CPUMIPSState *env, target_ulong arg1)
 {
     int index = arg1 & 0x3f;
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
