@@ -1215,7 +1215,7 @@ void helper_mthc0_maar (CPUMIPSState *env, target_ulong arg1)
     }
 
     if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        xpa_mthc0_common(&env->CP0_MAAR[env->CP0_MAARI], arg1, &env->CP0_PageGrain);
+        xpa_mthc0(env, &env->CP0_MAAR[env->CP0_MAARI], arg1);
     }
 }
 
@@ -1231,7 +1231,7 @@ target_ulong helper_mfhc0_maar (CPUMIPSState *env)
     }
 
     if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        return xpa_mfhc0_common(&env->CP0_MAAR[env->CP0_MAARI], &env->CP0_PageGrain);
+        return xpa_mfhc0(env, &env->CP0_MAAR[env->CP0_MAARI]);
     }
     return 0;
 }
