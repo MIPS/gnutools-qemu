@@ -18605,6 +18605,12 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if(env_prev.REG != env->REG) \
             sv_log(" : Write " NAME " = " TARGET_FMT_lx "\n", env->REG); \
     } while(0)
+
+#define CHK_CP0_REG64(REG, NAME) do { \
+        if(env_prev.REG != env->REG) \
+            sv_log(" : Write " NAME " = %016" PRIx64 "\n", env->REG); \
+    } while(0)
+
     CHK_CP0_REG_ULONG(active_tc.HI[0],           "HI          ");
     CHK_CP0_REG_ULONG(active_tc.LO[0],           "LO          ");
 
@@ -18636,7 +18642,7 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_VPEOpt,                      "C0VPEOPT    ");
 
     //2
-    CHK_CP0_REG_ULONG(CP0_EntryLo0,              "C0ENLO0     ");
+    CHK_CP0_REG64(CP0_EntryLo0,                  "C0ENLO0     ");
     CHK_CP0_REG(active_tc.CP0_TCStatus,          "C0TCSTAT    ");
     CHK_CP0_REG(active_tc.CP0_TCBind,            "C0TCBIND    ");
     // TCRestart missing
@@ -18646,7 +18652,7 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG_ULONG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
 
     //3
-    CHK_CP0_REG_ULONG(CP0_EntryLo1,              "C0ENLO1     ");
+    CHK_CP0_REG64(CP0_EntryLo1,                  "C0ENLO1     ");
 
     //4
     CHK_CP0_REG_ULONG(CP0_Context,               "C0CTXT      ");
@@ -18708,7 +18714,7 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_Config7,                     "C0CONFIG7   ");
 
     //17
-    CHK_CP0_REG_ULONG(lladdr,                    "C0LLA       ");
+    CHK_CP0_REG64(lladdr,                        "C0LLA       ");
     //...
 
     //18
@@ -18745,7 +18751,7 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CHK_CP0_REG(CP0_Performance0,                "C0PERF0CTL  ");
 
     //28
-    CHK_CP0_REG(CP0_TagLo,                       "C0TAGLO     ");
+    CHK_CP0_REG64(CP0_TagLo,                     "C0TAGLO     ");
     CHK_CP0_REG(CP0_DataLo,                      "C0DATALO    ");
 
     //29

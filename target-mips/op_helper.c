@@ -2169,8 +2169,8 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 #ifdef MIPSSIM_COMPAT
     sv_log("FILL TLB index %d, ", idx);
     sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0]);
-    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1]);
+    sv_log("PFN0 0x%016" PRIx64 " ", tlb->PFN[0] << 12);
+    sv_log("PFN1 0x%016" PRIx64 " ", tlb->PFN[1] << 12);
     sv_log("mask 0x%08x ", tlb->PageMask);
     sv_log("G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
@@ -2181,9 +2181,9 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 
     sv_log(" : Write TLB Entry[%d] = ", idx);
     sv_log("%08x ", env->CP0_PageMask);
-    sv_log(TARGET_FMT_lx" ", env->CP0_EntryHi);
-    sv_log(TARGET_FMT_lx" ", env->CP0_EntryLo1);
-    sv_log(TARGET_FMT_lx"\n", env->CP0_EntryLo0);
+    sv_log("0x" TARGET_FMT_lx " ", env->CP0_EntryHi);
+    sv_log("%016" PRIx64 " ", (uint64_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
+    sv_log("%016" PRIx64 "\n", (uint64_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
 #endif
 }
 
@@ -2393,7 +2393,7 @@ void r4k_helper_tlbr(CPUMIPSState *env)
     sv_log("D0 %x ", tlb->D0);
     sv_log("D1 %x ", tlb->D1);
     sv_log("ASID tlb=0x%08x ", tlb->ASID);
-    sv_log("EnHi="TARGET_FMT_lx"\n", env->CP0_EntryHi & 0xff);
+    sv_log("EnHi=0x" TARGET_FMT_lx "\n", env->CP0_EntryHi & 0xff);
 #endif
 }
 
