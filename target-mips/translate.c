@@ -18589,6 +18589,20 @@ void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
+    //MSA
+    if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
+        sv_log(" : Write msa_csr      = %08x\n", env->active_msa.msacsr);
+    }
+
+    for (i = 0; i < 32; i++) {
+        /* print vector register only when higher doubleword changes (lower doubleword
+           is already checked above - FPR) */
+        if (env_prev.active_fpu.fpr[i].wr.d[1] != env->active_fpu.fpr[i].wr.d[1]) {
+            sv_log(" : Write VR[%2d]      = %016" PRIx64 "%016" PRIx64 "\n",
+                   i, env->active_fpu.fpr[i].wr.d[1], env->active_fpu.fpr[i].wr.d[0]);
+        }
+    }
+
     //DSP
     CHK_CP0_REG_ULONG(active_tc.DSPControl,    "DSPCTL      ");
 
