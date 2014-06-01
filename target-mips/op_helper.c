@@ -8175,20 +8175,3 @@ void helper_ctcmsa(CPUMIPSState *env, target_ulong elm, uint32_t cd)
     // helper_raise_exception(EXCP_RI);
 }
 
-
-/*
- *  MIPS R6 DLSA and LSA
- */
-
-#define LSA(rs, rt, u2) ((rs << (u2 + 1)) + rt)
-
-target_ulong helper_dlsa(CPUMIPSState *env, target_ulong rt, target_ulong rs, uint32_t u2)
-{
-  return LSA(rs, rt, u2);
-}
-
-
-target_ulong helper_lsa(CPUMIPSState *env, target_ulong rt, target_ulong rs, uint32_t u2)
-{
-  return (uint32_t)LSA(rs, rt, u2);
-}

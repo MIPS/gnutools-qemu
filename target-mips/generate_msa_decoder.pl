@@ -180,13 +180,9 @@ HERECODE
         my $code_name = get_code_name($name);
         my $spacestr = " " x (12 - length($code_name));
 
-        my $is_lsa = $code_name =~ /LSA/;
         my $is_branch = $code_name =~ /BZ/ ||  $code_name =~ /BNZ/;
 
-        if ($is_lsa) {
-            print OPCODES "    OPC_$code_name$spacestr= $match | OPC_SPECIAL,\n";
-        }
-        elsif ($is_branch) {
+        if ($is_branch) {
             print OPCODES "    OPC_$code_name$spacestr= $match | OPC_CP1,\n";
         }
         else {
@@ -1454,20 +1450,10 @@ C_END
        $def = "DEF_HELPER_5($helper_name, void, env, ptr, tl, tl, i32)";
     }
     elsif ($func_type eq 'rs_rt_rd_u2') {
-        my $is_dlsa = ($codename =~ /dlsa/);
         $func_body .=<<"C_END";
 
 $declare_str
 C_END
-
-        if ( $is_dlsa ) {
-          $func_body .= <<"C_END";
-#if !defined(TARGET_MIPS64)
-    /* dlsa valid only for MIPS64 */
-    generate_exception(ctx, EXCP_RI);
-#endif
-C_END
-        }
 
         $func_body .= <<"C_END";
 
@@ -10272,107 +10258,5 @@ sub read_instructions {
             'mask_mm' => '0xffff003f',
             'mask' => '0xffff003f'
           },
-          {
-            'opcode' => [
-                          [
-                            '25',
-                            '21',
-                            'rs'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rd'
-                          ],
-                          [
-                            '7',
-                            '6',
-                            'u2'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '25',
-                               '21',
-                               'rt'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rs'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rd'
-                             ],
-                             [
-                               '7',
-                               '6',
-                               'u2'
-                             ]
-                           ],
-            'match' => '0x00000005',
-            'name' => 'LSA',
-            'match_mm' => '0x00000020',
-            'mask_mm' => '0xfc00073f',
-            'mask' => '0xfc00073f'
-          },
-          {
-            'opcode' => [
-                          [
-                            '25',
-                            '21',
-                            'rs'
-                          ],
-                          [
-                            '20',
-                            '16',
-                            'rt'
-                          ],
-                          [
-                            '15',
-                            '11',
-                            'rd'
-                          ],
-                          [
-                            '7',
-                            '6',
-                            'u2'
-                          ]
-                        ],
-            'opcode_mm' => [
-                             [
-                               '25',
-                               '21',
-                               'rt'
-                             ],
-                             [
-                               '20',
-                               '16',
-                               'rs'
-                             ],
-                             [
-                               '15',
-                               '11',
-                               'rd'
-                             ],
-                             [
-                               '7',
-                               '6',
-                               'u2'
-                             ]
-                           ],
-            'match' => '0x00000015',
-            'name' => 'DLSA',
-            'match_mm' => '0x58000020',
-            'mask_mm' => '0xfc00073f',
-            'mask' => '0xfc00073f'
-          }
         ];
 }

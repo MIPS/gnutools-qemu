@@ -16669,7 +16669,8 @@ static void decode_opc_special (CPUMIPSState *env, DisasContext *ctx)
         gen_trap(ctx, op1, rs, rt, -1);
         break;
     case R6_OPC_LSA: // and OPC_PMON:          /* Pmon entry point, also R4010 selsl */
-        if (ctx->insn_flags & ISA_MIPS32R6) {
+        if ((ctx->insn_flags & ISA_MIPS32R6) ||
+                (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) {
             decode_opc_special_r6 (env, ctx);
         } else {
 #ifdef MIPS_STRICT_STANDARD
@@ -17659,11 +17660,14 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_SPECIAL:
         op1 = MASK_SPECIAL(ctx->opcode);
 
-        if (op1 == OPC_MSA_S05 ||
-            op1 == OPC_MSA_S15) {
-          goto decode_msa;
+        if ( (op1 == OPC_MSA_S05 || op1 == OPC_MSA_S15) &&
+                (ctx->opcode & 0xfc00073f) != R6_OPC_LSA &&
+                (ctx->opcode & 0xfc00073f) != R6_OPC_DLSA ) {
+            goto decode_msa;
         }
-        decode_opc_special(env, ctx);
+        else {
+            decode_opc_special(env, ctx);
+        }
         break;
     case OPC_SPECIAL2:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);

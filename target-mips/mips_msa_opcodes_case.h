@@ -556,15 +556,6 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
             return;
     }
 
-    switch (opcode & 0xfc00073f) {
-        case OPC_LSA:
-            gen_lsa(env, ctx);
-            return;
-        case OPC_DLSA:
-            gen_dlsa(env, ctx);
-            return;
-    }
-
     switch (opcode & 0xfc00003f) {
         case OPC_SHF_df:
             gen_shf_df(env, ctx);

@@ -178,6 +178,4 @@ enum {
     OPC_CTCMSA      = 0x783e0019 | OPC_MSA,
     OPC_CFCMSA      = 0x787e0019 | OPC_MSA,
     OPC_MOVE_V      = 0x78be0019 | OPC_MSA,
-    OPC_LSA         = 0x00000005 | OPC_SPECIAL,
-    OPC_DLSA        = 0x00000015 | OPC_SPECIAL,
 };
