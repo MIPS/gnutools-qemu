@@ -31,13 +31,32 @@ static inline void run_read_test(int elpa)
     OUT_serial("TEST:READ,00000000a0000000,0x32b:");
     LDW(0x600A0000, k);
 
-    OUT_serial("TEST:READ,0000000120000000,0x33b:");
+    if (elpa) {
+        OUT_serial("TEST:READ,0000000120000000,0x33b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+    }
     LDW(0x60120000, k);
-    OUT_serial("TEST:READ,0000000220000000,0x34b:");
+
+    if (elpa) {
+        OUT_serial("TEST:READ,0000000220000000,0x34b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+    }
     LDW(0x60220000, k);
-    OUT_serial("TEST:READ,0000000420000000,0x35b:");
+
+    if (elpa) {
+        OUT_serial("TEST:READ,0000000420000000,0x35b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+    }
     LDW(0x60420000, k);
-    OUT_serial("TEST:READ,0000000820000000,0x36b:");
+
+    if (elpa) {
+        OUT_serial("TEST:READ,0000000820000000,0x36b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem read 0000000020000000:");
+    }
     LDW(0x60820000, k);
 
     if (elpa) {
@@ -69,7 +88,7 @@ static inline void run_read_test(int elpa)
     LDW(0x68020000, k);
 }
 
-static inline void run_test(int elpa)
+static inline void run_write_test(int elpa)
 {
     // Physical address <= 32-bit
     // Expected: Always accessible
@@ -77,14 +96,33 @@ static inline void run_test(int elpa)
     STW(0x600A0000, 0x0000032b);
 
     // Physical address <= 36-bit
-    // Expected: Always accessible
-    OUT_serial("TEST:WRITE,0000000120000000,0x33b:");
+    // Expected: 0x20000000 to be accessed if ELPA = 0
+    if (elpa) {
+        OUT_serial("TEST:WRITE,0000000120000000,0x33b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x33b:");
+    }
     STW(0x60120000, 0x0000033b);
-    OUT_serial("TEST:WRITE,0000000220000000,0x34b:");
+
+    if (elpa) {
+        OUT_serial("TEST:WRITE,0000000220000000,0x34b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x34b:");
+    }
     STW(0x60220000, 0x0000034b);
-    OUT_serial("TEST:WRITE,0000000420000000,0x35b:");
+
+    if (elpa) {
+        OUT_serial("TEST:WRITE,0000000420000000,0x35b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x35b:");
+    }
     STW(0x60420000, 0x0000035b);
-    OUT_serial("TEST:WRITE,0000000820000000,0x36b:");
+
+    if (elpa) {
+        OUT_serial("TEST:WRITE,0000000820000000,0x36b:");
+    } else {
+        OUT_serial("TEST:Unassigned mem write 0000000020000000 = 0x36b:");
+    }
     STW(0x60820000, 0x0000036b);
 
     // Physical address <= 40-bit
@@ -139,13 +177,13 @@ void entry()
 
     OUT_serial("\n--- ENABLE LPA\n");
     ENABLE_LPA;
-    run_test(1);
+    run_write_test(1);
     run_read_test(1);
 
 
     OUT_serial("\n--- DISABLE LPA\n");
     DISABLE_LPA;
-    run_test(0);
+    run_write_test(0);
     run_read_test(0);
 
     STW(0x9f000500, 0x42); // Shutdown
