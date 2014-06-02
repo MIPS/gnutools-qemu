@@ -648,15 +648,11 @@ $declare_str
 
     if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
-    /* 
-     *  set element granularity to 8 bits (df = 0) because the load
-     *  is implemented using tcg_gen_qemu_ld8u()
-     */
-    df = 0;
     int df_bits = 8 * (1 << df);
 
     int i;
     TCGv td = tcg_temp_new();
+    TCGv_i64 td_64 = tcg_temp_new_i64();
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -664,13 +660,30 @@ $declare_str
     for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
         gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        tcg_gen_qemu_ld8u(td, taddr, ctx->mem_idx);
-        gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
+        switch (df_bits) {
+        case 8:
+            tcg_gen_qemu_ld8u(td, taddr, ctx->mem_idx);
+            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
+            break;
+        case 16:
+            tcg_gen_qemu_ld16u(td, taddr, ctx->mem_idx);
+            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
+            break;
+        case 32:
+            tcg_gen_qemu_ld32u(td, taddr, ctx->mem_idx);
+            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
+            break;
+        case 64:
+            tcg_gen_qemu_ld64(td_64, taddr, ctx->mem_idx);
+            gen_helper_store_wr_elem(cpu_env, td_64, twd, tdf, ti);
+            break;
+        }
         tcg_temp_free_i32(ti);
     }
 
     tcg_temp_free_i32(twd);
     tcg_temp_free(td);
+    tcg_temp_free_i64(td_64);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
 
@@ -684,28 +697,41 @@ $declare_str
 
     if (!check_msa_access(env, ctx, wd, -1, -1)) return;
 
-    /* 
-     *  set element granularity to 8 bits (df = 0) because the store
-     *  is implemented using tcg_gen_qemu_st8()
-     */
-    df = 0;
     int df_bits = 8 * (1 << df);
 
     int i;
     TCGv td = tcg_temp_new();
+    TCGv_i64 td_64 = tcg_temp_new_i64();
     TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
 
     for (i = 0; i < wrlen / df_bits; i++) {
         TCGv_i32 ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
         gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        tcg_gen_qemu_st8(td, taddr, ctx->mem_idx);
+        switch (df_bits) {
+        case 8:
+            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
+            tcg_gen_qemu_st8(td, taddr, ctx->mem_idx);
+            break;
+        case 16:
+            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
+            tcg_gen_qemu_st16(td, taddr, ctx->mem_idx);
+            break;
+        case 32:
+            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
+            tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
+            break;
+        case 64:
+            gen_helper_load_wr_elem_i64(td_64, cpu_env, twd, tdf, ti);
+            tcg_gen_qemu_st64(td_64, taddr, ctx->mem_idx);
+            break;
+        }
         tcg_temp_free_i32(ti);
     }
 
     tcg_temp_free(td);
+    tcg_temp_free_i64(td_64);
     tcg_temp_free_i32(twd);
     tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
