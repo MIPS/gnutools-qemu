@@ -39,9 +39,16 @@
 #define MIPS_DEBUG_XPA
 
 #ifdef MIPS_DEBUG_XPA
+# ifdef SV_SUPPORT
+#  define XPA_DEBUG(...) do {                   \
+    sv_log(__VA_ARGS__);                        \
+    qemu_log(__VA_ARGS__);                      \
+    } while(0)
+# else
 #  define XPA_DEBUG(...) do {                   \
         qemu_log(__VA_ARGS__);                  \
     } while(0)
+# endif
 #else
 # define XPA_DEBUG(...) do {} while(0)
 #endif
