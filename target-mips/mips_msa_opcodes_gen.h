@@ -4730,6 +4730,7 @@ static void gen_bnz_v(CPUMIPSState *env, DisasContext *ctx) {
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
@@ -4763,6 +4764,7 @@ static void gen_bz_v(CPUMIPSState *env, DisasContext *ctx) {
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
@@ -5208,6 +5210,7 @@ static void gen_bnz_df(CPUMIPSState *env, DisasContext *ctx) {
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);
@@ -5245,6 +5248,7 @@ static void gen_bz_df(CPUMIPSState *env, DisasContext *ctx) {
     s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
 
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);

@@ -1220,6 +1220,7 @@ C_END
 
 $declare_str
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts16 = tcg_const_i32(s16);
@@ -1252,6 +1253,7 @@ C_END
 
 $declare_str
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
+    gen_check_delay_fbn_slot(ctx);
 
     TCGv_i32 ts16 = tcg_const_i32(s16);
     TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
