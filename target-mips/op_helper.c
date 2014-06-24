@@ -103,6 +103,17 @@ int cpu_mips_cacheability(CPUMIPSState *env, target_ulong vaddr, int rw)
 #endif
 
 #ifdef MIPSSIM_COMPAT
+void helper_trace_transl_pre(CPUMIPSState *env, target_ulong trace_pc)
+{
+    trace_cpu_state(env, 0);
+    sv_target_disas(env, trace_pc, 4, 0); // TODO: mips16/microMIPS
+}
+
+void helper_trace_transl_post(CPUMIPSState *env)
+{
+    trace_cpu_state(env, 0);
+}
+
 void helper_trace_mem_access(CPUMIPSState *env,
                                            target_ulong val,
                                            target_ulong addr,

@@ -19843,6 +19843,11 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
             gen_io_start();
 
+#ifdef MIPSSIM_COMPAT
+        TCGv curr_pc = tcg_const_tl(ctx.pc);
+        gen_helper_trace_transl_pre(cpu_env, curr_pc);
+        tcg_temp_free(curr_pc);
+#endif
         is_slot = ctx.hflags & MIPS_HFLAG_BMASK;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
@@ -19876,6 +19881,9 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
 
         num_insns++;
 
+#ifdef MIPSSIM_COMPAT
+        gen_helper_trace_transl_post(cpu_env);
+#endif
         /* Execute a branch and its delay slot as a single instruction.
            This is what GDB expects and is consistent with what the
            hardware does (e.g. if a delay slot instruction faults, the
@@ -20064,11 +20072,9 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 }
 
 #ifdef MIPSSIM_COMPAT
-void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
+void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprintf,
         int flags)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
     int i;
     static CPUMIPSState env_prev;
     static CPUMIPSMVPContext mvp_prev;
