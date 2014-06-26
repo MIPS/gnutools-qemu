@@ -557,7 +557,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x6C07FF
+#define MIPS_HFLAG_TMASK  0xD807FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -589,19 +589,20 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_BL     0x01800 /* Likely branch                      */
 #define MIPS_HFLAG_BR     0x02000 /* branch to register (can't link TB) */
     /* Extra flags about the current pending branch.  */
-#define MIPS_HFLAG_BMASK_EXT 0x3C000
+#define MIPS_HFLAG_BMASK_EXT 0x7C000
 #define MIPS_HFLAG_B16    0x04000 /* branch instruction was 16 bits     */
 #define MIPS_HFLAG_BDS16  0x08000 /* branch requires 16-bit delay slot  */
 #define MIPS_HFLAG_BDS32  0x10000 /* branch requires 32-bit delay slot  */
-#define MIPS_HFLAG_BX     0x20000 /* branch exchanges execution mode    */
+#define MIPS_HFLAG_BDS_STRICT  0x20000 /* Strict delay slot size */
+#define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
 #define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT | MIPS_HFLAG_CB)
     /* MIPS DSP resources access. */
-#define MIPS_HFLAG_DSP   0x40000  /* Enable access to MIPS DSP resources. */
-#define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
+#define MIPS_HFLAG_DSP   0x080000  /* Enable access to MIPS DSP resources. */
+#define MIPS_HFLAG_DSPR2 0x100000  /* Enable access to MIPS DSPR2 resources. */
 
-#define MIPS_HFLAG_CB    0x100000  /* Compact branch */
-#define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
-#define MIPS_HFLAG_MSA   0x400000
+#define MIPS_HFLAG_CB    0x200000  /* Compact branch */
+#define MIPS_HFLAG_SBRI  0x400000 /* SDBBP available in user-mode */
+#define MIPS_HFLAG_MSA   0x800000
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
     target_ulong fslot;          /* Indicates forbidden slot */
