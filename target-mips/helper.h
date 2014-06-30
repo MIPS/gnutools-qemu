@@ -1,5 +1,11 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
+DEF_HELPER_0(avp_ok, void)
+DEF_HELPER_0(avp_fail, void)
+#endif
+#endif
 
 DEF_HELPER_1(do_semihosting, void, env)
 

@@ -25,6 +25,21 @@
 
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
+#ifdef MIPSSIM_COMPAT
+#include "sysemu/sysemu.h"
+
+void helper_avp_ok(void)
+{
+    puts("ok");
+    qemu_system_shutdown_request();
+}
+
+void helper_avp_fail(void)
+{
+    puts("fail");
+    qemu_system_shutdown_request();
+}
+#endif
 #endif
 
 /*****************************************************************************/
