@@ -579,7 +579,6 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_X      0x00200 /* 64-bit mode enabled                */
 #define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
 #define MIPS_HFLAG_M16_SHIFT 10
-#define MIPS_HFLAG_MSA    0x400000
     /* If translation is interrupted between the branch instruction and
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
@@ -602,6 +601,7 @@ struct CPUMIPSState {
 
 #define MIPS_HFLAG_CB    0x100000  /* Compact branch */
 #define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
+#define MIPS_HFLAG_MSA   0x400000
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
     target_ulong fslot;          /* Indicates forbidden slot */
