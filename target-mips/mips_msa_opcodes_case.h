@@ -7,6 +7,8 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     switch (opcode & 0xffff003f) {
         case OPC_CTCMSA:
             gen_ctcmsa(env, ctx);
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
             return;
         case OPC_CFCMSA:
             gen_cfcmsa(env, ctx);
@@ -576,4 +578,4 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     if (check_msa_access(env, ctx, -1, -1, -1))
         generate_exception(ctx, EXCP_RI);
 
-} // end of gen_msa()
+} /* end of gen_msa() */

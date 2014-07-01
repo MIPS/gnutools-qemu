@@ -70,14 +70,17 @@ struct CPUMIPSTLBContext {
 };
 #endif
 
+/* MSA Context */
+
+#define MSA_WRLEN (128)
+
 typedef union wr_t wr_t;
 union wr_t {
-    int8_t  b[32];
-    int16_t h[16];
-    int32_t w[8];
-    int64_t d[4];
+    int8_t  b[MSA_WRLEN/8];
+    int16_t h[MSA_WRLEN/16];
+    int32_t w[MSA_WRLEN/32];
+    int64_t d[MSA_WRLEN/64];
 };
-/* MSA Context */
 
 typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
 struct CPUMIPSMSAContext {
@@ -111,8 +114,6 @@ struct CPUMIPSMSAContext {
 #define MSACSR_FS_POS 24
 #define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
 
-
-
 #define MSACSR_BITS                             \
     (MSACSR_RM_MASK |                           \
      MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
@@ -131,17 +132,14 @@ struct CPUMIPSMSAContext {
 
 typedef union fpr_t fpr_t;
 union fpr_t {
-#if defined(HOST_WORDS_BIGENDIAN)
-#  error "FPU/MSA register mapping not implemented on big-endian hosts."
-#else
     float64  fd;   /* ieee double precision */
     float32  fs[2];/* ieee single precision */
     uint64_t d;    /* binary double fixed-point */
     uint32_t w[2]; /* binary single fixed-point */
-
+/* FPU/MSA register mapping is not tested on big-endian hosts. */
     wr_t     wr;   /* vector data */
-#endif
 };
+
 /* define FP_ENDIAN_IDX to access the same location
  * in the fpr_t union regardless of the host endianness
  */

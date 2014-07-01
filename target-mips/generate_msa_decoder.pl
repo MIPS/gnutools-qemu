@@ -40,8 +40,6 @@ write_opcodes_gen("mips_msa_opcodes_gen.h");
 
 write_helper_decl("mips_msa_helper_decl.h");
 
-write_helper_dummy("mips_msa_helper_dummy.h");
-
 
 my %helper_def_of;
 my %helper_type_of;
@@ -72,27 +70,6 @@ sub write_helper_decl {
     }
 
     close HELPERDECL;
-}
-
-# create mips_msa_helper_dummy.h
-sub write_helper_dummy {
-    my ($filename) = @_;
-
-    open(HELPERDUMMY, '>', $filename) or die "Can't open file $filename: $!\n";
-
-    my @helper_lines = `grep helper op_helper.c`;
-
-  FUNCLOOP:
-    foreach my $func_name (sort keys %helper_def_of) {
-
-        next FUNCLOOP if grep { /\shelper_$func_name\s*\(/xms } @helper_lines;
-
-        my $helper_dummy = get_helper_dummy($func_name);
-
-        print HELPERDUMMY "$helper_dummy\n";
-    }
-
-    close HELPERDUMMY;
 }
 
 # create mips_msa_opcodes_gen.h
@@ -135,11 +112,22 @@ HERECODE
             my $name = get_code_name($inst->{name});
             my $namelc = lc($name);
 
-            print OPCASE <<"HERECODE";
+            if ($name eq 'CTCMSA') {
+                print OPCASE <<"HERECODE";
+        case OPC_$name:
+            gen_$namelc(env, ctx);
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
+            return;
+HERECODE
+            }
+            else {
+	            print OPCASE <<"HERECODE";
         case OPC_$name:
             gen_$namelc(env, ctx);
             return;
 HERECODE
+            }
         }
 
     print OPCASE <<'HERECODE';
@@ -155,7 +143,7 @@ HERECODE
     if (check_msa_access(env, ctx, -1, -1, -1))
         generate_exception(ctx, EXCP_RI);
 
-} // end of gen_msa()
+} /* end of gen_msa() */
 HERECODE
 
     close OPCASE;
@@ -197,290 +185,6 @@ HERECODE
     return;
 }
 
-sub get_helper_dummy {
-    my ($func_name) = @_;
-
-    my $helper_name = "helper_$func_name";
-    my $func_type = $helper_type_of{$func_name};
-
-    my $helper_body = "/* FIXME Unknown $func_type ($func_name) */";
-
-    my $is_ld_v  = $func_name =~ /ld_df/ && !($func_name =~ /sld_df/);
-    my $is_st_v  = $func_name =~ /st_df/;
-
-    my $is_copy = $func_name =~ /copy/;
-
-    if ($is_ld_v || $is_st_v || $is_copy) {
-        return "/* $func_name doesn't require helper function. */";
-    }
-
-    if ( $func_type eq 'df_wt_ws_wd' ) {
-        $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ( $func_type eq 'df_wt_ws_wd_wd' ) {
-        $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_u5_ws_wd' ) {
-    $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-
-    }
-    elsif ($func_type eq 'df_u5_ws_wd_wd' ) {
-    $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-
-    }
-    elsif ($func_type eq 'df_s5_ws_wd' ) {
-           $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ($func_type eq 'wt_ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_wt_ws_wd_p') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_ws_wd_p') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'i8_ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, uint32_t imm, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_i8_ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'dfm_ws_wd') {
-        $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t s, uint32_t m, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ($func_type eq 'dfm_ws_wd_wd') {
-        $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t s, int64t s, uint32_t m, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_ws_wd') {
-        $helper_body = <<"C_END";
-int64_t $helper_name(CPUMIPSState *env, int64_t arg, uint32_t df)
-{
-    printf("%s()\\n", __func__);
-    return 0; // FIXME
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_s10_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_s16_wt_branch') {
-        $helper_body = <<"C_END";
-target_ulong $helper_name(CPUMIPSState *env, void *pwd, uint32_t df, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-    return 0;
-}
-
-C_END
-    }
-    elsif ($func_type eq 's16_wt_branch') {
-        $helper_body = <<"C_END";
-target_ulong $helper_name(CPUMIPSState *env, void *pwd, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-    return 0;
-}
-
-C_END
-    }
-    elsif ($func_type eq 'dfn_ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'dfn_rs_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_rt_ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'df_rt_rs_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, target_ulong rs, target_ulong rt, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'ws_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'mi10_rs_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, uint32_t s5, target_ulong rs, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'rt_rs_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, target_ulong rt, target_ulong rs, uint32_t wrlen)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'rs_rt_rd_u2') {
-        $helper_body = <<"C_END";
-target_ulong $helper_name(CPUMIPSState *env, target_ulong rt, target_ulong rs, uint32_t u2)
-{
-    printf("%s()\\n", __func__);
-    return 0;
-}
-
-C_END
-    }
-    elsif ($func_type eq 'dfn_ws_rd') {
-    }
-    elsif ($func_type eq 'df_rt_ws_rd') {
-    }
-    elsif ($func_type eq 'df_rs_wd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t wrlen_df)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'rs_cd') {
-        $helper_body = <<"C_END";
-void $helper_name(CPUMIPSState *env, target_ulong elm, uint32_t cd)
-{
-    printf("%s()\\n", __func__);
-}
-
-C_END
-    }
-    elsif ($func_type eq 'cs_rd') {
-        $helper_body = <<"C_END";
-target_ulong $helper_name(CPUMIPSState *env, uint32_t cs)
-{
-    printf("%s()\\n", __func__);
-    return 0;
-}
-
-C_END
-    }
-    else {
-        die "ERROR: don't know what to do for helper declaration '$func_type' ($func_name)";
-    }
-
-    return $helper_body;
-}
 
 sub get_func_body {
     my ($inst) = @_;
@@ -492,6 +196,53 @@ sub get_func_body {
     my $codename = lc(get_code_name($name));
 
     my $declare_str;
+
+    my $func_body;
+
+    if ($name eq 'BNZ.df') {
+        $func_body .= << "C_END";
+static void determ_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
+{
+    /* Note this function only works with MSA_WRLEN = 128 */
+    uint64_t eval_zero_or_big;
+    uint64_t eval_big;
+    switch(df) {
+    case 0: /*DF_BYTE*/
+        eval_zero_or_big = 0x0101010101010101ULL;
+        eval_big = 0x8080808080808080ULL;
+        break;
+    case 1: /*DF_HALF*/
+        eval_zero_or_big = 0x0001000100010001ULL;
+        eval_big = 0x8000800080008000ULL;
+        break;
+    case 2: /*DF_WORD*/
+        eval_zero_or_big = 0x0000000100000001ULL;
+        eval_big = 0x8000000080000000ULL;
+        break;
+    case 3: /*DF_DOUBLE*/
+        eval_zero_or_big = 0x0000000000000001ULL;
+        eval_big = 0x8000000000000000ULL;
+        break;
+    }
+    TCGv_i64 t0 = tcg_temp_local_new_i64();
+    TCGv_i64 t1 = tcg_temp_local_new_i64();
+    tcg_gen_subi_i64(t0, msa_wr_d[wt<<1], eval_zero_or_big);
+    tcg_gen_andc_i64(t0, t0, msa_wr_d[wt<<1]);
+    tcg_gen_andi_i64(t0, t0, eval_big);
+    tcg_gen_subi_i64(t1, msa_wr_d[(wt<<1)+1], eval_zero_or_big);
+    tcg_gen_andc_i64(t1, t1, msa_wr_d[(wt<<1)+1]);
+    tcg_gen_andi_i64(t1, t1, eval_big);
+    tcg_gen_or_i64(t0, t0, t1);
+    /* if all bits is zero then all element is not zero */
+    /* if some bit is non-zero then some element is zero */
+    tcg_gen_setcondi_i64(TCG_COND_NE, t0, t0, 0);
+    tcg_gen_trunc_i64_tl(tresult, t0);
+    tcg_temp_free_i64(t0);
+    tcg_temp_free_i64(t1);
+}
+
+C_END
+        }
 
     foreach my $field (@{$opcode}) {
         my ($max,$min,$fieldname) = @{$field};
@@ -534,8 +285,6 @@ C_END
             my $is_fixed = $name =~ /_Q/;
             if ($is_floating) {
                 $declare_str .= <<C_END;
-
-
     /* adjust df value for floating-point instruction */
     df = df + 2;
 C_END
@@ -571,7 +320,7 @@ C_END
     }
 
     int df_bits = 8 * (1 << df);
-    if ( n >= wrlen / df_bits ) {
+    if ( n >= MSA_WRLEN / df_bits ) {
         if (check_msa_access(env, ctx, -1, -1, -1))
             generate_exception(ctx, EXCP_RI);
         return;
@@ -594,12 +343,11 @@ C_END
 #endif
 
 C_END
-        }
+            }
 
         }
         elsif ($fieldname eq 'dfm') {
             $declare_str .= <<C_END;
-
     uint32_t df = 0, m = 0;  /* may be used uninitialized */
 
     if ((dfm & 0x40) == 0x00) {         /* double data format */
@@ -627,14 +375,11 @@ C_END
     my $func_type = get_func_type($inst);
     my $helper_name = lc(get_helper_name($name));
 
-    my $func_body = <<"C_END";
-static void gen_$codename(CPUMIPSState *env, DisasContext *ctx) {
-    /* func_type = $func_type */
-
-    /* Implementation fixed to 128-bit vector registers */
-    int __attribute__((unused)) wrlen = 128;
-
+    $func_body .= <<"C_END";
+static void gen_$codename(CPUMIPSState *env, DisasContext *ctx)
+{
 C_END
+#    /* func_type = $func_type */
 
     my $def;
 
@@ -644,101 +389,41 @@ C_END
     if ($is_ld_v) {
         $func_body .= <<"C_END";
 $declare_str
-    int16_t offset = s10 << df;
-
     if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
-    int df_bits = 8 * (1 << df);
-
-    int i;
-    TCGv td = tcg_temp_new();
-    TCGv_i64 td_64 = tcg_temp_new_i64();
-    TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 trs = tcg_const_i32(rs);
+    TCGv_i64 ts10 = tcg_const_i64(s10);
 
-    for (i = 0; i < wrlen / df_bits; i++) {
-        TCGv_i32 ti = tcg_const_i32(i);
-        gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        switch (df_bits) {
-        case 8:
-            tcg_gen_qemu_ld8u(td, taddr, ctx->mem_idx);
-            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
-            break;
-        case 16:
-            tcg_gen_qemu_ld16u(td, taddr, ctx->mem_idx);
-            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
-            break;
-        case 32:
-            tcg_gen_qemu_ld32u(td, taddr, ctx->mem_idx);
-            gen_helper_store_wr_elem_target(cpu_env, td, twd, tdf, ti);
-            break;
-        case 64:
-            tcg_gen_qemu_ld64(td_64, taddr, ctx->mem_idx);
-            gen_helper_store_wr_elem(cpu_env, td_64, twd, tdf, ti);
-            break;
-        }
-        tcg_temp_free_i32(ti);
-    }
+    gen_helper_msa_ld_df(cpu_env, tdf, twd, trs, ts10);
 
     tcg_temp_free_i32(twd);
-    tcg_temp_free(td);
-    tcg_temp_free_i64(td_64);
-    tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+    tcg_temp_free_i32(trs);
+    tcg_temp_free_i64(ts10);
 
-    update_msa_modify(env, ctx, wd);
 C_END
-        $def = ''; # no helper required
+        $def = 'DEF_HELPER_5(msa_ld_df, void, env, i32, i32, i32, s64)';
     } elsif ($is_st_v) {
         $func_body .= <<"C_END";
 $declare_str
-    int16_t offset = s10 << df;
-
     if (!check_msa_access(env, ctx, wd, -1, -1)) return;
 
-    int df_bits = 8 * (1 << df);
-
-    int i;
-    TCGv td = tcg_temp_new();
-    TCGv_i64 td_64 = tcg_temp_new_i64();
-    TCGv taddr = tcg_temp_new();
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 trs = tcg_const_i32(rs);
+    TCGv_i64 ts10 = tcg_const_i64(s10);
 
-    for (i = 0; i < wrlen / df_bits; i++) {
-        TCGv_i32 ti = tcg_const_i32(i);
-        gen_base_offset_addr(ctx, taddr, rs, offset + (i << df));
-        switch (df_bits) {
-        case 8:
-            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
-            tcg_gen_qemu_st8(td, taddr, ctx->mem_idx);
-            break;
-        case 16:
-            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
-            tcg_gen_qemu_st16(td, taddr, ctx->mem_idx);
-            break;
-        case 32:
-            gen_helper_load_wr_elem_target_i64(td, cpu_env, twd, tdf, ti);
-            tcg_gen_qemu_st32(td, taddr, ctx->mem_idx);
-            break;
-        case 64:
-            gen_helper_load_wr_elem_i64(td_64, cpu_env, twd, tdf, ti);
-            tcg_gen_qemu_st64(td_64, taddr, ctx->mem_idx);
-            break;
-        }
-        tcg_temp_free_i32(ti);
-    }
+    gen_helper_msa_st_df(cpu_env, tdf, twd, trs, ts10);
 
-    tcg_temp_free(td);
-    tcg_temp_free_i64(td_64);
     tcg_temp_free_i32(twd);
-    tcg_temp_free(taddr);
     tcg_temp_free_i32(tdf);
+    tcg_temp_free_i32(trs);
+    tcg_temp_free_i64(ts10);
 
-    update_msa_modify(env, ctx, wd);
 C_END
-        $def = ''; # no helper required
+        $def = 'DEF_HELPER_5(msa_st_df, void, env, i32, i32, i32, s64)';
     } elsif ( $func_type eq 'df_wt_ws_wd' ) {
 
         my $stype = get_arg_type($inst,'ws');
@@ -750,7 +435,6 @@ C_END
         my $is_hsub = ($codename =~ /hsub_[su]_df/);
 
           $func_body .= <<"C_END";
-
 $declare_str
 C_END
 
@@ -773,35 +457,17 @@ C_END
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 twt = tcg_const_i32(wt);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i64 tt = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws, twt);
 
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_$stype(ts, cpu_env, tws, tdf, ti);
-        gen_helper_load_wr_elem_$ttype(tt, cpu_env, twt, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, ts, tt, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
-
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
-    tcg_temp_free_i64(tt);
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(twt);
     tcg_temp_free_i32(tdf);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-       $def = "DEF_HELPER_4($helper_name, $dtype, env, $stype, $ttype, i32)";
+       $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ( $func_type eq 'df_wt_ws_wd_wd' ) {
 
@@ -810,7 +476,6 @@ C_END
 
         # same as df_wt_ws_wd but wd used as input too
         $func_body .= <<"C_END";
-
 $declare_str
 C_END
 
@@ -833,36 +498,16 @@ C_END
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 twt = tcg_const_i32(wt);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i64 tt = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws, twt);
 
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_s64(ts, cpu_env, tws, tdf, ti);
-        gen_helper_load_wr_elem_s64(tt, cpu_env, twt, tdf, ti);
-        gen_helper_load_wr_elem_s64(td, cpu_env, twd, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, td, ts, tt, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
-
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
-    tcg_temp_free_i64(tt);
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(twt);
     tcg_temp_free_i32(tdf);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, s64, env, s64, s64, s64, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif (   $func_type eq 'df_u5_ws_wd'
            || $func_type eq 'df_s5_ws_wd' ) {
@@ -874,7 +519,6 @@ C_END
         my $immtype = get_arg_type($inst,$imm);
 
         $func_body .= <<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
@@ -882,187 +526,109 @@ $declare_str
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i64 t$imm = tcg_const_i64($imm);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_$stype(ts, cpu_env, tws, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, ts, t$imm, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws, t$imm);
 
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i64(t$imm);
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_4($helper_name, $dtype, env, $stype, $immtype, i32)";
-    }
-    elsif (   $func_type eq 'df_u5_ws_wd_wd'
-           || $func_type eq 'df_s5_ws_wd_wd' ) {
-
-        my ($imm) = $func_type =~ /([su]5)/xms or die "bad match";
-
-        my $stype = get_arg_type($inst,'ws');
-        my $dtype = get_arg_type($inst,'wd');
-        my $immtype = get_arg_type($inst,$imm);
-
-        $func_body .= <<"C_END";
-
-$declare_str
-    if (!check_msa_access(env, ctx, ws, ws, wd)) return;
-
-    TCGv_i32 tdf = tcg_const_i32(df);
-    TCGv_i32 twd = tcg_const_i32(wd);
-    TCGv_i32 tws = tcg_const_i32(ws);
-    TCGv_i64 t$imm = tcg_const_i64($imm);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i32 ti;
-
-    int i;
-    int df_bits = 8 * (1 << df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_$stype(ts, cpu_env, tws, tdf, ti);
-        gen_helper_load_wr_elem_$dtype(td, cpu_env, twd, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, td, ts, t$imm, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
-
-    tcg_temp_free_i32(tdf);
-    tcg_temp_free_i32(twd);
-    tcg_temp_free_i32(tws);
-    tcg_temp_free_i64(t$imm);
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
-
-    update_msa_modify(env, ctx, wd);
-C_END
-
-        $def = "DEF_HELPER_5($helper_name, $dtype, env, $dtype, $stype, $immtype, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, $immtype)";
     }
     elsif ($func_type eq 'df_wt_ws_wd_p') {
 
         $func_body .= <<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twt = tcg_const_i32(wt);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, twt, tdf);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, tpwt, twrlen_df);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(twt);
+    tcg_temp_free_i32(tdf);
 
-    tcg_temp_free_ptr(tpwt);
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, ptr, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
 
     }
     elsif ($func_type eq 'df_ws_wd_p') {
 
         $func_body .= <<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, tdf);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, twrlen_df);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tdf);
 
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_4($helper_name, void, env, ptr, ptr, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
 
     }
     elsif ($func_type eq 'wt_ws_wd') {
 
         $func_body .= <<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, wt, ws, wd)) return;
 
-    TCGv_ptr tpwt = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twt = tcg_const_i32(wt);
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, twt);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, tpwt, twrlen);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(twt);
 
-    tcg_temp_free_ptr(tpwt);
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, ptr, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
 
     }
     elsif ($func_type eq 'i8_ws_wd') {
         my $imm = 'i8';
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 t$imm = tcg_const_i32($imm); /* FIXME */
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
-    TCGv_i32 t$imm = tcg_const_i32($imm); // FIXME
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, t$imm);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, t$imm, twrlen);
-
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
     tcg_temp_free_i32(t$imm);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, i32, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_i8_ws_wd') {
         my $imm = 'i8';
         my $is_shf = ($codename =~ /shf_df/);
 
         $func_body .=<<"C_END";
-
 $declare_str
 C_END
 
@@ -1082,28 +648,25 @@ C_END
 
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 tdf = tcg_const_i32(df);
+    TCGv_i32 t$imm = tcg_const_i32($imm); /* FIXME */
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
-    TCGv_i32 t$imm = tcg_const_i32($imm); // FIXME
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, t$imm, tdf);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, t$imm, twrlen_df);
-
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen_df);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(t$imm);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, i32, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'dfm_ws_wd') {
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
@@ -1111,37 +674,21 @@ $declare_str
     TCGv_i32 tm  = tcg_const_i32(m);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_s64(ts, cpu_env, tws, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, ts, tm, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws, tm);
 
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tm);
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_4($helper_name, s64, env, s64, i32, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'dfm_ws_wd_wd') {
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
@@ -1149,33 +696,17 @@ $declare_str
     TCGv_i32 tm  = tcg_const_i32(m);
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_s64(ts, cpu_env, tws, tdf, ti);
-        gen_helper_load_wr_elem_s64(td, cpu_env, twd, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, td, ts, tm, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws, tm);
 
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tm);
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
-    tcg_temp_free_i64(td);
-    tcg_temp_free_i64(ts);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, s64, env, s64, s64, i32, i32)";
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_ws_wd') {
 
@@ -1183,336 +714,192 @@ C_END
         my $dtype = get_arg_type($inst,'wd');
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 twd = tcg_const_i32(wd);
-    TCGv_i64 td = tcg_temp_new_i64();
-    TCGv_i64 ts = tcg_temp_new_i64();
-    TCGv_i32 ti;
 
-    int i;
-    int df_bits = 8 * (1 << df);
-
-    for (i = 0; i < wrlen / df_bits; i++) {
-        ti = tcg_const_i32(i);
-        gen_helper_load_wr_elem_$stype(ts, cpu_env, tws, tdf, ti);
-        gen_helper_$helper_name(td, cpu_env, ts, tdf);
-        gen_helper_store_wr_elem(cpu_env, td, twd, tdf, ti);
-        tcg_temp_free_i32(ti);
-    }
+	gen_helper_msa_$helper_name(cpu_env, tdf, twd, tws);
 
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(twd);
-    tcg_temp_free_i64(ts);
-    tcg_temp_free_i64(td);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_3($helper_name, $dtype, env, $stype, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_s10_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
     TCGv_i32 tdf  = tcg_const_i32(df);
     TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
-
-    gen_helper_$helper_name(cpu_env, tpwd, tdf, ts10, twrlen);
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, ts10);
 
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(ts10);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen);
+    tcg_temp_free_i32(twd);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, i32, i32, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_s16_wt_branch') {
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
     gen_check_delay_fbn_slot(ctx);
 
-    TCGv_i32 tdf  = tcg_const_i32(df);
-    TCGv_i32 ts16 = tcg_const_i32(s16);
-    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    determ_zero_element(bcond, df, wt);
+    /* if zero all element is non-zero */
+    /* if one, some element is zero */
+C_END
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
+        if ($name eq "BNZ.df") {
+            $func_body .=<< "C_END";
+    tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, bcond, 0);
+C_END
 
-    TCGv tbcond = tcg_temp_new();
-
-    gen_helper_$helper_name(tbcond, cpu_env, tpwt, tdf, twrlen);
+        }
+        $func_body .=<< "C_END";
 
     int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
 
-    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
-    tcg_temp_free(tbcond);
-    tcg_temp_free_i32(tdf);
-    tcg_temp_free_i32(ts16);
-    tcg_temp_free_ptr(tpwt);
-    tcg_temp_free_i32(twrlen);
 C_END
 
-        $def = "DEF_HELPER_4($helper_name, tl, env, ptr, i32, i32)";
+        $def = "";
     }
     elsif ($func_type eq 's16_wt_branch') {
 
         $func_body .=<<"C_END";
-
 $declare_str
+
     if (!check_msa_access(env, ctx, wt, -1, -1)) return;
     gen_check_delay_fbn_slot(ctx);
 
-    TCGv_i32 ts16 = tcg_const_i32(s16);
-    TCGv_ptr tpwt  = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wt]));
+    TCGv_i64 t0 = tcg_temp_local_new_i64();
+    tcg_gen_or_i64(t0, msa_wr_d[wt<<1], msa_wr_d[(wt<<1)+1]);
+C_END
+        if ($name eq 'BNZ.V') {
+            $func_body .=<<"C_END";
+    tcg_gen_setcondi_i64(TCG_COND_NE, t0, t0, 0);
+C_END
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
+        }
+        elsif ($name eq 'BZ.V') {
+            $func_body .=<<"C_END";
+    tcg_gen_setcondi_i64(TCG_COND_EQ, t0, t0, 0);
+C_END
 
-    TCGv tbcond = tcg_temp_new();
-    gen_helper_$helper_name(tbcond, cpu_env, tpwt, twrlen);
+        }
+
+        $func_body .=<<"C_END";
+    tcg_gen_trunc_i64_tl(bcond, t0);
 
     int64_t offset = s16 << 2;
     ctx->btarget = ctx->pc + offset + 4; /* insn_bytes hardcoded 4 */
 
-    tcg_gen_setcondi_tl(TCG_COND_NE, bcond, tbcond, 0);
     ctx->hflags |= MIPS_HFLAG_BC;
 
-    tcg_temp_free(tbcond);
-    tcg_temp_free_i32(ts16);
-    tcg_temp_free_ptr(tpwt);
-    tcg_temp_free_i32(twrlen);
+    tcg_temp_free_i64(t0);
 C_END
 
-        $def = "DEF_HELPER_3($helper_name, tl, env, ptr, i32)";
+        $def= "";
     }
     elsif ($func_type eq 'dfn_ws_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twd = tcg_const_i32(wd);
     TCGv tn  = tcg_const_tl(n);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, tn, tdf);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, tn, twrlen_df);
-
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_ptr(tpws);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
     tcg_temp_free(tn);
-    tcg_temp_free_i32(twrlen_df);
+    tcg_temp_free_i32(tdf);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-      $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, tl, i32)";
+      $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, tl, i32)";
     }
     elsif ($func_type eq 'dfn_rs_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
-    TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 trs = tcg_const_i32(rs);
     TCGv_i32 tn  = tcg_const_i32(n);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, twd, trs, tn, tdf);
 
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(cpu_env, tpwd, trs, tn, twrlen_df);
-
-    tcg_temp_free(trs);
-    tcg_temp_free_ptr(tpwd);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(trs);
     tcg_temp_free_i32(tn);
-    tcg_temp_free_i32(twrlen_df);
+    tcg_temp_free_i32(tdf);
 
-    update_msa_modify(env, ctx, wd);
 C_END
 
-      $def = "DEF_HELPER_5($helper_name, void, env, ptr, tl, i32, i32)";
-    }
-    elsif ($func_type eq 'df_rt_rs_wd') {
-        $func_body .=<<"C_END";
-
-$declare_str
-    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
-
-    TCGv trt = tcg_temp_new();
-    TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
-
-    gen_load_gpr(trt, rt);
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(cpu_env, tpwd, trs, trt, twrlen_df);
-
-    tcg_temp_free(trs);
-    tcg_temp_free(trt);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
-C_END
-
-      $def = "DEF_HELPER_5($helper_name, void, env, ptr, tl, tl, i32)";
+      $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_rt_ws_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv trt = tcg_temp_new();
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 trt = tcg_const_i32(rt);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws, trt, tdf);
 
-    gen_load_gpr(trt, rt);
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, trt, twrlen_df);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(trt);
+    tcg_temp_free_i32(tdf);
 
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free(trt);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-      $def = "DEF_HELPER_5($helper_name, void, env, ptr, ptr, tl, i32)";
+      $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'ws_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, wd)) return;
 
-    TCGv_ptr tpws = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[ws]));
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twd = tcg_const_i32(wd);
 
-    TCGv_i32 twrlen = tcg_const_i32(wrlen);
+    gen_helper_msa_$helper_name(cpu_env, twd, tws);
 
-    gen_helper_$helper_name(cpu_env, tpwd, tpws, twrlen);
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
 
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_ptr(tpws);
-    tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
 C_END
-      $def = "DEF_HELPER_4($helper_name, void, env, ptr, ptr, i32)";
-    }
-    elsif ($func_type eq 'mi10_rs_wd') {
-        $func_body .=<<"C_END";
-
-$declare_str
-    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
-
-    TCGv_i32 ts10 = tcg_const_i32(s10);
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-    TCGv trs = tcg_temp_new();
-
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
-
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(cpu_env, tpwd, ts10, trs, twrlen);
-
-    tcg_temp_free_i32(ts10);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free(trs);
-    tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
-C_END
-
-        $def = "DEF_HELPER_5($helper_name, void, env, ptr, i32, i32, i32)";
-    }
-    elsif ($func_type eq 'rt_rs_wd') {
-        $func_body .=<<"C_END";
-
-$declare_str
-    if (!check_msa_access(env, ctx, wd, wd, wd)) return;
-
-    TCGv trt = tcg_temp_new();
-    TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
-
-    TCGv_i32 twrlen = tcg_const_i32(wrlen); // FIXME
-
-    gen_load_gpr(trt, rt);
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(cpu_env, tpwd, trt, trs, twrlen);
-
-    tcg_temp_free(trt);
-    tcg_temp_free(trs);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen);
-
-    update_msa_modify(env, ctx, wd);
-C_END
-
-       $def = "DEF_HELPER_5($helper_name, void, env, ptr, tl, tl, i32)";
-    }
-    elsif ($func_type eq 'rs_rt_rd_u2') {
-        $func_body .=<<"C_END";
-
-$declare_str
-C_END
-
-        $func_body .= <<"C_END";
-
-    if (unlikely((env->CP0_Config3 & (1 << CP0C3_MSAP)) == 0)) {
-      generate_exception(ctx, EXCP_RI);
-    }
-
-    TCGv_i32 tu2 = tcg_const_i32(u2);
-    TCGv trt = tcg_temp_new();
-    TCGv trs = tcg_temp_new();
-    TCGv telm = tcg_temp_new();
-
-    gen_load_gpr(trt, rt);
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(telm, cpu_env, trt, trs, tu2);
-    gen_store_gpr(telm, rd);
-
-    tcg_temp_free(telm);
-    tcg_temp_free(trs);
-    tcg_temp_free(trt);
-    tcg_temp_free_i32(tu2);
-C_END
-
-       $def = "DEF_HELPER_4($helper_name, tl, env, tl, tl, i32)";
+      $def = "DEF_HELPER_3(msa_$helper_name, void, env, i32, i32)";
     }
     elsif ($func_type eq 'dfn_ws_rd') {
 
         my $stype = get_arg_type($inst,'ws');
 
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
@@ -1531,35 +918,8 @@ $declare_str
 C_END
         $def = ''; # no helper required
     }
-    elsif ($func_type eq 'df_rt_ws_rd') {
-
-        my $stype = get_arg_type($inst,'ws');
-
-        $func_body .=<<"C_END";
-
-$declare_str
-    if (!check_msa_access(env, ctx, ws, ws, -1)) return;
-
-    TCGv telm = tcg_temp_new();
-    TCGv_i32 tws = tcg_const_i32(ws);
-    TCGv_i32 tdf = tcg_const_i32(df);
-    TCGv trt = tcg_temp_new();
-
-    gen_load_gpr(trt, rt);
-    gen_helper_load_wr_elem_$stype(telm, cpu_env, tws, tdf, trt);
-    gen_store_gpr(telm, rd);
-
-    tcg_temp_free(telm);
-    tcg_temp_free_i32(tws);
-    tcg_temp_free_i32(tdf);
-    tcg_temp_free(trt);
-
-C_END
-        $def = ''; # no helper required
-    }
     elsif ($func_type eq 'df_rs_wd') {
         $func_body .=<<"C_END";
-
 $declare_str
 #if !defined(TARGET_MIPS64)
     /* Double format valid only for MIPS64 */
@@ -1572,28 +932,24 @@ $declare_str
 
     if (!check_msa_access(env, ctx, wd, wd, wd)) return;
 
-    TCGv trs = tcg_temp_new();
-    TCGv_ptr tpwd = tcg_const_ptr((tcg_target_long)&(env->active_fpu.fpr[wd]));
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 trs = tcg_const_i32(rs);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
-    TCGv_i32 twrlen_df = tcg_const_i32((wrlen << 2) | df);
+    gen_helper_msa_$helper_name(cpu_env, tdf, twd, trs);
 
-    gen_load_gpr(trs, rs);
-    gen_helper_$helper_name(cpu_env, tpwd, trs, twrlen_df);
+	tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(trs);
+    tcg_temp_free_i32(tdf);
 
-    tcg_temp_free(trs);
-    tcg_temp_free_ptr(tpwd);
-    tcg_temp_free_i32(twrlen_df);
-
-    update_msa_modify(env, ctx, wd);
 C_END
 
-        $def = "DEF_HELPER_4($helper_name, void, env, ptr, tl, i32)";
+        $def = "DEF_HELPER_4(msa_$helper_name, void, env, i32, i32, i32)";
 
 
     }
     elsif ($func_type eq 'rs_cd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
@@ -1612,7 +968,6 @@ C_END
     }
     elsif ($func_type eq 'cs_rd') {
         $func_body .=<<"C_END";
-
 $declare_str
     if (!check_msa_access(env, ctx, -1, -1, -1)) return;
 
@@ -1633,7 +988,7 @@ C_END
     else {
 
         $func_body .= <<C_END;
-    // TODO $name ($func_type)
+    /* TODO $name ($func_type) */
     assert(0);
 C_END
 #        die "ERROR: don't know what to do for func_type '$func_type' ($name)";
@@ -1816,24 +1171,6 @@ sub get_helper_name {
 
     # can be used to allow instructions to share a helper
     %helpername_of = (
-        'ADDVI_df' => 'ADDV_df',
-        'ADDI_A_df' => 'ADD_A_df',
-        'ADDSI_A_df' => 'ADDS_A_df',
-        'ADDSI_S_df' => 'ADDS_S_df',
-        'ADDSI_U_df' => 'ADDS_U_df',
-        'SUBVI_df' => 'SUBV_df',
-        'MAXI_S_df' => 'MAX_S_df',
-        'MAXI_U_df' => 'MAX_U_df',
-        'MINI_A_df' => 'MIN_A_df',
-        'MINI_S_df' => 'MIN_S_df',
-        'MINI_U_df' => 'MIN_U_df',
-        'CEQI_df' => 'CEQ_df',
-        'CLTI_S_df' => 'CLT_S_df',
-        'CLEI_S_df' => 'CLE_S_df',
-        'CLTI_U_df' => 'CLT_U_df',
-        'CLEI_U_df' => 'CLE_U_df',
-        'SLDI_df' => 'SLD_df',
-        'SPLATI_df' => 'SPLAT_df',
     ) if !%helpername_of;
 
     my $codename = get_code_name($inst);
