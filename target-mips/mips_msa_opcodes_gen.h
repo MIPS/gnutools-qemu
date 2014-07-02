@@ -2910,15 +2910,14 @@ static void gen_copy_s_df(CPUMIPSState *env, DisasContext *ctx)
 
     if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
-    TCGv telm = tcg_temp_new();
+    TCGv_i32 trd = tcg_const_i32(rd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_elem_target_s64(telm, cpu_env, tws, tdf, tn);
-    gen_store_gpr(telm, rd);
+    gen_helper_msa_copy_s_df(cpu_env, tdf, trd, tws, tn);
 
-    tcg_temp_free(telm);
+    tcg_temp_free_i32(trd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
@@ -2969,15 +2968,14 @@ static void gen_copy_u_df(CPUMIPSState *env, DisasContext *ctx)
 
     if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
-    TCGv telm = tcg_temp_new();
+    TCGv_i32 trd = tcg_const_i32(rd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_elem_target_i64(telm, cpu_env, tws, tdf, tn);
-    gen_store_gpr(telm, rd);
+    gen_helper_msa_copy_u_df(cpu_env, tdf, trd, tws, tn);
 
-    tcg_temp_free(telm);
+    tcg_temp_free_i32(trd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);

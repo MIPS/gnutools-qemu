@@ -4259,9 +4259,6 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status) || float32
 #define DF_WORD   2
 #define DF_DOUBLE 3
 
-#define DF_FLOAT_WORD   0
-#define DF_FLOAT_DOUBLE 1
-
 static void msa_check_index(CPUMIPSState *env,
         uint32_t df, uint32_t n) {
     switch (df) {
@@ -4358,7 +4355,7 @@ static void msa_check_index(CPUMIPSState *env,
 #define DONE_ALL_ELEMENTS                       \
     } while (0)
 
-static void msa_move_v(void *pwd, void *pws)
+static inline void msa_move_v(void *pwd, void *pws)
 {
     ALL_D_ELEMENTS(i, MSA_WRLEN) {
         D(pwd, i) = D(pws, i);
@@ -5643,6 +5640,60 @@ void helper_msa_clti_u_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
 
     if (env->active_msa.msair & MSAIR_WRP_BIT) {
         env->active_msa.msamodify |= (1 << wd);
+    }
+}
+
+void helper_msa_copy_s_df(CPUMIPSState *env, uint32_t df, uint32_t rd,
+        uint32_t ws, uint32_t n)
+{
+    n %= DF_ELEMENTS(df, MSA_WRLEN);
+    msa_check_index(env, (uint32_t)df, (uint32_t)n);
+
+    switch (df) {
+    case DF_BYTE: /* b */
+        env->active_tc.gpr[rd] = (int8_t)env->active_fpu.fpr[ws].wr.b[n];
+        break;
+    case DF_HALF: /* h */
+        env->active_tc.gpr[rd] = (int16_t)env->active_fpu.fpr[ws].wr.h[n];
+        break;
+    case DF_WORD: /* w */
+        env->active_tc.gpr[rd] = (int32_t)env->active_fpu.fpr[ws].wr.w[n];
+        break;
+#ifdef TARGET_MIPS64
+    case DF_DOUBLE: /* d */
+        env->active_tc.gpr[rd] = (int64_t)env->active_fpu.fpr[ws].wr.d[n];
+        break;
+#endif
+    default:
+        /* shouldn't get here */
+      assert(0);
+    }
+}
+
+void helper_msa_copy_u_df(CPUMIPSState *env, uint32_t df, uint32_t rd,
+        uint32_t ws, uint32_t n)
+{
+    n %= DF_ELEMENTS(df, MSA_WRLEN);
+    msa_check_index(env, (uint32_t)df, (uint32_t)n);
+
+    switch (df) {
+    case DF_BYTE: /* b */
+        env->active_tc.gpr[rd] = (uint8_t)env->active_fpu.fpr[ws].wr.b[n];
+        break;
+    case DF_HALF: /* h */
+        env->active_tc.gpr[rd] = (uint16_t)env->active_fpu.fpr[ws].wr.h[n];
+        break;
+    case DF_WORD: /* w */
+        env->active_tc.gpr[rd] = (uint32_t)env->active_fpu.fpr[ws].wr.w[n];
+        break;
+#ifdef TARGET_MIPS64
+    case DF_DOUBLE: /* d */
+        env->active_tc.gpr[rd] = (uint64_t)env->active_fpu.fpr[ws].wr.d[n];
+        break;
+#endif
+    default:
+        /* shouldn't get here */
+      assert(0);
     }
 }
 
@@ -7812,16 +7863,6 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs, 
     if (env->active_msa.msair & MSAIR_WRP_BIT) {
         env->active_msa.msamodify |= (1 << wd);
     }
-}
-
-target_ulong helper_load_wr_elem_target_s64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-  return (target_ulong)msa_load_wr_elem_s64(env, wreg, df, i);
-}
-
-target_ulong helper_load_wr_elem_target_i64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-  return (target_ulong)msa_load_wr_elem_i64(env, wreg, df, i);
 }
 
 static inline void msa_st_df(CPUMIPSState *env, uint32_t df_bits, target_ulong addr, int64_t val)

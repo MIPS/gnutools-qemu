@@ -781,9 +781,6 @@ DEF_HELPER_FLAGS_3(wrdsp, 0, void, tl, tl, env)
 DEF_HELPER_FLAGS_2(rddsp, 0, tl, tl, env)
 
 /* MSA */
-DEF_HELPER_4(load_wr_elem_target_s64, tl, env, s32, s32, s32)
-DEF_HELPER_4(load_wr_elem_target_i64, tl, env, s32, s32, s32)
-
 #include "mips_msa_helper_decl.h"
 
 #include "exec/def-helper.h"

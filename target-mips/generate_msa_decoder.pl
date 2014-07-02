@@ -903,20 +903,19 @@ C_END
 $declare_str
     if (!check_msa_access(env, ctx, ws, ws, -1)) return;
 
-    TCGv telm = tcg_temp_new();
+    TCGv_i32 trd = tcg_const_i32(rd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tn = tcg_const_i32(n);
 
-    gen_helper_load_wr_elem_target_$stype(telm, cpu_env, tws, tdf, tn);
-    gen_store_gpr(telm, rd);
+    gen_helper_msa_$helper_name(cpu_env, tdf, trd, tws, tn);
 
-    tcg_temp_free(telm);
+    tcg_temp_free_i32(trd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(tdf);
     tcg_temp_free_i32(tn);
 C_END
-        $def = ''; # no helper required
+        $def = "DEF_HELPER_5(msa_$helper_name, void, env, i32, i32, i32, i32)";
     }
     elsif ($func_type eq 'df_rs_wd') {
         $func_body .=<<"C_END";
