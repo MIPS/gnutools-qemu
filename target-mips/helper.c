@@ -24,6 +24,10 @@
 #include <signal.h>
 
 #include "cpu.h"
+#ifndef CONFIG_USER_ONLY
+#include "exec/softmmu_exec.h"
+#endif
+
 
 enum {
     TLBRET_XI = -6,
@@ -216,6 +220,10 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
     CPUState *cs = CPU(mips_env_get_cpu(env));
     int exception = 0, error_code = 0;
 
+    if (rw == MMU_INST_FETCH) {
+        error_code |= EXCP_INST_NOTAVAIL;
+    }
+
     switch (tlb_error) {
     default:
     case TLBRET_BADADDR:
@@ -234,7 +242,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         } else {
             exception = EXCP_TLBL;
         }
-        error_code = 1;
+        error_code |= EXCP_TLB_NOMATCH;
         break;
     case TLBRET_INVALID:
         /* TLB match with no valid bit */
@@ -426,6 +434,20 @@ static void set_hflags_for_handler (CPUMIPSState *env)
                         << MIPS_HFLAG_M16_SHIFT);
     }
 }
+
+static inline void set_badinstr_registers(CPUMIPSState *env)
+{
+    if (env->hflags & MIPS_HFLAG_M16) {
+        /* TODO: add BadInstr support for microMIPS */
+        return;
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_BI)) {
+        env->active_tc.CP0_BadInstr = cpu_ldl_code(env, env->active_tc.PC);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_BP) && env->hflags & MIPS_HFLAG_BMASK) {
+        env->active_tc.CP0_BadInstrP = cpu_ldl_code(env, env->active_tc.PC - 4);
+    }
+}
 #endif
 
 void mips_cpu_do_interrupt(CPUState *cs)
@@ -433,6 +455,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
 #if !defined(CONFIG_USER_ONLY)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
+    bool update_badinstr = 0;
     target_ulong offset;
     int cause = -1;
     const char *name;
@@ -541,10 +564,13 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_LTLBL:
         cause = 1;
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
         goto set_EPC;
     case EXCP_TLBL:
         cause = 2;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
+        if (env->error_code & EXCP_TLB_NOMATCH &&
+            !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
             int R = env->CP0_BadVAddr >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
@@ -561,7 +587,9 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_TLBS:
         cause = 3;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        update_badinstr = 1;
+        if (env->error_code & EXCP_TLB_NOMATCH &&
+            !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
             int R = env->CP0_BadVAddr >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
@@ -578,9 +606,11 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_AdEL:
         cause = 4;
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
         goto set_EPC;
     case EXCP_AdES:
         cause = 5;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_IBE:
         cause = 6;
@@ -590,32 +620,40 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_SYSCALL:
         cause = 8;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_BREAK:
         cause = 9;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_RI:
         cause = 10;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_CpU:
         cause = 11;
+        update_badinstr = 1;
         env->CP0_Cause = (env->CP0_Cause & ~(0x3 << CP0Ca_CE)) |
                          (env->error_code << CP0Ca_CE);
         goto set_EPC;
     case EXCP_OVERFLOW:
         cause = 12;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_TRAP:
         cause = 13;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_FPE:
         cause = 15;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_C2E:
         cause = 18;
         goto set_EPC;
     case EXCP_TLBRI:
         cause = 19;
+        update_badinstr = 1;
         goto set_EPC;
     case EXCP_TLBXI:
         cause = 20;
@@ -646,6 +684,9 @@ void mips_cpu_do_interrupt(CPUState *cs)
  set_EPC:
         if (!(env->CP0_Status & (1 << CP0St_EXL))) {
             env->CP0_EPC = exception_resume_pc(env);
+            if (update_badinstr) {
+                set_badinstr_registers(env);
+            }
             if (env->hflags & MIPS_HFLAG_BMASK) {
                 env->CP0_Cause |= (1U << CP0Ca_BD);
             } else {
