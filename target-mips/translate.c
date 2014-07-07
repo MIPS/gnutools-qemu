@@ -233,6 +233,12 @@ enum {
     R6_OPC_DMOD   = OPC_DDIV   | (3 << 6),
     R6_OPC_DDIVU  = OPC_DDIVU  | (2 << 6),
     R6_OPC_DMODU  = OPC_DDIVU  | (3 << 6),
+
+    R6_OPC_CLZ      = 0x10 | OPC_SPECIAL,
+    R6_OPC_CLO      = 0x11 | OPC_SPECIAL,
+    R6_OPC_DCLZ     = 0x12 | OPC_SPECIAL,
+    R6_OPC_DCLO     = 0x13 | OPC_SPECIAL,
+    R6_OPC_SDBBP    = 0x0e | OPC_SPECIAL,
 };
 
 /* Multiplication variants of the vr54xx. */
@@ -3261,19 +3267,23 @@ static void gen_cl (DisasContext *ctx, uint32_t opc,
     gen_load_gpr(t0, rs);
     switch (opc) {
     case OPC_CLO:
+    case R6_OPC_CLO:
         gen_helper_clo(cpu_gpr[rd], t0);
         opn = "clo";
         break;
     case OPC_CLZ:
+    case R6_OPC_CLZ:
         gen_helper_clz(cpu_gpr[rd], t0);
         opn = "clz";
         break;
 #if defined(TARGET_MIPS64)
     case OPC_DCLO:
+    case R6_OPC_DCLO:
         gen_helper_dclo(cpu_gpr[rd], t0);
         opn = "dclo";
         break;
     case OPC_DCLZ:
+    case R6_OPC_DCLZ:
         gen_helper_dclz(cpu_gpr[rd], t0);
         opn = "dclz";
         break;
@@ -14745,12 +14755,13 @@ static void gen_mipsdsp_accinsn(DisasContext *ctx, uint32_t op1, uint32_t op2,
 
 static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
 {
-    int rs, rt, rd;
+    int rs, rt, rd, sa;
     uint32_t op1, op2;
 
     rs = (ctx->opcode >> 21) & 0x1f;
     rt = (ctx->opcode >> 16) & 0x1f;
     rd = (ctx->opcode >> 11) & 0x1f;
+    sa = (ctx->opcode >> 6) & 0x1f;
 
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
@@ -14777,7 +14788,31 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
     case OPC_SELNEZ:
         gen_cond_move(ctx, op1, rd, rs, rt);
         break;
+    case R6_OPC_CLO:
+    case R6_OPC_CLZ:
+        if (rt == 0 && sa == 1) {
+            /* Major opcode and function field is shared with preR6 MFHI/MTHI.
+               We need additionally to check other fields */
+            gen_cl(ctx, op1, rd, rs);
+        } else {
+            generate_exception(ctx, EXCP_RI);
+        }
+        break;
+    case R6_OPC_SDBBP:
+        generate_exception(ctx, EXCP_DBp);
+        break;
 #if defined(TARGET_MIPS64)
+    case R6_OPC_DCLO:
+    case R6_OPC_DCLZ:
+        if (rt == 0 && sa == 1) {
+            /* Major opcode and function field is shared with preR6 MFHI/MTHI.
+               We need additionally to check other fields */
+            check_mips_64(ctx);
+            gen_cl(ctx, op1, rd, rs);
+        } else {
+            generate_exception(ctx, EXCP_RI);
+        }
+        break;
     case OPC_DMULT ... OPC_DDIVU:
         op2 = MASK_R6_MULDIV(ctx->opcode);
         switch (op2) {
@@ -14863,6 +14898,16 @@ static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
         gen_muldiv(ctx, op1, 0, rs, rt);
         break;
 #endif
+    case OPC_SPIM:
+#ifdef MIPS_STRICT_STANDARD
+        MIPS_INVAL("SPIM");
+        generate_exception(ctx, EXCP_RI);
+#else
+        /* Implemented as RI exception for now. */
+        MIPS_INVAL("spim (unofficial)");
+        generate_exception(ctx, EXCP_RI);
+#endif
+        break;
     default:            /* Invalid */
         MIPS_INVAL("special_legacy");
         generate_exception(ctx, EXCP_RI);
@@ -14957,16 +15002,6 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
     case OPC_BREAK:
         generate_exception(ctx, EXCP_BREAK);
         break;
-    case OPC_SPIM:
-#ifdef MIPS_STRICT_STANDARD
-        MIPS_INVAL("SPIM");
-        generate_exception(ctx, EXCP_RI);
-#else
-        /* Implemented as RI exception for now. */
-        MIPS_INVAL("spim (unofficial)");
-        generate_exception(ctx, EXCP_RI);
-#endif
-        break;
     case OPC_SYNC:
         /* Treat as NOP. */
         break;
@@ -15056,23 +15091,12 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_opc_special2_r6(CPUMIPSState *env, DisasContext *ctx)
-{
-    uint32_t op1;
-
-    op1 = MASK_SPECIAL2(ctx->opcode);
-    switch (op1) {
-    default:            /* Invalid */
-        MIPS_INVAL("special2_r6");
-        generate_exception(ctx, EXCP_RI);
-        break;
-    }
-}
-
 static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd;
     uint32_t op1;
+
+    check_insn_opc_removed(ctx, ISA_MIPS32R6);
 
     rs = (ctx->opcode >> 21) & 0x1f;
     rt = (ctx->opcode >> 16) & 0x1f;
@@ -15097,34 +15121,6 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
         check_insn(ctx, INSN_LOONGSON2F);
         gen_loongson_integer(ctx, op1, rd, rs, rt);
         break;
-#if defined(TARGET_MIPS64)
-    case OPC_DMULT_G_2F:
-    case OPC_DMULTU_G_2F:
-    case OPC_DDIV_G_2F:
-    case OPC_DDIVU_G_2F:
-    case OPC_DMOD_G_2F:
-    case OPC_DMODU_G_2F:
-        check_insn(ctx, INSN_LOONGSON2F);
-        gen_loongson_integer(ctx, op1, rd, rs, rt);
-        break;
-#endif
-    default:            /* Invalid */
-        MIPS_INVAL("special2_legacy");
-        generate_exception(ctx, EXCP_RI);
-        break;
-    }
-}
-
-static void decode_opc_special2(CPUMIPSState *env, DisasContext *ctx)
-{
-    int rs, rd;
-    uint32_t op1;
-
-    rs = (ctx->opcode >> 21) & 0x1f;
-    rd = (ctx->opcode >> 11) & 0x1f;
-
-    op1 = MASK_SPECIAL2(ctx->opcode);
-    switch (op1) {
     case OPC_CLO:
     case OPC_CLZ:
         check_insn(ctx, ISA_MIPS32);
@@ -15149,13 +15145,20 @@ static void decode_opc_special2(CPUMIPSState *env, DisasContext *ctx)
         check_mips_64(ctx);
         gen_cl(ctx, op1, rd, rs);
         break;
+    case OPC_DMULT_G_2F:
+    case OPC_DMULTU_G_2F:
+    case OPC_DDIV_G_2F:
+    case OPC_DDIVU_G_2F:
+    case OPC_DMOD_G_2F:
+    case OPC_DMODU_G_2F:
+        check_insn(ctx, INSN_LOONGSON2F);
+        gen_loongson_integer(ctx, op1, rd, rs, rt);
+        break;
 #endif
-    default:
-        if (ctx->insn_flags & ISA_MIPS32R6) {
-            decode_opc_special2_r6(env, ctx);
-        } else {
-            decode_opc_special2_legacy(env, ctx);
-        }
+    default:            /* Invalid */
+        MIPS_INVAL("special2_legacy");
+        generate_exception(ctx, EXCP_RI);
+        break;
     }
 }
 
@@ -15834,7 +15837,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         decode_opc_special(env, ctx);
         break;
     case OPC_SPECIAL2:
-        decode_opc_special2(env, ctx);
+        decode_opc_special2_legacy(env, ctx);
         break;
     case OPC_SPECIAL3:
         decode_opc_special3(env, ctx);
