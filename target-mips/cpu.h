@@ -177,6 +177,8 @@ struct TCState {
     target_ulong CP0_TCScheFBack;
     int32_t CP0_Debug_tcstatus;
     target_ulong CP0_UserLocal;
+    uint32_t CP0_BadInstr;
+    uint32_t CP0_BadInstrP;
 };
 
 typedef struct CPUMIPSState CPUMIPSState;
@@ -383,6 +385,8 @@ struct CPUMIPSState {
 #define CP0C2_SA   0
     int32_t CP0_Config3;
 #define CP0C3_M    31
+#define CP0C3_BP 27
+#define CP0C3_BI 26
 #define CP0C3_ISA_ON_EXC 16
 #define CP0C3_ULRI 13
 #define CP0C3_RXI  12
@@ -453,6 +457,8 @@ struct CPUMIPSState {
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];
     /* QEMU */
     int error_code;
+#define EXCP_TLB_NOMATCH   0x1
+#define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
 #define MIPS_HFLAG_TMASK  0xC07FF
