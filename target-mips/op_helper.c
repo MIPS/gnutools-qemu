@@ -1241,6 +1241,14 @@ static void mtc0_entrylo_common(CPUMIPSState *env, int isR6, uint64_t * CP0_Entr
     uint32_t mask;
     target_ulong newval;
 
+#ifndef TARGET_MIPS64
+    if (env->CP0_Config3 & (1 << CP0C3_LPA) &&
+        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
+        (env->PABITS > 32)) {
+        pabits = 32;
+    }
+#endif
+
     mask = (1 << (30 - (36 - pabits))) - 1;
     newval = (arg1 & mask) | (rixi << write_rixi_lshift);
 
