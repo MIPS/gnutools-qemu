@@ -25,7 +25,14 @@
 #include "qemu/timer.h"
 #include "sysemu/kvm.h"
 
+#if defined(MIPSSIM_COMPAT)
+/* In SV - C0COUNT has to be incremented by a number of executed instructions
+   as this is how IASim works.
+*/
+#define TIMER_FREQ get_ticks_per_sec()
+#else
 #define TIMER_FREQ	100 * 1000 * 1000
+#endif
 
 /* XXX: do not use a global */
 uint32_t cpu_mips_get_random (CPUMIPSState *env)
@@ -130,7 +137,7 @@ static void mips_timer_cb (void *opaque)
     CPUMIPSState *env;
 
     env = opaque;
-#if 0
+#if 0 || defined(MIPSSIM_COMPAT)
     qemu_log("%s\n", __func__);
 #endif
 

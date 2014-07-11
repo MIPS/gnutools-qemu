@@ -119,6 +119,10 @@ int main(int argc, char **argv)
 #include "qom/object_interfaces.h"
 #include "qapi-event.h"
 
+#ifdef MIPSSIM_COMPAT
+#include "target-mips/mips-avp.h"
+#endif
+
 #define DEFAULT_RAM_SIZE 128
 
 #define MAX_VIRTIO_CONSOLES 1
@@ -559,6 +563,16 @@ static void res_free(void)
         boot_splash_filedata = NULL;
     }
 }
+
+#ifdef MIPSSIM_COMPAT
+static void mips_avp_clean_up(void)
+{
+    if (cpu_model_name) {
+        free(cpu_model_name);
+        cpu_model_name = NULL;
+    }
+}
+#endif
 
 static int default_driver_check(QemuOpts *opts, void *opaque)
 {
@@ -3054,7 +3068,27 @@ int main(int argc, char **argv, char **envp)
             }
             case QEMU_OPTION_cpu:
                 /* hw initialization will check this */
+#ifndef MIPSSIM_COMPAT
                 cpu_model = optarg;
+#else
+                {
+                    char *comma = NULL;
+
+                    cpu_model_name = malloc(strlen(optarg) + 1);
+                    strcpy(cpu_model_name, optarg);
+
+                    comma = strchr(cpu_model_name, ',');
+
+                    if (comma) {
+                        cpu_config_name = comma + 1;
+                        *comma = 0;
+                    }
+
+                    cpu_model = cpu_model_name;
+
+                    atexit(mips_avp_clean_up);
+                }
+#endif
                 break;
             case QEMU_OPTION_hda:
                 {
@@ -4032,6 +4066,10 @@ int main(int argc, char **argv, char **envp)
             exit(1);
         }
         qemu_set_log(mask);
+
+#if defined(MIPSSIM_COMPAT)
+        sv_log_init("qemu.svtrace");
+#endif
     }
 
     if (!is_daemonized()) {

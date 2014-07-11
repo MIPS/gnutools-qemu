@@ -29,7 +29,12 @@
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 
-#define MIPS_DEBUG_DISAS 0
+#ifdef MIPSSIM_COMPAT
+#include "sysemu/sysemu.h"
+#endif
+#ifndef MIPS_DEBUG_DISAS
+#define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
+#endif
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 
 /* MIPS major opcodes */
@@ -1854,16 +1859,27 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
     t0 = tcg_temp_new();
     gen_base_offset_addr(ctx, t0, base, offset);
 
+#ifdef MIPSSIM_COMPAT
+    TCGv taddr;
+    taddr = tcg_temp_new();
+    tcg_gen_mov_tl(taddr, t0);
+#endif
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_LWU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "lwu";
         break;
     case OPC_LD:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
+#endif
         opn = "ld";
         break;
     case OPC_LLD:
@@ -1871,6 +1887,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 1);
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
+#endif
         opn = "lld";
         break;
     case OPC_LDL:
@@ -1892,6 +1911,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_or_tl(t0, t0, t1);
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
+#endif
         opn = "ldl";
         break;
     case OPC_LDR:
@@ -1913,6 +1935,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_gen_or_tl(t0, t0, t1);
         tcg_temp_free(t1);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
+#endif
         opn = "ldr";
         break;
     case OPC_LDPC:
@@ -1921,6 +1946,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEQ);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00008);
+#endif
         opn = "ldpc";
         break;
 #endif
@@ -1930,31 +1958,49 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "lwpc";
         break;
     case OPC_LW:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "lw";
         break;
     case OPC_LH:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESW);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00002);
+#endif
         opn = "lh";
         break;
     case OPC_LHU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUW);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00002);
+#endif
         opn = "lhu";
         break;
     case OPC_LB:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_SB);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00001);
+#endif
         opn = "lb";
         break;
     case OPC_LBU:
         tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_UB);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00001);
+#endif
         opn = "lbu";
         break;
     case OPC_LWL:
@@ -1977,6 +2023,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "lwl";
         break;
     case OPC_LWR:
@@ -1999,6 +2048,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         tcg_temp_free(t1);
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "lwr";
         break;
     case OPC_LL:
@@ -2006,12 +2058,18 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 1);
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, taddr, 0x00004);
+#endif
         opn = "ll";
         break;
     }
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
+#ifdef MIPSSIM_COMPAT
+    tcg_temp_free(taddr);
+#endif
 }
 
 /* Store */
@@ -2028,39 +2086,63 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
 #if defined(TARGET_MIPS64)
     case OPC_SD:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEQ);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sd";
         break;
     case OPC_SDL:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(sdl, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sdl";
         break;
     case OPC_SDR:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(sdr, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         opn = "sdr";
         break;
 #endif
     case OPC_SW:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "sw";
         break;
     case OPC_SH:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUW);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10002);
+#endif
         opn = "sh";
         break;
     case OPC_SB:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_8);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10001);
+#endif
         opn = "sb";
         break;
     case OPC_SWL:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(swl, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "swl";
         break;
     case OPC_SWR:
         save_cpu_state(ctx, 1);
         gen_helper_0e2i(swr, t1, t0, ctx->mem_idx);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         opn = "swr";
         break;
     }
@@ -2094,6 +2176,9 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_scd(t1, t0, rt, ctx);
         opn = "scd";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10008);
+#endif
         break;
 #endif
     case OPC_SC:
@@ -2101,6 +2186,9 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_sc(t1, t0, rt, ctx);
         opn = "sc";
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t1, t0, 0x10004);
+#endif
         break;
     }
     (void)opn; /* avoid a compiler warning */
@@ -2328,6 +2416,20 @@ static void gen_slt_imm(DisasContext *ctx, uint32_t opc,
     target_ulong uimm = (target_long)imm; /* Sign extend to 32/64 bits */
     const char *opn = "imm arith";
     TCGv t0;
+
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
+    if (opc == OPC_SLTIU && rs == 0 && rt == 0) {
+        if ((uint16_t)imm == 0xabc2) {
+            gen_helper_avp_ok();
+            return;
+        } else if ((uint16_t)imm == 0xabc1) {
+            gen_helper_avp_fail();
+            return;
+        }
+    }
+#endif
+#endif
 
     if (rt == 0) {
         /* If no destination, treat it as a NOP. */
@@ -2921,6 +3023,13 @@ static inline void gen_r6_ld(target_long addr, int reg, int memidx,
 {
     TCGv t0 = tcg_const_tl(addr);
     tcg_gen_qemu_ld_tl(t0, t0, memidx, memop);
+#ifdef MIPSSIM_COMPAT
+    TCGv taddr;
+    taddr = tcg_temp_new();
+    tcg_gen_movi_tl(taddr, addr);
+    gen_helper_0e2i(trace_mem_access, t0, taddr, 1 << (memop & MO_SIZE));
+    tcg_temp_free(taddr);
+#endif
     gen_store_gpr(t0, reg);
     tcg_temp_free(t0);
 }
@@ -17939,6 +18048,7 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
+
 #ifdef DEBUG_DISAS
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
@@ -18064,6 +18174,216 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 #endif
 }
 
+#ifdef MIPSSIM_COMPAT
+void mips_cpu_trace_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
+        int flags)
+{
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+    int i;
+    static CPUMIPSState env_prev;
+    static CPUMIPSMVPContext mvp_prev;
+
+#define CHK_CP0_REG(REG, NAME) do { \
+        if(env_prev.REG != env->REG) \
+            sv_log(" : Write " NAME " = %08x\n", env->REG); \
+    } while(0)
+#define CHK_CP0_REG_ULONG(REG, NAME) do { \
+        if(env_prev.REG != env->REG) \
+            sv_log(" : Write " NAME " = " TARGET_FMT_lx "\n", env->REG); \
+    } while(0)
+    CHK_CP0_REG_ULONG(active_tc.HI[0],           "HI          ");
+    CHK_CP0_REG_ULONG(active_tc.LO[0],           "LO          ");
+
+    //cp0 registers
+    //0
+    CHK_CP0_REG(CP0_Index,                       "C0IDX       ");
+
+    //CP0_MVPControl
+    if(mvp_prev.CP0_MVPControl != env->mvp->CP0_MVPControl) {
+        sv_log(" : Write C0MVPCTL     = %08x\n", env->mvp->CP0_MVPControl);
+    }
+    //CP0_MVPConf0
+    if(mvp_prev.CP0_MVPConf0 != env->mvp->CP0_MVPConf0) {
+        sv_log(" : Write C0MVPCONF0   = %08x\n", env->mvp->CP0_MVPConf0);
+    }
+    //CP0_MVPConf1
+    if(mvp_prev.CP0_MVPConf1 != env->mvp->CP0_MVPConf1) {
+        sv_log(" : Write C0MVPCONF1   = %08x\n", env->mvp->CP0_MVPConf1);
+    }
+
+    //1
+    CHK_CP0_REG(CP0_Random,                      "C0RAND      ");
+    CHK_CP0_REG(CP0_VPEControl,                  "C0VPECTL    ");
+    CHK_CP0_REG(CP0_VPEConf0,                    "C0VPECONF0  ");
+    CHK_CP0_REG(CP0_VPEConf1,                    "C0VPECONF1  ");
+    CHK_CP0_REG_ULONG(CP0_YQMask,                "C0YQMASK    ");
+    CHK_CP0_REG_ULONG(CP0_VPESchedule,           "C0VPESCHED  ");
+    CHK_CP0_REG_ULONG(CP0_VPEScheFBack,          "C0VPESCHEDFB");
+    CHK_CP0_REG(CP0_VPEOpt,                      "C0VPEOPT    ");
+
+    //2
+    CHK_CP0_REG_ULONG(CP0_EntryLo0,              "C0ENLO0     ");
+    CHK_CP0_REG(active_tc.CP0_TCStatus,          "C0TCSTAT    ");
+    CHK_CP0_REG(active_tc.CP0_TCBind,            "C0TCBIND    ");
+    // TCRestart missing
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCHalt,      "C0TCHALT    ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCContext,   "C0TCCTXT    ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCSchedule,  "C0TCSCHED   ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
+
+    //3
+    CHK_CP0_REG_ULONG(CP0_EntryLo1,              "C0ENLO1     ");
+
+    //4
+    CHK_CP0_REG_ULONG(CP0_Context,               "C0CTXT      ");
+
+    //5
+    CHK_CP0_REG(CP0_PageMask,                    "C0PMASK     ");
+    CHK_CP0_REG(CP0_PageGrain,                   "C0PGRAIN    ");
+
+    //6
+    CHK_CP0_REG(CP0_Wired,                       "C0WIRED     ");
+    CHK_CP0_REG(CP0_SRSConf0,                    "C0SRSCONF   ");
+    CHK_CP0_REG(CP0_SRSConf1,                    "C0SRSCONF1  ");
+    CHK_CP0_REG(CP0_SRSConf2,                    "C0SRSCONF2  ");
+    CHK_CP0_REG(CP0_SRSConf3,                    "C0SRSCONF3  ");
+    CHK_CP0_REG(CP0_SRSConf4,                    "C0SRSCONF4  ");
+
+    //7
+    CHK_CP0_REG(CP0_HWREna,                      "C0HWRENA    ");
+
+    //8
+    CHK_CP0_REG_ULONG(CP0_BadVAddr,              "C0BVA       ");
+    CHK_CP0_REG(active_tc.CP0_BadInstr,          "C0BINSTR    ");
+    CHK_CP0_REG(active_tc.CP0_BadInstrP,         "C0BINSTRP   ");
+
+    //9
+    CHK_CP0_REG(CP0_Count,                       "C0COUNT     ");
+
+    //10
+    CHK_CP0_REG_ULONG(CP0_EntryHi,               "C0ENHI      ");
+
+    //11
+    CHK_CP0_REG(CP0_Compare,                     "C0COMP      ");
+
+    //12
+    CHK_CP0_REG(CP0_Status,                      "C0STAT      ");
+    CHK_CP0_REG(CP0_IntCtl,                      "C0INTCTL    ");
+    CHK_CP0_REG(CP0_SRSCtl,                      "C0SRSCTL    ");
+    CHK_CP0_REG(CP0_SRSMap,                      "C0SRSMAP    ");
+
+    //13
+    CHK_CP0_REG(CP0_Cause,                       "C0CAUS      ");
+
+    //14
+    CHK_CP0_REG_ULONG(CP0_EPC,                   "C0EPC       ");
+
+    //15
+    CHK_CP0_REG(CP0_PRid,                        "C0PRID      ");
+    CHK_CP0_REG(CP0_EBase,                       "C0EBASE     ");
+
+    //16
+    CHK_CP0_REG(CP0_Config0,                     "C0CONFIG    ");
+    CHK_CP0_REG(CP0_Config1,                     "C0CONFIG1   ");
+    CHK_CP0_REG(CP0_Config2,                     "C0CONFIG2   ");
+    CHK_CP0_REG(CP0_Config3,                     "C0CONFIG3   ");
+    CHK_CP0_REG(CP0_Config4,                     "C0CONFIG4   ");
+    CHK_CP0_REG(CP0_Config5,                     "C0CONFIG5   ");
+    //MSA
+    CHK_CP0_REG(CP0_Config6,                     "C0CONFIG6   ");
+    CHK_CP0_REG(CP0_Config7,                     "C0CONFIG7   ");
+
+    //17
+    CHK_CP0_REG_ULONG(lladdr,                    "C0LLA       ");
+    //...
+
+    //18
+    CHK_CP0_REG_ULONG(CP0_WatchLo[0],            "C0WATCHLO   ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[1],            "C0WATCHLO1  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[2],            "C0WATCHLO2  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[3],            "C0WATCHLO3  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[4],            "C0WATCHLO4  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[5],            "C0WATCHLO5  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[6],            "C0WATCHLO6  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[7],            "C0WATCHLO7  ");
+
+    //19
+    CHK_CP0_REG(CP0_WatchHi[0],                  "C0WATCHHI   ");
+    CHK_CP0_REG(CP0_WatchHi[1],                  "C0WATCHHI1  ");
+    CHK_CP0_REG(CP0_WatchHi[2],                  "C0WATCHHI2  ");
+    CHK_CP0_REG(CP0_WatchHi[3],                  "C0WATCHHI3  ");
+    CHK_CP0_REG(CP0_WatchHi[4],                  "C0WATCHHI4  ");
+    CHK_CP0_REG(CP0_WatchHi[5],                  "C0WATCHHI5  ");
+    CHK_CP0_REG(CP0_WatchHi[6],                  "C0WATCHHI6  ");
+    CHK_CP0_REG(CP0_WatchHi[7],                  "C0WATCHHI7  ");
+
+    //20 for 64bit
+    CHK_CP0_REG_ULONG(CP0_XContext,              "C0XCTXT     ");
+    //CP0_Framemask???
+
+    //23
+    CHK_CP0_REG(CP0_Debug,                       "C0DEBUG     ");
+
+    //24
+    CHK_CP0_REG_ULONG(CP0_DEPC,                  "C0DEPC      ");
+
+    //25
+    CHK_CP0_REG(CP0_Performance0,                "C0PERF0CTL  ");
+
+    //28
+    CHK_CP0_REG(CP0_TagLo,                       "C0TAGLO     ");
+    CHK_CP0_REG(CP0_DataLo,                      "C0DATALO    ");
+
+    //29
+    CHK_CP0_REG(CP0_TagHi,                       "C0TAGHI     ");
+    CHK_CP0_REG(CP0_DataHi,                      "C0DATAHI    ");
+
+    //30
+    CHK_CP0_REG_ULONG(CP0_ErrorEPC,              "C0ErrorEPC  ");
+
+    //31
+    CHK_CP0_REG(CP0_DESAVE,                      "C0DESAVE    ");
+
+    //GPRs
+    for (i = 0; i < 32; i++) {
+        if(env_prev.active_tc.gpr[i] != env->active_tc.gpr[i]) {
+            sv_log(" : Write GPR[%2d]      = " TARGET_FMT_lx "\n", i, env->active_tc.gpr[i]);
+        }
+    }
+
+    //FPU
+    if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
+        sv_log(" : Write C1FCSR           = %08x\n", env->active_fpu.fcr31);
+    }
+
+    //FPR
+    for (i = 0; i < 32; i++) {
+        if (env_prev.active_fpu.fpr[i].fd != env->active_fpu.fpr[i].fd) {
+            sv_log(" : Write FPR[%2d]      = %016" PRIx64 "\n", i, env->active_fpu.fpr[i].fd);
+        }
+    }
+
+    //DSP
+    CHK_CP0_REG_ULONG(active_tc.DSPControl,    "DSPCTL      ");
+
+    CHK_CP0_REG_ULONG(active_tc.HI[0], "HI          ");
+    CHK_CP0_REG_ULONG(active_tc.LO[0], "LO          ");
+
+    for (i = 1; i < MIPS_DSP_ACC; i++) {
+        if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {
+            sv_log(" : Write HI%x         = " TARGET_FMT_lx "\n", i, env->active_tc.HI[i]);
+        }
+        if(env_prev.active_tc.LO[i] != env->active_tc.LO[i]) {
+            sv_log(" : Write LO%x         = " TARGET_FMT_lx "\n", i, env->active_tc.LO[i]);
+        }
+    }
+
+    memcpy(&env_prev, env, sizeof(CPUMIPSState));
+    memcpy(&mvp_prev, env->mvp, sizeof(CPUMIPSMVPContext));
+}
+#endif
+
 void mips_tcg_init(void)
 {
     int i;
@@ -18124,7 +18444,7 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
 {
     MIPSCPU *cpu;
     CPUMIPSState *env;
-    const mips_def_t *def;
+    mips_def_t *def;
 
     def = cpu_mips_find_by_name(cpu_model);
     if (!def)
@@ -18133,6 +18453,11 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
+    cpu_config(env, def, cpu_config_name);
+#endif
+#endif
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
 #endif
@@ -18305,6 +18630,27 @@ void cpu_state_reset(CPUMIPSState *env)
 
     compute_hflags(env);
     cs->exception_index = EXCP_NONE;
+#ifdef MIPSSIM_COMPAT
+#define PRINT_CFG_VAL(NAME, VAL) qemu_log("CFG: " NAME " = %08x\n", VAL)
+    PRINT_CFG_VAL("Supervisor", 0);
+    PRINT_CFG_VAL("SRVP_ReservedMem", 256*1024*1024 - 1);
+    PRINT_CFG_VAL("MaxPageSizeInKB", 256*1024);
+    PRINT_CFG_VAL("SEGBITS", env->SEGBITS);
+    PRINT_CFG_VAL("C0CONFIG", env->CP0_Config0);
+    PRINT_CFG_VAL("C0CONFIG1", env->CP0_Config1);
+    PRINT_CFG_VAL("C0CONFIG2", env->CP0_Config2);
+    PRINT_CFG_VAL("C0CONFIG3", env->CP0_Config3);
+    PRINT_CFG_VAL("C0CONFIG4", env->CP0_Config4);
+    PRINT_CFG_VAL("C0CONFIG5", env->CP0_Config5);
+    PRINT_CFG_VAL("C0CONFIG6", env->CP0_Config6);
+    PRINT_CFG_VAL("C0CONFIG7", env->CP0_Config7);
+    PRINT_CFG_VAL("C0STAT", env->CP0_Status);
+    PRINT_CFG_VAL("C0INTCTL", env->CP0_IntCtl);
+    PRINT_CFG_VAL("C0SRSCTL", env->CP0_SRSCtl);
+    PRINT_CFG_VAL("C0SRSMAP", env->CP0_SRSMap);
+    PRINT_CFG_VAL("C1FIR", env->active_fpu.fcr0);
+    qemu_log("\n");
+#endif
 }
 
 void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb, int pc_pos)
