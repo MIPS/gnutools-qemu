@@ -6272,6 +6272,14 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config3));
             rn = "Config3";
             break;
+        case 4:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config4));
+            rn = "Config4";
+            break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config5));
+            rn = "Config5";
+            break;
        /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config6));
@@ -6889,6 +6897,16 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             /* ignored */
             rn = "Config3";
+            break;
+        case 4:
+            /* currently ignored */
+            rn = "Config4";
+            break;
+        case 5:
+            gen_helper_mtc0_config5(cpu_env, arg);
+            rn = "Config5";
+            /* Stop translation as we may have switched the execution mode */
+            ctx->bstate = BS_STOP;
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -15885,7 +15903,11 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_SDBBP:
-        generate_exception(ctx, EXCP_DBp);
+        if (ctx->hflags & MIPS_HFLAG_SBRI) {
+            generate_exception(ctx, EXCP_RI);
+        } else {
+            generate_exception(ctx, EXCP_DBp);
+        }
         break;
 #if defined(TARGET_MIPS64)
     case OPC_DLSA:
