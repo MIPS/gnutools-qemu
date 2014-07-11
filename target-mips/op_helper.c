@@ -2363,6 +2363,12 @@ static inline void restore_flush_mode(CPUMIPSState *env)
 {
     set_flush_to_zero((env->active_fpu.fcr31 & (1 << 24)) != 0,
                       &env->active_fpu.fp_status);
+
+    set_flush_inputs_to_zero((env->active_fpu.fcr31 & (1 << 24)) != 0,
+                             &env->active_fpu.fp_status);
+
+    set_float_detect_tininess((env->active_fpu.fcr31 & (1 << 24)) != 0,
+                              &env->active_fpu.fp_status);
 }
 
 target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
@@ -2467,9 +2473,10 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         do_raise_exception(env, EXCP_FPE, GETPC());
 }
 
-static inline int ieee_ex_to_mips(int xcpt)
+static inline int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
 {
     int ret = 0;
+    int flushToZero = env->active_fpu.fcr31 & (1 << 24);
     if (xcpt) {
         if (xcpt & float_flag_invalid) {
             ret |= FP_INVALID;
@@ -2486,13 +2493,36 @@ static inline int ieee_ex_to_mips(int xcpt)
         if (xcpt & float_flag_inexact) {
             ret |= FP_INEXACT;
         }
+
+        if (flushToZero) {
+            // Alternate Flush to Zero Underflow Handling
+            if (xcpt & float_flag_output_denormal) {
+               /* Flushing of tiny non-zero results causes Inexact and Underflow
+                  Exceptions to be signaled. */
+                ret |= FP_INEXACT;
+                ret |= FP_UNDERFLOW;
+            } else if (xcpt & float_flag_input_denormal) {
+                /* Flushing of subnormal input operands in all instructions
+                   except comparisons causes Inexact Exception to be signaled. */
+                ret |= FP_INEXACT;
+            }
+        } else {
+            // Underflow handling
+            if (xcpt & float_flag_output_denormal &&
+                (GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW)) {
+                /* When an underflow trap is enabled (through the FCSR Enable
+                   field bit), underflow is signaled when tininess is
+                   detected regardless of loss of accuracy */
+                ret |= FP_UNDERFLOW;
+            }
+        }
     }
     return ret;
 }
 
 static inline void update_fcr31(CPUMIPSState *env, uintptr_t pc)
 {
-    int tmp = ieee_ex_to_mips(get_float_exception_flags(&env->active_fpu.fp_status));
+    int tmp = ieee_ex_to_mips(env, get_float_exception_flags(&env->active_fpu.fp_status));
 
     SET_FP_CAUSE(env->active_fpu.fcr31, tmp);
 
@@ -2506,6 +2536,30 @@ static inline void update_fcr31(CPUMIPSState *env, uintptr_t pc)
         }
     }
 }
+
+#define HANDLE_INVALID_FLOAT_INT_CONVERSION(fwidth, iwidth)             \
+static void                                                             \
+handle_invalid_f ## fwidth ## _i ## iwidth ## _conversion(CPUMIPSState *env, \
+                                                          uint ## fwidth ## _t fst0,  \
+                                                          uint ## iwidth ## _t * ret) \
+{                                                                       \
+    if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {                   \
+        if (float ## fwidth ## _is_quiet_nan(fst0) ||                   \
+            float ## fwidth ## _is_signaling_nan(fst0)) {               \
+            *ret = 0;                                                   \
+        } else if (float ## fwidth ## _is_infinity(fst0) &&             \
+                   float ## fwidth ## _is_neg(fst0)) {                  \
+            *ret = 1ULL << (iwidth - 1);                                \
+        }                                                               \
+    } else {                                                            \
+        *ret = FP_TO_INT ## iwidth ## _OVERFLOW;                        \
+    }                                                                   \
+}
+
+HANDLE_INVALID_FLOAT_INT_CONVERSION(32,32)
+HANDLE_INVALID_FLOAT_INT_CONVERSION(64,32)
+HANDLE_INVALID_FLOAT_INT_CONVERSION(32,64)
+HANDLE_INVALID_FLOAT_INT_CONVERSION(64,64)
 
 /* Float support.
    Single precition routines have a "s" suffix, double precision a
@@ -2532,6 +2586,16 @@ uint64_t helper_float_cvtd_s(CPUMIPSState *env, uint32_t fst0)
     uint64_t fdt2;
 
     fdt2 = float32_to_float64(fst0, &env->active_fpu.fp_status);
+    if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
+        if (get_float_exception_flags(&env->active_fpu.fp_status)
+            & float_flag_invalid) {
+            if (float32_is_quiet_nan(fst0) || float32_is_signaling_nan(fst0)) {
+                // Preserve sign and return always QNaN
+                fdt2 |= 1ULL << 51;
+                fdt2 |= ((uint64_t)fst0 >> 31) << 63;
+            }
+        }
+    }
     update_fcr31(env, GETPC());
     return fdt2;
 }
@@ -2561,7 +2625,7 @@ uint64_t helper_float_cvtl_d(CPUMIPSState *env, uint64_t fdt0)
     dt2 = float64_to_int64(fdt0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f64_i64_conversion(env, fdt0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2574,7 +2638,7 @@ uint64_t helper_float_cvtl_s(CPUMIPSState *env, uint32_t fst0)
     dt2 = float32_to_int64(fst0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f32_i64_conversion(env, fst0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2621,6 +2685,16 @@ uint32_t helper_float_cvts_d(CPUMIPSState *env, uint64_t fdt0)
     uint32_t fst2;
 
     fst2 = float64_to_float32(fdt0, &env->active_fpu.fp_status);
+    if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
+        if (get_float_exception_flags(&env->active_fpu.fp_status)
+            & float_flag_invalid) {
+            if (float64_is_quiet_nan(fdt0) || float64_is_signaling_nan(fdt0)) {
+                // Preserve sign and return always QNaN
+                fst2 |= 1 << 22;
+                fst2 |= (fdt0 >> 63) << 31;
+            }
+        }
+    }
     update_fcr31(env, GETPC());
     return fst2;
 }
@@ -2666,11 +2740,11 @@ uint32_t helper_float_cvtw_s(CPUMIPSState *env, uint32_t fst0)
     uint32_t wt2;
 
     wt2 = float32_to_int32(fst0, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f32_i32_conversion(env, fst0, &wt2);
     }
+    update_fcr31(env, GETPC());
     return wt2;
 }
 
@@ -2681,7 +2755,7 @@ uint32_t helper_float_cvtw_d(CPUMIPSState *env, uint64_t fdt0)
     wt2 = float64_to_int32(fdt0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f64_i32_conversion(env, fdt0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2696,7 +2770,7 @@ uint64_t helper_float_roundl_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f64_i64_conversion(env, fdt0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2711,7 +2785,7 @@ uint64_t helper_float_roundl_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f32_i64_conversion(env, fst0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2726,7 +2800,7 @@ uint32_t helper_float_roundw_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f64_i32_conversion(env, fdt0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2741,7 +2815,7 @@ uint32_t helper_float_roundw_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f32_i32_conversion(env, fst0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2754,7 +2828,7 @@ uint64_t helper_float_truncl_d(CPUMIPSState *env, uint64_t fdt0)
     dt2 = float64_to_int64_round_to_zero(fdt0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f64_i64_conversion(env, fdt0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2767,7 +2841,7 @@ uint64_t helper_float_truncl_s(CPUMIPSState *env, uint32_t fst0)
     dt2 = float32_to_int64_round_to_zero(fst0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f32_i64_conversion(env, fst0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2780,7 +2854,7 @@ uint32_t helper_float_truncw_d(CPUMIPSState *env, uint64_t fdt0)
     wt2 = float64_to_int32_round_to_zero(fdt0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f64_i32_conversion(env, fdt0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2793,7 +2867,7 @@ uint32_t helper_float_truncw_s(CPUMIPSState *env, uint32_t fst0)
     wt2 = float32_to_int32_round_to_zero(fst0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f32_i32_conversion(env, fst0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2808,7 +2882,7 @@ uint64_t helper_float_ceill_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f64_i64_conversion(env, fdt0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2823,7 +2897,7 @@ uint64_t helper_float_ceill_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f32_i64_conversion(env, fst0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2838,7 +2912,7 @@ uint32_t helper_float_ceilw_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f64_i32_conversion(env, fdt0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2853,7 +2927,7 @@ uint32_t helper_float_ceilw_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f32_i32_conversion(env, fst0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2868,7 +2942,7 @@ uint64_t helper_float_floorl_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f64_i64_conversion(env, fdt0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2883,7 +2957,7 @@ uint64_t helper_float_floorl_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
+        handle_invalid_f32_i64_conversion(env, fst0, &dt2);
     }
     update_fcr31(env, GETPC());
     return dt2;
@@ -2898,7 +2972,7 @@ uint32_t helper_float_floorw_d(CPUMIPSState *env, uint64_t fdt0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f64_i32_conversion(env, fdt0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -2913,7 +2987,7 @@ uint32_t helper_float_floorw_s(CPUMIPSState *env, uint32_t fst0)
     restore_rounding_mode(env);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
-        wt2 = FP_TO_INT32_OVERFLOW;
+        handle_invalid_f32_i32_conversion(env, fst0, &wt2);
     }
     update_fcr31(env, GETPC());
     return wt2;
@@ -3523,18 +3597,22 @@ FOP_COND_PS(ngt, float32_unordered(fst1, fst0, &env->active_fpu.fp_status)    ||
                  float32_unordered(fsth1, fsth0, &env->active_fpu.fp_status)  || float32_le(fsth0, fsth1, &env->active_fpu.fp_status))
 
 /* R6 compare operations */
-#define FOP_CONDN_D(op, cond)                                       \
-uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState * env, uint64_t fdt0,  \
-                         uint64_t fdt1)                             \
-{                                                                   \
-    uint64_t c;                                                     \
-    c = cond;                                                       \
-    update_fcr31(env, GETPC());                                     \
-    if (c) {                                                        \
-        return -1;                                                  \
-    } else {                                                        \
-        return 0;                                                   \
-    }                                                               \
+#define FOP_CONDN_D(op, cond)                                                 \
+uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState *env, uint64_t fdt0,             \
+                         uint64_t fdt1)                                       \
+{                                                                             \
+    uint64_t c;                                                               \
+    uint32_t ignore_flush = ~(float_flag_input_denormal |                     \
+                              float_flag_output_denormal);                    \
+    c = cond;                                                                 \
+    ignore_flush &= get_float_exception_flags(&env->active_fpu.fp_status);    \
+    set_float_exception_flags(ignore_flush, &env->active_fpu.fp_status);      \
+    update_fcr31(env, GETPC());                                               \
+    if (c) {                                                                  \
+        return -1;                                                            \
+    } else {                                                                  \
+        return 0;                                                             \
+    }                                                                         \
 }
 
 /* NOTE: the comma operator will make "cond" to eval to false,
@@ -3578,18 +3656,22 @@ FOP_CONDN_D(sune, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)
 FOP_CONDN_D(sne,  (float64_lt(fdt1, fdt0, &env->active_fpu.fp_status)
                    || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
 
-#define FOP_CONDN_S(op, cond)                                       \
-uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState * env, uint32_t fst0,  \
-                         uint32_t fst1)                             \
-{                                                                   \
-    uint64_t c;                                                     \
-    c = cond;                                                       \
-    update_fcr31(env, GETPC());                                     \
-    if (c) {                                                        \
-        return -1;                                                  \
-    } else {                                                        \
-        return 0;                                                   \
-    }                                                               \
+#define FOP_CONDN_S(op, cond)                                                 \
+uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,             \
+                         uint32_t fst1)                                       \
+{                                                                             \
+    uint64_t c;                                                               \
+    uint32_t ignore_flush = ~(float_flag_input_denormal |                     \
+                              float_flag_output_denormal);                    \
+    c = cond;                                                                 \
+    ignore_flush &= get_float_exception_flags(&env->active_fpu.fp_status);    \
+    set_float_exception_flags(ignore_flush, &env->active_fpu.fp_status);      \
+    update_fcr31(env, GETPC());                                               \
+    if (c) {                                                                  \
+        return -1;                                                            \
+    } else {                                                                  \
+        return 0;                                                             \
+    }                                                                         \
 }
 
 /* NOTE: the comma operator will make "cond" to eval to false,

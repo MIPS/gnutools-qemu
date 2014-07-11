@@ -18181,6 +18181,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_PageGrain_rw_bitmask = env->cpu_model->CP0_PageGrain_rw_bitmask;
     env->CP0_PageGrain = env->cpu_model->CP0_PageGrain;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
+    env->active_fpu.fcr31 = env->cpu_model->CP1_fcr31;
     env->insn_flags = env->cpu_model->insn_flags;
 
 #if defined(CONFIG_USER_ONLY)
@@ -18267,6 +18268,21 @@ void cpu_state_reset(CPUMIPSState *env)
         }
     }
 #endif
+
+#if defined(TARGET_MIPS_LEGACYFP)
+    if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
+        fprintf(stderr, "WARNING: Using MIPS core whose FPU is IEEE-2008 compliant"
+                ", but softfloat was compiled with '-DTARGET_MIPS_LEGACYFP' flag."
+                " This can lead to incorrect behaviour of FP instructions.\n");
+    }
+#else
+    if (!(env->active_fpu.fcr0 & (1 << FCR0_Has2008))) {
+        fprintf(stderr, "WARNING: Using MIPS core with legacy FPU."
+                " But the current softfloat implementation is updated to IEEE-2008."
+                " To use old implementation recompile QEMU with '-DTARGET_MIPS_LEGACYFP' flag\n");
+    }
+#endif
+
     if ((env->insn_flags & ISA_MIPS32R6) &&
         (env->active_fpu.fcr0 & (1 << FCR0_F64))) {
         /* Status.FR = 0 mode in 64-bit FPU not allowed in R6 */

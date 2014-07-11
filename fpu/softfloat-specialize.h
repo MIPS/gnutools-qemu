@@ -35,7 +35,7 @@ these four paragraphs for those parts of this code that are retained.
 
 =============================================================================*/
 
-#if defined(TARGET_MIPS) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
+#if defined(TARGET_MIPS_LEGACYFP) || defined(TARGET_SH4) || defined(TARGET_UNICORE32)
 #define SNAN_BIT_IS_ONE		1
 #else
 #define SNAN_BIT_IS_ONE		0
@@ -51,7 +51,7 @@ these four paragraphs for those parts of this code that are retained.
 /*----------------------------------------------------------------------------
 | The pattern for a default generated half-precision NaN.
 *----------------------------------------------------------------------------*/
-#if defined(TARGET_ARM)
+#if defined(TARGET_ARM) || (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float16 float16_default_nan = const_float16(0x7E00);
 #elif SNAN_BIT_IS_ONE
 const float16 float16_default_nan = const_float16(0x7DFF);
@@ -65,7 +65,7 @@ const float16 float16_default_nan = const_float16(0xFE00);
 #if defined(TARGET_SPARC)
 const float32 float32_default_nan = const_float32(0x7FFFFFFF);
 #elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
-      defined(TARGET_XTENSA)
+      defined(TARGET_XTENSA) || (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float32 float32_default_nan = const_float32(0x7FC00000);
 #elif SNAN_BIT_IS_ONE
 const float32 float32_default_nan = const_float32(0x7FBFFFFF);
@@ -78,7 +78,8 @@ const float32 float32_default_nan = const_float32(0xFFC00000);
 *----------------------------------------------------------------------------*/
 #if defined(TARGET_SPARC)
 const float64 float64_default_nan = const_float64(LIT64( 0x7FFFFFFFFFFFFFFF ));
-#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA)
+#elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
+      (defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP))
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF8000000000000 ));
 #elif SNAN_BIT_IS_ONE
 const float64 float64_default_nan = const_float64(LIT64( 0x7FF7FFFFFFFFFFFF ));
@@ -486,7 +487,7 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
         return 1;
     }
 }
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS_LEGACYFP)
 static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
                          flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
 {
@@ -511,6 +512,31 @@ static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
         return 1;
     } else {
         return 2;
+    }
+}
+#elif defined(TARGET_MIPS)
+static int pickNaNMulAdd(flag aIsQNaN, flag aIsSNaN, flag bIsQNaN, flag bIsSNaN,
+                         flag cIsQNaN, flag cIsSNaN, flag infzero STATUS_PARAM)
+{
+    if (infzero) {
+        float_raise(float_flag_invalid STATUS_VAR);
+    }
+
+    /* Prefer sNaN over qNaN, in the c, a, b order. */
+    if (cIsSNaN) {
+        return 2;
+    } else if (aIsSNaN) {
+        return 0;
+    } else if (bIsSNaN) {
+        return 1;
+    } else if (cIsQNaN) {
+        return 2;
+    } else if (aIsQNaN) {
+        return 0;
+    } else if (bIsQNaN) {
+        return 1;
+    } else {
+        return 3;
     }
 }
 #elif defined(TARGET_PPC)
