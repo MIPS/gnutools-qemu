@@ -1459,13 +1459,30 @@ void helper_mttc0_status(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 {
+    int vs = arg1 & 0x000003e0;
+    if (env->insn_flags & ISA_MIPS32R6 && (vs & (vs - 1))) {
+        vs = env->CP0_IntCtl & 0x000003e0;
+    }
     /* vectored interrupts not implemented, no performance counters. */
-    env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | (arg1 & 0x000003e0);
+    env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | vs;
 }
 
 void helper_mtc0_srsctl(CPUMIPSState *env, target_ulong arg1)
 {
-    uint32_t mask = (0xf << CP0SRSCtl_ESS) | (0xf << CP0SRSCtl_PSS);
+    uint32_t mask = 0;
+    if (env->insn_flags & ISA_MIPS32R6) {
+        uint32_t srs_hss = (env->CP0_SRSCtl >> CP0SRSCtl_HSS) & 0xf;
+        uint32_t arg_ess = (arg1 >> CP0SRSCtl_ESS) & 0xf;
+        uint32_t arg_pss = (arg1 >> CP0SRSCtl_PSS) & 0xf;
+        if (!(env->insn_flags & ISA_MIPS32R6) || arg_ess <= srs_hss) {
+            mask |= 0xf << CP0SRSCtl_ESS;
+        }
+        if (arg_pss <= srs_hss) {
+            mask |= 0xf << CP0SRSCtl_PSS;
+        }
+    } else {
+        mask = (0xf << CP0SRSCtl_ESS) | (0xf << CP0SRSCtl_PSS);
+    }
     env->CP0_SRSCtl = (env->CP0_SRSCtl & ~mask) | (arg1 & mask);
 }
 
