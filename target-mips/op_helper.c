@@ -1883,6 +1883,7 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
 static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
+    uint64_t mask = (uint32_t)env->CP0_PageMask >> (TARGET_PAGE_BITS + 1);
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
@@ -1891,7 +1892,7 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
         return;
     }
     tlb->EHINV = 0;
-    tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+    tlb->VPN = env->CP0_EntryHi & (~mask << 1);
 #if defined(TARGET_MIPS64)
     tlb->VPN &= env->SEGMask;
 #endif
@@ -1903,13 +1904,13 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
     tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
     tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
-    tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
+    tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) & ~mask) << 12;
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
-    tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+    tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) & ~mask) << 12;
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
