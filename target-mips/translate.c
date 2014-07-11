@@ -4627,6 +4627,13 @@ static inline void gen_mfc0_unimplemented(DisasContext *ctx, TCGv arg)
     }
 }
 
+#define CP0_CHECK(c)                            \
+    do {                                        \
+        if (!(c)) {                             \
+            goto cp0_unimplemented;             \
+        }                                       \
+    } while (0)
+
 static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
     const char *rn = "invalid";
@@ -4642,67 +4649,68 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Index";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
             rn = "MVPConf1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 1:
         switch (sel) {
         case 0:
+            CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
             gen_helper_mfc0_random(arg, cpu_env);
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_YQMask));
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
             rn = "VPEOpt";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 2:
@@ -4722,42 +4730,42 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo0";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcstatus(arg, cpu_env);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcbind(arg, cpu_env);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcrestart(arg, cpu_env);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tchalt(arg, cpu_env);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tccontext(arg, cpu_env);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcschedule(arg, cpu_env);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcschefback(arg, cpu_env);
             rn = "TCScheFBack";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 3:
@@ -4777,7 +4785,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 4:
@@ -4790,20 +4798,16 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 1:
 //            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-            goto die;
+            goto cp0_unimplemented;
 //            break;
         case 2:
-            if (ctx->ulri) {
-                tcg_gen_ld32s_tl(arg, cpu_env,
-                                 offsetof(CPUMIPSState,
-                                          active_tc.CP0_UserLocal));
-                rn = "UserLocal";
-            } else {
-                tcg_gen_movi_tl(arg, 0);
-            }
+            CP0_CHECK(ctx->ulri);
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
+            rn = "UserLocal";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 5:
@@ -4818,7 +4822,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 6:
@@ -4853,7 +4857,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSConf4";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 7:
@@ -4864,7 +4868,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "HWREna";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 8:
@@ -4875,25 +4879,19 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "BadVAddr";
             break;
         case 1:
-            if (ctx->bi) {
-                gen_mfc0_load32(arg, offsetof(CPUMIPSState,
-                                              active_tc.CP0_BadInstr));
-                rn = "BadInstr";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->bi);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState,
+                                          active_tc.CP0_BadInstr));
+            rn = "BadInstr";
             break;
         case 2:
-            if (ctx->bp) {
-                gen_mfc0_load32(arg, offsetof(CPUMIPSState,
-                                              active_tc.CP0_BadInstrP));
-                rn = "BadInstrP";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->bp);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState,
+                                          active_tc.CP0_BadInstrP));
+            rn = "BadInstrP";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 9:
@@ -4913,7 +4911,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 10:
@@ -4924,7 +4922,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 11:
@@ -4935,7 +4933,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 12:
@@ -4960,7 +4958,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSMap";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
        }
         break;
     case 13:
@@ -4970,7 +4968,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Cause";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
        }
         break;
     case 14:
@@ -4981,7 +4979,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 15:
@@ -4996,7 +4994,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EBase";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
        }
         break;
     case 16:
@@ -5035,7 +5033,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Config7";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 17:
@@ -5045,7 +5043,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "LLAddr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 18:
@@ -5055,7 +5053,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 19:
@@ -5065,7 +5063,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 20:
@@ -5079,18 +5077,19 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
 #endif
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
             rn = "Framemask";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 22:
@@ -5120,7 +5119,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "TraceBPC";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 24:
@@ -5132,7 +5131,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 25:
@@ -5170,7 +5169,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Performance7";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 26:
@@ -5184,7 +5183,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "CacheErr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 28:
@@ -5204,7 +5203,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 29:
@@ -5224,7 +5223,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 30:
@@ -5235,7 +5234,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "ErrorEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 31:
@@ -5246,29 +5245,26 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DESAVE";
             break;
         case 2 ... 7:
-            if (ctx->kscrexist & (1 << sel)) {
-                tcg_gen_ld_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-                tcg_gen_ext32s_tl(arg, arg);
-                rn = "KScratch";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->kscrexist & (1 << sel));
+            tcg_gen_ld_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
+            tcg_gen_ext32s_tl(arg, arg);
+            rn = "KScratch";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     default:
-       goto die;
+       goto cp0_unimplemented;
     }
     (void)rn; /* avoid a compiler warning */
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
     return;
 
-die:
+cp0_unimplemented:
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
-    generate_exception(ctx, EXCP_RI);
+    gen_mfc0_unimplemented(ctx, arg);
 }
 
 static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -5289,22 +5285,22 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Index";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
             rn = "MVPConf1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 1:
@@ -5314,42 +5310,42 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_yqmask(cpu_env, arg);
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeopt(cpu_env, arg);
             rn = "VPEOpt";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 2:
@@ -5359,42 +5355,42 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo0";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcstatus(cpu_env, arg);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcbind(cpu_env, arg);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcrestart(cpu_env, arg);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tchalt(cpu_env, arg);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tccontext(cpu_env, arg);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschedule(cpu_env, arg);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschefback(cpu_env, arg);
             rn = "TCScheFBack";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 3:
@@ -5404,7 +5400,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 4:
@@ -5416,17 +5412,16 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 1:
 //            gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-            goto die;
+            goto cp0_unimplemented;
 //            break;
         case 2:
-            if (ctx->ulri) {
-                tcg_gen_st_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-                rn = "UserLocal";
-            }
+            CP0_CHECK(ctx->ulri);
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
+            rn = "UserLocal";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 5:
@@ -5441,7 +5436,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 6:
@@ -5476,7 +5471,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSConf4";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 7:
@@ -5488,7 +5483,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "HWREna";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 8:
@@ -5506,7 +5501,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "BadInstrP";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 9:
@@ -5517,7 +5512,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 10:
@@ -5527,7 +5522,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 11:
@@ -5538,7 +5533,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 12:
@@ -5573,7 +5568,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSMap";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 13:
@@ -5584,7 +5579,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Cause";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 14:
@@ -5594,7 +5589,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 15:
@@ -5609,7 +5604,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EBase";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 16:
@@ -5656,7 +5651,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         default:
             rn = "Invalid config selector";
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 17:
@@ -5666,7 +5661,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "LLAddr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 18:
@@ -5676,7 +5671,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 19:
@@ -5686,7 +5681,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 20:
@@ -5699,18 +5694,19 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
 #endif
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_helper_mtc0_framemask(cpu_env, arg);
             rn = "Framemask";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 22:
@@ -5753,7 +5749,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "TraceBPC";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 24:
@@ -5764,7 +5760,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 25:
@@ -5802,7 +5798,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Performance7";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
        break;
     case 26:
@@ -5816,7 +5812,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "CacheErr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
        break;
     case 28:
@@ -5836,7 +5832,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 29:
@@ -5857,7 +5853,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         default:
             rn = "invalid sel";
-            goto die;
+            goto cp0_unimplemented;
         }
        break;
     case 30:
@@ -5867,7 +5863,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "ErrorEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 31:
@@ -5878,20 +5874,19 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DESAVE";
             break;
         case 2 ... 7:
-            if (ctx->kscrexist & (1 << sel)) {
-                tcg_gen_st_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-                rn = "KScratch";
-            }
+            CP0_CHECK(ctx->kscrexist & (1 << sel));
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
+            rn = "KScratch";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         /* Stop translation as we may have switched the execution mode */
         ctx->bstate = BS_STOP;
         break;
     default:
-       goto die;
+       goto cp0_unimplemented;
     }
     (void)rn; /* avoid a compiler warning */
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
@@ -5902,9 +5897,8 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     }
     return;
 
-die:
+cp0_unimplemented:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
-    generate_exception(ctx, EXCP_RI);
 }
 
 #if defined(TARGET_MIPS64)
@@ -5923,67 +5917,68 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Index";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
             rn = "MVPConf1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 1:
         switch (sel) {
         case 0:
+            CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
             gen_helper_mfc0_random(arg, cpu_env);
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_YQMask));
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
             rn = "VPEOpt";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 2:
@@ -5993,42 +5988,42 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo0";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcstatus(arg, cpu_env);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcbind(arg, cpu_env);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcrestart(arg, cpu_env);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tchalt(arg, cpu_env);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tccontext(arg, cpu_env);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcschedule(arg, cpu_env);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcschefback(arg, cpu_env);
             rn = "TCScheFBack";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 3:
@@ -6038,7 +6033,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 4:
@@ -6050,19 +6045,16 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 1:
 //            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-            goto die;
+            goto cp0_unimplemented;
 //            break;
         case 2:
-            if (ctx->ulri) {
-                tcg_gen_ld_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-                rn = "UserLocal";
-            } else {
-                tcg_gen_movi_tl(arg, 0);
-            }
+            CP0_CHECK(ctx->ulri);
+            tcg_gen_ld_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
+            rn = "UserLocal";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 5:
@@ -6077,7 +6069,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 6:
@@ -6112,7 +6104,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSConf4";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 7:
@@ -6123,7 +6115,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "HWREna";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 8:
@@ -6133,25 +6125,19 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "BadVAddr";
             break;
         case 1:
-            if (ctx->bi) {
-                gen_mfc0_load32(arg, offsetof(CPUMIPSState,
-                                              active_tc.CP0_BadInstr));
-                rn = "BadInstr";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->bi);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState,
+                                          active_tc.CP0_BadInstr));
+            rn = "BadInstr";
             break;
         case 2:
-            if (ctx->bp) {
-                gen_mfc0_load32(arg, offsetof(CPUMIPSState,
-                                              active_tc.CP0_BadInstrP));
-                rn = "BadInstrP";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->bp);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState,
+                                          active_tc.CP0_BadInstrP));
+            rn = "BadInstrP";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 9:
@@ -6171,7 +6157,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 10:
@@ -6181,7 +6167,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 11:
@@ -6192,7 +6178,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 12:
@@ -6217,7 +6203,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSMap";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 13:
@@ -6227,7 +6213,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Cause";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 14:
@@ -6237,7 +6223,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 15:
@@ -6252,7 +6238,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EBase";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 16:
@@ -6291,7 +6277,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Config7";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 17:
@@ -6301,7 +6287,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "LLAddr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 18:
@@ -6311,7 +6297,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 19:
@@ -6321,7 +6307,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 20:
@@ -6332,18 +6318,19 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "XContext";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
             rn = "Framemask";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 22:
@@ -6373,7 +6360,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "TraceBPC";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 24:
@@ -6384,7 +6371,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 25:
@@ -6422,7 +6409,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Performance7";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 26:
@@ -6437,7 +6424,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "CacheErr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 28:
@@ -6457,7 +6444,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 29:
@@ -6477,7 +6464,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 30:
@@ -6487,7 +6474,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "ErrorEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 31:
@@ -6498,28 +6485,25 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DESAVE";
             break;
         case 2 ... 7:
-            if (ctx->kscrexist & (1 << sel)) {
-                tcg_gen_ld_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-                rn = "KScratch";
-            } else {
-                gen_mfc0_unimplemented(ctx, arg);
-            }
+            CP0_CHECK(ctx->kscrexist & (1 << sel));
+            tcg_gen_ld_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
+            rn = "KScratch";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     default:
-        goto die;
+        goto cp0_unimplemented;
     }
     (void)rn; /* avoid a compiler warning */
     LOG_DISAS("dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
     return;
 
-die:
+cp0_unimplemented:
     LOG_DISAS("dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
-    generate_exception(ctx, EXCP_RI);
+    gen_mfc0_unimplemented(ctx, arg);
 }
 
 static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -6540,22 +6524,22 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Index";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
             rn = "MVPControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
             rn = "MVPConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
             rn = "MVPConf1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 1:
@@ -6565,42 +6549,42 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Random";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
             rn = "VPEControl";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
             rn = "VPEConf0";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
             rn = "VPEConf1";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_yqmask(cpu_env, arg);
             rn = "YQMask";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeopt(cpu_env, arg);
             rn = "VPEOpt";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 2:
@@ -6610,42 +6594,42 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo0";
             break;
         case 1:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcstatus(cpu_env, arg);
             rn = "TCStatus";
             break;
         case 2:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcbind(cpu_env, arg);
             rn = "TCBind";
             break;
         case 3:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcrestart(cpu_env, arg);
             rn = "TCRestart";
             break;
         case 4:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tchalt(cpu_env, arg);
             rn = "TCHalt";
             break;
         case 5:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tccontext(cpu_env, arg);
             rn = "TCContext";
             break;
         case 6:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschedule(cpu_env, arg);
             rn = "TCSchedule";
             break;
         case 7:
-            check_insn(ctx, ASE_MT);
+            CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschefback(cpu_env, arg);
             rn = "TCScheFBack";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 3:
@@ -6655,7 +6639,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryLo1";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 4:
@@ -6667,17 +6651,16 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 1:
 //           gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
             rn = "ContextConfig";
-            goto die;
+            goto cp0_unimplemented;
 //           break;
         case 2:
-            if (ctx->ulri) {
-                tcg_gen_st_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-                rn = "UserLocal";
-            }
+            CP0_CHECK(ctx->ulri);
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
+            rn = "UserLocal";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 5:
@@ -6692,7 +6675,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 6:
@@ -6727,7 +6710,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSConf4";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 7:
@@ -6739,7 +6722,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "HWREna";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 8:
@@ -6757,7 +6740,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "BadInstrP";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 9:
@@ -6768,7 +6751,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         /* Stop translation as we may have switched the execution mode */
         ctx->bstate = BS_STOP;
@@ -6780,7 +6763,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EntryHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 11:
@@ -6791,7 +6774,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         /* 6,7 are implementation dependent */
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         /* Stop translation as we may have switched the execution mode */
         ctx->bstate = BS_STOP;
@@ -6828,7 +6811,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "SRSMap";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 13:
@@ -6849,7 +6832,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Cause";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 14:
@@ -6859,7 +6842,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 15:
@@ -6874,7 +6857,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "EBase";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 16:
@@ -6912,7 +6895,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         /* 6,7 are implementation dependent */
         default:
             rn = "Invalid config selector";
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 17:
@@ -6922,7 +6905,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "LLAddr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 18:
@@ -6932,7 +6915,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 19:
@@ -6942,7 +6925,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "WatchHi";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 20:
@@ -6953,18 +6936,19 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "XContext";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
+        CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_helper_mtc0_framemask(cpu_env, arg);
             rn = "Framemask";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 22:
@@ -7005,7 +6989,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "TraceBPC";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 24:
@@ -7016,7 +7000,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 25:
@@ -7054,7 +7038,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "Performance7";
 //            break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 26:
@@ -7068,7 +7052,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "CacheErr";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 28:
@@ -7088,7 +7072,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DataLo";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 29:
@@ -7109,7 +7093,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         default:
             rn = "invalid sel";
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 30:
@@ -7119,7 +7103,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "ErrorEPC";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         break;
     case 31:
@@ -7130,20 +7114,19 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "DESAVE";
             break;
         case 2 ... 7:
-            if (ctx->kscrexist & (1 << sel)) {
-                tcg_gen_st_tl(arg, cpu_env,
-                              offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-                rn = "KScratch";
-            }
+            CP0_CHECK(ctx->kscrexist & (1 << sel));
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
+            rn = "KScratch";
             break;
         default:
-            goto die;
+            goto cp0_unimplemented;
         }
         /* Stop translation as we may have switched the execution mode */
         ctx->bstate = BS_STOP;
         break;
     default:
-        goto die;
+        goto cp0_unimplemented;
     }
     (void)rn; /* avoid a compiler warning */
     LOG_DISAS("dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
@@ -7154,9 +7137,8 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     }
     return;
 
-die:
+cp0_unimplemented:
     LOG_DISAS("dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
-    generate_exception(ctx, EXCP_RI);
 }
 #endif /* TARGET_MIPS64 */
 
