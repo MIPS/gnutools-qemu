@@ -51,18 +51,6 @@
 #define MIPS_CONFIG5                                              \
 ((0 << CP0C5_M))
 
-/* MMU types, the first four entries have the same layout as the
-   CP0C0_MT field.  */
-enum mips_mmu_types {
-    MMU_TYPE_NONE,
-    MMU_TYPE_R4000,
-    MMU_TYPE_RESERVED,
-    MMU_TYPE_FMT,
-    MMU_TYPE_R3000,
-    MMU_TYPE_R6000,
-    MMU_TYPE_R8000
-};
-
 struct mips_def_t {
     const char *name;
     int32_t CP0_PRid;
@@ -646,18 +634,21 @@ void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf)
 #ifndef CONFIG_USER_ONLY
 static void no_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
+    env->tlb->tlb_type = MMU_TYPE_NONE;
     env->tlb->nb_tlb = 1;
     env->tlb->map_address = &no_mmu_map_address;
 }
 
 static void fixed_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
+    env->tlb->tlb_type = MMU_TYPE_FMT;
     env->tlb->nb_tlb = 1;
     env->tlb->map_address = &fixed_mmu_map_address;
 }
 
 static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
+    env->tlb->tlb_type = MMU_TYPE_R4000;
     env->tlb->nb_tlb = 1 + ((def->CP0_Config1 >> CP0C1_MMU) & 63);
     env->tlb->map_address = &r4k_map_address;
     env->tlb->helper_tlbwi = r4k_helper_tlbwi;
