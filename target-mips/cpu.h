@@ -462,7 +462,7 @@ struct CPUMIPSState {
 #define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x2C07FF
+#define MIPS_HFLAG_TMASK  0x6C07FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -488,7 +488,7 @@ struct CPUMIPSState {
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
      * this from three bits to two.  */
-#define MIPS_HFLAG_BMASK_BASE  0x03800
+#define MIPS_HFLAG_BMASK_BASE  0x403800
 #define MIPS_HFLAG_B      0x00800 /* Unconditional branch               */
 #define MIPS_HFLAG_BC     0x01000 /* Conditional branch                 */
 #define MIPS_HFLAG_BL     0x01800 /* Likely branch                      */
@@ -506,6 +506,7 @@ struct CPUMIPSState {
     /* Extra flag about HWREna register. */
 #define MIPS_HFLAG_HWRENA_ULR 0x100000 /* ULR bit from HWREna is set. */
 #define MIPS_HFLAG_SBRI  0x200000 /* R6 SDBBP causes RI excpt. in user mode */
+#define MIPS_HFLAG_FBNSLOT 0x400000 /* Forbidden slot                   */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
