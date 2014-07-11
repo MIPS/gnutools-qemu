@@ -346,8 +346,10 @@ static const mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1U << CP0C3_M),
-        .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_RXI) | (1 << CP0C3_BP) |
+                       (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1U << CP0C3_M),
+        .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
+                       (3 << CP0C4_IE) | (1U << CP0C4_M),
         .CP0_Config4_rw_bitmask = 0,
         .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
@@ -359,6 +361,9 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3778FF1F,
+        .CP0_PageGrain = (1 << CP0PG_XIE) | (1 << CP0PG_RIE) | (1 << CP0PG_IEC),
+        .CP0_PageGrain_rw_bitmask = (1 << CP0PG_XIE) | (1 << CP0PG_RIE) |
+                                    (1 << CP0PG_IEC),
         .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_F64) | (1 << FCR0_L) |
                     (1 << FCR0_W) | (1 << FCR0_D) | (1 << FCR0_S) |
                     (0x93 << FCR0_PRID),
