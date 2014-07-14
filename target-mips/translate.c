@@ -8426,12 +8426,15 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
         break;
     case 3:
         /* XXX: For now we support only a single FPU context. */
+        save_cpu_state(ctx, 1);
         {
             TCGv_i32 fs_tmp = tcg_const_i32(rd);
 
             gen_helper_0e2i(ctc1, t0, fs_tmp, rt);
             tcg_temp_free_i32(fs_tmp);
         }
+        /* Stop translation as we may have changed hflags */
+        ctx->bstate = BS_STOP;
         break;
     /* COP2: Not implemented. */
     case 4:
