@@ -826,6 +826,10 @@ hwaddr cpu_mips_translate_address (CPUMIPSState *env, target_ulong address,
 #endif
 target_ulong exception_resume_pc (CPUMIPSState *env);
 
+/* op_helper.c */
+extern unsigned int ieee_rm[];
+int ieee_ex_to_mips(CPUMIPSState *env, int xcpt);
+
 static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
 {
@@ -951,5 +955,83 @@ static inline void compute_hflags(CPUMIPSState *env)
         }
     }
 }
+
+#if !defined(CONFIG_USER_ONLY)
+#include "exec/softmmu_exec.h"
+#endif /* !defined(CONFIG_USER_ONLY) */
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    return (type) insn##_raw(addr);                                     \
+}
+#else
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        return (type) cpu_##insn##_kernel(env, addr);                   \
+        break;                                                          \
+    case 1:                                                             \
+        return (type) cpu_##insn##_super(env, addr);                    \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        return (type) cpu_##insn##_user(env, addr);                     \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_LD(lbu, ldub, uint8_t)
+HELPER_LD(lw, ldl, int32_t)
+#ifdef TARGET_MIPS64
+HELPER_LD(ld, ldq, int64_t)
+#endif
+HELPER_LD(ld8, ldub, uint8_t)
+HELPER_LD(ld16, lduw, uint16_t)
+HELPER_LD(ld32, ldl, int32_t)
+HELPER_LD(ld64, ldq, int64_t)
+#undef HELPER_LD
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    insn##_raw(addr, val);                                              \
+}
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        cpu_##insn##_kernel(env, addr, val);                            \
+        break;                                                          \
+    case 1:                                                             \
+        cpu_##insn##_super(env, addr, val);                             \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        cpu_##insn##_user(env, addr, val);                              \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_ST(sb, stb, uint8_t)
+HELPER_ST(sw, stl, uint32_t)
+#ifdef TARGET_MIPS64
+HELPER_ST(sd, stq, uint64_t)
+#endif
+HELPER_ST(st8, stb, uint8_t)
+HELPER_ST(st16, stw, uint16_t)
+HELPER_ST(st32, stl, int32_t)
+HELPER_ST(st64, stq, int64_t)
+#undef HELPER_ST
 
 #endif /* !defined (__MIPS_CPU_H__) */

@@ -22,10 +22,6 @@
 
 #include "helper.h"
 
-#if !defined(CONFIG_USER_ONLY)
-#include "exec/softmmu_exec.h"
-#endif /* !defined(CONFIG_USER_ONLY) */
-
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
 
@@ -191,70 +187,6 @@ void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
 {
     do_raise_exception(env, exception, 0);
 }
-
-#if defined(CONFIG_USER_ONLY)
-#define HELPER_LD(name, insn, type)                                     \
-static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
-{                                                                       \
-    return (type) insn##_raw(addr);                                     \
-}
-#else
-#define HELPER_LD(name, insn, type)                                     \
-static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
-{                                                                       \
-    switch (mem_idx)                                                    \
-    {                                                                   \
-    case 0: return (type) cpu_##insn##_kernel(env, addr); break;        \
-    case 1: return (type) cpu_##insn##_super(env, addr); break;         \
-    default:                                                            \
-    case 2: return (type) cpu_##insn##_user(env, addr); break;          \
-    }                                                                   \
-}
-#endif
-HELPER_LD(lbu, ldub, uint8_t)
-HELPER_LD(lw, ldl, int32_t)
-#ifdef TARGET_MIPS64
-HELPER_LD(ld, ldq, int64_t)
-#endif
-HELPER_LD(ld8, ldub, uint8_t)
-HELPER_LD(ld16, lduw, uint16_t)
-HELPER_LD(ld32, ldl, int32_t)
-HELPER_LD(ld64, ldq, int64_t)
-#undef HELPER_LD
-
-#if defined(CONFIG_USER_ONLY)
-#define HELPER_ST(name, insn, type)                                     \
-static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
-{                                                                       \
-    insn##_raw(addr, val);                                              \
-}
-#else
-#define HELPER_ST(name, insn, type)                                     \
-static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
-{                                                                       \
-    switch (mem_idx)                                                    \
-    {                                                                   \
-    case 0: cpu_##insn##_kernel(env, addr, val); break;                 \
-    case 1: cpu_##insn##_super(env, addr, val); break;                  \
-    default:                                                            \
-    case 2: cpu_##insn##_user(env, addr, val); break;                   \
-    }                                                                   \
-}
-#endif
-HELPER_ST(sb, stb, uint8_t)
-HELPER_ST(sw, stl, uint32_t)
-#ifdef TARGET_MIPS64
-HELPER_ST(sd, stq, uint64_t)
-#endif
-HELPER_ST(st8, stb, uint8_t)
-HELPER_ST(st16, stw, uint16_t)
-HELPER_ST(st32, stl, int32_t)
-HELPER_ST(st64, stq, int64_t)
-#undef HELPER_ST
 
 target_ulong helper_clo (target_ulong arg1)
 {
@@ -2813,7 +2745,7 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
 #define FLOAT_SNAN64 (float64_default_nan ^ 0x0008000000000020ULL) /* 0x7ff0000000000020 */
 
 /* convert MIPS rounding mode in FCR31 to IEEE library */
-static unsigned int ieee_rm[] = {
+unsigned int ieee_rm[] = {
     float_round_nearest_even,
     float_round_to_zero,
     float_round_up,
@@ -2941,7 +2873,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         do_raise_exception(env, EXCP_FPE, GETPC());
 }
 
-static inline int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
+int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
 {
     int ret = 0;
     int flushToZero = env->active_fpu.fcr31 & (1 << 24);
