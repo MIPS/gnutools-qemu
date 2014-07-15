@@ -158,6 +158,7 @@ struct CPUMIPSFPUContext {
     float_status fp_status;
     /* fpu implementation/revision register (fir) */
     uint32_t fcr0;
+#define FCR0_FREP 29
 #define FCR0_UFRP 28
 #define FCR0_Has2008 23
 #define FCR0_F64 22
@@ -502,6 +503,8 @@ struct CPUMIPSState {
 #define CP0C5_CV         29
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
+#define CP0C5_UFE        9
+#define CP0C5_FRE        8
 #define CP0C5_SBRI 6
 #define CP0C5_MVH    5
 #define CP0C5_LLB    4
@@ -557,7 +560,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x6C07FF
+#define MIPS_HFLAG_TMASK  0xEC07FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -602,6 +605,7 @@ struct CPUMIPSState {
 
 #define MIPS_HFLAG_CB    0x100000  /* Compact branch */
 #define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
+#define MIPS_HFLAG_FRE   0x800000 /* FRE enabled */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
     target_ulong fslot;          /* Indicates forbidden slot */
@@ -873,7 +877,7 @@ static inline void compute_hflags(CPUMIPSState *env)
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
                      MIPS_HFLAG_X | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
-                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA);
+                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA | MIPS_HFLAG_FRE);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -949,6 +953,11 @@ static inline void compute_hflags(CPUMIPSState *env)
     if (env->insn_flags & ASE_MSA) {
         if (env->CP0_Config5 & (1 << CP0C5_MSAEn)) {
             env->hflags |= MIPS_HFLAG_MSA;
+        }
+    }
+    if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
+        if (env->CP0_Config5 & (1 << CP0C5_FRE)) {
+            env->hflags |= MIPS_HFLAG_FRE;
         }
     }
 }
