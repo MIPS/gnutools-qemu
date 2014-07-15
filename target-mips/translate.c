@@ -17784,14 +17784,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     switch (op) {
     case OPC_SPECIAL:
         op1 = MASK_SPECIAL(ctx->opcode);
-        if ( (op1 == OPC_MSA_S05 || op1 == OPC_MSA_S15) &&
-                (ctx->opcode & 0xfc00073f) != R6_OPC_LSA &&
-                (ctx->opcode & 0xfc00073f) != R6_OPC_DLSA ) {
-            goto decode_msa;
-        }
-        else {
-            decode_opc_special(env, ctx);
-        }
+        decode_opc_special(env, ctx);
         break;
     case OPC_SPECIAL2:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
