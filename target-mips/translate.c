@@ -17971,8 +17971,8 @@ static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
 static void determ_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
 {
     /* Note this function only works with MSA_WRLEN = 128 */
-    uint64_t eval_zero_or_big;
-    uint64_t eval_big;
+    uint64_t eval_zero_or_big = 0;
+    uint64_t eval_big = 0;
     switch (df) {
     case 0: /*DF_BYTE*/
         eval_zero_or_big = 0x0101010101010101ULL;
