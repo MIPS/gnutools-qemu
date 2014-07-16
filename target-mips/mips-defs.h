@@ -93,11 +93,6 @@
  *  - also see hw/mips_mipssim for another #define
  */
 
-/* Ignore MTC0/DMTC0 to non-decoded CP0 registers */
-#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
-#define MIPS_IGNORE_MTC0_TO_UNDEFINED 1
-#endif
-
 /* Trace debug disassembly */
 #ifndef MIPS_DEBUG_DISAS
 #define MIPS_DEBUG_DISAS 1

@@ -5974,12 +5974,7 @@ static void gen_mfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
 
 die:
     LOG_DISAS("mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
-
-#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
-    generate_exception(ctx, EXCP_RI);
-#else
     tcg_gen_movi_tl(arg, 0);
-#endif
 }
 
 static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -6668,12 +6663,6 @@ static void gen_mtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, in
 
 die:
     LOG_DISAS("mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
-
-#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
-    generate_exception(ctx, EXCP_RI);
-#else
-    reg += 0; /* null */
-#endif
 }
 
 #if defined(TARGET_MIPS64)
@@ -7360,12 +7349,7 @@ static void gen_dmfc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
 
 die:
     LOG_DISAS("dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
-
-#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
-    generate_exception(ctx, EXCP_RI);
-#else
     tcg_gen_movi_tl(arg, 0);
-#endif
 }
 
 static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -8055,12 +8039,6 @@ static void gen_dmtc0(CPUMIPSState *env, DisasContext *ctx, TCGv arg, int reg, i
 
 die:
     LOG_DISAS("dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
-
-#ifndef MIPS_IGNORE_MTC0_TO_UNDEFINED
-    generate_exception(ctx, EXCP_RI);
-#else
-    reg += 0; /* null */
-#endif
 }
 #endif /* TARGET_MIPS64 */
 
