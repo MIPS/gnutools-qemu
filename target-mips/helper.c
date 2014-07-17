@@ -82,18 +82,20 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
 #endif
 
         /* Check ASID, virtual page number & size */
-        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && 
-            !tlb->EHINV) {
+        if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag && !tlb->EHINV) {
             /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
             /* Check access rights */
-            if (!(n ? tlb->V1 : tlb->V0))
+            if (!(n ? tlb->V1 : tlb->V0)) {
                 return TLBRET_INVALID;
-            if (rw == 2 && (n ? tlb->XI1 : tlb->XI0))
-                return TLBRET_XI; 
-            if (rw == 0 && (n ? tlb->RI1 : tlb->RI0))
-                return TLBRET_RI; // TODO: MIPS16 PC-relative special case
-            if (rw != 1 || (n ? tlb->D1 : tlb->D0)) {
+            }
+            if (rw == MMU_INST_FETCH && (n ? tlb->XI1 : tlb->XI0)) {
+                return TLBRET_XI;
+            }
+            if (rw == MMU_DATA_LOAD && (n ? tlb->RI1 : tlb->RI0)) {
+                return TLBRET_RI;
+            }
+            if (rw != MMU_DATA_STORE || (n ? tlb->D1 : tlb->D0)) {
                 *physical = (tlb->PFN[n] << 12) | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
@@ -165,7 +167,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
     qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
 #endif
 
-    if ((rw == 2) && (address & 3) &&
+    if ((rw == MMU_INST_FETCH) && (address & 3) &&
         !(env->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS))) {
         /* Address Error exception should occur prior to TLB exception
            if we fetch instruction from an unaligned address */
@@ -261,30 +263,37 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
     CPUState *cs = CPU(mips_env_get_cpu(env));
     int exception = 0, error_code = 0;
 
+    if (rw == MMU_INST_FETCH) {
+        error_code |= EXCP_INST_NOTAVAIL;
+    }
+
     switch (tlb_error) {
     default:
     case TLBRET_BADADDR:
         /* Reference to kernel address from user mode or supervisor mode */
         /* Reference to supervisor address from user mode */
-        if (rw == 1)
+        if (rw == MMU_DATA_STORE) {
             exception = EXCP_AdES;
-        else
+        } else {
             exception = EXCP_AdEL;
+        }
         break;
     case TLBRET_NOMATCH:
         /* No TLB match for a mapped address */
-        if (rw == 1)
+        if (rw == MMU_DATA_STORE) {
             exception = EXCP_TLBS;
-        else
+        } else {
             exception = EXCP_TLBL;
-        error_code = 1;
+        }
+        error_code |= EXCP_TLB_NOMATCH;
         break;
     case TLBRET_INVALID:
         /* TLB match with no valid bit */
-        if (rw == 1)
+        if (rw == MMU_DATA_STORE) {
             exception = EXCP_TLBS;
-        else
+        } else {
             exception = EXCP_TLBL;
+        }
         break;
     case TLBRET_DIRTY:
         /* TLB match but 'D' bit is cleared */
@@ -462,9 +471,9 @@ target_ulong exception_resume_pc (CPUMIPSState *env)
 
     isa_mode = !!(env->hflags & MIPS_HFLAG_M16);
     bad_pc = env->active_tc.PC | isa_mode;
-    if (env->hflags & MIPS_HFLAG_BMASK || env->fslot) {
-        /* If the exception was raised from a delay or forbidden slot, 
-           come back to the jump.  */
+    if (env->hflags & MIPS_HFLAG_BMASK) {
+        /* If the exception was raised from a delay slot, come back to
+           the jump.  */
         bad_pc -= (env->hflags & MIPS_HFLAG_B16 ? 2 : 4);
     }
 
@@ -483,6 +492,20 @@ static void set_hflags_for_handler (CPUMIPSState *env)
                         << MIPS_HFLAG_M16_SHIFT);
     }
 }
+
+static inline void set_badinstr_registers(CPUMIPSState *env)
+{
+    if (env->hflags & MIPS_HFLAG_M16) {
+        /* TODO: add BadInstr support for microMIPS */
+        return;
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_BI)) {
+        env->active_tc.CP0_BadInstr = cpu_ldl_code(env, env->active_tc.PC);
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_BP) && env->hflags & MIPS_HFLAG_BMASK) {
+        env->active_tc.CP0_BadInstrP = cpu_ldl_code(env, env->active_tc.PC - 4);
+    }
+}
 #endif
 
 void mips_cpu_do_interrupt(CPUState *cs)
@@ -490,7 +513,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
 #if !defined(CONFIG_USER_ONLY)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
-    int update_badinstr = 0;
+    bool update_badinstr = 0;
     target_ulong offset;
     int cause = -1;
     const char *name;
@@ -606,12 +629,13 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_LTLBL:
         cause = 1;
-        update_badinstr = 1;
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
         goto set_EPC;
     case EXCP_TLBL:
         cause = 2;
-        update_badinstr = 1;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
+        if (env->error_code & EXCP_TLB_NOMATCH &&
+            !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
             int R = env->CP0_BadVAddr >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
@@ -629,7 +653,8 @@ void mips_cpu_do_interrupt(CPUState *cs)
     case EXCP_TLBS:
         cause = 3;
         update_badinstr = 1;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
+        if (env->error_code & EXCP_TLB_NOMATCH &&
+            !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
             int R = env->CP0_BadVAddr >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
@@ -646,7 +671,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_AdEL:
         cause = 4;
-        update_badinstr = 1;
+        update_badinstr = !(env->error_code & EXCP_INST_NOTAVAIL);
         goto set_EPC;
     case EXCP_AdES:
         cause = 5;
@@ -701,7 +726,6 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_TLBXI:
         cause = 20;
-        update_badinstr = 1;
         goto set_EPC;
     case EXCP_MSADIS:
         cause = 21;
@@ -731,19 +755,12 @@ void mips_cpu_do_interrupt(CPUState *cs)
             offset = 0x20000100;
         }
  set_EPC:
-        if (update_badinstr) {
-            if (env->CP0_Config3 & (1 << CP0C3_BI)) {
-                env->CP0_BadInstr = env->last_instr;
-            }
-            if ((env->hflags & MIPS_HFLAG_BMASK) && 
-                (env->CP0_Config3 & (1 << CP0C3_BP))) {
-                // BadInstrP is updated if exception was raised in delay slot
-                env->CP0_BadInstrP = env->last_br_instr;
-            }
-        }
         if (!(env->CP0_Status & (1 << CP0St_EXL))) {
             env->CP0_EPC = exception_resume_pc(env);
-            if (env->hflags & MIPS_HFLAG_BMASK || env->fslot) {
+            if (update_badinstr) {
+                set_badinstr_registers(env);
+            }
+            if (env->hflags & MIPS_HFLAG_BMASK) {
                 env->CP0_Cause |= (1U << CP0Ca_BD);
             } else {
                 env->CP0_Cause &= ~(1U << CP0Ca_BD);
@@ -752,7 +769,6 @@ void mips_cpu_do_interrupt(CPUState *cs)
             env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
             env->hflags &= ~(MIPS_HFLAG_KSU);
         }
-        env->fslot = 0;
         env->hflags &= ~MIPS_HFLAG_BMASK;
         if (env->CP0_Status & (1 << CP0St_BEV)) {
             env->active_tc.PC = (int32_t)0xBFC00200;

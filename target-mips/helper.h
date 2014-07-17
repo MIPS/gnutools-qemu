@@ -50,7 +50,10 @@ DEF_HELPER_3(macchiu, tl, env, tl, tl)
 DEF_HELPER_3(msachi, tl, env, tl, tl)
 DEF_HELPER_3(msachiu, tl, env, tl, tl)
 
-DEF_HELPER_1(bitswap, tl, tl)
+DEF_HELPER_FLAGS_1(bitswap, TCG_CALL_NO_RWG_SE, tl, tl)
+#ifdef TARGET_MIPS64
+DEF_HELPER_FLAGS_1(dbitswap, TCG_CALL_NO_RWG_SE, tl, tl)
+#endif
 
 #ifndef CONFIG_USER_ONLY
 /* CP0 helpers */
@@ -87,7 +90,6 @@ DEF_HELPER_2(mfc0_watchlo, tl, env, i32)
 DEF_HELPER_2(mfc0_watchhi, tl, env, i32)
 DEF_HELPER_1(mfc0_debug, tl, env)
 DEF_HELPER_1(mftc0_debug, tl, env)
-DEF_HELPER_2(mfc0_kscratch, tl, env, i32)
 #ifdef TARGET_MIPS64
 DEF_HELPER_1(dmfc0_tcrestart, tl, env)
 DEF_HELPER_1(dmfc0_tchalt, tl, env)
@@ -179,7 +181,6 @@ DEF_HELPER_2(mtc0_taglo, void, env, tl)
 DEF_HELPER_2(mtc0_datalo, void, env, tl)
 DEF_HELPER_2(mtc0_taghi, void, env, tl)
 DEF_HELPER_2(mtc0_datahi, void, env, tl)
-DEF_HELPER_3(mtc0_kscratch, void, env, tl, i32)
 
 #if defined(TARGET_MIPS64)
 DEF_HELPER_2(dmtc0_entrylo0, void, env, i64)
@@ -236,17 +237,15 @@ DEF_HELPER_2(float_cvtw_d, i32, env, i64)
 DEF_HELPER_3(float_addr_ps, i64, env, i64, i64)
 DEF_HELPER_3(float_mulr_ps, i64, env, i64, i64)
 
-DEF_HELPER_1(float_class_s, i32, i32)
-DEF_HELPER_1(float_class_d, i64, i64)
+DEF_HELPER_FLAGS_1(float_class_s, TCG_CALL_NO_RWG_SE, i32, i32)
+DEF_HELPER_FLAGS_1(float_class_d, TCG_CALL_NO_RWG_SE, i64, i64)
 
-DEF_HELPER_2(float_rint_s, i32, env, i32)
-DEF_HELPER_2(float_rint_d, i64, env, i64)
-
-DEF_HELPER_4(float_maddf_s, i32, env, i32, i32, i32)
-DEF_HELPER_4(float_maddf_d, i64, env, i64, i64, i64)
-
-DEF_HELPER_4(float_msubf_s, i32, env, i32, i32, i32)
-DEF_HELPER_4(float_msubf_d, i64, env, i64, i64, i64)
+#define FOP_PROTO(op)                                     \
+DEF_HELPER_4(float_ ## op ## _s, i32, env, i32, i32, i32) \
+DEF_HELPER_4(float_ ## op ## _d, i64, env, i64, i64, i64)
+FOP_PROTO(maddf)
+FOP_PROTO(msubf)
+#undef FOP_PROTO
 
 #define FOP_PROTO(op)                                       \
 DEF_HELPER_3(float_ ## op ## _s, i32, env, i32, i32)        \
@@ -274,6 +273,7 @@ DEF_HELPER_2(float_ ## op ## _d, i64, env, i64)
 FOP_PROTO(sqrt)
 FOP_PROTO(rsqrt)
 FOP_PROTO(recip)
+FOP_PROTO(rint)
 #undef FOP_PROTO
 
 #define FOP_PROTO(op)                       \
@@ -383,7 +383,6 @@ DEF_HELPER_1(rdhwr_cpunum, tl, env)
 DEF_HELPER_1(rdhwr_synci_step, tl, env)
 DEF_HELPER_1(rdhwr_cc, tl, env)
 DEF_HELPER_1(rdhwr_ccres, tl, env)
-DEF_HELPER_1(rdhwr_ulr, tl, env)
 DEF_HELPER_2(pmon, void, env, int)
 DEF_HELPER_1(wait, void, env)
 
