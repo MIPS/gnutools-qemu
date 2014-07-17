@@ -1,9 +1,8 @@
         .text
         .globl _reset
         .set    noreorder
-        # t7 reg is used as a RI counter
+        # s0 reg is used as a RI counter
         # t8 reg is used as an expected number of RI
-       
 _reset:
         lui    $sp, %hi(stack_top)
         ori    $sp, $sp, %lo(stack_top)
@@ -14,12 +13,46 @@ _reset:
         lui   $t4, 0x2400 # Status.CU1, Status.FR 
         or    $t3, $t3, $t4
         mtc0  $t3, $12, 0
+        
+test0:
+        mtc0    $0, $16, 5 # clear Config5.FRE
 
+        # no exception
+        mfc1    $t3, $f1
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        mtc1    $t3, $f1
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        abs.s   $f2, $f1
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        add.s   $f3, $f2, $f1
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        ceil.w.d  $f2, $f1
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+test1:
         mfc0  $t3, $16, 5
-        li    $t4, 0x100 # Config5.FRE
+        li    $t4, 0x100 # set Config5.FRE
         or    $t3, $t3, $t4
         mtc0  $t3, $16, 5
-test:
+        
         # ---------- MFC1 ----------
         # no exception
         mfc1    $t3, $f2
@@ -57,7 +90,7 @@ test:
         ehb
         bne     $s0, $t8, test_failed
         nop
-        
+#ifndef REL6
         # ---------- MOVZ.fmt ----------
         addiu   $t8, $t8, 1
         andi    $t1, $t1, 0
@@ -86,7 +119,7 @@ test:
         ehb
         bne     $s0, $t8, test_failed
         nop
-
+#endif
         # ---------- ADD.fmt ----------
         
         addiu   $t8, $t8, 1
@@ -152,19 +185,52 @@ test:
         # ---------- TRUNC / CEIL /fmt ----------
         
         addiu   $t8, $t8, 1
-        trunc.l.s  $f2, $f1
+        trunc.l.s  $f2, $f5
         ehb
         bne     $s0, $t8, test_failed
         nop
 
         addiu   $t8, $t8, 1
-        ceil.w.d  $f2, $f1
+        ceil.w.d  $f2, $f7
         ehb
         bne     $s0, $t8, test_failed
         nop
 
         # no exception
-        ceil.l.d  $f2, $f1
+        ceil.l.d  $f2, $f3
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+test2:  
+        mtc0    $0, $16, 5 # clear Config5.FRE
+
+        # no exception
+        mfc1    $t5, $f8
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        mtc1    $t3, $f12
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        abs.s   $f12, $f21
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        add.s   $f12, $f26, $f31
+        ehb
+        bne     $s0, $t8, test_failed
+        nop
+
+        # no exception
+        ceil.w.d  $f22, $f9
         ehb
         bne     $s0, $t8, test_failed
         nop
