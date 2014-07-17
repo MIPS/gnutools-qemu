@@ -386,6 +386,7 @@ static mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
@@ -455,6 +456,7 @@ static mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 32,
         .PABITS = 40,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2 | ASE_MSA,
@@ -491,6 +493,7 @@ static mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_Has2008 ) | (1 << FCR0_F64) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 32,
         .PABITS = 40,
         .insn_flags = CPU_MIPS32R5 | ASE_MSA,
