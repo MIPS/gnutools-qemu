@@ -1181,19 +1181,34 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
+static inline uint32_t get_entrylo_mask(CPUMIPSState *env)
+{
+    uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
+#ifndef TARGET_MIPS64
+    if (env->CP0_Config3 & (1 << CP0C3_LPA) &&
+        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
+        (env->PABITS > 32)) {
+        pabits = 32;
+    }
+#endif
+    return ((1 << (30 - (36 - pabits))) - 1);
+}
+
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | (rxi << (CP0EnLo_RI - 31));
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo0 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
 void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | rxi;
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo0 = (arg1 & mask) | rxi;
 }
 #endif
 
@@ -1446,14 +1461,16 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | (rxi << (CP0EnLo_RI - 31));
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo1 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
 void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | rxi;
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo1 = (arg1 & mask) | rxi;
 }
 #endif
 
