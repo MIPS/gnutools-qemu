@@ -20536,9 +20536,9 @@ void cpu_state_reset(CPUMIPSState *env)
 
 #if defined(TARGET_MIPS_LEGACYFP)
     if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
-        qemu_log("WARNING: Using MIPS core with legacy FPU."
-                 " But the current softfloat implementation is updated to IEEE-2008."
-                 " To use old implementation recompile QEMU with '-DTARGET_MIPS_LEGACYFP' flag\n")
+        qemu_log("WARNING: Using MIPS core whose FPU is IEEE-2008 compliant."
+                 " But softfloat was compiled with '-DTARGET_MIPS_LEGACYFP' flag."
+                 " This can lead to incorrect behaviour of FP instructions.\n");
     }
 #else
     if (!(env->active_fpu.fcr0 & (1 << FCR0_Has2008))) {
