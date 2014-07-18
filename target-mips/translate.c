@@ -1626,21 +1626,38 @@ static inline void generate_exception (DisasContext *ctx, int excp);
 /* Floating point register moves. */
 static void gen_load_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
-    if (ctx->hflags & MIPS_HFLAG_FRE) {
+    if (ctx->hflags & MIPS_HFLAG_FRE && reg & 1) {
+#ifdef CONFIG_USER_ONLY
+        TCGv_i64 t64 = tcg_temp_new_i64();
+        tcg_gen_shri_i64(t64, fpu_f64[reg & ~1], 32);
+        tcg_gen_trunc_i64_i32(t, t64);
+        tcg_temp_free_i64(t64);
+#else
         generate_exception(ctx, EXCP_RI);
+#endif
+    } else {
+        tcg_gen_trunc_i64_i32(t, fpu_f64[reg]);
     }
-    tcg_gen_trunc_i64_i32(t, fpu_f64[reg]);
 }
 
 static void gen_store_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
+#ifdef CONFIG_USER_ONLY
+    if ((ctx->hflags & MIPS_HFLAG_FRE) && (reg & 1)) {
+        TCGv_i64 t64 = tcg_temp_new_i64();
+        tcg_gen_extu_i32_i64(t64, t);
+        tcg_gen_deposit_i64(fpu_f64[reg & ~1], fpu_f64[reg & ~1], t64, 32, 32);
+        tcg_temp_free_i64(t64);
+#else
     if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
+#endif
+    } else {
+        TCGv_i64 t64 = tcg_temp_new_i64();
+        tcg_gen_extu_i32_i64(t64, t);
+        tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 0, 32);
+        tcg_temp_free_i64(t64);
     }
-    TCGv_i64 t64 = tcg_temp_new_i64();
-    tcg_gen_extu_i32_i64(t64, t);
-    tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 0, 32);
-    tcg_temp_free_i64(t64);
 }
 
 static void gen_load_fpr32h(DisasContext *ctx, TCGv_i32 t, int reg)
@@ -20644,6 +20661,10 @@ void cpu_state_reset(CPUMIPSState *env)
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         msa_reset(env);
+#ifdef CONFIG_USER_ONLY
+        /* MSA access enabled */
+        env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+#endif
     }
 
     compute_hflags(env);

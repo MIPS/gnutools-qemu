@@ -3427,6 +3427,10 @@ void stop_all_tasks(void)
      */
     start_exclusive();
 }
+void resume_all_tasks(void)
+{
+    end_exclusive();
+}
 
 /* Assumes contents are already zeroed.  */
 void init_task_state(TaskState *ts)
@@ -4319,6 +4323,32 @@ int main(int argc, char **argv, char **envp)
         if (regs->cp0_epc & 1) {
             env->hflags |= MIPS_HFLAG_M16;
         }
+#ifdef TARGET_ABI_MIPSO32
+        if (info->fpu_mode == MIPS_FR1
+            || info->fpu_mode == MIPS_FR1A
+            || info->fpu_mode == MIPS_FRE) {
+            if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
+                (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
+                env->CP0_Status |= (1 << CP0St_FR);
+                compute_hflags(env);
+            } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
+                fprintf(stderr, "qemu: Program needs 64-bit floating-point "
+                                "registers\n");
+                exit(1);
+            }
+        }
+        if (info->fpu_mode == MIPS_FRE
+            || (info->fpu_mode == MIPS_FR0
+                && (env->insn_flags & ISA_MIPS32R6))) {
+            if (env->CP0_Config5_rw_bitmask & (1 << CP0C5_FRE)) {
+                env->CP0_Config5 |= (1 << CP0C5_FRE);
+                compute_hflags(env);
+            } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
+                fprintf(stderr, "qemu: Program requires FRE mode\n");
+                exit(1);
+            }
+        }
+#endif
     }
 #elif defined(TARGET_OPENRISC)
     {

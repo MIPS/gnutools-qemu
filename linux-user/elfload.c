@@ -786,6 +786,53 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUMIPSState *e
 #define USE_ELF_CORE_DUMP
 #define ELF_EXEC_PAGESIZE        4096
 
+enum
+{
+    MIPS_HWCAP_MIPS_MSA  = 1 << 1,
+    MIPS_HWCAP_MIPS_R6   = 1 << 3,
+};
+
+#define ELF_HWCAP get_elf_hwcap()
+
+static uint32_t get_elf_hwcap(void)
+{
+    MIPSCPU *cpu = MIPS_CPU(thread_cpu);
+    uint32_t hwcaps = 0;
+
+    if (cpu->env.insn_flags & ASE_MSA) {
+        hwcaps |= MIPS_HWCAP_MIPS_MSA;
+    }
+    if (cpu->env.insn_flags & ISA_MIPS32R6) {
+        hwcaps |= MIPS_HWCAP_MIPS_R6;
+    }
+    return hwcaps;
+}
+
+typedef struct
+{
+    /* Version of flags structure.  */
+    uint16_t version;
+    /* The level of the ISA: 1-5, 32, 64.  */
+    uint8_t isa_level;
+    /* The revision of ISA: 0 for MIPS V and below, 1-n otherwise.  */
+    uint8_t isa_rev;
+    /* The size of general purpose registers.  */
+    uint8_t gpr_size;
+    /* The size of co-processor 1 registers.  */
+    uint8_t cpr1_size;
+    /* The size of co-processor 2 registers.  */
+    uint8_t cpr2_size;
+    /* The floating-point ABI.  */
+    uint8_t fp_abi;
+    /* Mask of processor-specific extensions.  */
+    uint32_t isa_ext;
+    /* Mask of ASEs used.  */
+    uint32_t ases;
+    /* Mask of general flags.  */
+    uint32_t flags1;
+    uint32_t flags2;
+} Elf_ABIFlags_v0;
+
 #endif /* TARGET_MIPS */
 
 #ifdef TARGET_MICROBLAZE
@@ -1140,11 +1187,25 @@ static void bswap_sym(struct elf_sym *sym)
     bswaptls(&sym->st_size);
     bswap16s(&sym->st_shndx);
 }
+
+#ifdef TARGET_ABI_MIPSO32
+static void bswap_mips_abiflags(Elf_ABIFlags_v0 *abiflags)
+{
+    bswap16s(&abiflags->version);
+    bswap32s(&abiflags->ases);
+    bswap32s(&abiflags->isa_ext);
+    bswap32s(&abiflags->flags1);
+    bswap32s(&abiflags->flags2);
+}
+#endif
 #else
 static inline void bswap_ehdr(struct elfhdr *ehdr) { }
 static inline void bswap_phdr(struct elf_phdr *phdr, int phnum) { }
 static inline void bswap_shdr(struct elf_shdr *shdr, int shnum) { }
 static inline void bswap_sym(struct elf_sym *sym) { }
+#ifdef TARGET_ABI_MIPSO32
+static inline void bswap_mips_abiflags(Elf_ABIFlags_v0 *abiflags) { }
+#endif
 #endif
 
 #ifdef USE_ELF_CORE_DUMP
@@ -1803,8 +1864,63 @@ static void load_elf_image(const char *image_name, int image_fd,
                 goto exit_errmsg;
             }
             *pinterp_name = interp_name;
+#ifdef TARGET_ABI_MIPSO32
+        } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
+            Elf_ABIFlags_v0 abiflags;
+            if (eppnt->p_offset + eppnt->p_filesz <= BPRM_BUF_SIZE) {
+                memcpy(&abiflags, bprm_buf + eppnt->p_offset,
+                       eppnt->p_filesz);
+            } else {
+                retval = pread(image_fd, &abiflags, eppnt->p_filesz,
+                               eppnt->p_offset);
+                if (retval != eppnt->p_filesz) {
+                    goto exit_perror;
+                }
+            }
+            bswap_mips_abiflags (&abiflags);
+            if (info->fpu_mode == -1 || info->fpu_mode == MIPS_ANY) {
+                if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE) {
+                    info->fpu_mode = MIPS_FR0;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+                    info->fpu_mode = MIPS_FR1;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A) {
+                    info->fpu_mode = MIPS_FR1A;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_XX) {
+                    info->fpu_mode = MIPS_ANY;
+                }
+            } else {
+                if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                    && info->fpu_mode == MIPS_FR1A) {
+                    info->fpu_mode = MIPS_FRE;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                           && info->fpu_mode == MIPS_FR0) {
+                    info->fpu_mode = MIPS_FRE;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                           && info->fpu_mode == MIPS_ANY) {
+                    info->fpu_mode = MIPS_FR1A;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64
+                           && info->fpu_mode == MIPS_ANY) {
+                    info->fpu_mode = MIPS_FR1;
+                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                           && info->fpu_mode == MIPS_ANY) {
+                    info->fpu_mode = MIPS_FR0;
+                } else if ((abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                            && info->fpu_mode == MIPS_FR1)
+                           || (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64
+                               && info->fpu_mode == MIPS_FR0)) {
+                    fprintf(stderr, "Illegal combination of FP ABIs between"
+                                    "interpreter and executable\n");
+                    exit(1);
+                }
+            }
+#endif
         }
     }
+#ifdef TARGET_ABI_MIPSO32
+    if (info->fpu_mode == -1) {
+        info->fpu_mode = MIPS_FR0;
+    }
+#endif
 
     if (info->end_data == 0) {
         info->start_data = info->end_code;
@@ -2010,6 +2126,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
     info->start_mmap = (abi_ulong)ELF_START_MMAP;
     info->mmap = 0;
     info->rss = 0;
+#ifdef TARGET_ABI_MIPSO32
+    info->fpu_mode = -1;
+#endif
 
     load_elf_image(bprm->filename, bprm->fd, info,
                    &elf_interpreter, bprm->buf);
@@ -2032,6 +2151,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
     bprm->p = setup_arg_pages(bprm->p, bprm, info);
 
     if (elf_interpreter) {
+#ifdef TARGET_ABI_MIPSO32
+        interp_info.fpu_mode = info->fpu_mode;
+#endif
         load_elf_interp(elf_interpreter, &interp_info, bprm->buf);
 
         /* If the program interpreter is one of these two, then assume

@@ -20,6 +20,27 @@ typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Xword;
 typedef int64_t  Elf64_Sxword;
 
+/* Object attribute values.  */
+enum
+{
+    /* Not tagged or not using any ABIs affected by the differences.  */
+    Val_GNU_MIPS_ABI_FP_ANY = 0,
+    /* Using hard-float -mdouble-float.  */
+    Val_GNU_MIPS_ABI_FP_DOUBLE = 1,
+    /* Using hard-float -msingle-float.  */
+    Val_GNU_MIPS_ABI_FP_SINGLE = 2,
+    /* Using soft-float.  */
+    Val_GNU_MIPS_ABI_FP_SOFT = 3,
+    /* Using -mips32r2 -mfp64.  */
+    Val_GNU_MIPS_ABI_FP_OLD_64 = 4,
+    /* Using -mfpxx */
+    Val_GNU_MIPS_ABI_FP_XX = 5,
+    /* Using -mips32r2 -mfp64.  */
+    Val_GNU_MIPS_ABI_FP_64 = 6,
+    /* Using -mips32r2 -mfp64 -mno-odd-spreg.  */
+    Val_GNU_MIPS_ABI_FP_64A = 7
+};
+
 /* These constants are for the segment types stored in the image headers */
 #define PT_NULL    0
 #define PT_LOAD    1
@@ -31,7 +52,8 @@ typedef int64_t  Elf64_Sxword;
 #define PT_LOPROC  0x70000000
 #define PT_HIPROC  0x7fffffff
 #define PT_MIPS_REGINFO		0x70000000
-#define PT_MIPS_OPTIONS		0x70000001
+#define PT_MIPS_OPTIONS		0x70000002
+#define PT_MIPS_ABIFLAGS	0x70000003
 
 /* Flags in the e_flags field of the header */
 /* MIPS architecture level. */
@@ -469,6 +491,11 @@ typedef struct {
 
 #define PPC_FEATURE_TRUE_LE             0x00000002
 #define PPC_FEATURE_PPC_LE              0x00000001
+
+/* Bits present in AT_HWCAP for MIPS.  */
+
+#define HWCAP_MIPS_MSA           (1 << 1)
+#define HWCAP_MIPS_R6            (1 << 3)
 
 /* Bits present in AT_HWCAP, primarily for Sparc32.  */
 
