@@ -2760,7 +2760,7 @@ target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
             }
         }
         break;
-    case 2:
+    case 5:
         /* FRE support - read Config5.FRE bit */
         if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
             if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
