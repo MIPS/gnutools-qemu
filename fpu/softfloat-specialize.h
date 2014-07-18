@@ -341,6 +341,25 @@ static float32 commonNaNToFloat32( commonNaNT a STATUS_PARAM)
 }
 
 /*----------------------------------------------------------------------------
+| Sets appropriate flags when underflow is detected
+*----------------------------------------------------------------------------*/
+
+static void signalUnderflow(bool isTiny, int roundBits STATUS_PARAM)
+{
+    if (isTiny && roundBits) {
+        float_raise(float_flag_underflow STATUS_VAR);
+    }
+#if defined(TARGET_MIPS) && !defined(TARGET_MIPS_LEGACYFP)
+    /* In MIPS supporting IEEE-2008 FP when underflow trap is enabled, underflow
+       is signaled regardless of accuracy loss. Reusing output_denormal flag
+       as it has no meaning when not in the flush-to-zero mode. */
+    if (isTiny) {
+        float_raise(float_flag_output_denormal STATUS_VAR);
+    }
+#endif
+}
+
+/*----------------------------------------------------------------------------
 | Select which NaN to propagate for a two-input operation.
 | IEEE754 doesn't specify all the details of this, so the
 | algorithm is target-specific.

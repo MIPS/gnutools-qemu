@@ -2898,26 +2898,26 @@ int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
             ret |= FP_INEXACT;
         }
 
-        if (flushToZero) {
-            // Alternate Flush to Zero Underflow Handling
-            if (xcpt & float_flag_output_denormal) {
-               /* Flushing of tiny non-zero results causes Inexact and Underflow
-                  Exceptions to be signaled. */
-                ret |= FP_INEXACT;
-                ret |= FP_UNDERFLOW;
-            } else if (xcpt & float_flag_input_denormal) {
-                /* Flushing of subnormal input operands in all instructions
-                   except comparisons causes Inexact Exception to be signaled. */
-                ret |= FP_INEXACT;
-            }
-        } else {
-            // Underflow handling
-            if (xcpt & float_flag_output_denormal &&
-                (GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW)) {
-                /* When an underflow trap is enabled (through the FCSR Enable
-                   field bit), underflow is signaled when tininess is
-                   detected regardless of loss of accuracy */
-                ret |= FP_UNDERFLOW;
+        if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
+            if (flushToZero) {
+                if (xcpt & float_flag_output_denormal) {
+                    /* Flushing of tiny non-zero results causes Inexact and Underflow
+                       Exceptions to be signaled. */
+                    ret |= FP_INEXACT;
+                    ret |= FP_UNDERFLOW;
+                } else if (xcpt & float_flag_input_denormal) {
+                    /* Flushing of subnormal input operands in all instructions
+                       except comparisons causes Inexact Exception to be signaled. */
+                    ret |= FP_INEXACT;
+                }
+            } else {
+                if ((xcpt & float_flag_output_denormal) &&
+                    ((GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW))) {
+                    /* When an underflow trap is enabled (through the FCSR Enable
+                       field bit), underflow is signaled when tininess is
+                       detected regardless of loss of accuracy */
+                    ret |= FP_UNDERFLOW;
+                }
             }
         }
     }
