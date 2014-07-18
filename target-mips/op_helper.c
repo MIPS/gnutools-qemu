@@ -2857,8 +2857,11 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        if (env->insn_flags & ISA_MIPS32R6) {
-            uint32_t mask = 0xfefc0000;
+        if (env->insn_flags & ISA_MIPS32R5) {
+            uint32_t mask = 0x007c0000; /* TODO: set mask in cpu config */
+            if (env->insn_flags & ISA_MIPS32R6) {
+                mask |= 0xfe800000; /* FCC read-only */
+            }
             env->active_fpu.fcr31 = (arg1 & ~mask) |
                 (env->active_fpu.fcr31 & mask);
         } else if (!(arg1 & 0x007c0000)) {
