@@ -129,6 +129,14 @@ struct CPUMIPSMSAContext {
     float_status fp_status;
 };
 
+#if defined(CONFIG_USER_ONLY)
+/* Custom prctl interface.  */
+#define PR_SET_FP_MODE 43
+#define PR_GET_FP_MODE 44
+#define PR_FP_MODE_FR  (1 << 0)
+#define PR_FP_MODE_FRE (1 << 1)
+#endif
+
 typedef union fpr_t fpr_t;
 union fpr_t {
 #if defined(HOST_WORDS_BIGENDIAN)

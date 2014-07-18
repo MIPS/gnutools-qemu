@@ -21,6 +21,16 @@
 
 #define THREAD __thread
 
+#ifdef TARGET_ABI_MIPSO32
+enum {
+  MIPS_ANY,
+  MIPS_FR0,
+  MIPS_FR1,
+  MIPS_FR1A,
+  MIPS_FRE
+};
+#endif
+
 /* This struct is used to hold certain information about the image.
  * Basically, it replicates in user space what would be certain
  * task_struct fields in the kernel
@@ -54,6 +64,9 @@ struct image_info {
         void           *loadsegs;
         abi_ulong       pt_dynamic_addr;
         struct image_info *other_info;
+#endif
+#ifdef TARGET_ABI_MIPSO32
+        unsigned int    fpu_mode;
 #endif
 };
 
@@ -140,6 +153,7 @@ extern char *exec_path;
 void init_task_state(TaskState *ts);
 void task_settid(TaskState *);
 void stop_all_tasks(void);
+void resume_all_tasks(void);
 extern const char *qemu_uname_release;
 extern unsigned long mmap_min_addr;
 
