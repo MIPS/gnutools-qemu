@@ -45,8 +45,21 @@ void helper_avp_fail(void)
 #endif
 
 #ifdef MIPSSIM_COMPAT
+static inline void check_inst_limit(void)
+{
+    static uint32_t exec_counter = 0;
+    if (exec_counter++ > (1000 * 1000)) {
+        fprintf(stderr, "qemu: instruction limit reached\n");
+        abort();
+    }
+}
+
 void helper_trace_transl_pre(CPUMIPSState *env, target_ulong trace_pc)
 {
+    if (use_icount) {
+        /* If '-icount' is specified then set instruction number limit */
+        check_inst_limit();
+    }
     trace_cpu_state(env, 0);
     sv_target_disas(env, trace_pc, 4, 0); // TODO: mips16/microMIPS
 }
