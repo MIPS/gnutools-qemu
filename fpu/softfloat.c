@@ -395,8 +395,8 @@ static float32 roundAndPackFloat32(flag zSign, int_fast16_t zExp, uint32_t zSig 
             return packFloat32( zSign, 0xFF, - ( roundIncrement == 0 ));
         }
         if ( zExp < 0 ) {
-            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat32(zSign, 0, 0);
             }
             isTiny =
@@ -406,7 +406,7 @@ static float32 roundAndPackFloat32(flag zSign, int_fast16_t zExp, uint32_t zSig 
             shift32RightJamming( zSig, - zExp, &zSig );
             zExp = 0;
             roundBits = zSig & 0x7F;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            signalUnderflow(isTiny, roundBits STATUS_VAR);
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
@@ -579,8 +579,8 @@ static float64 roundAndPackFloat64(flag zSign, int_fast16_t zExp, uint64_t zSig 
             return packFloat64( zSign, 0x7FF, - ( roundIncrement == 0 ));
         }
         if ( zExp < 0 ) {
-            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat64(zSign, 0, 0);
             }
             isTiny =
@@ -590,7 +590,7 @@ static float64 roundAndPackFloat64(flag zSign, int_fast16_t zExp, uint64_t zSig 
             shift64RightJamming( zSig, - zExp, &zSig );
             zExp = 0;
             roundBits = zSig & 0x3FF;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            signalUnderflow(isTiny, roundBits STATUS_VAR);
         }
     }
     if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
@@ -761,8 +761,8 @@ static floatx80
             goto overflow;
         }
         if ( zExp <= 0 ) {
-            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloatx80(zSign, 0, 0);
             }
             isTiny =
@@ -772,7 +772,7 @@ static floatx80
             shift64RightJamming( zSig0, 1 - zExp, &zSig0 );
             zExp = 0;
             roundBits = zSig0 & roundMask;
-            if ( isTiny && roundBits ) float_raise( float_flag_underflow STATUS_VAR);
+            signalUnderflow(isTiny, roundBits STATUS_VAR);
             if ( roundBits ) STATUS(float_exception_flags) |= float_flag_inexact;
             zSig0 += roundIncrement;
             if ( (int64_t) zSig0 < 0 ) zExp = 1;
@@ -841,7 +841,7 @@ static floatx80
                 || ( zSig0 < LIT64( 0xFFFFFFFFFFFFFFFF ) );
             shift64ExtraRightJamming( zSig0, zSig1, 1 - zExp, &zSig0, &zSig1 );
             zExp = 0;
-            if ( isTiny && zSig1 ) float_raise( float_flag_underflow STATUS_VAR);
+            signalUnderflow(isTiny, zSig1 STATUS_VAR);
             if ( zSig1 ) STATUS(float_exception_flags) |= float_flag_inexact;
             switch (roundingMode) {
             case float_round_nearest_even:
@@ -1103,8 +1103,8 @@ static float128
             return packFloat128( zSign, 0x7FFF, 0, 0 );
         }
         if ( zExp < 0 ) {
-            float_raise(float_flag_output_denormal STATUS_VAR);
             if (STATUS(flush_to_zero)) {
+                float_raise(float_flag_output_denormal STATUS_VAR);
                 return packFloat128(zSign, 0, 0, 0);
             }
             isTiny =
@@ -1120,7 +1120,7 @@ static float128
             shift128ExtraRightJamming(
                 zSig0, zSig1, zSig2, - zExp, &zSig0, &zSig1, &zSig2 );
             zExp = 0;
-            if ( isTiny && zSig2 ) float_raise( float_flag_underflow STATUS_VAR);
+            signalUnderflow(isTiny, zSig2 STATUS_VAR);
             switch (roundingMode) {
             case float_round_nearest_even:
             case float_round_ties_away:
@@ -1875,6 +1875,7 @@ static float32 addFloat32Sigs( float32 a, float32 b, flag zSign STATUS_PARAM)
     int_fast16_t aExp, bExp, zExp;
     uint32_t aSig, bSig, zSig;
     int_fast16_t expDiff;
+    bool isTiny;
 
     aSig = extractFloat32Frac( a );
     aExp = extractFloat32Exp( a );
@@ -1917,13 +1918,17 @@ static float32 addFloat32Sigs( float32 a, float32 b, flag zSign STATUS_PARAM)
             return a;
         }
         if ( aExp == 0 ) {
-            if (aSig | bSig) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
-            }
             if (STATUS(flush_to_zero)) {
-                return packFloat32(zSign, 0, 0);
+                zSig = 0;
+                if (aSig | bSig) {
+                    float_raise(float_flag_output_denormal STATUS_VAR);
+                }
+            } else {
+                zSig = aSig + bSig;
+                isTiny = (0 < zSig) && (zSig < 0x20000000);
+                signalUnderflow(isTiny, 0 STATUS_VAR);
             }
-            return packFloat32( zSign, 0, ( aSig + bSig )>>6 );
+            return packFloat32(zSign, 0, zSig >> 6);
         }
         zSig = 0x40000000 + aSig + bSig;
         zExp = aExp;
@@ -3274,9 +3279,7 @@ static float32 roundAndPackFloat16(flag zSign, int_fast16_t zExp,
     }
     if (zSig & mask) {
         float_raise(float_flag_inexact STATUS_VAR);
-        if (is_tiny) {
-            float_raise(float_flag_underflow STATUS_VAR);
-        }
+        signalUnderflow(is_tiny, (zSig & mask) STATUS_VAR);
     }
 
     zSig += increment;
@@ -3619,6 +3622,7 @@ static float64 addFloat64Sigs( float64 a, float64 b, flag zSign STATUS_PARAM )
     int_fast16_t aExp, bExp, zExp;
     uint64_t aSig, bSig, zSig;
     int_fast16_t expDiff;
+    bool isTiny;
 
     aSig = extractFloat64Frac( a );
     aExp = extractFloat64Exp( a );
@@ -3661,13 +3665,17 @@ static float64 addFloat64Sigs( float64 a, float64 b, flag zSign STATUS_PARAM )
             return a;
         }
         if ( aExp == 0 ) {
-            if (aSig | bSig) {
-                float_raise(float_flag_output_denormal STATUS_VAR);
-            }
             if (STATUS(flush_to_zero)) {
-                return packFloat64(zSign, 0, 0);
+                zSig = 0;
+                if (aSig | bSig) {
+                    float_raise(float_flag_output_denormal STATUS_VAR);
+                }
+            } else {
+                zSig = aSig + bSig;
+                isTiny = (0 < zSig) && (zSig < LIT64(0x2000000000000000));
+                signalUnderflow(isTiny, 0 STATUS_VAR);
             }
-            return packFloat64( zSign, 0, ( aSig + bSig )>>9 );
+            return packFloat64(zSign, 0, zSig >> 9);
         }
         zSig = LIT64( 0x4000000000000000 ) + aSig + bSig;
         zExp = aExp;

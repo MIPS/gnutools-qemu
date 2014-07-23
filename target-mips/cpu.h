@@ -70,14 +70,17 @@ struct CPUMIPSTLBContext {
 };
 #endif
 
+/* MSA Context */
+
+#define MSA_WRLEN (128)
+
 typedef union wr_t wr_t;
 union wr_t {
-    int8_t  b[32];
-    int16_t h[16];
-    int32_t w[8];
-    int64_t d[4];
+    int8_t  b[MSA_WRLEN/8];
+    int16_t h[MSA_WRLEN/16];
+    int32_t w[MSA_WRLEN/32];
+    int64_t d[MSA_WRLEN/64];
 };
-/* MSA Context */
 
 typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
 struct CPUMIPSMSAContext {
@@ -111,8 +114,6 @@ struct CPUMIPSMSAContext {
 #define MSACSR_FS_POS 24
 #define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
 
-
-
 #define MSACSR_BITS                             \
     (MSACSR_RM_MASK |                           \
      MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
@@ -131,17 +132,14 @@ struct CPUMIPSMSAContext {
 
 typedef union fpr_t fpr_t;
 union fpr_t {
-#if defined(HOST_WORDS_BIGENDIAN)
-#  error "FPU/MSA register mapping not implemented on big-endian hosts."
-#else
     float64  fd;   /* ieee double precision */
     float32  fs[2];/* ieee single precision */
     uint64_t d;    /* binary double fixed-point */
     uint32_t w[2]; /* binary single fixed-point */
-
+/* FPU/MSA register mapping is not tested on big-endian hosts. */
     wr_t     wr;   /* vector data */
-#endif
 };
+
 /* define FP_ENDIAN_IDX to access the same location
  * in the fpr_t union regardless of the host endianness
  */
@@ -158,6 +156,7 @@ struct CPUMIPSFPUContext {
     float_status fp_status;
     /* fpu implementation/revision register (fir) */
     uint32_t fcr0;
+#define FCR0_FREP 29
 #define FCR0_UFRP 28
 #define FCR0_Has2008 23
 #define FCR0_F64 22
@@ -224,6 +223,7 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
 #define MIPS_MAAR_MAX 16 // Must be an even number.
+#define MIPS_KSCRATCH_NUM 6
 
 typedef struct TCState TCState;
 struct TCState {
@@ -256,6 +256,9 @@ struct TCState {
     target_ulong CP0_TCSchedule;
     target_ulong CP0_TCScheFBack;
     int32_t CP0_Debug_tcstatus;
+    target_ulong CP0_UserLocal;
+    uint32_t CP0_BadInstr;
+    uint32_t CP0_BadInstrP;
 };
 
 typedef struct CPUMIPSState CPUMIPSState;
@@ -316,7 +319,6 @@ struct CPUMIPSState {
 #define CP0VPEOpt_DWX0	0
     uint64_t CP0_EntryLo0;
     uint64_t CP0_EntryLo1;
-#define CP0EnLo_C  3
 #if defined(TARGET_MIPS64)
 # define CP0EnLo_RI 63
 # define CP0EnLo_XI 62
@@ -325,8 +327,7 @@ struct CPUMIPSState {
 # define CP0EnLo_XI 30
 #endif
     target_ulong CP0_Context;
-    target_ulong CP0_UserLocal;
-    target_ulong CP0_KScratch[6];
+    target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
@@ -370,12 +371,9 @@ struct CPUMIPSState {
 #define CP0SRSC4_SRS13	0
     int32_t CP0_HWREna;
     target_ulong CP0_BadVAddr;
-    int32_t CP0_BadInstr;
-    int32_t CP0_BadInstrP;
     int32_t CP0_Count;
     target_ulong CP0_EntryHi;
 #define CP0EnHi_EHINV 10
-#define CP0EntryHiEHINV 10
     int32_t CP0_Compare;
     int32_t CP0_Status;
 #define CP0St_CU3   31
@@ -432,7 +430,6 @@ struct CPUMIPSState {
     target_ulong CP0_EPC;
     int32_t CP0_PRid;
     int32_t CP0_EBase;
-    int32_t CP0_BEVVA;
     int32_t CP0_Config0;
 #define CP0C0_M    31
 #define CP0C0_K23  28
@@ -489,20 +486,21 @@ struct CPUMIPSState {
 #define CP0C3_MT   2
 #define CP0C3_SM   1
 #define CP0C3_TL   0
-    int32_t CP0_Config4;
+    uint32_t CP0_Config4;
     uint32_t CP0_Config4_rw_bitmask;
-#define CP0C4_KScrExist 16
-#define CP0C4_MMUExtDef 14
-#define CP0C4_IE   29
 #define CP0C4_M    31
-    int32_t CP0_Config5;
+#define CP0C4_IE   29
+#define CP0C4_KScrExist 16
+    uint32_t CP0_Config5;
     uint32_t CP0_Config5_rw_bitmask;
 #define CP0C5_M          31
 #define CP0C5_K          30
 #define CP0C5_CV         29
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
-#define CP0C5_SBRI 6
+#define CP0C5_UFE        9
+#define CP0C5_FRE        8
+#define CP0C5_SBRI       6
 #define CP0C5_MVH    5
 #define CP0C5_LLB    4
 #define CP0C5_MRP   3
@@ -555,9 +553,11 @@ struct CPUMIPSState {
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];
     /* QEMU */
     int error_code;
+#define EXCP_TLB_NOMATCH   0x1
+#define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x6C07FF
+#define MIPS_HFLAG_TMASK  0x3D807FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -576,45 +576,42 @@ struct CPUMIPSState {
        and RSQRT.D.  */
 #define MIPS_HFLAG_COP1X  0x00080 /* COP1X instructions enabled         */
 #define MIPS_HFLAG_RE     0x00100 /* Reversed endianness                */
-#define MIPS_HFLAG_X      0x00200 /* 64-bit mode enabled                */
+#define MIPS_HFLAG_AWRAP  0x00200 /* 32-bit compatibility address wrapping */
 #define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
 #define MIPS_HFLAG_M16_SHIFT 10
-#define MIPS_HFLAG_MSA    0x400000
     /* If translation is interrupted between the branch instruction and
      * the delay slot, record what type of branch it is so that we can
      * resume translation properly.  It might be possible to reduce
      * this from three bits to two.  */
-#define MIPS_HFLAG_BMASK_BASE  0x03800
+#define MIPS_HFLAG_BMASK_BASE  0x203800
 #define MIPS_HFLAG_B      0x00800 /* Unconditional branch               */
 #define MIPS_HFLAG_BC     0x01000 /* Conditional branch                 */
 #define MIPS_HFLAG_BL     0x01800 /* Likely branch                      */
 #define MIPS_HFLAG_BR     0x02000 /* branch to register (can't link TB) */
     /* Extra flags about the current pending branch.  */
-#define MIPS_HFLAG_BMASK_EXT 0x3C000
+#define MIPS_HFLAG_BMASK_EXT 0x7C000
 #define MIPS_HFLAG_B16    0x04000 /* branch instruction was 16 bits     */
 #define MIPS_HFLAG_BDS16  0x08000 /* branch requires 16-bit delay slot  */
 #define MIPS_HFLAG_BDS32  0x10000 /* branch requires 32-bit delay slot  */
-#define MIPS_HFLAG_BX     0x20000 /* branch exchanges execution mode    */
-#define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT | MIPS_HFLAG_CB)
+#define MIPS_HFLAG_BDS_STRICT  0x20000 /* Strict delay slot size */
+#define MIPS_HFLAG_BX     0x40000 /* branch exchanges execution mode    */
+#define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
     /* MIPS DSP resources access. */
-#define MIPS_HFLAG_DSP   0x40000  /* Enable access to MIPS DSP resources. */
-#define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
-
-#define MIPS_HFLAG_CB    0x100000  /* Compact branch */
-#define MIPS_HFLAG_SBRI  0x200000 /* SDBBP available in user-mode */
+#define MIPS_HFLAG_DSP   0x080000  /* Enable access to MIPS DSP resources. */
+#define MIPS_HFLAG_DSPR2 0x100000  /* Enable access to MIPS DSPR2 resources. */
+#define MIPS_HFLAG_FBNSLOT 0x200000 /* Forbidden slot                   */
+#define MIPS_HFLAG_SBRI  0x400000 /* SDBBP available in user-mode */
+#define MIPS_HFLAG_MSA   0x800000
+#define MIPS_HFLAG_FRE   0x1000000 /* FRE enabled */
+#define MIPS_HFLAG_HWRENA_ULR 0x2000000 /* ULR bit from HWREna is set. */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
-    target_ulong fslot;          /* Indicates forbidden slot */
-    uint32_t last_instr;           /* Needed for BadInstr  */
-    uint32_t last_br_instr;        /* Needed for BadInstrP */
 
     int SYNCI_Step; /* Address step size for SYNCI */
     int CCRes; /* Cycle count resolution/divisor */
     uint32_t CP0_Status_rw_bitmask; /* Read/write bits in CP0_Status */
     uint32_t CP0_TCStatus_rw_bitmask; /* Read/write bits in CP0_TCStatus */
     int insn_flags; /* Supported instruction set */
-
-    target_ulong tls_value; /* For usermode emulation */
 
     CPU_COMMON
 
@@ -660,7 +657,7 @@ void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 extern void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPUMIPSState *env);
 extern uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env);
 
-#define CPU_SAVE_VERSION 3
+#define CPU_SAVE_VERSION 5
 
 /* MMU modes definitions. We carefully match the indices with our
    hflags layout. */
@@ -818,12 +815,17 @@ hwaddr cpu_mips_translate_address (CPUMIPSState *env, target_ulong address,
 #endif
 target_ulong exception_resume_pc (CPUMIPSState *env);
 
+/* op_helper.c */
+extern unsigned int ieee_rm[];
+int ieee_ex_to_mips(CPUMIPSState *env, int xcpt);
+
 static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
 {
     *pc = env->active_tc.PC;
     *cs_base = 0;
-    *flags = env->hflags & (MIPS_HFLAG_TMASK | MIPS_HFLAG_BMASK);
+    *flags = env->hflags & (MIPS_HFLAG_TMASK | MIPS_HFLAG_BMASK |
+                            MIPS_HFLAG_HWRENA_ULR);
 }
 
 static inline int mips_vpe_active(CPUMIPSState *env)
@@ -863,8 +865,8 @@ static inline void compute_hflags(CPUMIPSState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_X | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
-                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA);
+                     MIPS_HFLAG_AWRAP | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
+                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA | MIPS_HFLAG_FRE);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -877,21 +879,22 @@ static inline void compute_hflags(CPUMIPSState *env)
         env->hflags |= MIPS_HFLAG_64;
     }
 
-    if ((((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
-         (env->CP0_Status & (1 << CP0St_UX))) ||
-        (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM) &&
-         (env->CP0_Status & (1 << CP0St_SX))) ||
-        (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_KM) &&
-         (env->CP0_Status & (1 << CP0St_KX)))) {
-        env->hflags |= MIPS_HFLAG_X;
+    if (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
+        !(env->CP0_Status & (1 << CP0St_UX))) {
+        env->hflags |= MIPS_HFLAG_AWRAP;
+    } else if (env->insn_flags & ISA_MIPS32R6) {
+        /* Address wrapping for Supervisor and Kernel is specified in R6 */
+        if ((((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM) &&
+             !(env->CP0_Status & (1 << CP0St_SX))) ||
+            (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_KM) &&
+             !(env->CP0_Status & (1 << CP0St_KX)))) {
+            env->hflags |= MIPS_HFLAG_AWRAP;
+        }
     }
 #endif
-
-    if (!(env->hflags & MIPS_HFLAG_KSU) ||
-        (!(env->insn_flags & ISA_MIPS32R6) &&
-         (env->CP0_Status & (1 << CP0St_CU0)))) {
-        /* R6: CU0 is no longer used to control user access to CP0.
-           Moreover, user never has access to CP0 resources. */
+    if (((env->CP0_Status & (1 << CP0St_CU0)) &&
+         !(env->insn_flags & ISA_MIPS32R6)) ||
+        !(env->hflags & MIPS_HFLAG_KSU)) {
         env->hflags |= MIPS_HFLAG_CP0;
     }
     if (env->CP0_Status & (1 << CP0St_CU1)) {
@@ -900,9 +903,8 @@ static inline void compute_hflags(CPUMIPSState *env)
     if (env->CP0_Status & (1 << CP0St_FR)) {
         env->hflags |= MIPS_HFLAG_F64;
     }
-    if (!(env->insn_flags & ISA_MIPS32R6) || // in preR6: SDBBP available
-        !(env->hflags & MIPS_HFLAG_KSU) || // in Kernel mode: SDBBP available
-        !(env->CP0_Config5 & (1 << CP0C5_SBRI))) { // otherwise: bit must be cleared
+    if (((env->hflags & MIPS_HFLAG_KSU) != MIPS_HFLAG_KM) &&
+        (env->CP0_Config5 & (1 << CP0C5_SBRI))) {
         env->hflags |= MIPS_HFLAG_SBRI;
     }
     if (env->insn_flags & ASE_DSPR2) {
@@ -942,6 +944,89 @@ static inline void compute_hflags(CPUMIPSState *env)
             env->hflags |= MIPS_HFLAG_MSA;
         }
     }
+    if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
+        if (env->CP0_Config5 & (1 << CP0C5_FRE)) {
+            env->hflags |= MIPS_HFLAG_FRE;
+        }
+    }
 }
+
+#if !defined(CONFIG_USER_ONLY)
+#include "exec/softmmu_exec.h"
+#endif /* !defined(CONFIG_USER_ONLY) */
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    return (type) insn##_raw(addr);                                     \
+}
+#else
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        return (type) cpu_##insn##_kernel(env, addr);                   \
+        break;                                                          \
+    case 1:                                                             \
+        return (type) cpu_##insn##_super(env, addr);                    \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        return (type) cpu_##insn##_user(env, addr);                     \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_LD(lbu, ldub, uint8_t)
+HELPER_LD(lw, ldl, int32_t)
+#ifdef TARGET_MIPS64
+HELPER_LD(ld, ldq, int64_t)
+#endif
+HELPER_LD(ld8, ldub, uint8_t)
+HELPER_LD(ld16, lduw, uint16_t)
+HELPER_LD(ld32, ldl, int32_t)
+HELPER_LD(ld64, ldq, int64_t)
+#undef HELPER_LD
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    insn##_raw(addr, val);                                              \
+}
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        cpu_##insn##_kernel(env, addr, val);                            \
+        break;                                                          \
+    case 1:                                                             \
+        cpu_##insn##_super(env, addr, val);                             \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        cpu_##insn##_user(env, addr, val);                              \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_ST(sb, stb, uint8_t)
+HELPER_ST(sw, stl, uint32_t)
+#ifdef TARGET_MIPS64
+HELPER_ST(sd, stq, uint64_t)
+#endif
+HELPER_ST(st8, stb, uint8_t)
+HELPER_ST(st16, stw, uint16_t)
+HELPER_ST(st32, stl, int32_t)
+HELPER_ST(st64, stq, int64_t)
+#undef HELPER_ST
 
 #endif /* !defined (__MIPS_CPU_H__) */

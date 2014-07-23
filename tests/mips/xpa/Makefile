@@ -1,7 +1,7 @@
 XPATEST_TOOLS ?= mips-sde-elf-
 XPATEST_QEMUBIN ?=
 
-CPU = mips32r5-generic-xpa
+CPU = P5600
 ELF = mips_program.elf
 #DBG_OPTS = -d in_asm,cpu -D qemu.log -singlestep
 CMD = qemu-system-mipsel $(DBG_OPTS) -kernel $(ELF) -cpu $(CPU) -nographic -no-reboot

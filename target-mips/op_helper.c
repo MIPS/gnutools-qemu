@@ -22,10 +22,6 @@
 
 #include "helper.h"
 
-#if !defined(CONFIG_USER_ONLY)
-#include "exec/softmmu_exec.h"
-#endif /* !defined(CONFIG_USER_ONLY) */
-
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
 #endif
@@ -71,62 +67,6 @@ void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
 {
     do_raise_exception(env, exception, 0);
 }
-
-#if defined(CONFIG_USER_ONLY)
-#define HELPER_LD(name, insn, type)                                     \
-static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
-{                                                                       \
-    return (type) insn##_raw(addr);                                     \
-}
-#else
-#define HELPER_LD(name, insn, type)                                     \
-static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
-{                                                                       \
-    switch (mem_idx)                                                    \
-    {                                                                   \
-    case 0: return (type) cpu_##insn##_kernel(env, addr); break;        \
-    case 1: return (type) cpu_##insn##_super(env, addr); break;         \
-    default:                                                            \
-    case 2: return (type) cpu_##insn##_user(env, addr); break;          \
-    }                                                                   \
-}
-#endif
-HELPER_LD(lbu, ldub, uint8_t)
-HELPER_LD(lw, ldl, int32_t)
-#ifdef TARGET_MIPS64
-HELPER_LD(ld, ldq, int64_t)
-#endif
-#undef HELPER_LD
-
-#if defined(CONFIG_USER_ONLY)
-#define HELPER_ST(name, insn, type)                                     \
-static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
-{                                                                       \
-    insn##_raw(addr, val);                                              \
-}
-#else
-#define HELPER_ST(name, insn, type)                                     \
-static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
-{                                                                       \
-    switch (mem_idx)                                                    \
-    {                                                                   \
-    case 0: cpu_##insn##_kernel(env, addr, val); break;                 \
-    case 1: cpu_##insn##_super(env, addr, val); break;                  \
-    default:                                                            \
-    case 2: cpu_##insn##_user(env, addr, val); break;                   \
-    }                                                                   \
-}
-#endif
-HELPER_ST(sb, stb, uint8_t)
-HELPER_ST(sw, stl, uint32_t)
-#ifdef TARGET_MIPS64
-HELPER_ST(sd, stq, uint64_t)
-#endif
-#undef HELPER_ST
 
 target_ulong helper_clo (target_ulong arg1)
 {
@@ -269,20 +209,27 @@ target_ulong helper_mulshiu(CPUMIPSState *env, target_ulong arg1,
                        (uint64_t)(uint32_t)arg2);
 }
 
+static inline target_ulong bitswap(target_ulong v)
+{
+    v = ((v >> 1) & (target_ulong)0x5555555555555555) |
+              ((v & (target_ulong)0x5555555555555555) << 1);
+    v = ((v >> 2) & (target_ulong)0x3333333333333333) |
+              ((v & (target_ulong)0x3333333333333333) << 2);
+    v = ((v >> 4) & (target_ulong)0x0F0F0F0F0F0F0F0F) |
+              ((v & (target_ulong)0x0F0F0F0F0F0F0F0F) << 4);
+    return v;
+}
+
+#ifdef TARGET_MIPS64
+target_ulong helper_dbitswap(target_ulong rt)
+{
+    return bitswap(rt);
+}
+#endif
+
 target_ulong helper_bitswap(target_ulong rt)
 {
-    target_ulong v = rt;
-#ifdef TARGET_MIPS64
-    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
-    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
-    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
-    return v;
-#else
-    v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
-    v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
-    v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
-    return v;
-#endif
+    return (int32_t)bitswap(rt);
 }
 
 #ifndef CONFIG_USER_ONLY
@@ -982,7 +929,6 @@ void helper_mtc0_index(CPUMIPSState *env, target_ulong arg1)
     uint32_t tlb_index = arg1 & 0x7fffffff;
     if (tlb_index < env->tlb->nb_tlb) {
         if (env->insn_flags & ISA_MIPS32R6) {
-            // In R6 architecture CP0_Index.P field can be set to 1
             index_p |= arg1 & 0x80000000;
         }
         env->CP0_Index = index_p | tlb_index;
@@ -1115,41 +1061,34 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static void mtc0_entrylo_common(CPUMIPSState *env, int isR6, uint64_t * CP0_EntryLo, target_ulong arg1,
-                                target_ulong rixi, uint32_t write_rixi_lshift) {
+static inline uint32_t get_entrylo_mask(CPUMIPSState *env)
+{
     uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
-    uint32_t mask;
-    target_ulong newval;
-
-    mask = (1 << (30 - (36 - pabits))) - 1;
-    newval = (arg1 & mask) | (rixi << write_rixi_lshift);
-
-    if (isR6) {
-        if (((arg1 >> CP0EnLo_C) & 0x6) != 0x2) {
-            // Leave old C field value if new value not allowed
-            newval = (newval & ~0x00000038) | (*CP0_EntryLo & 0x00000038);
-        }
+#ifndef TARGET_MIPS64
+    if (env->CP0_Config3 & (1 << CP0C3_LPA) &&
+        ((env->CP0_PageGrain & (1 << CP0PG_ELPA)) == 0) &&
+        (env->PABITS > 32)) {
+        pabits = 32;
     }
-    *CP0_EntryLo = newval;
+#endif
+    return ((1 << (30 - (36 - pabits))) - 1);
 }
 
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
-    target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
-    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
-                        &env->CP0_EntryLo0, arg1, rxie, CP0EnLo_RI - 31);
+    target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo0 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
 void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
-    /* 1k pages not implemented */
-    uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
-    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
-                        &env->CP0_EntryLo0, arg1, rxie, 0);
+    uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo0 = (arg1 & mask) | rxi;
 }
 #endif
 
@@ -1401,19 +1340,17 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
-    target_ulong rxie = arg1 & (env->CP0_PageGrain & (3 << CP0PG_XIE));
-    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
-                        &env->CP0_EntryLo1, arg1, rxie, CP0EnLo_RI - 31);
+    target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo1 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
 #if defined(TARGET_MIPS64)
 void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
-    /* 1k pages not implemented */
-    uint64_t rxie = arg1 & (((uint64_t)env->CP0_PageGrain & (3 << CP0PG_XIE)) << 32);
-    mtc0_entrylo_common(env, env->insn_flags & ISA_MIPS32R6,
-                        &env->CP0_EntryLo1, arg1, rxie, 0);
+    uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
+    uint32_t mask = get_entrylo_mask(env);
+    env->CP0_EntryLo1 = (arg1 & mask) | rxi;
 }
 #endif
 
@@ -1425,8 +1362,7 @@ void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 {
     uint64_t mask = arg1 >> (TARGET_PAGE_BITS + 1);
-    /* Write new value only if valid */
-    if ((arg1 == (target_ulong)-1) ||
+    if (!(env->insn_flags & ISA_MIPS32R6) || (arg1 == ~0) ||
         (mask == 0x0000 || mask == 0x0003 || mask == 0x000F ||
          mask == 0x003F || mask == 0x00FF || mask == 0x03FF ||
          mask == 0x0FFF || mask == 0x3FFF || mask == 0xFFFF)) {
@@ -1467,8 +1403,12 @@ void helper_mtc0_pwsize (CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
 {
-    if (arg1 < env->tlb->nb_tlb) {
-        env->CP0_Wired = arg1;
+    if (env->insn_flags & ISA_MIPS32R6) {
+        if (arg1 < env->tlb->nb_tlb) {
+            env->CP0_Wired = arg1;
+        }
+    } else {
+        env->CP0_Wired = arg1 % env->tlb->nb_tlb;
     }
 }
 
@@ -1514,7 +1454,13 @@ void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
     uint32_t mask = 0x0000000F;
 
     if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
-        mask |= 0x20000000;
+        mask |= (1 << 29);
+
+        if (arg1 & (1 << 29)) {
+            env->hflags |= MIPS_HFLAG_HWRENA_ULR;
+        } else {
+            env->hflags &= ~MIPS_HFLAG_HWRENA_ULR;
+        }
     }
 
     env->CP0_HWREna = arg1 & mask;
@@ -1528,19 +1474,14 @@ void helper_mtc0_count(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_entryhi(CPUMIPSState *env, target_ulong arg1)
 {
     target_ulong old, val, mask;
-    mask = ((TARGET_PAGE_MASK << 1) | 0xFF);
-    if (env->insn_flags & INSN_TLBINV) {
+    mask = (TARGET_PAGE_MASK << 1) | 0xFF;
+    /* 1k pages not implemented */
+    if (((env->CP0_Config4 >> CP0C4_IE) & 0x3) >= 2) {
         mask |= 1 << CP0EnHi_EHINV;
     }
-
-    /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
-    if (((env->CP0_Config4 >> CP0C4_IE) & 0x3) >= 2) {
-        val |= arg1 & (1 << CP0EntryHiEHINV);
-    }
 #if defined(TARGET_MIPS64)
-    if ((arg1 >> 62) == 0x2) {
-        mask &= ~(0x3ull << 62); // reserved value
+    if ((env->insn_flags & ISA_MIPS32R6) && extract64(arg1, 62, 2) == 0x2) {
+        mask &= ~(0x3ull << 62);
     }
     mask &= env->SEGMask;
 #endif
@@ -1574,13 +1515,14 @@ void helper_mtc0_status(CPUMIPSState *env, target_ulong arg1)
     MIPSCPU *cpu = mips_env_get_cpu(env);
     uint32_t val, old;
     uint32_t mask = env->CP0_Status_rw_bitmask;
-    if (((env->CP0_Status >> CP0St_KSU) & 0x3) == 3) {
-        // leave the field unmodified on illegal value write
-        mask &= ~(3 << CP0St_KSU);
+
+    if (env->insn_flags & ISA_MIPS32R6) {
+        if (extract32(env->CP0_Status, CP0St_KSU, 2) == 0x3) {
+            mask &= ~(3 << CP0St_KSU);
+        }
+        mask &= ~(0x00180000 & arg1);
     }
 
-    // CP0St_SR and CP0St_NMI: ignore a write of 1
-    mask &= ~(0x00180000 & arg1);
     val = arg1 & mask;
     old = env->CP0_Status;
     env->CP0_Status = (env->CP0_Status & ~mask) | val;
@@ -1618,7 +1560,7 @@ void helper_mttc0_status(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 {
     int vs = arg1 & 0x000003e0;
-    if (vs & (vs - 1)) {
+    if (env->insn_flags & ISA_MIPS32R6 && (vs & (vs - 1))) {
         vs = env->CP0_IntCtl & 0x000003e0;
     }
     /* vectored interrupts not implemented, no performance counters. */
@@ -1627,19 +1569,20 @@ void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_srsctl(CPUMIPSState *env, target_ulong arg1)
 {
-    uint32_t srs_hss = (env->CP0_SRSCtl >> CP0SRSCtl_HSS) & 0xf;
-    uint32_t arg_ess = (arg1 >> CP0SRSCtl_ESS) & 0xf;
-    uint32_t arg_pss = (arg1 >> CP0SRSCtl_PSS) & 0xf;
     uint32_t mask = 0;
-
-    if (arg_ess <= srs_hss) {
-        mask |= 0xf << CP0SRSCtl_ESS;
+    if (env->insn_flags & ISA_MIPS32R6) {
+        uint32_t srs_hss = (env->CP0_SRSCtl >> CP0SRSCtl_HSS) & 0xf;
+        uint32_t arg_ess = (arg1 >> CP0SRSCtl_ESS) & 0xf;
+        uint32_t arg_pss = (arg1 >> CP0SRSCtl_PSS) & 0xf;
+        if (!(env->insn_flags & ISA_MIPS32R6) || arg_ess <= srs_hss) {
+            mask |= 0xf << CP0SRSCtl_ESS;
+        }
+        if (arg_pss <= srs_hss) {
+            mask |= 0xf << CP0SRSCtl_PSS;
+        }
+    } else {
+        mask = (0xf << CP0SRSCtl_ESS) | (0xf << CP0SRSCtl_PSS);
     }
-
-    if (arg_pss <= srs_hss) {
-        mask |= 0xf << CP0SRSCtl_PSS;
-    }
-
     env->CP0_SRSCtl = (env->CP0_SRSCtl & ~mask) | (arg1 & mask);
 }
 
@@ -1652,8 +1595,10 @@ static void mtc0_cause(CPUMIPSState *cpu, target_ulong arg1)
     if (cpu->insn_flags & ISA_MIPS32R2) {
         mask |= 1 << CP0Ca_DC;
     }
+    if (cpu->insn_flags & ISA_MIPS32R6) {
+        mask &= ~((1 << CP0Ca_WP) & arg1);
+    }
 
-    mask &= ~((1 << CP0Ca_WP) & arg1); // CP0Ca_WP: ignore a write of 1
     cpu->CP0_Cause = (cpu->CP0_Cause & ~mask) | (arg1 & mask);
 
     if ((old ^ cpu->CP0_Cause) & (1 << CP0Ca_DC)) {
@@ -1735,21 +1680,7 @@ target_ulong helper_mftc0_configx(CPUMIPSState *env, target_ulong idx)
 
 void helper_mtc0_config0(CPUMIPSState *env, target_ulong arg1)
 {
-    uint32_t mask = 0;
-    uint32_t is_preR6 = !(env->insn_flags & ISA_MIPS32R6);
-    if (is_preR6 || (arg1 & 0x6) == 0x2) { // Allowed CCA: 2 or 3
-        mask |= 0x00000007; // K0
-    }
-    if (((env->CP0_Config0 >> CP0C0_MT) & 0x7) == 3) {
-        // Fixed Mapping MMU: K32 and KU fields available
-        if (is_preR6 || (((arg1 >> CP0C0_K23) & 0x6) == 0x2)) {
-            mask |= (0x7 << CP0C0_K23);
-        }
-        if (is_preR6 || ((arg1 >> CP0C0_KU) & 0x6) == 0x2) {
-            mask |= (0x7 << CP0C0_KU);
-        }
-    }
-    env->CP0_Config0 = (env->CP0_Config0 & ~mask) | (arg1 & mask);
+    env->CP0_Config0 = (env->CP0_Config0 & 0x81FFFFF8) | (arg1 & 0x00000007);
 }
 
 void helper_mtc0_config2(CPUMIPSState *env, target_ulong arg1)
@@ -1768,6 +1699,7 @@ void helper_mtc0_config5(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_Config5 = (env->CP0_Config5 & (~env->CP0_Config5_rw_bitmask)) |
                        (arg1 & env->CP0_Config5_rw_bitmask);
+    compute_hflags(env);
 }
 
 void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
@@ -1876,22 +1808,6 @@ void helper_mtc0_taghi(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_datahi(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_DataHi = arg1; /* XXX */
-}
-
-void helper_mtc0_kscratch (CPUMIPSState *env, target_ulong arg1, uint32_t sel)
-{
-    if ((1 << sel) & (0xff & (env->CP0_Config4 >> CP0C4_KScrExist))) {
-        env->CP0_KScratch[sel-2] = arg1;
-    }
-}
-
-target_ulong helper_mfc0_kscratch (CPUMIPSState *env, uint32_t sel)
-{
-    if ((1 << sel) & (0xff & (env->CP0_Config4 >> CP0C4_KScrExist))) {
-        return env->CP0_KScratch[sel-2];
-    } else {
-        return 0;
-    }
 }
 
 /* MIPS MT functions */
@@ -2160,13 +2076,12 @@ void r4k_helper_tlbinv(CPUMIPSState *env)
 {
     int idx;
     r4k_tlb_t *tlb;
-    uint8_t ASID;
-    ASID = env->CP0_EntryHi & 0xFF;
+    uint8_t ASID = env->CP0_EntryHi & 0xFF;
 
     for (idx = 0; idx < env->tlb->nb_tlb; idx++) {
         tlb = &env->tlb->mmu.r4k.tlb[idx];
-        if (!tlb->G && (tlb->ASID == ASID) && !tlb->EHINV) {
-            env->tlb->mmu.r4k.tlb[idx].EHINV = 1;
+        if (!tlb->G && tlb->ASID == ASID) {
+            tlb->EHINV = 1;
         }
     }
     cpu_mips_tlb_flush(env, 1);
@@ -2302,17 +2217,17 @@ void r4k_helper_tlbr(CPUMIPSState *env)
         env->CP0_PageMask = tlb->PageMask;
 #if defined(TARGET_MIPS64)
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) | 
-                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
+                        ((target_ulong)tlb->RI0 << CP0EnLo_RI) |
+                        ((target_ulong)tlb->XI0 << CP0EnLo_XI) |
                         (tlb->C0 << 3) | (tlb->PFN[0] << 6);
         env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) | 
+                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
                         ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
                         (tlb->C1 << 3) | (tlb->PFN[1] << 6);
 #else
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
-                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
+                        ((target_ulong)tlb->RI0 << CP0EnLo_RI) |
+                        ((target_ulong)tlb->XI0 << CP0EnLo_XI) |
                         (tlb->C0 << 3) | 
                         ((tlb->PFN[0] & ((1 << 24) - 1)) << 6) | /* PFN */
                         ((tlb->PFN[0] >> 24) << 32); /* PFNX */
@@ -2493,18 +2408,6 @@ target_ulong helper_rdhwr_ccres(CPUMIPSState *env)
     return 0;
 }
 
-target_ulong helper_rdhwr_ulr(CPUMIPSState *env)
-{
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 29))) {
-        return env->CP0_UserLocal;
-    } else {
-        helper_raise_exception(env, EXCP_RI);
-    }
-
-    return 0;
-}
-
 void helper_pmon(CPUMIPSState *env, int function)
 {
     function /= 2;
@@ -2543,7 +2446,7 @@ void helper_wait(CPUMIPSState *env)
 #if !defined(CONFIG_USER_ONLY)
 
 static void QEMU_NORETURN do_unaligned_access(CPUMIPSState *env,
-                                              target_ulong addr, int is_write,
+                                              target_ulong addr, int access_type,
                                               int is_user, uintptr_t retaddr);
 
 #define MMUSUFFIX _mmu
@@ -2562,10 +2465,22 @@ static void QEMU_NORETURN do_unaligned_access(CPUMIPSState *env,
 #include "exec/softmmu_template.h"
 
 static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
-                                int is_write, int is_user, uintptr_t retaddr)
+                                int access_type, int is_user, uintptr_t retaddr)
 {
+    int error_code = 0;
+    int excp;
     env->CP0_BadVAddr = addr;
-    do_raise_exception(env, (is_write == 1) ? EXCP_AdES : EXCP_AdEL, retaddr);
+
+    if (access_type == MMU_DATA_STORE) {
+        excp = EXCP_AdES;
+    } else {
+        excp = EXCP_AdEL;
+        if (access_type == MMU_INST_FETCH) {
+            error_code |= EXCP_INST_NOTAVAIL;
+        }
+    }
+
+    do_raise_exception_err(env, excp, error_code, retaddr);
 }
 
 void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
@@ -2616,7 +2531,7 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
 #define FLOAT_SNAN64 (float64_default_nan ^ 0x0008000000000020ULL) /* 0x7ff0000000000020 */
 
 /* convert MIPS rounding mode in FCR31 to IEEE library */
-static unsigned int ieee_rm[] = {
+unsigned int ieee_rm[] = {
     float_round_nearest_even,
     float_round_to_zero,
     float_round_up,
@@ -2655,6 +2570,16 @@ target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
             if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
                 arg1 = (int32_t)
                        ((env->CP0_Status & (1  << CP0St_FR)) >> CP0St_FR);
+            } else {
+                helper_raise_exception(env, EXCP_RI);
+            }
+        }
+        break;
+    case 5:
+        /* FRE support - read Config5.FRE bit */
+        if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
+            if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+                arg1 = (env->CP0_Config5 >> CP0C5_FRE) & 1;
             } else {
                 helper_raise_exception(env, EXCP_RI);
             }
@@ -2704,8 +2629,32 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
             helper_raise_exception(env, EXCP_RI);
         }
         break;
+    case 5:
+        /* FRE Support - clear Config5.FRE bit */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_FREP)) && (rt == 0))) {
+            return;
+        }
+        if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+            env->CP0_Config5 &= ~(1 << CP0C5_FRE);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(env, EXCP_RI);
+        }
+        break;
+    case 6:
+        /* FRE support - set Config5.FRE bit */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_FREP)) && (rt == 0))) {
+            return;
+        }
+        if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+            env->CP0_Config5 |= (1 << CP0C5_FRE);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(env, EXCP_RI);
+        }
+        break;
     case 25:
-        if ((env->insn_flags & ISA_MIPS32R6) || (arg1 & 0xffffff00)) {
+        if (env->insn_flags & ISA_MIPS32R6 || arg1 & 0xffffff00) {
             return;
         }
         env->active_fpu.fcr31 = (env->active_fpu.fcr31 & 0x017fffff) | ((arg1 & 0xfe) << 24) |
@@ -2723,13 +2672,15 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        {
-            uint32_t ronly_mask = 0x007c0000;
+        if (env->insn_flags & ISA_MIPS32R5) {
+            uint32_t mask = 0x007c0000; /* TODO: set mask in cpu config */
             if (env->insn_flags & ISA_MIPS32R6) {
-                ronly_mask |= 0xfe800000;
+                mask |= 0xfe800000; /* FCC read-only */
             }
-            env->active_fpu.fcr31 = (arg1 & ~ronly_mask) | 
-                     (env->active_fpu.fcr31 & ronly_mask);
+            env->active_fpu.fcr31 = (arg1 & ~mask) |
+                (env->active_fpu.fcr31 & mask);
+        } else if (!(arg1 & 0x007c0000)) {
+            env->active_fpu.fcr31 = arg1;
         }
         break;
     default:
@@ -2744,7 +2695,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         do_raise_exception(env, EXCP_FPE, GETPC());
 }
 
-static inline int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
+int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
 {
     int ret = 0;
     int flushToZero = env->active_fpu.fcr31 & (1 << 24);
@@ -2765,26 +2716,26 @@ static inline int ieee_ex_to_mips(CPUMIPSState *env, int xcpt)
             ret |= FP_INEXACT;
         }
 
-        if (flushToZero) {
-            // Alternate Flush to Zero Underflow Handling
-            if (xcpt & float_flag_output_denormal) {
-               /* Flushing of tiny non-zero results causes Inexact and Underflow
-                  Exceptions to be signaled. */
-                ret |= FP_INEXACT;
-                ret |= FP_UNDERFLOW;
-            } else if (xcpt & float_flag_input_denormal) {
-                /* Flushing of subnormal input operands in all instructions
-                   except comparisons causes Inexact Exception to be signaled. */
-                ret |= FP_INEXACT;
-            }
-        } else {
-            // Underflow handling
-            if (xcpt & float_flag_output_denormal &&
-                (GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW)) {
-                /* When an underflow trap is enabled (through the FCSR Enable
-                   field bit), underflow is signaled when tininess is
-                   detected regardless of loss of accuracy */
-                ret |= FP_UNDERFLOW;
+        if (env->active_fpu.fcr0 & (1 << FCR0_Has2008)) {
+            if (flushToZero) {
+                if (xcpt & float_flag_output_denormal) {
+                    /* Flushing of tiny non-zero results causes Inexact and Underflow
+                       Exceptions to be signaled. */
+                    ret |= FP_INEXACT;
+                    ret |= FP_UNDERFLOW;
+                } else if (xcpt & float_flag_input_denormal) {
+                    /* Flushing of subnormal input operands in all instructions
+                       except comparisons causes Inexact Exception to be signaled. */
+                    ret |= FP_INEXACT;
+                }
+            } else {
+                if ((xcpt & float_flag_output_denormal) &&
+                    ((GET_FP_ENABLE(env->active_fpu.fcr31) & FP_UNDERFLOW))) {
+                    /* When an underflow trap is enabled (through the FCSR Enable
+                       field bit), underflow is signaled when tininess is
+                       detected regardless of loss of accuracy */
+                    ret |= FP_UNDERFLOW;
+                }
             }
         }
     }
@@ -3287,200 +3238,109 @@ FLOAT_UNOP(abs)
 FLOAT_UNOP(chs)
 #undef FLOAT_UNOP
 
-uint32_t helper_float_maddf_s(CPUMIPSState *env, uint32_t fs, uint32_t ft, uint32_t fd)
-{
-    uint32_t fdret;
-
-    fdret = float32_muladd(fs, ft, fd, 0, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
+#define FLOAT_FMADDSUB(name, bits, muladd_arg)                          \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
+                                          uint ## bits ## _t fs,        \
+                                          uint ## bits ## _t ft,        \
+                                          uint ## bits ## _t fd)        \
+{                                                                       \
+    uint ## bits ## _t fdret;                                           \
+                                                                        \
+    fdret = float ## bits ## _muladd(fs, ft, fd, muladd_arg,            \
+                                     &env->active_fpu.fp_status);       \
+    update_fcr31(env, GETPC());                                         \
+    return fdret;                                                       \
 }
 
-uint64_t helper_float_maddf_d(CPUMIPSState *env, uint64_t fs, uint64_t ft, uint64_t fd)
-{
-    uint64_t fdret;
+FLOAT_FMADDSUB(maddf_s, 32, 0)
+FLOAT_FMADDSUB(maddf_d, 64, 0)
+FLOAT_FMADDSUB(msubf_s, 32, float_muladd_negate_product)
+FLOAT_FMADDSUB(msubf_d, 64, float_muladd_negate_product)
+#undef FLOAT_FMADDSUB
 
-    fdret = float64_muladd(fs, ft, fd, 0, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
+#define FLOAT_MINMAX(name, bits, minmaxfunc)                            \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
+                                          uint ## bits ## _t fs,        \
+                                          uint ## bits ## _t ft)        \
+{                                                                       \
+    uint ## bits ## _t fdret;                                           \
+                                                                        \
+    fdret = float ## bits ## _ ## minmaxfunc(fs, ft,                    \
+                                           &env->active_fpu.fp_status); \
+    update_fcr31(env, GETPC());                                         \
+    return fdret;                                                       \
 }
 
-uint32_t helper_float_msubf_s(CPUMIPSState *env, uint32_t fs, uint32_t ft, uint32_t fd)
-{
-    uint32_t fdret;
+FLOAT_MINMAX(max_s, 32, maxnum)
+FLOAT_MINMAX(max_d, 64, maxnum)
+FLOAT_MINMAX(maxa_s, 32, maxnummag)
+FLOAT_MINMAX(maxa_d, 64, maxnummag)
 
-    fdret = float32_muladd(fs, ft, fd, float_muladd_negate_product, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
+FLOAT_MINMAX(min_s, 32, minnum)
+FLOAT_MINMAX(min_d, 64, minnum)
+FLOAT_MINMAX(mina_s, 32, minnummag)
+FLOAT_MINMAX(mina_d, 64, minnummag)
+#undef FLOAT_MINMAX
+
+#define FLOAT_RINT(name, bits)                                              \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,                \
+                                          uint ## bits ## _t fs)            \
+{                                                                           \
+    uint ## bits ## _t fdret;                                               \
+                                                                            \
+    fdret = float ## bits ## _round_to_int(fs, &env->active_fpu.fp_status); \
+    update_fcr31(env, GETPC());                                             \
+    return fdret;                                                           \
 }
 
-uint64_t helper_float_msubf_d(CPUMIPSState *env, uint64_t fs, uint64_t ft, uint64_t fd)
-{
-    uint64_t fdret;
-
-    fdret = float64_muladd(fs, ft, fd, float_muladd_negate_product, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint32_t helper_float_max_s(CPUMIPSState *env, uint32_t fs, uint32_t ft)
-{
-    uint32_t fdret;
-
-    fdret = float32_maxnum(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint32_t helper_float_maxa_s(CPUMIPSState *env, uint32_t fs, uint32_t ft)
-{
-    uint32_t fdret;
-    
-    fdret = float32_maxnummag(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    
-    return fdret;
-}
-
-uint64_t helper_float_max_d(CPUMIPSState *env, uint64_t fs, uint64_t ft)
-{
-    uint64_t fdret;
-
-    fdret = float64_maxnum(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint64_t helper_float_maxa_d(CPUMIPSState *env, uint64_t fs, uint64_t ft)
-{
-    uint64_t fdret;
-
-    fdret = float64_maxnummag(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint32_t helper_float_min_s(CPUMIPSState *env, uint32_t fs, uint32_t ft)
-{
-    uint32_t fdret;
-
-    fdret = float32_minnum(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint32_t helper_float_mina_s(CPUMIPSState *env, uint32_t fs, uint32_t ft)
-{
-    uint32_t fdret;
-
-    fdret = float32_minnummag(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-
-    return fdret;
-}
-
-uint64_t helper_float_min_d(CPUMIPSState *env, uint64_t fs, uint64_t ft)
-{
-    uint64_t fdret;
-
-    fdret = float64_minnum(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
-
-uint64_t helper_float_mina_d(CPUMIPSState *env, uint64_t fs, uint64_t ft)
-{
-    uint64_t fdret;
-
-    fdret = float64_minnummag(fs, ft, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fdret;
-}
+FLOAT_RINT(rint_s, 32)
+FLOAT_RINT(rint_d, 64)
+#undef FLOAT_RINT
 
 #define FLOAT_CLASS_SIGNALING_NAN      0x001
 #define FLOAT_CLASS_QUIET_NAN          0x002
-
 #define FLOAT_CLASS_NEGATIVE_INFINITY  0x004
 #define FLOAT_CLASS_NEGATIVE_NORMAL    0x008
 #define FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
 #define FLOAT_CLASS_NEGATIVE_ZERO      0x020
-
 #define FLOAT_CLASS_POSITIVE_INFINITY  0x040
 #define FLOAT_CLASS_POSITIVE_NORMAL    0x080
 #define FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
 #define FLOAT_CLASS_POSITIVE_ZERO      0x200
 
-#define FLOAT_CLASS(ARG, BITS)                              \
-    do {                                                        \
-        int mask;                                               \
-        int snan, qnan, inf, neg, zero, dnmz;                   \
-                                                                \
-        snan = float ## BITS ## _is_signaling_nan(ARG);         \
-        qnan = float ## BITS ## _is_quiet_nan(ARG);             \
-        inf  = float ## BITS ## _is_infinity(ARG);              \
-        neg  = float ## BITS ## _is_neg(ARG);                   \
-        zero = float ## BITS ## _is_zero(ARG);                  \
-        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);      \
-                                                                \
-        mask = 0;                                               \
-        if (snan) {                                             \
-            mask |= FLOAT_CLASS_SIGNALING_NAN;}             \
-        else if (qnan) {                                        \
-            mask |= FLOAT_CLASS_QUIET_NAN;                  \
-        } else if (neg) {                                       \
-            if (inf) {                                          \
-                mask |= FLOAT_CLASS_NEGATIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= FLOAT_CLASS_NEGATIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= FLOAT_CLASS_NEGATIVE_SUBNORMAL;     \
-            }                                                   \
-            else {                                              \
-                mask |= FLOAT_CLASS_NEGATIVE_NORMAL;        \
-            }                                                   \
-        } else {                                                \
-            if (inf) {                                          \
-                mask |= FLOAT_CLASS_POSITIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= FLOAT_CLASS_POSITIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= FLOAT_CLASS_POSITIVE_SUBNORMAL;     \
-            } else {                                            \
-                mask |= FLOAT_CLASS_POSITIVE_NORMAL;        \
-            }                                                   \
-        }                                                       \
-                                                                \
-        return mask;                                            \
-    } while (0)
-
-uint32_t helper_float_class_s(uint32_t arg)
-{
-    FLOAT_CLASS(arg, 32);
+#define FLOAT_CLASS(name, bits)                                      \
+uint ## bits ## _t helper_float_ ## name (uint ## bits ## _t arg)    \
+{                                                                    \
+    if (float ## bits ## _is_signaling_nan(arg)) {                   \
+        return FLOAT_CLASS_SIGNALING_NAN;                            \
+    } else if (float ## bits ## _is_quiet_nan(arg)) {                \
+        return FLOAT_CLASS_QUIET_NAN;                                \
+    } else if (float ## bits ## _is_neg(arg)) {                      \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return FLOAT_CLASS_NEGATIVE_INFINITY;                    \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return FLOAT_CLASS_NEGATIVE_ZERO;                        \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return FLOAT_CLASS_NEGATIVE_SUBNORMAL;                   \
+        } else {                                                     \
+            return FLOAT_CLASS_NEGATIVE_NORMAL;                      \
+        }                                                            \
+    } else {                                                         \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return FLOAT_CLASS_POSITIVE_INFINITY;                    \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return FLOAT_CLASS_POSITIVE_ZERO;                        \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return FLOAT_CLASS_POSITIVE_SUBNORMAL;                   \
+        } else {                                                     \
+            return FLOAT_CLASS_POSITIVE_NORMAL;                      \
+        }                                                            \
+    }                                                                \
 }
 
-uint64_t helper_float_class_d(uint64_t arg)
-{
-    FLOAT_CLASS(arg, 64);
-}
-
-uint32_t helper_float_rint_s(CPUMIPSState *env, uint32_t fs)
-{
-    uint32_t fd;
-
-    fd = float32_round_to_int(fs, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fd;
-}
-
-uint64_t helper_float_rint_d(CPUMIPSState *env, uint64_t fs)
-{
-    uint64_t fd; 
-
-    fd = float64_round_to_int(fs, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
-    return fd;
-}
-
+FLOAT_CLASS(class_s, 32)
+FLOAT_CLASS(class_d, 64)
+#undef FLOAT_CLASS
 
 /* MIPS specific unary operations */
 uint64_t helper_float_recip_d(CPUMIPSState *env, uint64_t fdt0)
@@ -3972,8 +3832,7 @@ uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState *env, uint64_t fdt0,             \
     update_fcr31(env, GETPC());                                               \
     if (c) {                                                                  \
         return -1;                                                            \
-    }                                                                         \
-    else {                                                                    \
+    } else {                                                                  \
         return 0;                                                             \
     }                                                                         \
 }
@@ -3981,29 +3840,43 @@ uint64_t helper_r6_cmp_d_ ## op(CPUMIPSState *env, uint64_t fdt0,             \
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float64_unordered_quiet() is still called. */
 FOP_CONDN_D(af,  (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status), 0))
-FOP_CONDN_D(un,  float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status))
-FOP_CONDN_D(eq,  float64_eq_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(ueq, float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_eq_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(lt,  float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(ult, float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(le,  float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(ule, float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status))
+FOP_CONDN_D(un,  (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status)))
+FOP_CONDN_D(eq,  (float64_eq_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(ueq, (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                  || float64_eq_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(lt,  (float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(ult, (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                  || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(le,  (float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(ule, (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                  || float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float64_unordered() is still called. */
 FOP_CONDN_D(saf,  (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status), 0))
-FOP_CONDN_D(sun,  float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status))
-FOP_CONDN_D(seq,  float64_eq(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(sueq, float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status) || float64_eq(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(slt,  float64_lt(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(sult, float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(sle,  float64_le(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(sule, float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status) || float64_le(fdt0, fdt1, &env->active_fpu.fp_status))
-FOP_CONDN_D(or,   (float64_le_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
-FOP_CONDN_D(une,  (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
-FOP_CONDN_D(ne,   (float64_lt_quiet(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
-FOP_CONDN_D(sor,  (float64_le(fdt1, fdt0, &env->active_fpu.fp_status) || float64_le(fdt0, fdt1, &env->active_fpu.fp_status)))
-FOP_CONDN_D(sune, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
-FOP_CONDN_D(sne,  (float64_lt(fdt1, fdt0, &env->active_fpu.fp_status) || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sun,  (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)))
+FOP_CONDN_D(seq,  (float64_eq(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sueq, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_eq(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(slt,  (float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sult, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sle,  (float64_le(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sule, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_le(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(or,   (float64_le_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_le_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(une,  (float64_unordered_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(ne,   (float64_lt_quiet(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt_quiet(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sor,  (float64_le(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_le(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sune, (float64_unordered(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
+FOP_CONDN_D(sne,  (float64_lt(fdt1, fdt0, &env->active_fpu.fp_status)
+                   || float64_lt(fdt0, fdt1, &env->active_fpu.fp_status)))
 
 #define FOP_CONDN_S(op, cond)                                                 \
 uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,             \
@@ -4018,8 +3891,7 @@ uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,             \
     update_fcr31(env, GETPC());                                               \
     if (c) {                                                                  \
         return -1;                                                            \
-    }                                                                         \
-    else {                                                                    \
+    } else {                                                                  \
         return 0;                                                             \
     }                                                                         \
 }
@@ -4027,4151 +3899,40 @@ uint32_t helper_r6_cmp_s_ ## op(CPUMIPSState *env, uint32_t fst0,             \
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float32_unordered_quiet() is still called. */
 FOP_CONDN_S(af,   (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status), 0))
-FOP_CONDN_S(un,   float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status))
-FOP_CONDN_S(eq,   float32_eq_quiet(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(ueq,  float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_eq_quiet(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(lt,   float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(ult,  float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(le,   float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(ule,  float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status))
+FOP_CONDN_S(un,   (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)))
+FOP_CONDN_S(eq,   (float32_eq_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(ueq,  (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_eq_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(lt,   (float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(ult,  (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(le,   (float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(ule,  (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status)))
 /* NOTE: the comma operator will make "cond" to eval to false,
  * but float32_unordered() is still called. */
 FOP_CONDN_S(saf,  (float32_unordered(fst1, fst0, &env->active_fpu.fp_status), 0))
-FOP_CONDN_S(sun,  float32_unordered(fst1, fst0, &env->active_fpu.fp_status))
-FOP_CONDN_S(seq,  float32_eq(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(sueq, float32_unordered(fst1, fst0, &env->active_fpu.fp_status) || float32_eq(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(slt,  float32_lt(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(sult, float32_unordered(fst1, fst0, &env->active_fpu.fp_status) || float32_lt(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(sle,  float32_le(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(sule, float32_unordered(fst1, fst0, &env->active_fpu.fp_status) || float32_le(fst0, fst1, &env->active_fpu.fp_status))
-FOP_CONDN_S(or,   (float32_le_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status)))
-FOP_CONDN_S(une,  (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_lt_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
-FOP_CONDN_S(ne,   (float32_lt_quiet(fst1, fst0, &env->active_fpu.fp_status) || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
-FOP_CONDN_S(sor,  (float32_le(fst1, fst0, &env->active_fpu.fp_status) || float32_le(fst0, fst1, &env->active_fpu.fp_status)))
-FOP_CONDN_S(sune, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status) || float32_lt(fst1, fst0, &env->active_fpu.fp_status) || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
-FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status) || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
-
-/*
- *  MSA
- */
-
-#define DEBUG_MSACSR 0
-
-/* Data format and vector length unpacking */
-#define WRLEN(wrlen_df) (wrlen_df >> 2)
-#define DF(wrlen_df) (wrlen_df & 0x03)
-
-#define DF_BYTE   0
-#define DF_HALF   1
-#define DF_WORD   2
-#define DF_DOUBLE 3
-
-#define DF_FLOAT_WORD   0
-#define DF_FLOAT_DOUBLE 1
-
-static void msa_check_index(CPUMIPSState *env,
-        uint32_t df, uint32_t n, uint32_t wrlen) {
-    switch (df) {
-    case DF_BYTE: /* b */
-        if (n > wrlen / 8 - 1) {
-            helper_raise_exception(env, EXCP_RI);
-        }
-        break;
-    case DF_HALF: /* h */
-        if (n > wrlen / 16 - 1) {
-            helper_raise_exception(env, EXCP_RI);
-        }
-        break;
-    case DF_WORD: /* w */
-        if (n > wrlen / 32 - 1) {
-            helper_raise_exception(env, EXCP_RI);
-        }
-        break;
-    case DF_DOUBLE: /* d */
-        if (n > wrlen / 64 - 1) {
-            helper_raise_exception(env, EXCP_RI);
-        }
-        break;
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-
-/* Data format min and max values */
-#define DF_BITS(df) (1 << ((df) + 3))
-
-#define DF_MAX_INT(df)  (int64_t)((1LL << (DF_BITS(df) - 1)) - 1)
-#define M_MAX_INT(m)    (int64_t)((1LL << ((m)         - 1)) - 1)
-
-#define DF_MIN_INT(df)  (int64_t)(-(1LL << (DF_BITS(df) - 1)))
-#define M_MIN_INT(m)    (int64_t)(-(1LL << ((m)         - 1)))
-
-#define DF_MAX_UINT(df) (uint64_t)(-1ULL >> (64 - DF_BITS(df)))
-#define M_MAX_UINT(m)   (uint64_t)(-1ULL >> (64 - (m)))
-
-/* Data format bit position and unsigned values */
-#define BIT_POSITION(x, df) ((uint64_t)(x) % DF_BITS(df))
-
-#define UNSIGNED(x, df) ((x) & DF_MAX_UINT(df))
-#define SIGNED(x, df)                                                   \
-    ((((int64_t)x) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)))
-
-/* Element-by-element access macros */
-#define DF_ELEMENTS(df, wrlen) (wrlen / DF_BITS(df))
-
-#define  B(pwr, i) (((wr_t *)pwr)->b[i])
-#define BR(pwr, i) (((wr_t *)pwr)->b[i])
-#define BL(pwr, i) (((wr_t *)pwr)->b[i + wrlen/16])
-
-#define ALL_B_ELEMENTS(i, wrlen)                \
-    do {                                        \
-        uint32_t i;                             \
-        for (i = wrlen / 8; i--;)
-
-#define  H(pwr, i) (((wr_t *)pwr)->h[i])
-#define HR(pwr, i) (((wr_t *)pwr)->h[i])
-#define HL(pwr, i) (((wr_t *)pwr)->h[i + wrlen/32])
-
-#define ALL_H_ELEMENTS(i, wrlen)                \
-    do {                                        \
-        uint32_t i;                             \
-        for (i = wrlen / 16; i--;)
-
-#define  W(pwr, i) (((wr_t *)pwr)->w[i])
-#define WR(pwr, i) (((wr_t *)pwr)->w[i])
-#define WL(pwr, i) (((wr_t *)pwr)->w[i + wrlen/64])
-
-#define ALL_W_ELEMENTS(i, wrlen)                \
-    do {                                        \
-        uint32_t i;                             \
-        for (i = wrlen / 32; i--;)
-
-#define  D(pwr, i) (((wr_t *)pwr)->d[i])
-#define DR(pwr, i) (((wr_t *)pwr)->d[i])
-#define DL(pwr, i) (((wr_t *)pwr)->d[i + wrlen/128])
-
-#define ALL_D_ELEMENTS(i, wrlen)                \
-    do {                                        \
-        uint32_t i;                             \
-        for (i = wrlen / 64; i--;)
-
-#define Q(pwr, i) (((wr_t *)pwr)->q[i])
-#define ALL_Q_ELEMENTS(i, wrlen)                \
-    do {                                        \
-        uint32_t i;                             \
-        for (i = wrlen / 128; i--;)
-
-#define DONE_ALL_ELEMENTS                       \
-    } while (0)
-
-/*
- *  ADD_A, ADDV, SUBV
- */
-
-int64_t helper_add_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
-    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
-
-    return abs_arg1 + abs_arg2;
-}
-
-int64_t helper_addv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 + arg2;
-}
-
-int64_t helper_subv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 - arg2;
-}
-
-
-/*
- *  ADDS_A, ADDS_S, ADDS_U, SUBS_S, SUBS_U, SUBSUU_S, SUBSUS_U
- */
-
-int64_t helper_adds_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t max_int = (uint64_t)DF_MAX_INT(df);
-    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
-    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
-
-    if (abs_arg1 > max_int || abs_arg2 > max_int) {
-        return (int64_t)max_int;
-    } else {
-        return (abs_arg1 < max_int - abs_arg2) ? abs_arg1 + abs_arg2 : max_int;
-    }
-}
-
-int64_t helper_adds_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t max_int = DF_MAX_INT(df);
-    int64_t min_int = DF_MIN_INT(df);
-
-    if (arg1 < 0) {
-        return (min_int - arg1 < arg2) ? arg1 + arg2 : min_int;
-    } else {
-        return (arg2 < max_int - arg1) ? arg1 + arg2 : max_int;
-    }
-}
-
-uint64_t helper_adds_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
-{
-    uint64_t max_uint = DF_MAX_UINT(df);
-
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return (u_arg1 < max_uint - u_arg2) ? u_arg1 + u_arg2 : max_uint;
-}
-
-int64_t helper_subs_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t max_int = DF_MAX_INT(df);
-    int64_t min_int = DF_MIN_INT(df);
-
-    if (arg2 > 0) {
-        return (min_int + arg2 < arg1) ? arg1 - arg2 : min_int;
-    } else {
-        return (arg1 < max_int + arg2) ? arg1 - arg2 : max_int;
-    }
-}
-
-
-int64_t helper_subs_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return (u_arg1 > u_arg2) ? u_arg1 - u_arg2 : 0;
-}
-
-
-int64_t helper_subsuu_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    int64_t max_int = DF_MAX_INT(df);
-    int64_t min_int = DF_MIN_INT(df);
-
-    if (u_arg1 > u_arg2) {
-        return u_arg1 - u_arg2 < (uint64_t)max_int ?
-            (int64_t)(u_arg1 - u_arg2) :
-            max_int;
-    } else {
-        return u_arg2 - u_arg1 < (uint64_t)(-min_int) ?
-            (int64_t)(u_arg1 - u_arg2) :
-            min_int;
-    }
-}
-
-int64_t helper_subsus_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t max_uint = DF_MAX_UINT(df);
-
-    if (arg2 >= 0) {
-        uint64_t u_arg2 = (uint64_t)arg2;
-        return (u_arg1 > u_arg2) ?
-            (int64_t)(u_arg1 - u_arg2) :
-            0;
-    }
-    else {
-        uint64_t u_arg2 = (uint64_t)(-arg2);
-        return (u_arg1 < max_uint - u_arg2) ?
-            (int64_t)(u_arg1 + u_arg2) :
-            (int64_t)max_uint;
-    }
-}
-
-
-
-/*
- *  AND_V, ANDI_B, OR_V, ORBI_B, NOR_V, NORBI_B, XOR_V, XORI_B
- */
-
-void helper_and_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = D(pws, i) & D(pwt, i);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_andi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        B(pwd, i) = B(pws, i) & arg2;
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_or_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = D(pws, i) | D(pwt, i);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_ori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        B(pwd, i) = B(pws, i) | arg2;
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_nor_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = ~(D(pws, i) | D(pwt, i));
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_nori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        B(pwd, i) = ~(B(pws, i) | arg2);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_xor_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = D(pws, i) ^ D(pwt, i);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_xori_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        B(pwd, i) = B(pws, i) ^ arg2;
-    } DONE_ALL_ELEMENTS;
-}
-
-
-
-/*
- *  ASUB_S, ASUB_U
- */
-
-int64_t helper_asub_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    /* signed compare */
-    return (arg1 < arg2) ?
-        (uint64_t)(arg2 - arg1) : (uint64_t)(arg1 - arg2);
-}
-
-uint64_t helper_asub_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    /* unsigned compare */
-    return (u_arg1 < u_arg2) ?
-        (uint64_t)(u_arg2 - u_arg1) : (uint64_t)(u_arg1 - u_arg2);
-}
-
-
-/*
- *  AVE_S, AVE_U
- */
-
-int64_t helper_ave_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    /* signed shift */
-    return (arg1 >> 1) + (arg2 >> 1) + (arg1 & arg2 & 1);
-
-}
-
-uint64_t helper_ave_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    /* unsigned shift */
-    return (u_arg1 >> 1) + (u_arg2 >> 1) + (u_arg1 & u_arg2 & 1);
-}
-
-
-/*
- *  AVER_S, AVER_U
- */
-
-int64_t helper_aver_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    /* signed shift */
-    return (arg1 >> 1) + (arg2 >> 1) + ((arg1 | arg2) & 1);
-
-}
-
-uint64_t helper_aver_u_df(CPUMIPSState *env, uint64_t arg1, uint64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    /* unsigned shift */
-    return (u_arg1 >> 1) + (u_arg2 >> 1) + ((u_arg1 | u_arg2) & 1);
-}
-
-
-/*
- *  BCLR, BNEG, BSET
- */
-
-int64_t helper_bclr_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    return UNSIGNED(arg1 & (~(1LL << b_arg2)), df);
-}
-
-int64_t helper_bclri_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
-{
-    return helper_bclr_df(env, arg1, arg2, df);
-}
-
-int64_t helper_bneg_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    return UNSIGNED(arg1 ^ (1LL << b_arg2), df);
-}
-
-int64_t helper_bnegi_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
-{
-    return helper_bneg_df(env, arg1, arg2, df);
-}
-
-int64_t helper_bset_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    return UNSIGNED(arg1 | (1LL << b_arg2), df);
-}
-
-int64_t helper_bseti_df(CPUMIPSState *env, int64_t arg1, uint32_t arg2, uint32_t df)
-{
-    return helper_bset_df(env, arg1, arg2, df);
-}
-
-
-/*
- *  BINSL, BINSR
- */
-
-int64_t helper_binsl_df(CPUMIPSState *env, int64_t dest,
-                        int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_dest = UNSIGNED(dest, df);
-
-    int32_t sh_d = BIT_POSITION(arg2, df) + 1;
-    int32_t sh_a = DF_BITS(df) - sh_d;
-
-    if (sh_d == DF_BITS(df)) {
-        return u_arg1;
-    } else {
-        return UNSIGNED(UNSIGNED(u_dest << sh_d, df) >> sh_d, df) |
-               UNSIGNED(UNSIGNED(u_arg1 >> sh_a, df) << sh_a, df);
-    }
-}
-
-int64_t helper_binsli_df(CPUMIPSState *env, int64_t dest,
-                         int64_t arg1, uint32_t arg2, uint32_t df)
-{
-    return helper_binsl_df(env, dest, arg1, arg2, df);
-}
-
-int64_t helper_binsr_df(CPUMIPSState *env, int64_t dest,
-                        int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_dest = UNSIGNED(dest, df);
-
-    int32_t sh_d = BIT_POSITION(arg2, df) + 1;
-    int32_t sh_a = DF_BITS(df) - sh_d;
-
-    if (sh_d == DF_BITS(df)) {
-        return u_arg1;
-    } else {
-        return UNSIGNED(UNSIGNED(u_dest >> sh_d, df) << sh_d, df) |
-               UNSIGNED(UNSIGNED(u_arg1 << sh_a, df) >> sh_a, df);
-    }
-}
-
-int64_t helper_binsri_df(CPUMIPSState *env, int64_t dest,
-                        int64_t arg1, uint32_t arg2, uint32_t df)
-{
-    return helper_binsr_df(env, dest, arg1, arg2, df);
-}
-
-
-/*
- *  BMNZ
- */
-
-#define BIT_MOVE_IF_NOT_ZERO(dest, arg1, arg2, df) \
-            dest = UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
-
-void helper_bmnz_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        BIT_MOVE_IF_NOT_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_bmnzi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        BIT_MOVE_IF_NOT_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
-    } DONE_ALL_ELEMENTS;
-}
-
-
-/*
- *  BMZ
- */
-
-#define BIT_MOVE_IF_ZERO(dest, arg1, arg2, df) \
-            dest = UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
-
-void helper_bmz_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        BIT_MOVE_IF_ZERO(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_bmzi_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        BIT_MOVE_IF_ZERO(B(pwd, i), B(pws, i), arg2, DF_BYTE);
-    } DONE_ALL_ELEMENTS;
-}
-
-
-/*
- *  BSEL
- */
-
-#define BIT_SELECT(dest, arg1, arg2, df) \
-            dest = UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
-
-void helper_bsel_v(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        BIT_SELECT(D(pwd, i), D(pws, i), D(pwt, i), DF_DOUBLE);
-    } DONE_ALL_ELEMENTS;
-}
-
-void helper_bseli_b(CPUMIPSState *env, void *pwd, void *pws, uint32_t arg2, uint32_t wrlen)
-{
-    ALL_B_ELEMENTS(i, wrlen) {
-        BIT_SELECT(B(pwd, i), B(pws, i), arg2, DF_BYTE);
-    } DONE_ALL_ELEMENTS;
-}
-
-
-/*
- *  BNZ, BZ
- */
-
-target_ulong helper_bnz_df(CPUMIPSState *env, void *p_arg, uint32_t df, uint32_t wrlen)
-{
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_B_ELEMENTS(i, wrlen) {
-            if (B(p_arg, i) == 0) {
-                return 0;
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            if (H(p_arg, i) == 0) {
-                return 0;
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            if (W(p_arg, i) == 0) {
-                return 0;
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            if (D(p_arg, i) == 0) {
-                return 0;
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    return 1;
-}
-
-target_ulong helper_bz_df(CPUMIPSState *env, void *p_arg, uint32_t df, uint32_t wrlen)
-{
-    return !helper_bnz_df(env, p_arg, df, wrlen);
-}
-
-target_ulong helper_bnz_v(CPUMIPSState *env, void *p_arg, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        if (D(p_arg, i) != 0) {
-            return 1;
-        }
-    } DONE_ALL_ELEMENTS;
-
-    return 0;
-}
-
-target_ulong helper_bz_v(CPUMIPSState *env, void *p_arg, uint32_t wrlen)
-{
-    return !helper_bnz_v(env, p_arg, wrlen);
-}
-
-
-/*
- *  CEQ, CLE_S, CLE_U, CLT_S, CLT_U
- */
-
-int64_t helper_ceq_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 == arg2 ? -1 : 0;
-}
-
-int64_t helper_cle_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 <= arg2 ? -1 : 0;
-}
-
-int64_t helper_cle_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg1 <= u_arg2 ? -1 : 0;
-}
-
-int64_t helper_clt_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 < arg2 ? -1 : 0;
-}
-
-int64_t helper_clt_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg1 < u_arg2 ? -1 : 0;
-}
-
-
-/*
- *  HADD_S, HADD_U, HSUB_S, HSUB_U,
- *  DOTP_S, DOTP_U, DPADD_S, DPADD_U, DPSUB_S, DPSUB_U
- */
-
-#define SIGNED_EVEN(a, df) \
-        ((((int64_t)(a)) << (64 - DF_BITS(df)/2)) >> (64 - DF_BITS(df)/2))
-#define UNSIGNED_EVEN(a, df) \
-        ((((uint64_t)(a)) << (64 - DF_BITS(df)/2)) >> (64 - DF_BITS(df)/2))
-
-#define SIGNED_ODD(a, df) \
-        ((((int64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
-#define UNSIGNED_ODD(a, df) \
-        ((((uint64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
-
-#define SIGNED_EXTRACT(e, o, a, df)             \
-    int64_t e = SIGNED_EVEN(a, df);             \
-    int64_t o = SIGNED_ODD(a, df);
-
-#define UNSIGNED_EXTRACT(e, o, a, df)           \
-    int64_t e = UNSIGNED_EVEN(a, df);           \
-    int64_t o = UNSIGNED_ODD(a, df);
-
-
-int64_t helper_hadd_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return SIGNED_ODD(arg1, df) + SIGNED_EVEN(arg2, df);
-}
-
-
-int64_t helper_hadd_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return UNSIGNED_ODD(arg1, df) + UNSIGNED_EVEN(arg2, df);
-}
-
-
-int64_t helper_hsub_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return SIGNED_ODD(arg1, df) - SIGNED_EVEN(arg2, df);
-}
-
-
-int64_t helper_hsub_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return UNSIGNED_ODD(arg1, df) - UNSIGNED_EVEN(arg2, df);
-}
-
-
-int64_t helper_dotp_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-int64_t helper_dotp_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-
-int64_t helper_dpadd_s_df(CPUMIPSState *env, int64_t dest,
-                          int64_t arg1, int64_t arg2, uint32_t df)
-{
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-
-int64_t helper_dpadd_u_df(CPUMIPSState *env, int64_t dest,
-                          int64_t arg1, int64_t arg2, uint32_t df)
-{
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
-}
-
-int64_t helper_dpsub_s_df(CPUMIPSState *env, int64_t dest,
-                          int64_t arg1, int64_t arg2, uint32_t df)
-{
-    SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
-}
-
-int64_t helper_dpsub_u_df(CPUMIPSState *env, int64_t dest,
-                          int64_t arg1, int64_t arg2, uint32_t df)
-{
-    UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
-    UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
-
-    return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
-}
-
-
-
-/*
- *  ILVEV, ILVOD, ILVL, ILVR, PCKEV, PCKOD, VSHF
- */
-
-#define WRLEN(wrlen_df) (wrlen_df >> 2)
-#define DF(wrlen_df) (wrlen_df & 0x03)
-
-void helper_ilvev_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            B(pwx, 2*i)   = B(pwt, 2*i);
-            B(pwx, 2*i+1) = B(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            H(pwx, 2*i)   = H(pwt, 2*i);
-            H(pwx, 2*i+1) = H(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            W(pwx, 2*i)   = W(pwt, 2*i);
-            W(pwx, 2*i+1) = W(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            D(pwx, 2*i)   = D(pwt, 2*i);
-            D(pwx, 2*i+1) = D(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-void helper_ilvod_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            B(pwx, 2*i)   = B(pwt, 2*i+1);
-            B(pwx, 2*i+1) = B(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            H(pwx, 2*i)   = H(pwt, 2*i+1);
-            H(pwx, 2*i+1) = H(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            W(pwx, 2*i)   = W(pwt, 2*i+1);
-            W(pwx, 2*i+1) = W(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            D(pwx, 2*i)   = D(pwt, 2*i+1);
-            D(pwx, 2*i+1) = D(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-void helper_ilvl_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            B(pwx, 2*i)   = BL(pwt, i);
-            B(pwx, 2*i+1) = BL(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            H(pwx, 2*i)   = HL(pwt, i);
-            H(pwx, 2*i+1) = HL(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            W(pwx, 2*i)   = WL(pwt, i);
-            W(pwx, 2*i+1) = WL(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            D(pwx, 2*i)   = DL(pwt, i);
-            D(pwx, 2*i+1) = DL(pws, i);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-void helper_ilvr_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            B(pwx, 2*i)   = BR(pwt, i);
-            B(pwx, 2*i+1) = BR(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            H(pwx, 2*i)   = HR(pwt, i);
-            H(pwx, 2*i+1) = HR(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            W(pwx, 2*i)   = WR(pwt, i);
-            W(pwx, 2*i+1) = WR(pws, i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            D(pwx, 2*i)   = DR(pwt, i);
-            D(pwx, 2*i+1) = DR(pws, i);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-void helper_pckev_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            BR(pwx, i) = B(pwt, 2*i);
-            BL(pwx, i) = B(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            HR(pwx, i) = H(pwt, 2*i);
-            HL(pwx, i) = H(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            WR(pwx, i) = W(pwt, 2*i);
-            WL(pwx, i) = W(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            DR(pwx, i) = D(pwt, 2*i);
-            DL(pwx, i) = D(pws, 2*i);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-void helper_pckod_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            BR(pwx, i) = B(pwt, 2*i+1);
-            BL(pwx, i) = B(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            HR(pwx, i) = H(pwt, 2*i+1);
-            HL(pwx, i) = H(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            WR(pwx, i) = W(pwt, 2*i+1);
-            WL(pwx, i) = W(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_Q_ELEMENTS(i, wrlen) {
-            DR(pwx, i) = D(pwt, 2*i+1);
-            DL(pwx, i) = D(pws, 2*i+1);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-void helper_vshf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-    uint32_t n = wrlen / DF_BITS(df);
-    uint32_t k;
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-        /* byte data format */
-        ALL_B_ELEMENTS(i, wrlen) {
-            k = (B(pwd, i) & 0x3f) % (2 * n);
-            B(pwx, i) =
-                (B(pwd, i) & 0xc0) ? 0 : k < n ? B(pwt, k) : B(pws, k - n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        /* half data format */
-        ALL_H_ELEMENTS(i, wrlen) {
-            k = (H(pwd, i) & 0x3f) % (2 * n);
-            H(pwx, i) =
-                (H(pwd, i) & 0xc0) ? 0 : k < n ? H(pwt, k) : H(pws, k - n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        /* word data format */
-        ALL_W_ELEMENTS(i, wrlen) {
-            k = (W(pwd, i) & 0x3f) % (2 * n);
-            W(pwx, i) =
-                (W(pwd, i) & 0xc0) ? 0 : k < n ? W(pwt, k) : W(pws, k - n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        /* double data format */
-        ALL_D_ELEMENTS(i, wrlen) {
-            k = (D(pwd, i) & 0x3f) % (2 * n);
-            D(pwx, i) =
-                (D(pwd, i) & 0xc0) ? 0 : k < n ? D(pwt, k) : D(pws, k - n);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-/*
- *  SHF
- */
-
-#define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
-
-void helper_shf_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t imm, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_BYTE:
-      ALL_B_ELEMENTS(i, wrlen) {
-        B(pwx, i) = B(pws, SHF_POS(i, imm));
-      } DONE_ALL_ELEMENTS;
-      break;
-
-    case DF_HALF:
-      ALL_H_ELEMENTS(i, wrlen) {
-        H(pwx, i) = H(pws, SHF_POS(i, imm));
-      } DONE_ALL_ELEMENTS;
-      break;
-
-    case DF_WORD:
-      ALL_W_ELEMENTS(i, wrlen) {
-        W(pwx, i) = W(pws, SHF_POS(i, imm));
-      } DONE_ALL_ELEMENTS;
-      break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-/*
- *  MADDV, MSUBV
- */
-
-int64_t helper_maddv_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return dest + arg1 * arg2;
-}
-
-int64_t helper_msubv_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return dest - arg1 * arg2;
-}
-
-
-/*
- *  MAX, MIN
- */
-
-int64_t helper_max_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
-    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
-
-    return abs_arg1 > abs_arg2 ? arg1 : arg2;
-}
-
-
-int64_t helper_max_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 > arg2 ? arg1 : arg2;
-}
-
-
-int64_t helper_max_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg1 > u_arg2 ? arg1 : arg2;
-}
-
-
-int64_t helper_min_a_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t abs_arg1 = arg1 >= 0 ? arg1 : -arg1;
-    uint64_t abs_arg2 = arg2 >= 0 ? arg2 : -arg2;
-
-    return abs_arg1 < abs_arg2 ? arg1 : arg2;
-}
-
-
-int64_t helper_min_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 < arg2 ? arg1 : arg2;
-}
-
-
-int64_t helper_min_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg1 < u_arg2 ? arg1 : arg2;
-}
-
-
-/*
- *  SPLAT, and MOVE_V
- */
-
-void helper_splat_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    uint32_t n = rt % DF_ELEMENTS(df, wrlen);
-
-    msa_check_index(env, df, n, wrlen);
-
-    switch (df) {
-    case DF_BYTE:
-        ALL_B_ELEMENTS(i, wrlen) {
-            B(pwd, i)   = B(pws, n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        ALL_H_ELEMENTS(i, wrlen) {
-            H(pwd, i)   = H(pws, n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            W(pwd, i)   = W(pws, n);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            D(pwd, i)   = D(pws, n);
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-void helper_move_v(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen)
-{
-    ALL_D_ELEMENTS(i, wrlen) {
-        D(pwd, i) = D(pws, i);
-    } DONE_ALL_ELEMENTS;
-}
-
-
-/*
- *  LDI, FILL, INSERT, INSVE
- */
-void helper_ldi_df(CPUMIPSState *env, void *pwd, uint32_t df, uint32_t s10, uint32_t wrlen)
-{
-    int64_t s64 = ((int64_t)s10 << 54) >> 54;
-
-    switch (df) {
-    case DF_BYTE:
-        ALL_B_ELEMENTS(i, wrlen) {
-            B(pwd, i)   = (int8_t)s10;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        ALL_H_ELEMENTS(i, wrlen) {
-            H(pwd, i)   = (int16_t)s64;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            W(pwd, i)   = (int32_t)s64;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            D(pwd, i)   = s64;
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-void helper_fill_df(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    switch (df) {
-    case DF_BYTE:
-        ALL_B_ELEMENTS(i, wrlen) {
-            B(pwd, i)   = (int8_t)rs;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_HALF:
-        ALL_H_ELEMENTS(i, wrlen) {
-            H(pwd, i)   = (int16_t)rs;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            W(pwd, i)   = (int32_t)rs;
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            D(pwd, i)   = (int64_t)rs;
-        } DONE_ALL_ELEMENTS;
-       break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-void helper_insert_df(CPUMIPSState *env, void *pwd, target_ulong rs, uint32_t n, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    msa_check_index(env, df, n, wrlen);
-
-    switch (df) {
-    case DF_BYTE:
-        B(pwd, n)   = (int8_t)rs;
-        break;
-
-    case DF_HALF:
-        H(pwd, n)   = (int16_t)rs;
-        break;
-
-    case DF_WORD:
-        W(pwd, n)   = (int32_t)rs;
-        break;
-
-    case DF_DOUBLE:
-        D(pwd, n)   = (int64_t)rs;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-void helper_insve_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong n, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    msa_check_index(env, df, n, wrlen);
-
-    switch (df) {
-    case DF_BYTE:
-        B(pwd, n)   = (int8_t)B(pws, 0);
-        break;
-
-    case DF_HALF:
-        H(pwd, n)   = (int16_t)H(pws, 0);
-        break;
-
-    case DF_WORD:
-        W(pwd, n)   = (int32_t)W(pws, 0);
-        break;
-
-    case DF_DOUBLE:
-        D(pwd, n)   = (int64_t)D(pws, 0);
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-
-/*
- *  MULV, DIV_S, DIV_U, MOD_S, MOD_U
- */
-
-int64_t helper_mulv_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    return arg1 * arg2;
-}
-
-int64_t helper_div_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-  if (arg1 == DF_MIN_INT(df) && arg2 == -1)
-    return DF_MIN_INT(df);
-
-  return arg2 ? arg1 / arg2 : 0;
-}
-
-int64_t helper_div_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg2 ? u_arg1 / u_arg2 : 0;
-}
-
-int64_t helper_mod_s_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-  if (arg1 == DF_MIN_INT(df) && arg2 == -1)
-    return 0;
-
-  return arg2 ? arg1 % arg2 : 0;
-}
-
-int64_t helper_mod_u_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    uint64_t u_arg2 = UNSIGNED(arg2, df);
-
-    return u_arg2 ? u_arg1 % u_arg2 : 0;
-}
-
-
-/*
- *  NLZC, NLOC, and PCNT
- */
-
-int64_t helper_nlzc_df(CPUMIPSState *env, int64_t arg, uint32_t df)
-{
-    /* Reference: Hacker's Delight, Section 5.3 Counting Leading 0's */
-
-    uint64_t x, y;
-    int n, c;
-
-    x = UNSIGNED(arg, df);
-    n = DF_BITS(df);
-    c = DF_BITS(df) / 2;
-
-    do {
-        y = x >> c;
-        if (y != 0) {
-            n = n - c;
-            x = y;
-        }
-        c = c >> 1;
-    } while (c != 0);
-
-    return n - x;
-}
-
-int64_t helper_nloc_df(CPUMIPSState *env, int64_t arg, uint32_t df)
-{
-    return helper_nlzc_df(env, UNSIGNED((~arg), df), df);
-}
-
-
-int64_t helper_pcnt_df(CPUMIPSState *env, int64_t arg, uint32_t df)
-{
-    /* Reference: Hacker's Delight, Section 5.1 Counting 1-Bits */
-
-    uint64_t x;
-
-    x = UNSIGNED(arg, df);
-
-    x = (x & 0x5555555555555555ULL) + ((x >>  1) & 0x5555555555555555ULL);
-    x = (x & 0x3333333333333333ULL) + ((x >>  2) & 0x3333333333333333ULL);
-    x = (x & 0x0F0F0F0F0F0F0F0FULL) + ((x >>  4) & 0x0F0F0F0F0F0F0F0FULL);
-    x = (x & 0x00FF00FF00FF00FFULL) + ((x >>  8) & 0x00FF00FF00FF00FFULL);
-    x = (x & 0x0000FFFF0000FFFFULL) + ((x >> 16) & 0x0000FFFF0000FFFFULL);
-    x = (x & 0x00000000FFFFFFFFULL) + ((x >> 32));
-
-    return x;
-}
-
-
-/*
- *  SAT
- */
-
-int64_t helper_sat_u_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    uint64_t u_arg = UNSIGNED(arg, df);
-    return  u_arg < M_MAX_UINT(m+1) ? u_arg :
-                                      M_MAX_UINT(m+1);
-}
-
-
-int64_t helper_sat_s_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    return arg < M_MIN_INT(m+1) ? M_MIN_INT(m+1) :
-                                  arg > M_MAX_INT(m+1) ? M_MAX_INT(m+1) :
-                                                         arg;
-}
-
-
-/*
- *  SLL, SRA, SRL
- */
-
-int64_t helper_sll_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-    return arg1 << b_arg2;
-}
-
-
-int64_t helper_slli_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    return arg << m;
-}
-
-
-int64_t helper_sra_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-    return arg1 >> b_arg2;
-}
-
-
-int64_t helper_srai_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    return arg >> m;
-}
-
-
-int64_t helper_srl_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    return u_arg1 >> b_arg2;
-}
-
-
-int64_t helper_srli_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    uint64_t u_arg = UNSIGNED(arg, df);
-
-    return u_arg >> m;
-}
-
-
-/*
- *  SRAR, SRLR
- */
-
-int64_t helper_srar_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    if (b_arg2 == 0) {
-      return arg1;
-    }
-    else {
-      int64_t r_bit = (arg1 >> (b_arg2 - 1)) & 1;
-      return (arg1 >> b_arg2) + r_bit;
-    }
-}
-
-
-int64_t helper_srari_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    if (m == 0) {
-      return arg;
-    }
-    else {
-      int64_t r_bit = (arg >> (m - 1)) & 1;
-      return (arg >> m) + r_bit;
-    }
-}
-
-
-int64_t helper_srlr_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    uint64_t u_arg1 = UNSIGNED(arg1, df);
-    int32_t b_arg2 = BIT_POSITION(arg2, df);
-
-    if (b_arg2 == 0) {
-      return u_arg1;
-    }
-    else {
-      uint64_t r_bit = (u_arg1 >> (b_arg2 - 1)) & 1;
-      return (u_arg1 >> b_arg2) + r_bit;
-    }
-}
-
-
-int64_t helper_srlri_df(CPUMIPSState *env, int64_t arg, uint32_t m, uint32_t df)
-{
-    uint64_t u_arg = UNSIGNED(arg, df);
-
-    if (m == 0) {
-      return u_arg;
-    }
-    else {
-      uint64_t r_bit = (u_arg >> (m - 1)) & 1;
-      return (u_arg >> m) + r_bit;
-    }
-}
-
-
-/*
- *  SLD
- */
-
-void helper_sld_df(CPUMIPSState *env, void *pwd, void *pws, target_ulong rt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    uint32_t n = rt % DF_ELEMENTS(df, wrlen);
-
-    uint8_t v[64];
-    uint32_t i, k;
-
-#define CONCATENATE_AND_SLIDE(s, k)             \
-    do {                                        \
-        for (i = 0; i < s; i++) {               \
-            v[i]     = B(pws, s * k + i);       \
-            v[i + s] = B(pwd, s * k + i);       \
-        }                                       \
-        for (i = 0; i < s; i++) {               \
-            B(pwd, s * k + i) = v[i + n];       \
-        }                                       \
-    } while (0)
-
-    msa_check_index(env, df, n, wrlen);
-
-    switch (df) {
-    case DF_BYTE:
-        CONCATENATE_AND_SLIDE(wrlen/8, 0);
-        break;
-
-    case DF_HALF:
-        for (k = 0; k < 2; k++) {
-            CONCATENATE_AND_SLIDE(wrlen/16, k);
-        }
-        break;
-
-    case DF_WORD:
-        for (k = 0; k < 4; k++) {
-            CONCATENATE_AND_SLIDE(wrlen/32, k);
-        }
-        break;
-
-    case DF_DOUBLE:
-        for (k = 0; k < 8; k++) {
-            CONCATENATE_AND_SLIDE(wrlen/64, k);
-        }
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-
-/*
- *  Fixed-point operations
- */
-
-#define GET_SIGN(s, a)                          \
-    if (a < 0) {                                \
-        s = -s; a = -a;                         \
-    }
-
-#define SET_SIGN(s, a)                          \
-    if (s < 0) {                                \
-        a = -a;                                 \
-    }
-
-int64_t helper_mul_q_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_min  = DF_MIN_INT(df);
-    int64_t q_max  = DF_MAX_INT(df);
-
-    if (arg1 == q_min && arg2 == q_min) {
-        return q_max;
-    }
-
-    return (arg1 * arg2) >> (DF_BITS(df) - 1);
-}
-
-int64_t helper_mulr_q_df(CPUMIPSState *env, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_min  = DF_MIN_INT(df);
-    int64_t q_max  = DF_MAX_INT(df);
-    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
-
-    if (arg1 == q_min && arg2 == q_min) {
-        return q_max;
-    }
-
-    return (arg1 * arg2 + r_bit) >> (DF_BITS(df) - 1);
-}
-
-int64_t helper_madd_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_prod, q_ret;
-
-    int64_t q_max  = DF_MAX_INT(df);
-    int64_t q_min  = DF_MIN_INT(df);
-
-    q_prod = arg1 * arg2;
-    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod) >> (DF_BITS(df) - 1);
-
-    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
-}
-
-
-int64_t helper_maddr_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_prod, q_ret;
-
-    int64_t q_max  = DF_MAX_INT(df);
-    int64_t q_min  = DF_MIN_INT(df);
-    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
-
-    q_prod = arg1 * arg2;
-    q_ret = ((dest << (DF_BITS(df) - 1)) + q_prod + r_bit) >> (DF_BITS(df) - 1);
-
-    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
-}
-
-
-int64_t helper_msub_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_prod, q_ret;
-
-    int64_t q_max  = DF_MAX_INT(df);
-    int64_t q_min  = DF_MIN_INT(df);
-
-    q_prod = arg1 * arg2;
-    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod) >> (DF_BITS(df) - 1);
-
-    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
-}
-
-
-int64_t helper_msubr_q_df(CPUMIPSState *env, int64_t dest, int64_t arg1, int64_t arg2, uint32_t df)
-{
-    int64_t q_prod, q_ret;
-
-    int64_t q_max  = DF_MAX_INT(df);
-    int64_t q_min  = DF_MIN_INT(df);
-    int64_t r_bit  = 1 << (DF_BITS(df) - 2);
-
-    q_prod = arg1 * arg2;
-    q_ret = ((dest << (DF_BITS(df) - 1)) - q_prod + r_bit) >> (DF_BITS(df) - 1);
-
-    return (q_ret < q_min) ? q_min : (q_max < q_ret) ? q_max : q_ret;
-}
-
-
-/* MSA helper */
-#include "mips_msa_helper_dummy.h"
-
-int64_t helper_load_wr_elem_s64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-    int wrlen = 128;
-
-    i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
-
-    switch (df) {
-    case DF_BYTE: /* b */
-        return env->active_fpu.fpr[wreg].wr.b[i];
-    case DF_HALF: /* h */
-        return env->active_fpu.fpr[wreg].wr.h[i];
-    case DF_WORD: /* w */
-        return env->active_fpu.fpr[wreg].wr.w[i];
-    case DF_DOUBLE: /* d */
-        return env->active_fpu.fpr[wreg].wr.d[i];
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-target_ulong helper_load_wr_elem_target_s64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-  return (target_ulong)helper_load_wr_elem_s64(env, wreg, df, i);
-}
-
-
-
-uint64_t helper_load_wr_elem_i64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-    int wrlen = 128;
-
-    i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
-
-    switch (df) {
-    case DF_BYTE: /* b */
-        return (uint8_t)env->active_fpu.fpr[wreg].wr.b[i];
-    case DF_HALF: /* h */
-        return (uint16_t)env->active_fpu.fpr[wreg].wr.h[i];
-    case DF_WORD: /* w */
-        return (uint32_t)env->active_fpu.fpr[wreg].wr.w[i];
-    case DF_DOUBLE: /* d */
-        return (uint64_t)env->active_fpu.fpr[wreg].wr.d[i];
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-target_ulong helper_load_wr_elem_target_i64(CPUMIPSState *env, int32_t wreg, int32_t df, int32_t i)
-{
-  return (target_ulong)helper_load_wr_elem_i64(env, wreg, df, i);
-}
-
-
-void helper_store_wr_elem(CPUMIPSState *env, uint64_t val, int32_t wreg, int32_t df, int32_t i)
-{
-    int wrlen = 128;
-
-    i %= DF_ELEMENTS(df, wrlen);
-    msa_check_index(env, (uint32_t)df, (uint32_t)i, (uint32_t)wrlen);
-
-    switch (df) {
-    case DF_BYTE: /* b */
-        env->active_fpu.fpr[wreg].wr.b[i] = (uint8_t)val;
-        break;
-    case DF_HALF: /* h */
-        env->active_fpu.fpr[wreg].wr.h[i] = (uint16_t)val;
-        break;
-    case DF_WORD: /* w */
-        env->active_fpu.fpr[wreg].wr.w[i] = (uint32_t)val;
-        break;
-    case DF_DOUBLE: /* d */
-        env->active_fpu.fpr[wreg].wr.d[i] = (uint64_t)val;
-        break;
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-}
-
-void helper_store_wr_elem_target(CPUMIPSState *env, target_ulong val, int32_t wreg, int32_t df, int32_t i)
-{
-  return helper_store_wr_elem(env, (uint64_t)val, wreg, df, i);
-}
-
-
-
-
-
-/*
- *  MSA Floating-point operations
- */
-
-static void clear_msacsr_cause(CPUMIPSState *env) {
-    SET_FP_CAUSE(env->active_msa.msacsr, 0);
-}
-
-
-static void check_msacsr_cause(CPUMIPSState *env)
-{
-  if ((GET_FP_CAUSE(env->active_msa.msacsr) &
-       (GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)) == 0) {
-    UPDATE_FP_FLAGS(env->active_msa.msacsr,
-                    GET_FP_CAUSE(env->active_msa.msacsr));
-
-#if DEBUG_MSACSR
-    printf("check_msacsr_cause: MSACSR.Cause 0x%02x, MSACSR.Flags 0x%02x\n",
-           GET_FP_CAUSE(env->active_msa.msacsr),
-           GET_FP_FLAGS(env->active_msa.msacsr));
-#endif
-  }
-  else {
-#if DEBUG_MSACSR
-    printf("check_msacsr_cause: MSACSR.Enable 0x%02x, MSACSR.Cause 0x%02x FPE\n",
-           GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED,
-           GET_FP_CAUSE(env->active_msa.msacsr));
-#endif
-      helper_raise_exception(env, EXCP_MSAFPE);
-  }
-}
-
-
-/* Flush-to-zero use cases for update_msacsr() */
-#define CLEAR_FS_UNDERFLOW 1
-#define CLEAR_IS_INEXACT   2
-#define RECIPROCAL_INEXACT 4
-
-static int update_msacsr(CPUMIPSState *env, int action, int denormal)
-{
-    int ieee_ex;
-
-    int c;
-    int cause;
-    int enable;
-
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
-
-    /* QEMU softfloat does not signal all underflow cases */
-    if (denormal) {
-#if DEBUG_MSACSR
-      puts("FORCING UNDERFLOW");
-#endif
-      ieee_ex |= float_flag_underflow;
-    }
-
-#if DEBUG_MSACSR
-    if (ieee_ex) printf("float_flag(s) 0x%x: ", ieee_ex);
-    if (ieee_ex & float_flag_invalid) printf("invalid ");
-    if (ieee_ex & float_flag_divbyzero) printf("divbyzero ");
-    if (ieee_ex & float_flag_overflow) printf("overflow ");
-    if (ieee_ex & float_flag_underflow) printf("underflow ");
-    if (ieee_ex & float_flag_inexact) printf("inexact ");
-    if (ieee_ex & float_flag_input_denormal) printf("input_denormal ");
-    if (ieee_ex & float_flag_output_denormal) printf("output_denormal ");
-    if (ieee_ex) printf("\n");
-#endif
-
-    c = ieee_ex_to_mips(env, ieee_ex);
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
-
-    /* Set Inexact (I) when flushing inputs to zero */
-    if ((ieee_ex & float_flag_input_denormal) &&
-        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
-      if (action & CLEAR_IS_INEXACT) {
-        c &= ~FP_INEXACT;
-      }
-      else {
-        c |=  FP_INEXACT;
-      }
-    }
-
-    /* Set Inexact (I) and Underflow (U) when flushing outputs to zero */
-    if ((ieee_ex & float_flag_output_denormal) &&
-        (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
-      c |= FP_INEXACT;
-      if (action & CLEAR_FS_UNDERFLOW) {
-        c &= ~FP_UNDERFLOW;
-      }
-      else {
-        c |=  FP_UNDERFLOW;
-      }
-    }
-
-    /* Set Inexact (I) when Overflow (O) is not enabled */
-    if ((c & FP_OVERFLOW) != 0 && (enable & FP_OVERFLOW) == 0) {
-      c |= FP_INEXACT;
-    }
-
-    /* Clear Exact Underflow when Underflow (U) is not enabled */
-    if ((c & FP_UNDERFLOW) != 0 && (enable & FP_UNDERFLOW) == 0 &&
-        (c & FP_INEXACT) == 0) {
-      c &= ~FP_UNDERFLOW;
-    }
-
-    /* Reciprocal operations set only Inexact when valid and not
-       divide by zero */
-    if ((action & RECIPROCAL_INEXACT) &&
-        (c & (FP_INVALID | FP_DIV0)) == 0) {
-      c = FP_INEXACT;
-    }
-
-    cause = c & enable;    /* all current enabled exceptions */
-
-    if (cause == 0) {
-      /* No enabled exception, update the MSACSR Cause
-         with all current exceptions */
-      SET_FP_CAUSE(env->active_msa.msacsr,
-                   (GET_FP_CAUSE(env->active_msa.msacsr) | c));
-    }
-    else {
-      /* Current exceptions are enabled */
-      if ((env->active_msa.msacsr & MSACSR_NX_BIT) == 0) {
-        /* Exception(s) will trap, update MSACSR Cause
-           with all enabled exceptions */
-        SET_FP_CAUSE(env->active_msa.msacsr,
-                     (GET_FP_CAUSE(env->active_msa.msacsr) | c));
-      }
-    }
-
-#if DEBUG_MSACSR
-    printf("update_msacsr: c 0x%02x, cause 0x%02x, MSACSR.Cause 0x%02x, MSACSR.NX %d\n",
-           c, cause, GET_FP_CAUSE(env->active_msa.msacsr),
-           (env->active_msa.msacsr & MSACSR_NX_BIT) != 0);
-#endif
-
-    return c;
-}
-
-#define float16_is_zero(ARG) 0
-#define float16_is_zero_or_denormal(ARG) 0
-
-#define IS_DENORMAL(ARG, BITS)                                   \
-  (!float ## BITS ## _is_zero(ARG)                               \
-   && float ## BITS ## _is_zero_or_denormal(ARG))                \
-
-
-#define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                            \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG,                                \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-    else {                                                              \
-      if (float ## BITS ## _is_any_nan(ARG)) {                          \
-        DEST = 0;                                                       \
-      }                                                                 \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_UNOP_XD(DEST, OP, ARG, BITS, XBITS)                   \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG,                                \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## XBITS >> 6) << 6) | c;                     \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_UNOP(DEST, OP, ARG, BITS)                             \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG,                                \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_LOGB(DEST, ARG, BITS)                                 \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    set_float_rounding_mode(float_round_down,                           \
-                            &env->active_msa.fp_status);                \
-    DEST = float ## BITS ## _ ## log2(ARG,                              \
-                                      &env->active_msa.fp_status);      \
-    DEST = float ## BITS ## _ ## round_to_int(DEST,                     \
-                                           &env->active_msa.fp_status); \
-    set_float_rounding_mode(ieee_rm[(env->active_msa.msacsr &           \
-                                     MSACSR_RM_MASK) >> MSACSR_RM_POS], \
-                            &env->active_msa.fp_status);                \
-                                                                        \
-    set_float_exception_flags(                                          \
-      get_float_exception_flags(&env->active_msa.fp_status)             \
-                                    & (~float_flag_inexact),            \
-      &env->active_msa.fp_status);                                      \
-                                                                        \
-    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_BINOP(DEST, OP, ARG1, ARG2, BITS)                     \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_MAXOP(DEST, OP, ARG1, ARG2, BITS)                     \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, 0, 0);                                       \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_RECIPROCAL(DEST, ARG, BITS)                           \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
-                                     &env->active_msa.fp_status);       \
-    c = update_msacsr(env, float ## BITS ## _is_infinity(ARG) ||        \
-                      float ## BITS ## _is_quiet_nan(DEST)?             \
-                      0 : RECIPROCAL_INEXACT,                           \
-                      IS_DENORMAL(DEST, BITS));                         \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define MSA_FLOAT_MULADD(DEST, ARG1, ARG2, ARG3, NEGATE, BITS)          \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
-                                    &env->active_msa.fp_status);        \
-    c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-#define NUMBER_QNAN_PAIR(ARG1, ARG2, BITS)      \
-  !float ## BITS ## _is_any_nan(ARG1)           \
-  && float ## BITS ## _is_quiet_nan(ARG2)
-
-
-/*
- *  FADD, FSUB, FMUL, FDIV
- */
-
-void helper_fadd_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), add, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), add, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fsub_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), sub, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), sub, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fmul_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), mul, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), mul, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fdiv_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), div, W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), div, D(pws, i), D(pwt, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-/*
- *  FSQRT
- */
-
-void helper_fsqrt_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), sqrt, W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), sqrt, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-/*
- *  FEXP2, FLOG2
- */
-
-void helper_fexp2_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(W(pwx, i), scalbn, W(pws, i),
-                            W(pwt, i) >  0x200 ?  0x200 :
-                            W(pwt, i) < -0x200 ? -0x200 : W(pwt, i),
-                            32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_BINOP(D(pwx, i), scalbn, D(pws, i),
-                            D(pwt, i) >  0x1000 ?  0x1000 :
-                            D(pwt, i) < -0x1000 ? -0x1000 : D(pwt, i),
-                            64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_flog2_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_LOGB(W(pwx, i), W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_LOGB(D(pwx, i), D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-/*
- *  FMADD, FMSUB
- */
-
-void helper_fmadd_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
-                           W(pws, i), W(pwt, i), 0, 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
-                           D(pws, i), D(pwt, i), 0, 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fmsub_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_MULADD(W(pwx, i), W(pwd, i),
-                           W(pws, i), W(pwt, i),
-                           float_muladd_negate_product, 32);
-      } DONE_ALL_ELEMENTS;
-      break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_MULADD(D(pwx, i), D(pwd, i),
-                           D(pws, i), D(pwt, i),
-                           float_muladd_negate_product, 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-
-/*
- *  FMAX, FMIN
- */
-
-
-#define FMAXMIN_A(F, G, X, _S, _T, BITS)                        \
-  uint## BITS ##_t S = _S, T = _T;                              \
-                                                                \
-  if (NUMBER_QNAN_PAIR(S, T, BITS)) {                           \
-    T = S;                                                      \
-  }                                                             \
-  else if (NUMBER_QNAN_PAIR(T, S, BITS)) {                      \
-    S = T;                                                      \
-  }                                                             \
-                                                                \
-  uint## BITS ##_t as = float## BITS ##_abs(S);                 \
-  uint## BITS ##_t at = float## BITS ##_abs(T);                 \
-                                                                \
-  uint## BITS ##_t xs, xt, xd;                                  \
-                                                                \
-  MSA_FLOAT_MAXOP(xs, F,  S,  T, BITS);                         \
-  MSA_FLOAT_MAXOP(xt, G,  S,  T, BITS);                         \
-  MSA_FLOAT_MAXOP(xd, F, as, at, BITS);                         \
-                                                                \
-  X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;
-
-
-void helper_fmax_a_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            FMAXMIN_A(max, min, W(pwx, i), W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-           FMAXMIN_A(max, min, D(pwx, i), D(pws, i), D(pwt, i), 64);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_fmax_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pws, i), 32);
-            }
-            else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pwt, i), W(pwt, i), 32);
-            }
-            else {
-                MSA_FLOAT_MAXOP(W(pwx, i), max, W(pws, i), W(pwt, i), 32);
-            }
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pws, i), 64);
-            }
-            else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pwt, i), D(pwt, i), 64);
-            }
-            else {
-                MSA_FLOAT_MAXOP(D(pwx, i), max, D(pws, i), D(pwt, i), 64);
-            }
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_fmin_a_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            FMAXMIN_A(min, max, W(pwx, i), W(pws, i), W(pwt, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            FMAXMIN_A(min, max, D(pwx, i), D(pws, i), D(pwt, i), 64);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_fmin_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            if (NUMBER_QNAN_PAIR(W(pws, i), W(pwt, i), 32)) {
-                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pws, i), 32);
-            }
-            else if (NUMBER_QNAN_PAIR(W(pwt, i), W(pws, i), 32)) {
-                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pwt, i), W(pwt, i), 32);
-            }
-            else {
-                MSA_FLOAT_MAXOP(W(pwx, i), min, W(pws, i), W(pwt, i), 32);
-            }
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            if (NUMBER_QNAN_PAIR(D(pws, i), D(pwt, i), 64)) {
-                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pws, i), 64);
-            }
-            else if (NUMBER_QNAN_PAIR(D(pwt, i), D(pws, i), 64)) {
-                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pwt, i), D(pwt, i), 64);
-            }
-            else {
-                MSA_FLOAT_MAXOP(D(pwx, i), min, D(pws, i), D(pwt, i), 64);
-            }
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-/*
- *  FCAF, FSAF,
- *  FCEQ, FSEQ,
- *  FCUEQ, FSUEQ,
- *  FCNE, FSNE,
- *  FCUNE, FSUNE,
- *  FCLE, FSLE,
- *  FCULE, FSULE,
- *  FCLT, FSLT,
- *  FCULT, FSULT,
- *  FCUN, FSUN,
- *  FCOR, FSOR
- */
-
-#define MSA_FLOAT_COND(DEST, OP, ARG1, ARG2, BITS, QUIET)               \
-  do {                                                                  \
-    int c;                                                              \
-    int cause;                                                          \
-    int enable;                                                         \
-                                                                        \
-    int64_t cond;                                                       \
-    set_float_exception_flags(0, &env->active_msa.fp_status);           \
-    if (!QUIET) {                                                       \
-      cond = float ## BITS ## _ ## OP(ARG1, ARG2,                       \
-                                      &env->active_msa.fp_status);      \
-    } else {                                                            \
-      cond = float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,             \
-                                           &env->active_msa.fp_status); \
-    }                                                                   \
-    DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
-                                                                        \
-    c = update_msacsr(env, CLEAR_IS_INEXACT, 0);                        \
-                                                                        \
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;  \
-    cause = c & enable;                                                 \
-                                                                        \
-    if (cause) {                                                        \
-      DEST = ((FLOAT_SNAN ## BITS >> 6) << 6) | c;                      \
-    }                                                                   \
-  } while (0)
-
-
-#define MSA_FLOAT_AF(DEST, ARG1, ARG2, BITS, QUIET)             \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, eq, ARG1, ARG2, BITS, QUIET);          \
-    if ((DEST & M_MAX_UINT(BITS)) == M_MAX_UINT(BITS)) {        \
-      DEST = 0;                                                 \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_UEQ(DEST, ARG1, ARG2, BITS, QUIET)            \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, eq, ARG1, ARG2, BITS, QUIET);        \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_NE(DEST, ARG1, ARG2, BITS, QUIET)             \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);          \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, lt, ARG2, ARG1, BITS, QUIET);        \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_UNE(DEST, ARG1, ARG2, BITS, QUIET)            \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);        \
-      if (DEST == 0) {                                          \
-        MSA_FLOAT_COND(DEST, lt, ARG2, ARG1, BITS, QUIET);      \
-      }                                                         \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_ULE(DEST, ARG1, ARG2, BITS, QUIET)            \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, le, ARG1, ARG2, BITS, QUIET);        \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_ULT(DEST, ARG1, ARG2, BITS, QUIET)            \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, unordered, ARG1, ARG2, BITS, QUIET);   \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, lt, ARG1, ARG2, BITS, QUIET);        \
-    }                                                           \
-  } while (0)
-
-#define MSA_FLOAT_OR(DEST, ARG1, ARG2, BITS, QUIET)             \
-  do {                                                          \
-    MSA_FLOAT_COND(DEST, le, ARG1, ARG2, BITS, QUIET);          \
-    if (DEST == 0) {                                            \
-      MSA_FLOAT_COND(DEST, le, ARG2, ARG1, BITS, QUIET);        \
-    }                                                           \
-  } while (0)
-
-
-static void
-compare_af(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_AF(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_AF(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcaf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_af(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsaf_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_af(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-static void
-compare_eq(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_COND(W(pwx, i), eq, W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), eq, D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fceq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_eq(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fseq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_eq(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_ueq(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UEQ(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UEQ(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcueq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ueq(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsueq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ueq(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_ne(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_NE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_NE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcne_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ne(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsne_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ne(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-static void
-compare_une(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcune_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_une(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsune_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_une(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_le(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), le, W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), le, D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcle_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_le(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsle_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_le(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_ule(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_ULE(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_ULE(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcule_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ule(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsule_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ule(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_lt(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), lt, W(pws, i), W(pwt, i), 32, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), lt, D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fclt_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_lt(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fslt_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_lt(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_ult(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_ULT(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_ULT(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcult_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ult(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsult_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_ult(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_un(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(W(pwx, i), unordered, W(pws, i), W(pwt, i), 32, quiet);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_COND(D(pwx, i), unordered, D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_fcun_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_un(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsun_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_un(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-static void
-compare_or(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df, int quiet) {
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_OR(W(pwx, i), W(pws, i), W(pwt, i), 32, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_OR(D(pwx, i), D(pws, i), D(pwt, i), 64, quiet);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-void helper_fcor_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_or(env, pwd, pws, pwt, wrlen_df, 1);
-}
-
-void helper_fsor_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-  compare_or(env, pwd, pws, pwt, wrlen_df, 0);
-}
-
-
-/*
- *  FCLASS
- */
-
-#define MSA_FLOAT_CLASS_SIGNALING_NAN      0x001
-#define MSA_FLOAT_CLASS_QUIET_NAN          0x002
-
-#define MSA_FLOAT_CLASS_NEGATIVE_INFINITY  0x004
-#define MSA_FLOAT_CLASS_NEGATIVE_NORMAL    0x008
-#define MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
-#define MSA_FLOAT_CLASS_NEGATIVE_ZERO      0x020
-
-#define MSA_FLOAT_CLASS_POSITIVE_INFINITY  0x040
-#define MSA_FLOAT_CLASS_POSITIVE_NORMAL    0x080
-#define MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
-#define MSA_FLOAT_CLASS_POSITIVE_ZERO      0x200
-
-
-#define MSA_FLOAT_CLASS(ARG, BITS)                              \
-    do {                                                        \
-        int mask;                                               \
-        int snan, qnan, inf, neg, zero, dnmz;                   \
-                                                                \
-        snan = float ## BITS ## _is_signaling_nan(ARG);         \
-        qnan = float ## BITS ## _is_quiet_nan(ARG);             \
-        inf  = float ## BITS ## _is_infinity(ARG);              \
-        neg  = float ## BITS ## _is_neg(ARG);                   \
-        zero = float ## BITS ## _is_zero(ARG);                  \
-        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);      \
-                                                                \
-        mask = 0;                                               \
-        if (snan) {                                             \
-            mask |= MSA_FLOAT_CLASS_SIGNALING_NAN;}             \
-        else if (qnan) {                                        \
-            mask |= MSA_FLOAT_CLASS_QUIET_NAN;                  \
-        } else if (neg) {                                       \
-            if (inf) {                                          \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL;     \
-            }                                                   \
-            else {                                              \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_NORMAL;        \
-            }                                                   \
-        } else {                                                \
-            if (inf) {                                          \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL;     \
-            } else {                                            \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_NORMAL;        \
-            }                                                   \
-        }                                                       \
-                                                                \
-        return mask;                                            \
-    } while (0)
-
-
-int64_t helper_fclass_df(CPUMIPSState *env, int64_t arg, uint32_t df)
-{
-    if (df == DF_WORD) {
-        MSA_FLOAT_CLASS(arg, 32);
-    } else {
-        MSA_FLOAT_CLASS(arg, 64);
-    }
-}
-
-
-/*
- *  FEXDO, FEXUP
- */
-
-static float16 float16_from_float32(int32 a, flag ieee STATUS_PARAM) {
-      float16 f_val;
-
-      f_val = float32_to_float16((float32)a, ieee  STATUS_VAR);
-      f_val = float16_maybe_silence_nan(f_val);
-
-      return a < 0 ? (f_val | (1 << 15)) : f_val;
-}
-
-static float32 float32_from_float64(int64 a STATUS_PARAM) {
-      float32 f_val;
-
-      f_val = float64_to_float32((float64)a STATUS_VAR);
-      f_val = float32_maybe_silence_nan(f_val);
-
-      return a < 0 ? (f_val | (1 << 31)) : f_val;
-}
-
-static float32 float32_from_float16(int16_t a, flag ieee STATUS_PARAM) {
-      float32 f_val;
-
-      f_val = float16_to_float32((float16)a, ieee STATUS_VAR);
-      f_val = float32_maybe_silence_nan(f_val);
-
-      return a < 0 ? (f_val | (1 << 31)) : f_val;
-}
-
-static float64 float64_from_float32(int32 a STATUS_PARAM) {
-      float64 f_val;
-
-      f_val = float32_to_float64((float64)a STATUS_VAR);
-      f_val = float64_maybe_silence_nan(f_val);
-
-      return a < 0 ? (f_val | (1ULL << 63)) : f_val;
-}
-
-void helper_fexdo_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            /* Half precision floats come in two formats: standard
-               IEEE and "ARM" format.  The latter gains extra exponent
-               range by omitting the NaN/Inf encodings.  */
-            flag ieee = 1;
-
-            MSA_FLOAT_BINOP(HL(pwx, i), from_float32, W(pws, i), ieee, 16);
-            MSA_FLOAT_BINOP(HR(pwx, i), from_float32, W(pwt, i), ieee, 16);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(WL(pwx, i), from_float64, D(pws, i), 32);
-            MSA_FLOAT_UNOP(WR(pwx, i), from_float64, D(pwt, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-void helper_fexupl_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            /* Half precision floats come in two formats: standard
-               IEEE and "ARM" format.  The latter gains extra exponent
-               range by omitting the NaN/Inf encodings.  */
-            flag ieee = 1;
-
-            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HL(pws, i), ieee, 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WL(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-void helper_fexupr_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            /* Half precision floats come in two formats: standard
-               IEEE and "ARM" format.  The latter gains extra exponent
-               range by omitting the NaN/Inf encodings.  */
-            flag ieee = 1;
-
-            MSA_FLOAT_BINOP(W(pwx, i), from_float16, HR(pws, i), ieee, 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_float32, WR(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-
-/*
- *  FFINT, FTINT, FTRUNC, FRINT
- */
-
-#define float32_from_int32 int32_to_float32
-#define float32_from_uint32 uint32_to_float32
-
-#define float64_from_int64 int64_to_float64
-#define float64_from_uint64 uint64_to_float64
-
-
-void helper_ffint_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), from_int32, W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_int64, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_ffint_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), from_uint32, W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_uint64, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_ftint_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_int32, W(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_int64, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_ftint_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32, W(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_ftrunc_s_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_int32_round_to_zero, W(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_int64_round_to_zero, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_ftrunc_u_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(W(pwx, i), to_uint32_round_to_zero, W(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP0(D(pwx, i), to_uint64_round_to_zero, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-void helper_frint_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), round_to_int, W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), round_to_int, D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-/*
- *  FFQ, FTQ
- */
-
-static float32 float32_from_q16(int16_t a STATUS_PARAM)
-{
-    float32 f_val;
-
-    /* conversion as integer and scaling */
-    f_val = int32_to_float32(a STATUS_VAR);
-    f_val = float32_scalbn(f_val, -15 STATUS_VAR);
-
-    return f_val;
-}
-
-static float64 float64_from_q32(int32 a STATUS_PARAM)
-{
-    float64 f_val;
-
-    /* conversion as integer and scaling */
-    f_val = int32_to_float64(a STATUS_VAR);
-    f_val = float64_scalbn(f_val, -31 STATUS_VAR);
-
-    return f_val;
-}
-
-static int16_t float32_to_q16(float32 a STATUS_PARAM)
-{
-    int32 q_val;
-    int32 q_min = 0xffff8000;
-    int32 q_max = 0x00007fff;
-
-    int ieee_ex;
-
-    if (float32_is_any_nan(a)) {
-      float_raise( float_flag_invalid STATUS_VAR);
-      return 0;
-    }
-
-    /* scaling */
-    a = float32_scalbn(a, 15 STATUS_VAR);
-
-    ieee_ex = get_float_exception_flags(status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
-                              STATUS_VAR);
-
-    if (ieee_ex & float_flag_overflow) {
-      float_raise( float_flag_inexact STATUS_VAR);
-      return (int32)a < 0 ? q_min : q_max;
-    }
-
-    /* conversion to int */
-    q_val = float32_to_int32(a STATUS_VAR);
-
-    ieee_ex = get_float_exception_flags(status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
-                              STATUS_VAR);
-
-    if (ieee_ex & float_flag_invalid) {
-      set_float_exception_flags(ieee_ex & (~float_flag_invalid)
-                                STATUS_VAR);
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int32)a < 0 ? q_min : q_max;
-    }
-
-    if (q_val < q_min) {
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int16_t)q_min;
-    }
-
-    if (q_max < q_val) {
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int16_t)q_max;
-    }
-
-    return (int16_t)q_val;
-}
-
-static int32 float64_to_q32(float64 a STATUS_PARAM)
-{
-    int64 q_val;
-    int64 q_min = 0xffffffff80000000LL;
-    int64 q_max = 0x000000007fffffffLL;
-
-    int ieee_ex;
-
-    if (float64_is_any_nan(a)) {
-      float_raise( float_flag_invalid STATUS_VAR);
-      return 0;
-    }
-
-    /* scaling */
-    a = float64_scalbn(a, 31 STATUS_VAR);
-
-    ieee_ex = get_float_exception_flags(status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
-                              STATUS_VAR);
-
-    if (ieee_ex & float_flag_overflow) {
-      float_raise( float_flag_inexact STATUS_VAR);
-      return (int64)a < 0 ? q_min : q_max;
-    }
-
-    /* conversion to integer */
-    q_val = float64_to_int64(a STATUS_VAR);
-
-    ieee_ex = get_float_exception_flags(status);
-    set_float_exception_flags(ieee_ex & (~float_flag_underflow)
-                              STATUS_VAR);
-
-    if (ieee_ex & float_flag_invalid) {
-      set_float_exception_flags(ieee_ex & (~float_flag_invalid)
-                                STATUS_VAR);
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int64)a < 0 ? q_min : q_max;
-    }
-
-    if (q_val < q_min) {
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int32)q_min;
-    }
-
-    if (q_max < q_val) {
-      float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
-      return (int32)q_max;
-    }
-
-    return (int32)q_val;
-}
-
-void helper_ffql_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(W(pwx, i), from_q16, HL(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP(D(pwx, i), from_q32, WL(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-void helper_ffqr_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(W(pwx, i), from_q16, HR(pws, i), 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_UNOP(D(pwx, i), from_q32, WR(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    helper_move_v(env, pwd, &wx, wrlen);
-}
-
-void helper_ftq_df(CPUMIPSState *env, void *pwd, void *pws, void *pwt, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP_XD(HL(pwx, i), to_q16, W(pws, i), 32, 16);
-          MSA_FLOAT_UNOP_XD(HR(pwx, i), to_q16, W(pwt, i), 32, 16);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_UNOP_XD(WL(pwx, i), to_q32, D(pws, i), 64, 32);
-          MSA_FLOAT_UNOP_XD(WR(pwx, i), to_q32, D(pwt, i), 64, 32);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-/*
- *  FRCP, FRSQRT
- */
-
-void helper_frcp_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_RECIPROCAL(W(pwx, i), W(pws, i), 32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-            MSA_FLOAT_RECIPROCAL(D(pwx, i), D(pws, i), 64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-void helper_frsqrt_df(CPUMIPSState *env, void *pwd, void *pws, uint32_t wrlen_df)
-{
-    uint32_t df = DF(wrlen_df);
-    uint32_t wrlen = WRLEN(wrlen_df);
-
-    wr_t wx, *pwx = &wx;
-
-    clear_msacsr_cause(env);
-
-    switch (df) {
-    case DF_WORD:
-        ALL_W_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_RECIPROCAL(W(pwx, i),
-                               float32_sqrt(W(pws, i),
-                                            &env->active_msa.fp_status),
-                               32);
-         } DONE_ALL_ELEMENTS;
-        break;
-
-    case DF_DOUBLE:
-        ALL_D_ELEMENTS(i, wrlen) {
-          MSA_FLOAT_RECIPROCAL(D(pwx, i),
-                               float64_sqrt(D(pws, i),
-                                            &env->active_msa.fp_status),
-                               64);
-        } DONE_ALL_ELEMENTS;
-        break;
-
-    default:
-        /* shouldn't get here */
-      assert(0);
-    }
-
-    check_msacsr_cause(env);
-    helper_move_v(env, pwd, pwx, wrlen);
-}
-
-
-
-/*
- *  MSA Control Register (MSACSR) instructions: CFCMSA, CTCMSA
- */
-
-target_ulong helper_cfcmsa(CPUMIPSState *env, uint32_t cs)
-{
-    switch (cs) {
-    case MSAIR_REGISTER:
-        return env->active_msa.msair;
-
-    case MSACSR_REGISTER:
-#if DEBUG_MSACSR
-        printf("cfcmsa 0x%08x: Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
-               env->active_msa.msacsr & MSACSR_BITS,
-               GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
-               GET_FP_ENABLE(env->active_msa.msacsr & MSACSR_BITS),
-               GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
-#endif
-        return env->active_msa.msacsr & MSACSR_BITS;
-
-    case MSAACCESS_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msaaccess;
-        else
-            break;
-
-    case MSASAVE_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msasave;
-        else
-            break;
-
-    case MSAMODIFY_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msamodify;
-        else
-            break;
-
-    case MSAREQUEST_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msarequest;
-        else
-            break;
-
-    case MSAMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msamap;
-        else
-            break;
-
-    case MSAUNMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT)
-            return env->active_msa.msaunmap;
-        else
-            break;
-    }
-
-    // helper_raise_exception(EXCP_RI);
-    return 0;
-}
-
-
-void helper_ctcmsa(CPUMIPSState *env, target_ulong elm, uint32_t cd)
-{
-    switch (cd) {
-    case MSAIR_REGISTER:
-        break;
-
-    case MSACSR_REGISTER:
-        env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
-
-#if DEBUG_MSACSR
-        printf("ctcmsa 0x%08x (0x%08x): Cause 0x%02x, Enable 0x%02x, Flags 0x%02x\n",
-               env->active_msa.msacsr & MSACSR_BITS, elm,
-               GET_FP_CAUSE(env->active_msa.msacsr & MSACSR_BITS),
-               GET_FP_ENABLE(env->active_msa.msacsr & MSACSR_BITS),
-               GET_FP_FLAGS(env->active_msa.msacsr & MSACSR_BITS));
-#endif
-        /* set float_status rounding mode */
-        set_float_rounding_mode(
-            ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
-            &env->active_msa.fp_status);
-
-        /* set float_status flush modes */
-        set_flush_to_zero(
-          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
-          &env->active_msa.fp_status);
-        set_flush_inputs_to_zero(
-          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
-          &env->active_msa.fp_status);
-
-        /* check exception */
-        if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
-            & GET_FP_CAUSE(env->active_msa.msacsr)) {
-            helper_raise_exception(env, EXCP_MSAFPE);
-        }
-
-        return;
-
-    case MSAACCESS_REGISTER:
-        break;
-
-    case MSASAVE_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msasave = (int32_t)elm;
-            return;
-        }
-        else
-            break;
-
-    case MSAMODIFY_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msamodify = (int32_t)elm;
-            return;
-        }
-        else
-            break;
-
-    case MSAREQUEST_REGISTER:
-        break;
-
-    case MSAMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msamap = (int32_t)elm;
-
-            /* TBD */
-
-            env->active_msa.msaaccess |= 1 << (int32_t)elm;
-            return;
-        }
-        else
-            break;
-
-    case MSAUNMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-             env->active_msa.msaunmap = (int32_t)elm;
-
-            /* TBD */
-
-             env->active_msa.msaaccess &= ~(1 << (int32_t)elm);
-             return;
-        }
-        else
-            break;
-    }
-
-    // helper_raise_exception(EXCP_RI);
-}
-
+FOP_CONDN_S(sun,  (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)))
+FOP_CONDN_S(seq,  (float32_eq(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sueq, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_eq(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(slt,  (float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sult, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sle,  (float32_le(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sule, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_le(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(or,   (float32_le_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_le_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(une,  (float32_unordered_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(ne,   (float32_lt_quiet(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt_quiet(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sor,  (float32_le(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_le(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sune, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
+FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
+                   || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
