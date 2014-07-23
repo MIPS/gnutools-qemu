@@ -20387,12 +20387,6 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
     cpu = MIPS_CPU(object_new(TYPE_MIPS_CPU));
     env = &cpu->env;
     env->cpu_model = def;
-
-#ifdef MIPSSIM_COMPAT
-#ifndef CONFIG_USER_ONLY
-    cpu_config(env, def, cpu_config_name);
-#endif
-#endif
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
 #endif
