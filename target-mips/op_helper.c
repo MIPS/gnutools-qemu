@@ -1595,14 +1595,9 @@ void helper_mtc0_entryhi(CPUMIPSState *env, target_ulong arg1)
 {
     target_ulong old, val, mask;
     mask = (TARGET_PAGE_MASK << 1) | 0xFF;
-    if (env->CP0_Config4 & (1 << CP0C4_IE)) {
-        mask |= 1 << CP0EnHi_EHINV;
-    }
-
     /* 1k pages not implemented */
-    val = arg1 & ((TARGET_PAGE_MASK << 1) | 0xFF);
     if (((env->CP0_Config4 >> CP0C4_IE) & 0x3) >= 2) {
-        val |= arg1 & (1 << CP0EntryHiEHINV);
+        mask |= 1 << CP0EnHi_EHINV;
     }
 #if defined(TARGET_MIPS64)
     if ((env->insn_flags & ISA_MIPS32R6) && extract64(arg1, 62, 2) == 0x2) {
