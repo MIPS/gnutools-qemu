@@ -48,6 +48,12 @@
 #include "exec/cputlb.h"
 #include "translate-all.h"
 
+#ifdef PAE_TEST
+#ifndef DEBUG_UNASSIGNED
+#define DEBUG_UNASSIGNED
+#endif
+#endif
+
 #include "exec/memory-internal.h"
 #include "exec/ram_addr.h"
 #include "qemu/cache-utils.h"
