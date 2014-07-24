@@ -792,7 +792,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
                 env->CP0_DEPC);
     }
 #ifdef MIPSSIM_COMPAT
-    sv_log(": exception #%d at offset 0x%x\n", cause, (unsigned) offset);
+    sv_log("%s : exception #%d at offset 0x%x\n", SVLOG_CPU, cause, (unsigned) offset);
 #endif
 
 #endif

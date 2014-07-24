@@ -795,6 +795,7 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 void cpu_state_reset(CPUMIPSState *s);
 
 #ifdef MIPSSIM_COMPAT
+#include "mips-avp.h"
 void mips_cpu_trace_state(CPUMIPSState *cs, FILE *f, fprintf_function cpu_fprintf,
                           int flags);
 int cpu_mips_insnlen_micromips_opc (uint32_t opcode, uint32_t hflags);

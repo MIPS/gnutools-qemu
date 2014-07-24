@@ -374,14 +374,14 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
 
     int insn_bytes;
     uint32_t opcode;
-
 #ifndef CONFIG_USER_ONLY
-    fprintf(out, " : " TARGET_FMT_lx " " TARGET_FMT_lx " %s: ",
+    fprintf(out, "%s : %s(%s%d) - " TARGET_FMT_lx " " TARGET_FMT_lx " %s: ",
+            SVLOG_CPU, SVLOG_ISROOT, SVLOG_KSU, SVLOG_ERL,
             pc,
             (target_ulong) cpu_mips_translate_address(env, pc, 0),
             "#"); /* cacheability - just ignore when comparing */
 #else
-    fprintf(out, " : " TARGET_FMT_lx ": ", pc);
+    fprintf(out, "%s : " TARGET_FMT_lx ": ", SVLOG_CPU, pc);
 #endif
 
 

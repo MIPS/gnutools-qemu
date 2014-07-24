@@ -29,9 +29,6 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-#ifdef MIPSSIM_COMPAT
-#include "sysemu/sysemu.h"
-#endif
 #ifndef MIPS_DEBUG_DISAS
 #define MIPS_DEBUG_DISAS 0 //defined in mips-def.h
 #endif
@@ -20080,17 +20077,23 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     static CPUMIPSMVPContext mvp_prev;
 
 #define CHK_CP0_REG(REG, NAME) do { \
-        if(env_prev.REG != env->REG) \
-            sv_log(" : Write " NAME " = %08x\n", env->REG); \
+        if(env_prev.REG != env->REG) {                   \
+            SVLOG_START_LINE();                          \
+            sv_log("Write " NAME " = %08x\n", env->REG); \
+        }                                                \
     } while(0)
 #define CHK_CP0_REG_ULONG(REG, NAME) do { \
-        if(env_prev.REG != env->REG) \
-            sv_log(" : Write " NAME " = " TARGET_FMT_lx "\n", env->REG); \
+        if(env_prev.REG != env->REG) {                                \
+            SVLOG_START_LINE();                                       \
+            sv_log("Write " NAME " = " TARGET_FMT_lx "\n", env->REG); \
+        }                                                             \
     } while(0)
 
 #define CHK_CP0_REG64(REG, NAME) do { \
-        if(env_prev.REG != env->REG) \
-            sv_log(" : Write " NAME " = %016" PRIx64 "\n", env->REG); \
+        if(env_prev.REG != env->REG) {                             \
+            SVLOG_START_LINE();                                    \
+            sv_log("Write " NAME " = %016" PRIx64 "\n", env->REG); \
+        }                                                          \
     } while(0)
 
     CHK_CP0_REG_ULONG(active_tc.HI[0],           "HI          ");
@@ -20102,15 +20105,18 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     //CP0_MVPControl
     if(mvp_prev.CP0_MVPControl != env->mvp->CP0_MVPControl) {
-        sv_log(" : Write C0MVPCTL     = %08x\n", env->mvp->CP0_MVPControl);
+        SVLOG_START_LINE();
+        sv_log("Write C0MVPCTL     = %08x\n", env->mvp->CP0_MVPControl);
     }
     //CP0_MVPConf0
     if(mvp_prev.CP0_MVPConf0 != env->mvp->CP0_MVPConf0) {
-        sv_log(" : Write C0MVPCONF0   = %08x\n", env->mvp->CP0_MVPConf0);
+        SVLOG_START_LINE();
+        sv_log("Write C0MVPCONF0   = %08x\n", env->mvp->CP0_MVPConf0);
     }
     //CP0_MVPConf1
     if(mvp_prev.CP0_MVPConf1 != env->mvp->CP0_MVPConf1) {
-        sv_log(" : Write C0MVPCONF1   = %08x\n", env->mvp->CP0_MVPConf1);
+        SVLOG_START_LINE();
+        sv_log("Write C0MVPCONF1   = %08x\n", env->mvp->CP0_MVPConf1);
     }
 
     //1
@@ -20204,7 +20210,8 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     CHK_CP0_REG64(lladdr,                        "C0LLA       ");
     for (i = 0; i < MIPS_MAAR_MAX; i++) {
         if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
-            sv_log(" : Write MAAR[%2d]     = %016" PRIx64 "\n", i, env->CP0_MAAR[i]);
+            SVLOG_START_LINE();
+            sv_log("Write MAAR[%2d]     = %016" PRIx64 "\n", i, env->CP0_MAAR[i]);
         }
     }
     CHK_CP0_REG(CP0_MAARI,                       "C0MAARI     ");
@@ -20260,32 +20267,37 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     //GPRs
     for (i = 0; i < 32; i++) {
         if(env_prev.active_tc.gpr[i] != env->active_tc.gpr[i]) {
-            sv_log(" : Write GPR[%2d]      = " TARGET_FMT_lx "\n", i, env->active_tc.gpr[i]);
+            SVLOG_START_LINE();
+            sv_log("Write GPR[%2d]      = " TARGET_FMT_lx "\n", i, env->active_tc.gpr[i]);
         }
     }
 
     //FPU
     if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
-        sv_log(" : Write C1FCSR           = %08x\n", env->active_fpu.fcr31);
+        SVLOG_START_LINE();
+        sv_log("Write C1FCSR           = %08x\n", env->active_fpu.fcr31);
     }
 
     //FPR
     for (i = 0; i < 32; i++) {
         if (env_prev.active_fpu.fpr[i].fd != env->active_fpu.fpr[i].fd) {
-            sv_log(" : Write FPR[%2d]      = %016" PRIx64 "\n", i, env->active_fpu.fpr[i].fd);
+            SVLOG_START_LINE();
+            sv_log("Write FPR[%2d]      = %016" PRIx64 "\n", i, env->active_fpu.fpr[i].fd);
         }
     }
 
     //MSA
     if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
-        sv_log(" : Write msa_csr      = %08x\n", env->active_msa.msacsr);
+        SVLOG_START_LINE();
+        sv_log("Write msa_csr      = %08x\n", env->active_msa.msacsr);
     }
 
     for (i = 0; i < 32; i++) {
         /* print vector register only when higher doubleword changes (lower doubleword
            is already checked above - FPR) */
         if (env_prev.active_fpu.fpr[i].wr.d[1] != env->active_fpu.fpr[i].wr.d[1]) {
-            sv_log(" : Write VR[%2d]      = %016" PRIx64 "%016" PRIx64 "\n",
+            SVLOG_START_LINE();
+            sv_log("Write VR[%2d]      = %016" PRIx64 "%016" PRIx64 "\n",
                    i, env->active_fpu.fpr[i].wr.d[1], env->active_fpu.fpr[i].wr.d[0]);
         }
     }
@@ -20298,10 +20310,12 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     for (i = 1; i < MIPS_DSP_ACC; i++) {
         if(env_prev.active_tc.HI[i] != env->active_tc.HI[i]) {
-            sv_log(" : Write HI%x         = " TARGET_FMT_lx "\n", i, env->active_tc.HI[i]);
+            SVLOG_START_LINE();
+            sv_log("Write HI%x         = " TARGET_FMT_lx "\n", i, env->active_tc.HI[i]);
         }
         if(env_prev.active_tc.LO[i] != env->active_tc.LO[i]) {
-            sv_log(" : Write LO%x         = " TARGET_FMT_lx "\n", i, env->active_tc.LO[i]);
+            SVLOG_START_LINE();
+            sv_log("Write LO%x         = " TARGET_FMT_lx "\n", i, env->active_tc.LO[i]);
         }
     }
 

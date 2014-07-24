@@ -27,7 +27,6 @@ static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
 
 #ifdef MIPSSIM_COMPAT
 #include "sysemu/sysemu.h"
-#include "mips-avp.h"
 
 void helper_avp_ok(void)
 {
@@ -70,18 +69,19 @@ void helper_trace_transl_post(CPUMIPSState *env)
 }
 
 void helper_trace_mem_access(CPUMIPSState *env,
-                                           target_ulong val,
-                                           target_ulong addr,
-                                           uint32_t rw_size)
+                             target_ulong val,
+                             target_ulong addr,
+                             uint32_t rw_size)
 {
+    SVLOG_START_LINE();
 #ifndef CONFIG_USER_ONLY
-    sv_log(" : Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %s] = ",
+    sv_log("Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %s] = ",
             (rw_size >> 16)? "Write":"Read",
             addr,
             (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
             "#"); /* cacheability - just ignore when comparing */
 #else
-    sv_log(" : Memory %s ["TARGET_FMT_lx"] = ",
+    sv_log("Memory %s ["TARGET_FMT_lx"] = ",
             (rw_size >> 16)? "Write":"Read",
             addr);
 #endif
