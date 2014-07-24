@@ -1456,7 +1456,7 @@ typedef struct DisasContext {
     bool ulri;
     int kscrexist;
     bool rxi;
-    bool ie;
+    int ie;
     bool bi;
     bool bp;
 } DisasContext;
@@ -8411,7 +8411,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         break;
     case OPC_TLBINV:
         opn = "tlbinv";
-        if (ctx->ie) {
+        if (ctx->ie >= 2) {
             if (!env->tlb->helper_tlbinv) {
                 goto die;
             }
@@ -8420,7 +8420,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         break;
     case OPC_TLBINVF:
         opn = "tlbinvf";
-        if (ctx->ie) {
+        if (ctx->ie >= 2) {
             if (!env->tlb->helper_tlbinvf) {
                 goto die;
             }
@@ -19793,7 +19793,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.bstate = BS_NONE;
     ctx.kscrexist = (env->CP0_Config4 >> CP0C4_KScrExist) & 0xff;
     ctx.rxi = (env->CP0_Config3 >> CP0C3_RXI) & 1;
-    ctx.ie = (env->CP0_Config4 >> CP0C4_IE) & 1;
+    ctx.ie = (env->CP0_Config4 >> CP0C4_IE) & 3;
     ctx.bi = (env->CP0_Config3 >> CP0C3_BI) & 1;
     ctx.bp = (env->CP0_Config3 >> CP0C3_BP) & 1;
     /* Restore delay slot state from the tb context.  */
