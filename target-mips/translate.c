@@ -20101,168 +20101,168 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     //cp0 registers
     //0
-    CHK_CP0_REG(CP0_Index,                       "C0IDX       ");
+    CHK_CP0_REG(CP0_Index,                       "Index       ");
 
     //CP0_MVPControl
     if(mvp_prev.CP0_MVPControl != env->mvp->CP0_MVPControl) {
         SVLOG_START_LINE();
-        sv_log("Write C0MVPCTL     = %08x\n", env->mvp->CP0_MVPControl);
+        sv_log("Write MVPControl   = %08x\n", env->mvp->CP0_MVPControl);
     }
     //CP0_MVPConf0
     if(mvp_prev.CP0_MVPConf0 != env->mvp->CP0_MVPConf0) {
         SVLOG_START_LINE();
-        sv_log("Write C0MVPCONF0   = %08x\n", env->mvp->CP0_MVPConf0);
+        sv_log("Write MVPConf0     = %08x\n", env->mvp->CP0_MVPConf0);
     }
     //CP0_MVPConf1
     if(mvp_prev.CP0_MVPConf1 != env->mvp->CP0_MVPConf1) {
         SVLOG_START_LINE();
-        sv_log("Write C0MVPCONF1   = %08x\n", env->mvp->CP0_MVPConf1);
+        sv_log("Write MVPConf1    = %08x\n", env->mvp->CP0_MVPConf1);
     }
 
     //1
-    CHK_CP0_REG(CP0_Random,                      "C0RAND      ");
-    CHK_CP0_REG(CP0_VPEControl,                  "C0VPECTL    ");
-    CHK_CP0_REG(CP0_VPEConf0,                    "C0VPECONF0  ");
-    CHK_CP0_REG(CP0_VPEConf1,                    "C0VPECONF1  ");
-    CHK_CP0_REG_ULONG(CP0_YQMask,                "C0YQMASK    ");
-    CHK_CP0_REG_ULONG(CP0_VPESchedule,           "C0VPESCHED  ");
-    CHK_CP0_REG_ULONG(CP0_VPEScheFBack,          "C0VPESCHEDFB");
-    CHK_CP0_REG(CP0_VPEOpt,                      "C0VPEOPT    ");
+    CHK_CP0_REG(CP0_Random,                      "Random      ");
+    CHK_CP0_REG(CP0_VPEControl,                  "VPEControl  ");
+    CHK_CP0_REG(CP0_VPEConf0,                    "VPEConf0    ");
+    CHK_CP0_REG(CP0_VPEConf1,                    "VPEConf1    ");
+    CHK_CP0_REG_ULONG(CP0_YQMask,                "YQMask      ");
+    CHK_CP0_REG_ULONG(CP0_VPESchedule,           "VPESchedule ");
+    CHK_CP0_REG_ULONG(CP0_VPEScheFBack,          "VPEScheFBack");
+    CHK_CP0_REG(CP0_VPEOpt,                      "VPEOpt      ");
 
     //2
-    CHK_CP0_REG64(CP0_EntryLo0,                  "C0ENLO0     ");
-    CHK_CP0_REG(active_tc.CP0_TCStatus,          "C0TCSTAT    ");
-    CHK_CP0_REG(active_tc.CP0_TCBind,            "C0TCBIND    ");
+    CHK_CP0_REG64(CP0_EntryLo0,                  "EntryLo0    ");
+    CHK_CP0_REG(active_tc.CP0_TCStatus,          "TCStatus    ");
+    CHK_CP0_REG(active_tc.CP0_TCBind,            "TCBind      ");
     // TCRestart missing
-    CHK_CP0_REG_ULONG(active_tc.CP0_TCHalt,      "C0TCHALT    ");
-    CHK_CP0_REG_ULONG(active_tc.CP0_TCContext,   "C0TCCTXT    ");
-    CHK_CP0_REG_ULONG(active_tc.CP0_TCSchedule,  "C0TCSCHED   ");
-    CHK_CP0_REG_ULONG(active_tc.CP0_TCScheFBack, "C0TCSCHEDFB ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCHalt,      "TCRestart   ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCContext,   "TCHalt      ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCSchedule,  "TCContext   ");
+    CHK_CP0_REG_ULONG(active_tc.CP0_TCScheFBack, "TCScheFBack ");
 
     //3
-    CHK_CP0_REG64(CP0_EntryLo1,                  "C0ENLO1     ");
+    CHK_CP0_REG64(CP0_EntryLo1,                  "EntryLo1    ");
 
     //4
-    CHK_CP0_REG_ULONG(CP0_Context,               "C0CTXT      ");
+    CHK_CP0_REG_ULONG(CP0_Context,               "Context     ");
 
     //5
-    CHK_CP0_REG(CP0_PageMask,                    "C0PMASK     ");
-    CHK_CP0_REG(CP0_PageGrain,                   "C0PGRAIN    ");
+    CHK_CP0_REG(CP0_PageMask,                    "PageMask    ");
+    CHK_CP0_REG(CP0_PageGrain,                   "PageGrain   ");
 
-    CHK_CP0_REG_ULONG(CP0_PWBase,                "C0PWBASE    ");
-    CHK_CP0_REG_ULONG(CP0_PWField,               "C0PWFIELD   ");
-    CHK_CP0_REG_ULONG(CP0_PWSize,                "C0PWSIZE    ");
+    CHK_CP0_REG_ULONG(CP0_PWBase,                "PWBase      ");
+    CHK_CP0_REG_ULONG(CP0_PWField,               "PWField     ");
+    CHK_CP0_REG_ULONG(CP0_PWSize,                "PWSize      ");
 
     //6
-    CHK_CP0_REG(CP0_Wired,                       "C0WIRED     ");
-    CHK_CP0_REG(CP0_SRSConf0,                    "C0SRSCONF   ");
-    CHK_CP0_REG(CP0_SRSConf1,                    "C0SRSCONF1  ");
-    CHK_CP0_REG(CP0_SRSConf2,                    "C0SRSCONF2  ");
-    CHK_CP0_REG(CP0_SRSConf3,                    "C0SRSCONF3  ");
-    CHK_CP0_REG(CP0_SRSConf4,                    "C0SRSCONF4  ");
-    CHK_CP0_REG(CP0_PWCtl,                       "C0PWCTL     ");
+    CHK_CP0_REG(CP0_Wired,                       "Wired       ");
+    CHK_CP0_REG(CP0_SRSConf0,                    "SRSConf     ");
+    CHK_CP0_REG(CP0_SRSConf1,                    "SRSConf1    ");
+    CHK_CP0_REG(CP0_SRSConf2,                    "SRSConf2    ");
+    CHK_CP0_REG(CP0_SRSConf3,                    "SRSConf3    ");
+    CHK_CP0_REG(CP0_SRSConf4,                    "SRSConf4    ");
+    CHK_CP0_REG(CP0_PWCtl,                       "PWCtl       ");
 
     //7
-    CHK_CP0_REG(CP0_HWREna,                      "C0HWRENA    ");
+    CHK_CP0_REG(CP0_HWREna,                      "HWREna      ");
 
     //8
-    CHK_CP0_REG_ULONG(CP0_BadVAddr,              "C0BVA       ");
-    CHK_CP0_REG(active_tc.CP0_BadInstr,          "C0BINSTR    ");
-    CHK_CP0_REG(active_tc.CP0_BadInstrP,         "C0BINSTRP   ");
+    CHK_CP0_REG_ULONG(CP0_BadVAddr,              "BadVAddr    ");
+    CHK_CP0_REG(active_tc.CP0_BadInstr,          "BadInstr    ");
+    CHK_CP0_REG(active_tc.CP0_BadInstrP,         "BadInstrP   ");
 
     //9
-    CHK_CP0_REG(CP0_Count,                       "C0COUNT     ");
+    CHK_CP0_REG(CP0_Count,                       "Count       ");
 
     //10
-    CHK_CP0_REG_ULONG(CP0_EntryHi,               "C0ENHI      ");
+    CHK_CP0_REG_ULONG(CP0_EntryHi,               "EntryHi     ");
 
     //11
-    CHK_CP0_REG(CP0_Compare,                     "C0COMP      ");
+    CHK_CP0_REG(CP0_Compare,                     "Compare     ");
 
     //12
-    CHK_CP0_REG(CP0_Status,                      "C0STAT      ");
-    CHK_CP0_REG(CP0_IntCtl,                      "C0INTCTL    ");
-    CHK_CP0_REG(CP0_SRSCtl,                      "C0SRSCTL    ");
-    CHK_CP0_REG(CP0_SRSMap,                      "C0SRSMAP    ");
+    CHK_CP0_REG(CP0_Status,                      "Status      ");
+    CHK_CP0_REG(CP0_IntCtl,                      "IntCtl      ");
+    CHK_CP0_REG(CP0_SRSCtl,                      "SRSCtl      ");
+    CHK_CP0_REG(CP0_SRSMap,                      "SRSMap      ");
 
     //13
-    CHK_CP0_REG(CP0_Cause,                       "C0CAUS      ");
+    CHK_CP0_REG(CP0_Cause,                       "Cause       ");
 
     //14
-    CHK_CP0_REG_ULONG(CP0_EPC,                   "C0EPC       ");
+    CHK_CP0_REG_ULONG(CP0_EPC,                   "EPC         ");
 
     //15
-    CHK_CP0_REG(CP0_PRid,                        "C0PRID      ");
-    CHK_CP0_REG(CP0_EBase,                       "C0EBASE     ");
+    CHK_CP0_REG(CP0_PRid,                        "PRId        ");
+    CHK_CP0_REG(CP0_EBase,                       "EBase       ");
 
     //16
-    CHK_CP0_REG(CP0_Config0,                     "C0CONFIG    ");
-    CHK_CP0_REG(CP0_Config1,                     "C0CONFIG1   ");
-    CHK_CP0_REG(CP0_Config2,                     "C0CONFIG2   ");
-    CHK_CP0_REG(CP0_Config3,                     "C0CONFIG3   ");
-    CHK_CP0_REG(CP0_Config4,                     "C0CONFIG4   ");
-    CHK_CP0_REG(CP0_Config5,                     "C0CONFIG5   ");
+    CHK_CP0_REG(CP0_Config0,                     "Config      ");
+    CHK_CP0_REG(CP0_Config1,                     "Config1     ");
+    CHK_CP0_REG(CP0_Config2,                     "Config2     ");
+    CHK_CP0_REG(CP0_Config3,                     "Config3     ");
+    CHK_CP0_REG(CP0_Config4,                     "Config4     ");
+    CHK_CP0_REG(CP0_Config5,                     "Config5     ");
     //MSA
-    CHK_CP0_REG(CP0_Config6,                     "C0CONFIG6   ");
-    CHK_CP0_REG(CP0_Config7,                     "C0CONFIG7   ");
+    CHK_CP0_REG(CP0_Config6,                     "Config6     ");
+    CHK_CP0_REG(CP0_Config7,                     "Config7     ");
 
     //17
-    CHK_CP0_REG64(lladdr,                        "C0LLA       ");
+    CHK_CP0_REG64(lladdr,                        "LLAddr      ");
     for (i = 0; i < MIPS_MAAR_MAX; i++) {
         if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
             SVLOG_START_LINE();
             sv_log("Write MAAR[%2d]     = %016" PRIx64 "\n", i, env->CP0_MAAR[i]);
         }
     }
-    CHK_CP0_REG(CP0_MAARI,                       "C0MAARI     ");
+    CHK_CP0_REG(CP0_MAARI,                       "MAARI       ");
     //...
 
     //18
-    CHK_CP0_REG_ULONG(CP0_WatchLo[0],            "C0WATCHLO   ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[1],            "C0WATCHLO1  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[2],            "C0WATCHLO2  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[3],            "C0WATCHLO3  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[4],            "C0WATCHLO4  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[5],            "C0WATCHLO5  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[6],            "C0WATCHLO6  ");
-    CHK_CP0_REG_ULONG(CP0_WatchLo[7],            "C0WATCHLO7  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[0],            "WatchLo     ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[1],            "WatchLo1  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[2],            "WatchLo2  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[3],            "WatchLo3  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[4],            "WatchLo4  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[5],            "WatchLo5  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[6],            "WatchLo6  ");
+    CHK_CP0_REG_ULONG(CP0_WatchLo[7],            "WatchLo7  ");
 
     //19
-    CHK_CP0_REG(CP0_WatchHi[0],                  "C0WATCHHI   ");
-    CHK_CP0_REG(CP0_WatchHi[1],                  "C0WATCHHI1  ");
-    CHK_CP0_REG(CP0_WatchHi[2],                  "C0WATCHHI2  ");
-    CHK_CP0_REG(CP0_WatchHi[3],                  "C0WATCHHI3  ");
-    CHK_CP0_REG(CP0_WatchHi[4],                  "C0WATCHHI4  ");
-    CHK_CP0_REG(CP0_WatchHi[5],                  "C0WATCHHI5  ");
-    CHK_CP0_REG(CP0_WatchHi[6],                  "C0WATCHHI6  ");
-    CHK_CP0_REG(CP0_WatchHi[7],                  "C0WATCHHI7  ");
+    CHK_CP0_REG(CP0_WatchHi[0],                  "WatchHi     ");
+    CHK_CP0_REG(CP0_WatchHi[1],                  "WatchHi1    ");
+    CHK_CP0_REG(CP0_WatchHi[2],                  "WatchHi2    ");
+    CHK_CP0_REG(CP0_WatchHi[3],                  "WatchHi3    ");
+    CHK_CP0_REG(CP0_WatchHi[4],                  "WatchHi4    ");
+    CHK_CP0_REG(CP0_WatchHi[5],                  "WatchHi5    ");
+    CHK_CP0_REG(CP0_WatchHi[6],                  "WatchHi6    ");
+    CHK_CP0_REG(CP0_WatchHi[7],                  "WatchHi7    ");
 
     //20 for 64bit
-    CHK_CP0_REG_ULONG(CP0_XContext,              "C0XCTXT     ");
+    CHK_CP0_REG_ULONG(CP0_XContext,              "XContext    ");
     //CP0_Framemask???
 
     //23
-    CHK_CP0_REG(CP0_Debug,                       "C0DEBUG     ");
+    CHK_CP0_REG(CP0_Debug,                       "Debug       ");
 
     //24
-    CHK_CP0_REG_ULONG(CP0_DEPC,                  "C0DEPC      ");
+    CHK_CP0_REG_ULONG(CP0_DEPC,                  "DEPC        ");
 
     //25
-    CHK_CP0_REG(CP0_Performance0,                "C0PERF0CTL  ");
+    CHK_CP0_REG(CP0_Performance0,                "PerfControl0");
 
     //28
-    CHK_CP0_REG64(CP0_TagLo,                     "C0TAGLO     ");
-    CHK_CP0_REG(CP0_DataLo,                      "C0DATALO    ");
+    CHK_CP0_REG64(CP0_TagLo,                     "TagLo       ");
+    CHK_CP0_REG(CP0_DataLo,                      "DataLo      ");
 
     //29
-    CHK_CP0_REG(CP0_TagHi,                       "C0TAGHI     ");
-    CHK_CP0_REG(CP0_DataHi,                      "C0DATAHI    ");
+    CHK_CP0_REG(CP0_TagHi,                       "TagHi       ");
+    CHK_CP0_REG(CP0_DataHi,                      "DataHi      ");
 
     //30
-    CHK_CP0_REG_ULONG(CP0_ErrorEPC,              "C0ErrorEPC  ");
+    CHK_CP0_REG_ULONG(CP0_ErrorEPC,              "ErrorEPC    ");
 
     //31
-    CHK_CP0_REG(CP0_DESAVE,                      "C0DESAVE    ");
+    CHK_CP0_REG(CP0_DESAVE,                      "DESAVE      ");
 
     //GPRs
     for (i = 0; i < 32; i++) {
