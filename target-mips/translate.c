@@ -17980,6 +17980,7 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
     ctx->btarget = ctx->pc + offset + 4;
 
     ctx->hflags |= MIPS_HFLAG_BC;
+    ctx->hflags |= MIPS_HFLAG_BDS32;
 }
 
 static void gen_msa_i8(CPUMIPSState *env, DisasContext *ctx)
