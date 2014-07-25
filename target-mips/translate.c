@@ -1634,7 +1634,7 @@ static inline void generate_exception (DisasContext *ctx, int excp);
 /* Floating point register moves. */
 static void gen_load_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
-    if (ctx->hflags & MIPS_HFLAG_FRE && reg & 1) {
+    if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
     }
     tcg_gen_trunc_i64_i32(t, fpu_f64[reg]);
