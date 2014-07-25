@@ -1061,7 +1061,7 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static inline uint32_t get_entrylo_mask(CPUMIPSState *env)
+static inline uint32_t get_pa_mask(CPUMIPSState *env, int topbit)
 {
     uint32_t pabits = (env->PABITS > 36) ? 36 : env->PABITS;
 #ifndef TARGET_MIPS64
@@ -1071,7 +1071,7 @@ static inline uint32_t get_entrylo_mask(CPUMIPSState *env)
         pabits = 32;
     }
 #endif
-    return ((1 << (30 - (36 - pabits))) - 1);
+    return ((1 << ((topbit + 1) - (36 - pabits))) - 1);
 }
 
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
@@ -1079,7 +1079,7 @@ void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    uint32_t mask = get_entrylo_mask(env);
+    uint32_t mask = get_pa_mask(env, 29);
     env->CP0_EntryLo0 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
@@ -1087,7 +1087,7 @@ void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    uint32_t mask = get_entrylo_mask(env);
+    uint32_t mask = get_pa_mask(env, 29);
     env->CP0_EntryLo0 = (arg1 & mask) | rxi;
 }
 #endif
@@ -1341,7 +1341,7 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
     /* Large physaddr (PABITS) not implemented on MIPS64 */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    uint32_t mask = get_entrylo_mask(env);
+    uint32_t mask = get_pa_mask(env, 29);
     env->CP0_EntryLo1 = (arg1 & mask) | (rxi << (CP0EnLo_RI - 31));
 }
 
@@ -1349,7 +1349,7 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    uint32_t mask = get_entrylo_mask(env);
+    uint32_t mask = get_pa_mask(env, 29);
     env->CP0_EntryLo1 = (arg1 & mask) | rxi;
 }
 #endif
@@ -1711,7 +1711,8 @@ void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_maar (CPUMIPSState *env, target_ulong arg1)
 {
-    uint64_t mask = 0x7FFFFFFFFFF003ULL;
+    uint64_t mask = (get_pa_mask(env, 31) & ~0xFFFull) | 0x3;
+
     if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
         return;
     }
