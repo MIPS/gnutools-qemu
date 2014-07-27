@@ -4334,7 +4334,7 @@ int main(int argc, char **argv, char **envp)
             } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
                 fprintf(stderr, "qemu: Program needs 64-bit floating-point "
                                 "registers\n");
-                exit(1);
+                exit(137);
             }
         }
         if (info->fpu_mode == MIPS_FRE
@@ -4345,7 +4345,7 @@ int main(int argc, char **argv, char **envp)
                 compute_hflags(env);
             } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
                 fprintf(stderr, "qemu: Program requires FRE mode\n");
-                exit(1);
+                exit(137);
             }
         }
 #endif

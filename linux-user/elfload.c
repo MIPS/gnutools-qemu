@@ -1908,9 +1908,9 @@ static void load_elf_image(const char *image_name, int image_fd,
                             && info->fpu_mode == MIPS_FR1)
                            || (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64
                                && info->fpu_mode == MIPS_FR0)) {
-                    fprintf(stderr, "Illegal combination of FP ABIs between"
-                                    "interpreter and executable\n");
-                    exit(1);
+		    errmsg = "Illegal combination of FP ABIs between "
+			     "interpreter and executable";
+		    goto exit_errmsg;
                 }
             }
 #endif
@@ -1944,7 +1944,7 @@ static void load_elf_image(const char *image_name, int image_fd,
     errmsg = strerror(errno);
  exit_errmsg:
     fprintf(stderr, "%s: %s\n", image_name, errmsg);
-    exit(-1);
+    exit(137);
 }
 
 static void load_elf_interp(const char *filename, struct image_info *info,
@@ -2155,6 +2155,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
         interp_info.fpu_mode = info->fpu_mode;
 #endif
         load_elf_interp(elf_interpreter, &interp_info, bprm->buf);
+#ifdef TARGET_ABI_MIPSO32
+	info->fpu_mode = interp_info.fpu_mode;
+#endif
 
         /* If the program interpreter is one of these two, then assume
            an iBCS2 image.  Otherwise assume a native linux image.  */
