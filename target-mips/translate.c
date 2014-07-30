@@ -19841,9 +19841,11 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             gen_io_start();
 
 #ifdef MIPSSIM_COMPAT
-        TCGv curr_pc = tcg_const_tl(ctx.pc);
-        gen_helper_trace_transl_pre(cpu_env, curr_pc);
-        tcg_temp_free(curr_pc);
+        if (svtracefile) {
+            TCGv curr_pc = tcg_const_tl(ctx.pc);
+            gen_helper_trace_transl_pre(cpu_env, curr_pc);
+            tcg_temp_free(curr_pc);
+        }
 #endif
         is_slot = ctx.hflags & MIPS_HFLAG_BMASK;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
@@ -19879,7 +19881,9 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         num_insns++;
 
 #ifdef MIPSSIM_COMPAT
-        gen_helper_trace_transl_post(cpu_env);
+        if (svtracefile) {
+            gen_helper_trace_transl_post(cpu_env);
+        }
 #endif
         /* Execute a branch and its delay slot as a single instruction.
            This is what GDB expects and is consistent with what the
