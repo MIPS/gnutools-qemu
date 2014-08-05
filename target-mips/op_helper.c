@@ -40,6 +40,37 @@ void helper_avp_fail(void)
     qemu_system_shutdown_request();
 }
 
+#if defined(TARGET_MIPS64)
+# define SV6432 "64"
+#else
+# define SV6432 "32"
+#endif
+
+static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
+{
+    r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[idx];
+
+    sv_log("Info (MIPS" SV6432 "_TLB) TLBW%s ", is_random ? "R" : "I");
+
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x%016" PRIx64 " ", tlb->PFN[0] << 12);
+    sv_log("PFN1 0x%016" PRIx64 " ", tlb->PFN[1] << 12);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    SVLOG_START_LINE();
+    sv_log("Write TLB Entry[%d] = ", idx);
+    sv_log("%08x ", env->CP0_PageMask);
+    sv_log(TARGET_FMT_lx " ", env->CP0_EntryHi);
+    sv_log("%08x ", (uint32_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
+    sv_log("%08x\n", (uint32_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
+}
 #endif
 #endif
 
@@ -2156,26 +2187,6 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->PFN[1] = ((env->CP0_EntryLo1 & 0x3fffffff) >> 6 | /* PFN */
                    (env->CP0_EntryLo1 >> 32) << 24) & ~mask; /* PFNX */
 #endif
-
-#ifdef MIPSSIM_COMPAT
-    sv_log("FILL TLB index %d, ", idx);
-    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-    sv_log("PFN0 0x%016" PRIx64 " ", tlb->PFN[0] << 12);
-    sv_log("PFN1 0x%016" PRIx64 " ", tlb->PFN[1] << 12);
-    sv_log("mask 0x%08x ", tlb->PageMask);
-    sv_log("G %x ", tlb->G);
-    sv_log("V0 %x ", tlb->V0);
-    sv_log("V1 %x ", tlb->V1);
-    sv_log("D0 %x ", tlb->D0);
-    sv_log("D1 %x ", tlb->D1);
-    sv_log("ASID %08x\n", tlb->ASID);
-
-    sv_log(" : Write TLB Entry[%d] = ", idx);
-    sv_log("%08x ", env->CP0_PageMask);
-    sv_log("0x" TARGET_FMT_lx " ", env->CP0_EntryHi);
-    sv_log("%016" PRIx64 " ", (uint64_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
-    sv_log("%016" PRIx64 "\n", (uint64_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
-#endif
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
@@ -2211,14 +2222,6 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
     uint8_t ASID;
     bool G, V0, D0, V1, D1;
 
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBWI ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBWI ");
-#endif
-#endif
-
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     tlb = &env->tlb->mmu.r4k.tlb[idx];
     VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
@@ -2242,17 +2245,13 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
 
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(env, idx);
+#ifdef MIPSSIM_COMPAT
+    trace_tlb_fill(env, idx, 0);
+#endif
 }
 
 void r4k_helper_tlbwr(CPUMIPSState *env)
 {
-#ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBWR ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBWR ");
-#endif
-#endif
     int idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     int r = cpu_mips_get_random(env);
     if ((r == idx) && !(env->CP0_Index & 0x80000000)) {
@@ -2262,6 +2261,9 @@ void r4k_helper_tlbwr(CPUMIPSState *env)
 
     r4k_invalidate_tlb(env, r, 1);
     r4k_fill_tlb(env, r);
+#ifdef MIPSSIM_COMPAT
+    trace_tlb_fill(env, r, 1);
+#endif
 }
 
 void r4k_helper_tlbp(CPUMIPSState *env)
@@ -2311,11 +2313,7 @@ void r4k_helper_tlbp(CPUMIPSState *env)
         env->CP0_Index |= 0x80000000;
     }
 #ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) TLBP ");
-#else
-    sv_log("Info (MIPS32_TLB) TLBP ");
-#endif
+    sv_log("Info (MIPS" SV6432 "_TLB) TLBP ");
     sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
     sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
     sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
@@ -2371,11 +2369,7 @@ void r4k_helper_tlbr(CPUMIPSState *env)
 #endif
     }
 #ifdef MIPSSIM_COMPAT
-#if defined(TARGET_MIPS64)
-    sv_log("Info (MIPS64_TLB) : TLBR ");
-#else
-    sv_log("Info (MIPS32_TLB) : TLBR ");
-#endif
+    sv_log("Info (MIPS" SV6432 "_TLB) : TLBR ");
     sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
     sv_log(" G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);

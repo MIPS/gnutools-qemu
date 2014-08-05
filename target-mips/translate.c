@@ -20215,7 +20215,7 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     for (i = 0; i < MIPS_MAAR_MAX; i++) {
         if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
             SVLOG_START_LINE();
-            sv_log("Write MAAR[%2d]     = %016" PRIx64 "\n", i, env->CP0_MAAR[i]);
+            sv_log("Write MAAR     = %016" PRIx64 "\n", env->CP0_MAAR[i]);
         }
     }
     CHK_CP0_REG(CP0_MAARI,                       "MAARI       ");
@@ -20279,7 +20279,7 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     //FPU
     if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
         SVLOG_START_LINE();
-        sv_log("Write C1FCSR           = %08x\n", env->active_fpu.fcr31);
+        sv_log("Write FCSR             = %08x\n", env->active_fpu.fcr31);
     }
 
     //FPR
