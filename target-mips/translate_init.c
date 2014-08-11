@@ -476,13 +476,14 @@ static mips_def_t mips_defs[] =
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M) | (2 << CP0C4_IE) |
                        (0x1C << CP0C4_KScrExist),
         .CP0_Config4_rw_bitmask = 0,
-        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_MVH) | (1 << CP0C5_MRP),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_MVH) | (1 << CP0C5_MRP) |
+                       (1 << CP0C5_LLB),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
                                   (1 << CP0C5_CV) | (0 << CP0C5_EVA) |
                                   (1 << CP0C5_MSAEn) | (1 << CP0C5_UFR) |
                                   (0 << CP0C5_NFExists),
         .CP0_LLAddr_rw_bitmask = 0,
-        .CP0_LLAddr_shift = 4,
+        .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3C4AFF1F,
@@ -684,6 +685,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1U << CP0C3_M),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (3 << CP0C4_IE) | (1 << CP0C4_M),
+        .CP0_Config5 = (1 << CP0C5_LLB),
         .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI) | (1 << CP0C5_FRE) |
                                   (1 << CP0C5_UFE),
         .CP0_LLAddr_rw_bitmask = 0,
@@ -723,7 +725,7 @@ static mips_def_t mips_defs[] =
                        (1 << CP0C3_MSAP),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (3 << CP0C4_IE) | (1 << CP0C4_M),
-        .CP0_Config5 = (1 << CP0C5_MSAEn),
+        .CP0_Config5 = (1 << CP0C5_MSAEn) | (1 << CP0C5_LLB),
         .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI) | (1 << CP0C5_FRE) |
                                   (1 << CP0C5_UFE) | (1 << CP0C5_MSAEn),
         .CP0_LLAddr_rw_bitmask = 0,

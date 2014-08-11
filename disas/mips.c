@@ -1267,7 +1267,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
    them first.  The assemblers uses a hash table based on the
    instruction name anyhow.  */
 /* name,    args,	match,	    mask,	pinfo,          	membership */
-/* R6 instructions */
+{"eretnc",  "",         0x42000058, 0xffffffff, 0,      		0,		I33	},
 {"tlbinv",  "",         0x42000003, 0xffffffff, INSN_TLB,   		0,		I32R6	},
 {"tlbinvf", "",         0x42000004, 0xffffffff, INSN_TLB,   		0,		I32R6	},
 {"lwp",     "s,+o2",    0xec080000, 0xfc180000, WR_d,   		0,		I32R6	},

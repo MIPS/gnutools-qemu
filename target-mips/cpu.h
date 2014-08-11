@@ -557,7 +557,7 @@ struct CPUMIPSState {
 #define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x3D807FF
+#define MIPS_HFLAG_TMASK  0x7D807FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -604,6 +604,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_MSA   0x800000
 #define MIPS_HFLAG_FRE   0x1000000 /* FRE enabled */
 #define MIPS_HFLAG_HWRENA_ULR 0x2000000 /* ULR bit from HWREna is set. */
+#define MIPS_HFLAG_LLBIT 0x4000000 /* LLBIT set mode */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
