@@ -363,8 +363,8 @@ static const mips_def_t mips_defs[] =
                        (1 << CP0C3_PW) | (1 << CP0C3_LPA) | (1 << CP0C3_PW),
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M),
         .CP0_Config4_rw_bitmask = 0,
-        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR) | (1 << CP0C5_MVH) |
-                       (1 << CP0C5_MRP),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR) | (1 << CP0C5_LLB) |
+                       (1 << CP0C5_MVH) | (1 << CP0C5_MRP),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
                                   (1 << CP0C5_CV) | (0 << CP0C5_EVA) |
                                   (1 << CP0C5_MSAEn) | (1 << CP0C5_UFR) |
@@ -400,6 +400,7 @@ static const mips_def_t mips_defs[] =
                        (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1U << CP0C3_M),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (3 << CP0C4_IE) | (1U << CP0C4_M),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_LLB),
         .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
@@ -573,6 +574,7 @@ static const mips_def_t mips_defs[] =
                        (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1U << CP0C3_M),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (3 << CP0C4_IE) | (1 << CP0C4_M),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_LLB),
         .CP0_Config5_rw_bitmask = (1 << CP0C5_SBRI),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,

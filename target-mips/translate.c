@@ -1428,6 +1428,7 @@ typedef struct DisasContext {
     uint64_t PAMask;
     bool mvh;
     bool pw;
+    bool llb;
 } DisasContext;
 
 enum {
@@ -2109,6 +2110,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 1);
         op_ld_lld(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+        ctx->bstate = BS_STOP;
         opn = "lld";
         break;
     case OPC_LDL:
@@ -2244,6 +2246,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 1);
         op_ld_ll(t0, t0, ctx);
         gen_store_gpr(t0, rt);
+        ctx->bstate = BS_STOP;
         opn = "ll";
         break;
     }
@@ -2302,6 +2305,14 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         opn = "swr";
         break;
     }
+#ifndef CONFIG_USER_ONLY
+    /* If llbit is set we need to check if the store operation
+       is accessing lladdr. If so, then clear llbit. */
+    if (ctx->llb && (ctx->hflags & MIPS_HFLAG_LLBIT)) {
+        gen_helper_check_llbit(cpu_env, t0);
+        ctx->bstate = BS_STOP;
+    }
+#endif
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
@@ -2332,6 +2343,7 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_scd(t1, t0, rt, ctx);
         opn = "scd";
+        ctx->bstate = BS_STOP;
         break;
 #endif
     case OPC_SC:
@@ -2339,6 +2351,7 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         op_st_sc(t1, t0, rt, ctx);
         opn = "sc";
+        ctx->bstate = BS_STOP;
         break;
     }
     (void)opn; /* avoid a compiler warning */
@@ -6092,6 +6105,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         switch (sel) {
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
+            ctx->bstate = BS_STOP;
             rn = "LLAddr";
             break;
         case 1:
@@ -7384,6 +7398,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         switch (sel) {
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
+            ctx->bstate = BS_STOP;
             rn = "LLAddr";
             break;
         case 1:
@@ -8177,15 +8192,23 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             goto die;
         gen_helper_tlbr(cpu_env);
         break;
-    case OPC_ERET:
-        opn = "eret";
-        check_insn(ctx, ISA_MIPS2);
+    case OPC_ERET: /* OPC_ERETNC */
         if ((ctx->insn_flags & ISA_MIPS32R6) &&
             (ctx->hflags & MIPS_HFLAG_BMASK)) {
             MIPS_DEBUG("CTI in delay / forbidden slot");
             goto die;
         }
-        gen_helper_eret(cpu_env);
+        if (ctx->opcode & (1 << 6)) {
+            /* OPC_ERETNC */
+            opn = "eretnc";
+            check_insn(ctx, ISA_MIPS32R5);
+            gen_helper_eretnc(cpu_env);
+        } else {
+            /* OPC_ERET */
+            opn = "eret";
+            check_insn(ctx, ISA_MIPS2);
+            gen_helper_eret(cpu_env);
+        }
         ctx->bstate = BS_EXCP;
         break;
     case OPC_DERET:
@@ -19307,6 +19330,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.mvh = env->CP0_Config5 & (1 << CP0C5_MVH);
     ctx.PAMask = env->PAMask;
     ctx.pw = env->CP0_Config3 & (1 << CP0C3_PW);
+    ctx.llb = (env->CP0_Config5 >> CP0C5_LLB) & 1;
     /* Restore delay slot state from the tb context.  */
     ctx.hflags = (uint32_t)tb->flags; /* FIXME: maybe use 64 bits here? */
     ctx.ulri = env->CP0_Config3 & (1 << CP0C3_ULRI);

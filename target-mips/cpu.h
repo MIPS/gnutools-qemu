@@ -493,6 +493,7 @@ struct CPUMIPSState {
 #define CP0C5_MSAEn      27
 #define CP0C5_SBRI       6
 #define CP0C5_MVH        5
+#define CP0C5_LLB        4
 #define CP0C5_MRP        3
 #define CP0C5_UFR        2
 #define CP0C5_NFExists   0
@@ -547,7 +548,7 @@ struct CPUMIPSState {
 #define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x35807FF
+#define MIPS_HFLAG_TMASK  0x75807FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -595,6 +596,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_FBNSLOT 0x800000 /* Forbidden slot                   */
 #define MIPS_HFLAG_MSA   0x1000000
 #define MIPS_HFLAG_ELPA  0x2000000
+#define MIPS_HFLAG_LLBIT 0x4000000 /* In this mode we snoop all stores */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
