@@ -20236,6 +20236,11 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     //17
     CHK_CP0_REG64(lladdr,                        "LLAddr      ");
+    if ((env_prev.hflags & MIPS_HFLAG_LLBIT) ^ (env->hflags & MIPS_HFLAG_LLBIT)) {
+        SVLOG_START_LINE();
+        sv_log("Write LLBit        = %d \n", !!(env->hflags & MIPS_HFLAG_LLBIT));
+    }
+
     for (i = 0; i < MIPS_MAAR_MAX; i++) {
         if(env_prev.CP0_MAAR[i] != env->CP0_MAAR[i]) {
             SVLOG_START_LINE();
