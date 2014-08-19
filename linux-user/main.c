@@ -4324,30 +4324,71 @@ int main(int argc, char **argv, char **envp)
             env->hflags |= MIPS_HFLAG_M16;
         }
 #ifdef TARGET_ABI_MIPSO32
-        if (info->fpu_mode == MIPS_FR1
-            || info->fpu_mode == MIPS_FR1A
-            || info->fpu_mode == MIPS_FRE) {
-            if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
-                (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
-                env->CP0_Status |= (1 << CP0St_FR);
-                compute_hflags(env);
-            } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
-                fprintf(stderr, "qemu: Program needs 64-bit floating-point "
-                                "registers\n");
-                exit(137);
+	{
+            unsigned int fp_abi = info->fp_abi;
+	    bool fre = false;
+
+	    if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
+		&& fp_abi == Val_GNU_MIPS_ABI_FP_ANY) {
+	        fp_abi = info->interp_fp_abi;
+	    } else if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
+		       && info->interp_fp_abi != fp_abi) {
+	        /* Need to merge the FP ABIs.  */
+	        if (fp_abi == Val_GNU_MIPS_ABI_FP_XX
+		    && (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+		        || info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
+			|| info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
+		    fp_abi = info->interp_fp_abi;
+		} else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_XX
+		           && (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+			       || fp_abi == Val_GNU_MIPS_ABI_FP_64A
+			       || fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
+		    /* Do nothing.  */
+		} else if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
+		           && info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+		    fp_abi = info->interp_fp_abi;
+		} else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
+		           && fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+		    /* Do nothing.  */
+		} else if ((fp_abi == Val_GNU_MIPS_ABI_FP_64A
+		            && info->interp_fp_abi ==
+			                            Val_GNU_MIPS_ABI_FP_DOUBLE)
+		           || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+			       && info->interp_fp_abi ==
+			                            Val_GNU_MIPS_ABI_FP_64A)) {
+		    fre = true;
+		    fp_abi = Val_GNU_MIPS_ABI_FP_64A;
+		} else {
+                    fprintf(stderr, "qemu: Program and interpreter require "
+			            "conflicting FPU modes\n");
+		    exit(137);
+		}
+	    }
+    	        
+            if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                || fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+                if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
+                    (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
+                    env->CP0_Status |= (1 << CP0St_FR);
+                    compute_hflags(env);
+                } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
+                    fprintf(stderr, "qemu: Program needs 64-bit floating-point "
+                                    "registers\n");
+                    exit(137);
+                }
             }
-        }
-        if (info->fpu_mode == MIPS_FRE
-            || (info->fpu_mode == MIPS_FR0
-                && (env->insn_flags & ISA_MIPS32R6))) {
-            if (env->CP0_Config5_rw_bitmask & (1 << CP0C5_FRE)) {
-                env->CP0_Config5 |= (1 << CP0C5_FRE);
-                compute_hflags(env);
-            } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
-                fprintf(stderr, "qemu: Program requires FRE mode\n");
-                exit(137);
+            if (fre
+                || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                    && (env->insn_flags & ISA_MIPS32R6))) {
+                if (env->CP0_Config5_rw_bitmask & (1 << CP0C5_FRE)) {
+                    env->CP0_Config5 |= (1 << CP0C5_FRE);
+                    compute_hflags(env);
+                } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
+                    fprintf(stderr, "qemu: Program requires FRE mode\n");
+                    exit(137);
+                }
             }
-        }
+	}
 #endif
     }
 #elif defined(TARGET_OPENRISC)

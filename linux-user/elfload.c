@@ -1787,6 +1787,9 @@ static void load_elf_image(const char *image_name, int image_fd,
     info->end_data = 0;
     info->brk = 0;
     info->elf_flags = ehdr->e_flags;
+#ifdef TARGET_ABI_MIPSO32
+    info->fp_abi = -1;
+#endif
 
     for (i = 0; i < ehdr->e_phnum; i++) {
         struct elf_phdr *eppnt = phdr + i;
@@ -1878,48 +1881,15 @@ static void load_elf_image(const char *image_name, int image_fd,
                 }
             }
             bswap_mips_abiflags (&abiflags);
-            if (info->fpu_mode == -1 || info->fpu_mode == MIPS_ANY) {
-                if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE) {
-                    info->fpu_mode = MIPS_FR0;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64) {
-                    info->fpu_mode = MIPS_FR1;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A) {
-                    info->fpu_mode = MIPS_FR1A;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_XX) {
-                    info->fpu_mode = MIPS_ANY;
-                }
-            } else {
-                if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-                    && info->fpu_mode == MIPS_FR1A) {
-                    info->fpu_mode = MIPS_FRE;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A
-                           && info->fpu_mode == MIPS_FR0) {
-                    info->fpu_mode = MIPS_FRE;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64A
-                           && info->fpu_mode == MIPS_ANY) {
-                    info->fpu_mode = MIPS_FR1A;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64
-                           && info->fpu_mode == MIPS_ANY) {
-                    info->fpu_mode = MIPS_FR1;
-                } else if (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-                           && info->fpu_mode == MIPS_ANY) {
-                    info->fpu_mode = MIPS_FR0;
-                } else if ((abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-                            && info->fpu_mode == MIPS_FR1)
-                           || (abiflags.fp_abi == Val_GNU_MIPS_ABI_FP_64
-                               && info->fpu_mode == MIPS_FR0)) {
-		    errmsg = "Illegal combination of FP ABIs between "
-			     "interpreter and executable";
-		    goto exit_errmsg;
-                }
-            }
+            info->fp_abi = abiflags.fp_abi;
 #endif
         }
     }
 #ifdef TARGET_ABI_MIPSO32
-    if (info->fpu_mode == -1) {
-        info->fpu_mode = MIPS_FR0;
+    if (info->fp_abi == -1) {
+        info->fp_abi = Val_GNU_MIPS_ABI_FP_DOUBLE;
     }
+    info->interp_fp_abi = info->fp_abi;
 #endif
 
     if (info->end_data == 0) {
@@ -2126,9 +2096,6 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
     info->start_mmap = (abi_ulong)ELF_START_MMAP;
     info->mmap = 0;
     info->rss = 0;
-#ifdef TARGET_ABI_MIPSO32
-    info->fpu_mode = -1;
-#endif
 
     load_elf_image(bprm->filename, bprm->fd, info,
                    &elf_interpreter, bprm->buf);
@@ -2151,13 +2118,7 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
     bprm->p = setup_arg_pages(bprm->p, bprm, info);
 
     if (elf_interpreter) {
-#ifdef TARGET_ABI_MIPSO32
-        interp_info.fpu_mode = info->fpu_mode;
-#endif
         load_elf_interp(elf_interpreter, &interp_info, bprm->buf);
-#ifdef TARGET_ABI_MIPSO32
-	info->fpu_mode = interp_info.fpu_mode;
-#endif
 
         /* If the program interpreter is one of these two, then assume
            an iBCS2 image.  Otherwise assume a native linux image.  */
@@ -2173,6 +2134,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
             target_mmap(0, qemu_host_page_size, PROT_READ | PROT_EXEC,
                         MAP_FIXED | MAP_PRIVATE, -1, 0);
         }
+#ifdef TARGET_ABI_MIPSO32
+	info->interp_fp_abi = interp_info.fp_abi;
+#endif
     }
 
     bprm->p = create_elf_tables(bprm->p, bprm->argc, bprm->envc, &elf_ex,
