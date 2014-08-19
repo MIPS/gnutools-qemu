@@ -21,16 +21,6 @@
 
 #define THREAD __thread
 
-#ifdef TARGET_ABI_MIPSO32
-enum {
-  MIPS_ANY,
-  MIPS_FR0,
-  MIPS_FR1,
-  MIPS_FR1A,
-  MIPS_FRE
-};
-#endif
-
 /* This struct is used to hold certain information about the image.
  * Basically, it replicates in user space what would be certain
  * task_struct fields in the kernel
@@ -66,7 +56,8 @@ struct image_info {
         struct image_info *other_info;
 #endif
 #ifdef TARGET_ABI_MIPSO32
-        unsigned int    fpu_mode;
+        unsigned int    fp_abi;
+        unsigned int    interp_fp_abi;
 #endif
 };
 
