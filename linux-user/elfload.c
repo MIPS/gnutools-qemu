@@ -1870,13 +1870,17 @@ static void load_elf_image(const char *image_name, int image_fd,
 #ifdef TARGET_ABI_MIPSO32
         } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
             Elf_ABIFlags_v0 abiflags;
+            if (eppnt->p_filesz < sizeof(Elf_ABIFlags_v0)) {
+                errmsg = "Invalid PT_MIPS_ABIFLAGS entry";
+                goto exit_errmsg;
+            }
             if (eppnt->p_offset + eppnt->p_filesz <= BPRM_BUF_SIZE) {
                 memcpy(&abiflags, bprm_buf + eppnt->p_offset,
-                       eppnt->p_filesz);
+                       sizeof(Elf_ABIFlags_v0));
             } else {
-                retval = pread(image_fd, &abiflags, eppnt->p_filesz,
+                retval = pread(image_fd, &abiflags, sizeof(Elf_ABIFlags_v0),
                                eppnt->p_offset);
-                if (retval != eppnt->p_filesz) {
+                if (retval != sizeof(Elf_ABIFlags_v0)) {
                     goto exit_perror;
                 }
             }
