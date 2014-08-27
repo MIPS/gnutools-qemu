@@ -111,6 +111,8 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_SRSConf4);
     qemu_put_sbe32s(f, &env->CP0_HWREna);
     qemu_put_betls(f, &env->CP0_BadVAddr);
+    qemu_put_be32s(f, &env->CP0_BadInstr);
+    qemu_put_be32s(f, &env->CP0_BadInstrP);
     qemu_put_sbe32s(f, &env->CP0_Count);
     qemu_put_betls(f, &env->CP0_EntryHi);
     qemu_put_sbe32s(f, &env->CP0_Compare);
@@ -144,6 +146,9 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_DataHi);
     qemu_put_betls(f, &env->CP0_ErrorEPC);
     qemu_put_sbe32s(f, &env->CP0_DESAVE);
+    for (i = 0; i < MIPS_KSCRATCH_NUM; i++) {
+        qemu_put_betls(f, &env->CP0_KScratch[i]);
+    }
 
     /* Save inactive TC state */
     for (i = 0; i < MIPS_SHADOW_SET_MAX; i++)
@@ -301,6 +306,13 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_DataHi);
     qemu_get_betls(f, &env->CP0_ErrorEPC);
     qemu_get_sbe32s(f, &env->CP0_DESAVE);
+    if (version_id >= 5) {
+        qemu_get_be32s(f, &env->CP0_BadInstr);
+        qemu_get_be32s(f, &env->CP0_BadInstrP);
+        for (i = 0; i < MIPS_KSCRATCH_NUM; i++) {
+            qemu_get_betls(f, &env->CP0_KScratch[i]);
+        }
+    }
 
     /* Load inactive TC state */
     for (i = 0; i < MIPS_SHADOW_SET_MAX; i++) {
