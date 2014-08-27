@@ -2261,10 +2261,23 @@ static void QEMU_NORETURN do_unaligned_access(CPUMIPSState *env,
 #include "exec/softmmu_template.h"
 
 static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
-                                int is_write, int is_user, uintptr_t retaddr)
+                                int access_type, int is_user, uintptr_t retaddr)
 {
+    int error_code = 0;
+    int excp;
+
     env->CP0_BadVAddr = addr;
-    do_raise_exception(env, (is_write == 1) ? EXCP_AdES : EXCP_AdEL, retaddr);
+
+    if (access_type == MMU_DATA_STORE) {
+        excp = EXCP_AdES;
+    } else {
+        excp = EXCP_AdEL;
+        if (access_type == MMU_INST_FETCH) {
+            error_code |= EXCP_INST_NOTAVAIL;
+        }
+    }
+
+    do_raise_exception_err(env, excp, error_code, retaddr);
 }
 
 void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
