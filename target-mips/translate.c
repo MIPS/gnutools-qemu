@@ -7677,12 +7677,20 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
     case OPC_ERET:
         opn = "eret";
         check_insn(ctx, ISA_MIPS2);
+        if (ctx->insn_flags & ISA_MIPS32R6 && ctx->hflags & MIPS_HFLAG_BMASK) {
+            MIPS_DEBUG("CTI in delay / forbidden slot");
+            goto die;
+        }
         gen_helper_eret(cpu_env);
         ctx->bstate = BS_EXCP;
         break;
     case OPC_DERET:
         opn = "deret";
         check_insn(ctx, ISA_MIPS32);
+        if (ctx->insn_flags & ISA_MIPS32R6 && ctx->hflags & MIPS_HFLAG_BMASK) {
+            MIPS_DEBUG("CTI in delay / forbidden slot");
+            goto die;
+        }
         if (!(ctx->hflags & MIPS_HFLAG_DM)) {
             MIPS_INVAL(opn);
             generate_exception(ctx, EXCP_RI);
@@ -7694,6 +7702,10 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
     case OPC_WAIT:
         opn = "wait";
         check_insn(ctx, ISA_MIPS3 | ISA_MIPS32);
+        if (ctx->insn_flags & ISA_MIPS32R6 && ctx->hflags & MIPS_HFLAG_BMASK) {
+            MIPS_DEBUG("CTI in delay / forbidden slot");
+            goto die;
+        }
         /* If we get an exception, we want to restart at next instruction */
         ctx->pc += 4;
         save_cpu_state(ctx, 1);
@@ -7719,6 +7731,12 @@ static void gen_compute_branch1(DisasContext *ctx, uint32_t op,
     target_ulong btarget;
     const char *opn = "cp1 cond branch";
     TCGv_i32 t0 = tcg_temp_new_i32();
+
+    if (ctx->insn_flags & ISA_MIPS32R6 && ctx->hflags & MIPS_HFLAG_BMASK) {
+        MIPS_DEBUG("CTI in delay / forbidden slot");
+        generate_exception(ctx, EXCP_RI);
+        goto out;
+    }
 
     if (cc != 0)
         check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
@@ -10290,6 +10308,10 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
         save_cpu_state(ctx, 0);
         /* FIXME: Need to clear can_do_io.  */
         switch (proc_hflags & MIPS_HFLAG_BMASK_BASE) {
+        case MIPS_HFLAG_FBNSLOT:
+            MIPS_DEBUG("forbidden slot");
+            gen_goto_tb(ctx, 0, ctx->pc + insn_bytes);
+            break;
         case MIPS_HFLAG_B:
             /* unconditional branch */
             MIPS_DEBUG("unconditional branch");
@@ -15702,56 +15724,56 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         gen_branch(ctx, 4);
     } else {
         /* Conditional compact branch */
-        int l1 = gen_new_label();
+        int fs = gen_new_label();
         save_cpu_state(ctx, 0);
 
         switch (opc) {
         case OPC_BLEZALC: /* OPC_BGEZALC, OPC_BGEUC */
             if (rs == 0 && rt != 0) {
                 /* OPC_BLEZALC */
-                tcg_gen_brcondi_tl(TCG_COND_LE, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_LE), t1, 0, fs);
             } else if (rs != 0 && rt != 0 && rs == rt) {
                 /* OPC_BGEZALC */
-                tcg_gen_brcondi_tl(TCG_COND_GE, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_GE), t1, 0, fs);
             } else {
                 /* OPC_BGEUC */
-                tcg_gen_brcond_tl(TCG_COND_GEU, t0, t1, l1);
+                tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_GEU), t0, t1, fs);
             }
             break;
         case OPC_BGTZALC: /* OPC_BLTZALC, OPC_BLTUC */
             if (rs == 0 && rt != 0) {
                 /* OPC_BGTZALC */
-                tcg_gen_brcondi_tl(TCG_COND_GT, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_GT), t1, 0, fs);
             } else if (rs != 0 && rt != 0 && rs == rt) {
                 /* OPC_BLTZALC */
-                tcg_gen_brcondi_tl(TCG_COND_LT, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_LT), t1, 0, fs);
             } else {
                 /* OPC_BLTUC */
-                tcg_gen_brcond_tl(TCG_COND_LTU, t0, t1, l1);
+                tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LTU), t0, t1, fs);
             }
             break;
         case OPC_BLEZC: /* OPC_BGEZC, OPC_BGEC */
             if (rs == 0 && rt != 0) {
                 /* OPC_BLEZC */
-                tcg_gen_brcondi_tl(TCG_COND_LE, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_LE), t1, 0, fs);
             } else if (rs != 0 && rt != 0 && rs == rt) {
                 /* OPC_BGEZC */
-                tcg_gen_brcondi_tl(TCG_COND_GE, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_GE), t1, 0, fs);
             } else {
                 /* OPC_BGEC */
-                tcg_gen_brcond_tl(TCG_COND_GE, t0, t1, l1);
+                tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_GE), t0, t1, fs);
             }
             break;
         case OPC_BGTZC: /* OPC_BLTZC, OPC_BLTC */
             if (rs == 0 && rt != 0) {
                 /* OPC_BGTZC */
-                tcg_gen_brcondi_tl(TCG_COND_GT, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_GT), t1, 0, fs);
             } else if (rs != 0 && rt != 0 && rs == rt) {
                 /* OPC_BLTZC */
-                tcg_gen_brcondi_tl(TCG_COND_LT, t1, 0, l1);
+                tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_LT), t1, 0, fs);
             } else {
                 /* OPC_BLTC */
-                tcg_gen_brcond_tl(TCG_COND_LT, t0, t1, l1);
+                tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LT), t0, t1, fs);
             }
             break;
         case OPC_BOVC: /* OPC_BEQZALC, OPC_BEQC */
@@ -15780,10 +15802,10 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
                 tcg_gen_or_tl(t4, t4, input_overflow);
                 if (opc == OPC_BOVC) {
                     /* OPC_BOVC */
-                    tcg_gen_brcondi_tl(TCG_COND_NE, t4, 0, l1);
+                    tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_NE), t4, 0, fs);
                 } else {
                     /* OPC_BNVC */
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, t4, 0, l1);
+                    tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_EQ), t4, 0, fs);
                 }
                 tcg_temp_free(input_overflow);
                 tcg_temp_free(t4);
@@ -15793,27 +15815,27 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
                 /* OPC_BEQZALC, OPC_BNEZALC */
                 if (opc == OPC_BEQZALC) {
                     /* OPC_BEQZALC */
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, t1, 0, l1);
+                    tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_EQ), t1, 0, fs);
                 } else {
                     /* OPC_BNEZALC */
-                    tcg_gen_brcondi_tl(TCG_COND_NE, t1, 0, l1);
+                    tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_NE), t1, 0, fs);
                 }
             } else {
                 /* OPC_BEQC, OPC_BNEC */
                 if (opc == OPC_BEQC) {
                     /* OPC_BEQC */
-                    tcg_gen_brcond_tl(TCG_COND_EQ, t0, t1, l1);
+                    tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_EQ), t0, t1, fs);
                 } else {
                     /* OPC_BNEC */
-                    tcg_gen_brcond_tl(TCG_COND_NE, t0, t1, l1);
+                    tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_NE), t0, t1, fs);
                 }
             }
             break;
         case OPC_BEQZC:
-            tcg_gen_brcondi_tl(TCG_COND_EQ, t0, 0, l1);
+            tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_EQ), t0, 0, fs);
             break;
         case OPC_BNEZC:
-            tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0, l1);
+            tcg_gen_brcondi_tl(tcg_invert_cond(TCG_COND_NE), t0, 0, fs);
             break;
         default:
             MIPS_INVAL("Compact conditional branch/jump");
@@ -15822,12 +15844,11 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         }
 
         /* Generating branch here as compact branches don't have delay slot */
-        /* TODO: implement forbidden slot */
-        gen_goto_tb(ctx, 1, ctx->pc + 4);
-        gen_set_label(l1);
-        gen_goto_tb(ctx, 0, ctx->btarget);
+        gen_goto_tb(ctx, 1, ctx->btarget);
+        gen_set_label(fs);
+
+        ctx->hflags |= MIPS_HFLAG_FBNSLOT;
         MIPS_DEBUG("Compact conditional branch");
-        ctx->bstate = BS_BRANCH;
     }
 
 out:
@@ -16045,6 +16066,16 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
     op1 = MASK_SPECIAL(ctx->opcode);
     switch (op1) {
     case OPC_SLL:          /* Shift with immediate */
+        if (sa == 5 && rd == 0 &&
+            rs == 0 && rt == 0) { /* PAUSE */
+            if (ctx->insn_flags & ISA_MIPS32R6 &&
+                ctx->hflags & MIPS_HFLAG_BMASK) {
+                MIPS_DEBUG("CTI in delay / forbidden slot");
+                generate_exception(ctx, EXCP_RI);
+                break;
+            }
+        }
+        /* Fallthrough */
     case OPC_SRA:
         gen_shift_imm(ctx, op1, rd, rt, sa);
         break;
@@ -17638,7 +17669,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     int num_insns;
     int max_insns;
     int insn_bytes;
-    int is_delay;
+    int is_slot;
 
     if (search_pc)
         qemu_log("search pc %d\n", search_pc);
@@ -17702,7 +17733,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
             gen_io_start();
 
-        is_delay = ctx.hflags & MIPS_HFLAG_BMASK;
+        is_slot = ctx.hflags & MIPS_HFLAG_BMASK;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
@@ -17719,7 +17750,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             break;
         }
 
-        if (is_delay) {
+        if (is_slot) {
             gen_branch(&ctx, insn_bytes);
         }
         ctx.pc += insn_bytes;
