@@ -1076,11 +1076,19 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
+static inline uint32_t get_mtc0_entrylo_mask(const CPUMIPSState *env)
+{
+#if defined(TARGET_MIPS64)
+    return env->PAMask >> 6;
+#else
+    return (env->PAMask >> 6) & 0x3FFFFFFF;
+#endif
+}
+
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo0 = arg1 & get_mtc0_entrylo_mask(env);
 }
 
 void helper_mtc0_tcstatus(CPUMIPSState *env, target_ulong arg1)
@@ -1245,9 +1253,8 @@ void helper_mttc0_tcschefback(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo1 = arg1 & get_mtc0_entrylo_mask(env);
 }
 
 void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
@@ -1264,9 +1271,19 @@ void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 {
     /* SmartMIPS not implemented */
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_PageGrain = 0;
+    env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
+                         (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
+    compute_hflags(env);
+#if defined(TARGET_MIPS64)
+    /* TODO: Implement LPA for MIPS64 */
+#else
+    if (env->hflags & MIPS_HFLAG_ELPA) {
+        env->PAMask = (1ULL << env->PABITS) - 1;
+    } else {
+        env->PAMask = DEFAULT_PAMASK;
+    }
+#endif
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)

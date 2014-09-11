@@ -179,8 +179,14 @@ struct CPUMIPSState {
 
     uint32_t SEGBITS;
     uint32_t PABITS;
+#if defined(TARGET_MIPS64)
+# define DEFAULT_PABITS 36
+#else
+# define DEFAULT_PABITS 32
+#endif
     target_ulong SEGMask;
     uint64_t PAMask;
+#define DEFAULT_PAMASK ((1ULL << DEFAULT_PABITS) - 1)
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
@@ -228,7 +234,9 @@ struct CPUMIPSState {
     uint64_t CP0_EntryLo1;
     target_ulong CP0_Context;
     int32_t CP0_PageMask;
+    int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
+#define CP0PG_ELPA 29
     int32_t CP0_Wired;
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
@@ -428,7 +436,7 @@ struct CPUMIPSState {
     int error_code;
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0xC07FF
+#define MIPS_HFLAG_TMASK  0x1C07FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -469,6 +477,7 @@ struct CPUMIPSState {
     /* MIPS DSP resources access. */
 #define MIPS_HFLAG_DSP   0x40000  /* Enable access to MIPS DSP resources. */
 #define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
+#define MIPS_HFLAG_ELPA  0x100000
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
@@ -721,7 +730,8 @@ static inline void compute_hflags(CPUMIPSState *env)
 {
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2);
+                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
+                     MIPS_HFLAG_ELPA);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -777,6 +787,11 @@ static inline void compute_hflags(CPUMIPSState *env)
            would be too restrictive for them.  */
         if (env->CP0_Status & (1U << CP0St_CU3)) {
             env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_LPA)) {
+        if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+            env->hflags |= MIPS_HFLAG_ELPA;
         }
     }
 }
