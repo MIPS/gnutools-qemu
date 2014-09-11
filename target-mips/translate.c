@@ -1431,6 +1431,7 @@ typedef struct DisasContext {
     bool mvh;
     int CP0_LLAddr_shift;
     bool ps;
+    bool mrp;
 } DisasContext;
 
 enum {
@@ -5087,6 +5088,13 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                              ctx->CP0_LLAddr_shift);
             rn = "LLAddr";
             break;
+        case 1:
+            if (!ctx->mrp) {
+                goto mfhc0_read_zero;
+            }
+            gen_helper_mfhc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
         default:
             goto mfhc0_read_zero;
         }
@@ -5157,6 +5165,13 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                relevant for modern MIPS cores supporting MTHC0, therefore
                treating MTHC0 to LLAddr as NOP. */
             rn = "LLAddr";
+            break;
+        case 1:
+            if (!ctx->mrp) {
+                goto mthc0_nop;
+            }
+            gen_helper_mthc0_maar(cpu_env, arg);
+            rn = "MAAR";
             break;
         default:
             goto mthc0_nop;
@@ -5613,6 +5628,16 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
+            break;
+        case 1:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_mfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            CP0_CHECK(ctx->mrp);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -6241,6 +6266,16 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
             break;
+        case 1:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -6866,6 +6901,16 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_dmfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
             break;
+        case 1:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_dmfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            CP0_CHECK(ctx->mrp);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -7486,6 +7531,16 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            CP0_CHECK(ctx->mrp);
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -20185,6 +20240,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.ulri = (env->CP0_Config3 >> CP0C3_ULRI) & 1;
     ctx.ps = ((env->active_fpu.fcr0 >> FCR0_PS) & 1) ||
              (env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F));
+    ctx.mrp = (env->CP0_Config5 >> CP0C5_MRP) & 1;
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
