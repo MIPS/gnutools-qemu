@@ -29,7 +29,7 @@ struct r4k_tlb_t {
     uint_fast16_t V1:1;
     uint_fast16_t D0:1;
     uint_fast16_t D1:1;
-    target_ulong PFN[2];
+    uint64_t PFN[2];
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -180,7 +180,7 @@ struct CPUMIPSState {
     uint32_t SEGBITS;
     uint32_t PABITS;
     target_ulong SEGMask;
-    target_ulong PAMask;
+    uint64_t PAMask;
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
@@ -224,8 +224,8 @@ struct CPUMIPSState {
 #define CP0VPEOpt_DWX2	2
 #define CP0VPEOpt_DWX1	1
 #define CP0VPEOpt_DWX0	0
-    target_ulong CP0_EntryLo0;
-    target_ulong CP0_EntryLo1;
+    uint64_t CP0_EntryLo0;
+    uint64_t CP0_EntryLo1;
     target_ulong CP0_Context;
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain;
@@ -384,11 +384,11 @@ struct CPUMIPSState {
     int32_t CP0_Config6;
     int32_t CP0_Config7;
     /* XXX: Maybe make LLAddr per-TC? */
-    target_ulong lladdr;
+    uint64_t lladdr;
     target_ulong llval;
     target_ulong llnewval;
     target_ulong llreg;
-    target_ulong CP0_LLAddr_rw_bitmask;
+    uint64_t CP0_LLAddr_rw_bitmask;
     int CP0_LLAddr_shift;
     target_ulong CP0_WatchLo[8];
     int32_t CP0_WatchHi[8];
@@ -415,7 +415,7 @@ struct CPUMIPSState {
 #define CP0DB_DSS  0
     target_ulong CP0_DEPC;
     int32_t CP0_Performance0;
-    int32_t CP0_TagLo;
+    uint64_t CP0_TagLo;
     int32_t CP0_DataLo;
     int32_t CP0_TagHi;
     int32_t CP0_DataHi;
