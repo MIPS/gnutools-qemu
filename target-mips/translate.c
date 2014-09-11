@@ -4139,6 +4139,10 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfhc0_load64(arg, offsetof(CPUMIPSState, lladdr));
             rn = "LLAddr";
             break;
+        case 1:
+            gen_helper_mfhc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
         default:
             goto mfhc0_read0;
         }
@@ -4205,6 +4209,10 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_mthc0_store64(arg, offsetof(CPUMIPSState, lladdr));
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mthc0_maar(cpu_env, arg);
+            rn = "MAAR";
             break;
         default:
             goto mthc0_nop;
@@ -4601,6 +4609,14 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -5190,6 +5206,14 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
             break;
         default:
             goto die;
@@ -5783,6 +5807,14 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_dmfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
             break;
+        case 1:
+            gen_helper_dmfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
+            break;
         default:
             goto die;
         }
@@ -6361,6 +6393,14 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
             break;
         default:
             goto die;

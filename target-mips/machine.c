@@ -127,6 +127,10 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_Config3);
     qemu_put_sbe32s(f, &env->CP0_Config6);
     qemu_put_sbe32s(f, &env->CP0_Config7);
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        qemu_put_be64s(f, &env->CP0_MAAR[i]);
+    }
+    qemu_put_sbe32s(f, &env->CP0_MAARI);
     qemu_put_be64s(f, &env->lladdr);
     for(i = 0; i < 8; i++)
         qemu_put_betls(f, &env->CP0_WatchLo[i]);
@@ -280,6 +284,10 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_Config3);
     qemu_get_sbe32s(f, &env->CP0_Config6);
     qemu_get_sbe32s(f, &env->CP0_Config7);
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        qemu_get_be64s(f, &env->CP0_MAAR[i]);
+    }
+    qemu_get_sbe32s(f, &env->CP0_MAARI);
     qemu_get_be64s(f, &env->lladdr);
     for(i = 0; i < 8; i++)
         qemu_get_betls(f, &env->CP0_WatchLo[i]);

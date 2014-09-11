@@ -135,6 +135,7 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_TC_MAX 5
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
+#define MIPS_MAAR_MAX 16 /* Must be an even number. */
 
 typedef struct TCState TCState;
 struct TCState {
@@ -388,10 +389,13 @@ struct CPUMIPSState {
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
 #define CP0C5_MVH        5
+#define CP0C5_MRP        3
 #define CP0C5_UFR        2
 #define CP0C5_NFExists   0
     int32_t CP0_Config6;
     int32_t CP0_Config7;
+    uint64_t CP0_MAAR[MIPS_MAAR_MAX];
+    int32_t CP0_MAARI;
     /* XXX: Maybe make LLAddr per-TC? */
     uint64_t lladdr;
     target_ulong llval;
