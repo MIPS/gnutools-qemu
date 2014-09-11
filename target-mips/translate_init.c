@@ -76,6 +76,7 @@ struct mips_def_t {
     int32_t CP0_Config5_rw_bitmask;
     int32_t CP0_Config6;
     int32_t CP0_Config7;
+    int32_t CP0_PageGrain_rw_bitmask;
     target_ulong CP0_LLAddr_rw_bitmask;
     int CP0_LLAddr_shift;
     int32_t SYNCI_Step;
@@ -355,14 +356,15 @@ static const mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1U << CP0C3_M),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1U << CP0C3_M),
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M),
         .CP0_Config4_rw_bitmask = 0,
-        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR) | (1 << CP0C5_MVH),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
                                   (1 << CP0C5_CV) | (0 << CP0C5_EVA) |
                                   (1 << CP0C5_MSAEn) | (1 << CP0C5_UFR) |
                                   (0 << CP0C5_NFExists),
+        .CP0_PageGrain_rw_bitmask = 1 << CP0PG_ELPA,
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 4,
         .SYNCI_Step = 32,
@@ -372,7 +374,7 @@ static const mips_def_t mips_defs[] =
                     (1 << FCR0_W) | (1 << FCR0_D) | (1 << FCR0_S) |
                     (0x93 << FCR0_PRID),
         .SEGBITS = 32,
-        .PABITS = 32,
+        .PABITS = 40,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
         .mmu_type = MMU_TYPE_R4000,
     },
