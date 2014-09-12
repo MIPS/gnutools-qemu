@@ -1076,11 +1076,19 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
+static inline uint32_t get_mtc0_entrylo_mask(const CPUMIPSState *env)
+{
+#if defined(TARGET_MIPS64)
+    return env->PAMask >> 6;
+#else
+    return (env->PAMask >> 6) & 0x3FFFFFFF;
+#endif
+}
+
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo0 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo0 = arg1 & get_mtc0_entrylo_mask(env);
 }
 
 void helper_mtc0_tcstatus(CPUMIPSState *env, target_ulong arg1)
@@ -1245,9 +1253,8 @@ void helper_mttc0_tcschefback(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_EntryLo1 = arg1 & 0x3FFFFFFF;
+    env->CP0_EntryLo1 = arg1 & get_mtc0_entrylo_mask(env);
 }
 
 void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
@@ -1264,9 +1271,19 @@ void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 {
     /* SmartMIPS not implemented */
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
-    env->CP0_PageGrain = 0;
+    env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
+                         (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
+    compute_hflags(env);
+#if defined(TARGET_MIPS64)
+    /* TODO: Implement LPA for MIPS64 */
+#else
+    if (env->hflags & MIPS_HFLAG_ELPA) {
+        env->PAMask = (1ULL << env->PABITS) - 1;
+    } else {
+        env->PAMask = DEFAULT_PAMASK;
+    }
+#endif
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
@@ -1802,6 +1819,26 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
     }
 }
 
+static inline uint64_t get_tlb_pfn_from_entrylo(uint64_t entryLo)
+{
+#if defined(TARGET_MIPS64)
+    return extract64(entryLo, 6, 54);
+#else
+    return extract64(entryLo, 6, 24) | /* PFN */
+           (extract64(entryLo, 32, 32) << 24); /* PFNX */
+#endif
+}
+
+static inline uint64_t get_entrylo_pfn_from_tlb(uint64_t tlb_pfn)
+{
+#if defined(TARGET_MIPS64)
+    return tlb_pfn << 6;
+#else
+    return (extract64(tlb_pfn, 0, 24) << 6) | /* PFN */
+           (extract64(tlb_pfn, 24, 32) << 32); /* PFNX */
+#endif
+}
+
 static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
@@ -1818,11 +1855,11 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
     tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-    tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
+    tlb->PFN[0] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo0);
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-    tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+    tlb->PFN[1] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo1);
 }
 
 void r4k_helper_tlbwi(CPUMIPSState *env)
@@ -1933,9 +1970,9 @@ void r4k_helper_tlbr(CPUMIPSState *env)
     env->CP0_EntryHi = tlb->VPN | tlb->ASID;
     env->CP0_PageMask = tlb->PageMask;
     env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+                        (tlb->C0 << 3) | get_entrylo_pfn_from_tlb(tlb->PFN[0]);
     env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                        (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+                        (tlb->C1 << 3) | get_entrylo_pfn_from_tlb(tlb->PFN[1]);
 }
 
 void helper_tlbwi(CPUMIPSState *env)
