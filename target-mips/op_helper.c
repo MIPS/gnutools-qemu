@@ -1336,6 +1336,24 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
     restore_pamask(env);
 }
 
+void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
+#else
+    env->CP0_PWField = arg1 & 0x3FFFFFFF;
+#endif
+}
+
+void helper_mtc0_pwsize(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    env->CP0_PWSize = arg1 & 0x3F7FFFFFFFULL;
+#else
+    env->CP0_PWSize = arg1 & 0x3FFFFFFF;
+#endif
+}
+
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
 {
     if (env->insn_flags & ISA_MIPS32R6) {
@@ -1370,6 +1388,16 @@ void helper_mtc0_srsconf3(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_SRSConf4 |= arg1 & env->CP0_SRSConf4_rw_bitmask;
+}
+
+void helper_mtc0_pwctl(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    /* PWEn = 0. Hardware page table walking is not implemented. */
+    env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
+#else
+    env->CP0_PWCtl = (arg1 & 0x800000FF);
+#endif
 }
 
 void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
