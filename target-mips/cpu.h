@@ -238,7 +238,11 @@ struct CPUMIPSState {
     int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
 #define CP0PG_ELPA 29
+    target_ulong CP0_PWBase;
+    target_ulong CP0_PWField;
+    target_ulong CP0_PWSize;
     int32_t CP0_Wired;
+    int32_t CP0_PWCtl;
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
@@ -369,6 +373,7 @@ struct CPUMIPSState {
 #define CP0C2_SA   0
     int32_t CP0_Config3;
 #define CP0C3_M    31
+#define CP0C3_PW   24
 #define CP0C3_ISA_ON_EXC 16
 #define CP0C3_DSPP 10
 #define CP0C3_LPA  7

@@ -1076,6 +1076,7 @@ typedef struct DisasContext {
     target_ulong btarget;
     uint64_t PAMask;
     bool mvh;
+    bool pw;
 } DisasContext;
 
 enum {
@@ -4401,6 +4402,18 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -4435,6 +4448,10 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -4997,6 +5014,20 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             ctx->bstate = BS_STOP;
             break;
+        case 5:
+            if (ctx->pw) {
+                gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -5031,6 +5062,10 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -5609,6 +5644,18 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -5643,6 +5690,10 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -6189,6 +6240,20 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_pagegrain(cpu_env, arg);
             rn = "PageGrain";
             break;
+        case 5:
+            if (ctx->pw) {
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
+            break;
         default:
             goto die;
         }
@@ -6223,6 +6288,10 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto die;
@@ -15834,6 +15903,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.bstate = BS_NONE;
     ctx.mvh = env->CP0_Config5 & (1 << CP0C5_MVH);
     ctx.PAMask = env->PAMask;
+    ctx.pw = env->CP0_Config3 & (1 << CP0C3_PW);
     /* Restore delay slot state from the tb context.  */
     ctx.hflags = (uint32_t)tb->flags; /* FIXME: maybe use 64 bits here? */
     restore_cpu_state(env, &ctx);
