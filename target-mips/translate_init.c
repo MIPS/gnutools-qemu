@@ -356,10 +356,12 @@ static const mips_def_t mips_defs[] =
                        (0 << CP0C1_DS) | (3 << CP0C1_DL) | (1 << CP0C1_DA) |
                        (1 << CP0C1_CA),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1U << CP0C3_M),
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_LPA) | (1U << CP0C3_M) |
+                       (1 << CP0C3_PW),
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M),
         .CP0_Config4_rw_bitmask = 0,
-        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR) | (1 << CP0C5_MVH),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_UFR) | (1 << CP0C5_MVH) |
+                       (1 << CP0C5_MRP),
         .CP0_Config5_rw_bitmask = (0 << CP0C5_M) | (1 << CP0C5_K) |
                                   (1 << CP0C5_CV) | (0 << CP0C5_EVA) |
                                   (1 << CP0C5_MSAEn) | (1 << CP0C5_UFR) |

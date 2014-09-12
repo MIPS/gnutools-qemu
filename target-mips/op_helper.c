@@ -866,6 +866,31 @@ target_ulong helper_mfc0_lladdr(CPUMIPSState *env)
     return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
 }
 
+target_ulong helper_mfc0_maar(CPUMIPSState *env)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        return (int32_t) env->CP0_MAAR[env->CP0_MAARI];
+    }
+    return 0;
+}
+
+target_ulong helper_mfhc0_maar(CPUMIPSState *env)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+            return env->CP0_MAAR[env->CP0_MAARI] >> 32;
+        }
+    }
+    return 0;
+}
+
 target_ulong helper_mfc0_watchlo(CPUMIPSState *env, uint32_t sel)
 {
     return (int32_t)env->CP0_WatchLo[sel];
@@ -930,6 +955,17 @@ target_ulong helper_dmfc0_tcschefback(CPUMIPSState *env)
 target_ulong helper_dmfc0_lladdr(CPUMIPSState *env)
 {
     return env->lladdr >> env->CP0_LLAddr_shift;
+}
+
+target_ulong helper_dmfc0_maar(CPUMIPSState *env)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return 0;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        return env->CP0_MAAR[env->CP0_MAARI];
+    }
+    return 0;
 }
 
 target_ulong helper_dmfc0_watchlo(CPUMIPSState *env, uint32_t sel)
@@ -1286,6 +1322,28 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 #endif
 }
 
+void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
+#else
+        env->CP0_PWField = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
+void helper_mtc0_pwsize(CPUMIPSState *env, target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+#ifdef TARGET_MIPS64
+        env->CP0_PWSize = arg1 & 0x3F7FFFFFFFULL;
+#else
+        env->CP0_PWSize = arg1 & 0x3FFFFFFF;
+#endif
+    }
+}
+
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_Wired = arg1 % env->tlb->nb_tlb;
@@ -1314,6 +1372,18 @@ void helper_mtc0_srsconf3(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_SRSConf4 |= arg1 & env->CP0_SRSConf4_rw_bitmask;
+}
+
+void helper_mtc0_pwctl(CPUMIPSState *env, target_ulong arg1)
+{
+    if (env->CP0_Config3 & (1 << CP0C3_PW)) {
+        /* PWEn = 0. Hardware page table walking is not implemented. */
+#ifdef TARGET_MIPS64
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
+#else
+        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x0000003F);
+#endif
+    }
 }
 
 void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
@@ -1528,6 +1598,48 @@ void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
     target_long mask = env->CP0_LLAddr_rw_bitmask;
     arg1 = arg1 << env->CP0_LLAddr_shift;
     env->lladdr = (env->lladdr & ~mask) | (arg1 & mask);
+}
+
+void helper_mtc0_maar(CPUMIPSState *env, target_ulong arg1)
+{
+    uint64_t mask = ((env->PAMask >> 4) & ~0xFFFull) | 0x3;
+
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        env->CP0_MAAR[env->CP0_MAARI] = arg1 & mask;
+    }
+}
+
+void helper_mthc0_maar(CPUMIPSState *env, target_ulong arg1)
+{
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+
+    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
+        env->CP0_MAAR[env->CP0_MAARI] = (arg1 & (env->PAMask >> 36)) |
+                (env->CP0_MAAR[env->CP0_MAARI] & 0x00000000ffffffffULL);
+    }
+}
+
+void helper_mtc0_maari(CPUMIPSState *env, target_ulong arg1)
+{
+    int index = arg1 & 0x3f;
+    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
+        return;
+    }
+    if (index == 0x3f) {
+        /* Software may write all ones to INDEX to determine the
+           maximum value supported. */
+        env->CP0_MAARI = MIPS_MAAR_MAX - 1;
+    } else if (index < MIPS_MAAR_MAX) {
+        env->CP0_MAARI = index;
+    }
+    /* Other than the all ones, if the
+       value written is not supported, then INDEX is unchanged
+       from its previous value. */
 }
 
 void helper_mtc0_watchlo(CPUMIPSState *env, target_ulong arg1, uint32_t sel)
