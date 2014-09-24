@@ -10679,6 +10679,12 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         MIPS_DEBUG("%s %s,%s", opn, fregnames[fd], fregnames[fs]);
         break;
     }
+
+    TCGv_ptr tmp_ptr = tcg_const_ptr(opn);
+    TCGv_i32 is_single = tcg_const_i32(((op1 >> 21) & 0x1F) == FMT_S);
+    gen_helper_fp_stats(cpu_env, is_single, tmp_ptr);
+    tcg_temp_free_i32(is_single);
+    tcg_temp_free_ptr(tmp_ptr);
 }
 
 /* Coprocessor 3 (FPU) */

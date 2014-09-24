@@ -21,6 +21,8 @@ DEF_HELPER_4(sdr, void, env, tl, tl, int)
 DEF_HELPER_4(swl, void, env, tl, tl, int)
 DEF_HELPER_4(swr, void, env, tl, tl, int)
 
+DEF_HELPER_3(fp_stats, void, env, i32, ptr)
+
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_3(ll, tl, env, tl, int)
 DEF_HELPER_4(sc, tl, env, tl, tl, int)

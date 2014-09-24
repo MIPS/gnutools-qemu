@@ -548,6 +548,8 @@ struct CPUMIPSState {
     int32_t CP0_DataHi;
     target_ulong CP0_ErrorEPC;
     int32_t CP0_DESAVE;
+    uint32_t fp_counter_s;
+    uint32_t fp_counter_d;
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];
     CPUMIPSFPUContext fpus[MIPS_FPU_MAX];

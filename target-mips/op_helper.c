@@ -422,6 +422,17 @@ HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
 #define GET_OFFSET(addr, offset) (addr - (offset))
 #endif
 
+#include "trace.h"
+void helper_fp_stats(CPUMIPSState *env, uint32_t is_single, void *msg)
+{
+    if (is_single) {
+        env->fp_counter_s++;
+    } else {
+        env->fp_counter_d++;
+    }
+    trace_mips_fp_instruction(env->active_tc.PC, env->fp_counter_s, env->fp_counter_d, msg);
+}
+
 void helper_swl(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
                 int mem_idx)
 {
