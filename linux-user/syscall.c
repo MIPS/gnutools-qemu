@@ -7703,6 +7703,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                 } else {
                     env->CP0_Config5 &= ~(1 << CP0C5_FRE);
                 }
+                compute_hflags (env);
             }
             ret = 0;
 
