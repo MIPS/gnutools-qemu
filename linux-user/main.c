@@ -4315,6 +4315,10 @@ int main(int argc, char **argv, char **envp)
 #elif defined(TARGET_MIPS)
     {
         int i;
+        unsigned int fp_abi = info->fp_abi;
+#ifdef TARGET_ABI_MIPSO32
+        bool fre = false;
+#endif
 
         for(i = 0; i < 32; i++) {
             env->active_tc.gpr[i] = regs->regs[i];
@@ -4323,72 +4327,71 @@ int main(int argc, char **argv, char **envp)
         if (regs->cp0_epc & 1) {
             env->hflags |= MIPS_HFLAG_M16;
         }
+        if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
+            && fp_abi == Val_GNU_MIPS_ABI_FP_ANY) {
+            fp_abi = info->interp_fp_abi;
+        } else if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
+                   && info->interp_fp_abi != fp_abi) {
 #ifdef TARGET_ABI_MIPSO32
-	{
-            unsigned int fp_abi = info->fp_abi;
-	    bool fre = false;
-
-	    if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
-		&& fp_abi == Val_GNU_MIPS_ABI_FP_ANY) {
-	        fp_abi = info->interp_fp_abi;
-	    } else if (info->interp_fp_abi != Val_GNU_MIPS_ABI_FP_ANY
-		       && info->interp_fp_abi != fp_abi) {
-	        /* Need to merge the FP ABIs.  */
-	        if (fp_abi == Val_GNU_MIPS_ABI_FP_XX
-		    && (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-		        || info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
-			|| info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
-		    fp_abi = info->interp_fp_abi;
-		} else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_XX
-		           && (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-			       || fp_abi == Val_GNU_MIPS_ABI_FP_64A
-			       || fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
-		    /* Do nothing.  */
-		} else if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
-		           && info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64) {
-		    fp_abi = info->interp_fp_abi;
-		} else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
-		           && fp_abi == Val_GNU_MIPS_ABI_FP_64) {
-		    /* Do nothing.  */
-		} else if ((fp_abi == Val_GNU_MIPS_ABI_FP_64A
-		            && info->interp_fp_abi ==
-			                            Val_GNU_MIPS_ABI_FP_DOUBLE)
-		           || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-			       && info->interp_fp_abi ==
-			                            Val_GNU_MIPS_ABI_FP_64A)) {
-		    fre = true;
-		    fp_abi = Val_GNU_MIPS_ABI_FP_64A;
-		} else {
-                    fprintf(stderr, "qemu: Program and interpreter require "
-			            "conflicting FPU modes\n");
-		    exit(137);
-		}
-	    }
-    	        
-            if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
-                || fp_abi == Val_GNU_MIPS_ABI_FP_64) {
-                if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
-                    (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
-                    env->CP0_Status |= (1 << CP0St_FR);
-                    compute_hflags(env);
-                } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
-                    fprintf(stderr, "qemu: Program needs 64-bit floating-point "
-                                    "registers\n");
-                    exit(137);
-                }
+            /* Need to merge the FP ABIs.  */
+            if (fp_abi == Val_GNU_MIPS_ABI_FP_XX
+                && (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                    || info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                    || info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
+                fp_abi = info->interp_fp_abi;
+            } else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_XX
+                       && (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                           || fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                           || fp_abi == Val_GNU_MIPS_ABI_FP_64)) {
+                /* Do nothing.  */
+            } else if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                       && info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+                fp_abi = info->interp_fp_abi;
+            } else if (info->interp_fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                       && fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+                /* Do nothing.  */
+            } else if ((fp_abi == Val_GNU_MIPS_ABI_FP_64A
+                        && info->interp_fp_abi ==
+                                                Val_GNU_MIPS_ABI_FP_DOUBLE)
+                       || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                           && info->interp_fp_abi ==
+                                                Val_GNU_MIPS_ABI_FP_64A)) {
+                fre = true;
+                fp_abi = Val_GNU_MIPS_ABI_FP_64A;
+            } else {
+#else
+            {
+#endif
+                fprintf(stderr, "qemu: Program and interpreter require "
+                                "conflicting FPU modes\n");
+                exit(137);
             }
-            if (fre
-                || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
-                    && (env->insn_flags & ISA_MIPS32R6))) {
-                if (env->CP0_Config5_rw_bitmask & (1 << CP0C5_FRE)) {
-                    env->CP0_Config5 |= (1 << CP0C5_FRE);
-                    compute_hflags(env);
-                } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
-                    fprintf(stderr, "qemu: Program requires FRE mode\n");
-                    exit(137);
-                }
+        }
+                
+#ifdef TARGET_ABI_MIPSO32
+        if (fp_abi == Val_GNU_MIPS_ABI_FP_64A
+            || fp_abi == Val_GNU_MIPS_ABI_FP_64) {
+            if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
+                (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
+                env->CP0_Status |= (1 << CP0St_FR);
+                compute_hflags(env);
+            } else if ((env->CP0_Status & (1 << CP0St_FR)) == 0) {
+                fprintf(stderr, "qemu: Program needs 64-bit floating-point "
+                                "registers\n");
+                exit(137);
             }
-	}
+        }
+        if (fre
+            || (fp_abi == Val_GNU_MIPS_ABI_FP_DOUBLE
+                && (env->insn_flags & ISA_MIPS32R6))) {
+            if (env->CP0_Config5_rw_bitmask & (1 << CP0C5_FRE)) {
+                env->CP0_Config5 |= (1 << CP0C5_FRE);
+                compute_hflags(env);
+            } else if ((env->CP0_Config5 & (1 << CP0C5_FRE)) == 0) {
+                fprintf(stderr, "qemu: Program requires FRE mode\n");
+                exit(137);
+            }
+        }
 #endif
     }
 #elif defined(TARGET_OPENRISC)

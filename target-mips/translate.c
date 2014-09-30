@@ -37,6 +37,7 @@
 #endif
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 #define MIPS_DEBUG_XPA
+#define MIPS_R6R5_HYBRID_USER
 
 #ifdef CONFIG_USER_ONLY
 # ifdef MIPS_R6R5_HYBRID_USER
@@ -17901,6 +17902,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_BLTZAL:
         case OPC_BGEZAL:
+#ifndef MIPS_R6R5_HYBRID
             if (ctx->insn_flags & ISA_MIPS32R6) {
                 if (rs == 0) {
                     // NAL, BAL
@@ -17911,6 +17913,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                 }
             }
             else {
+#else
+	    {
+#endif
                 gen_compute_branch(ctx, op1, 4, rs, -1, imm << 2);
             }
             break;

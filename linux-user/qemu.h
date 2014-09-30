@@ -55,7 +55,7 @@ struct image_info {
         abi_ulong       pt_dynamic_addr;
         struct image_info *other_info;
 #endif
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
         unsigned int    fp_abi;
         unsigned int    interp_fp_abi;
 #endif

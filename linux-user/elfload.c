@@ -788,8 +788,8 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUMIPSState *e
 
 enum
 {
+    MIPS_HWCAP_MIPS_R6   = 1 << 0,
     MIPS_HWCAP_MIPS_MSA  = 1 << 1,
-    MIPS_HWCAP_MIPS_R6   = 1 << 3,
 };
 
 #define ELF_HWCAP get_elf_hwcap()
@@ -1188,7 +1188,7 @@ static void bswap_sym(struct elf_sym *sym)
     bswap16s(&sym->st_shndx);
 }
 
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
 static void bswap_mips_abiflags(Elf_ABIFlags_v0 *abiflags)
 {
     bswap16s(&abiflags->version);
@@ -1203,7 +1203,7 @@ static inline void bswap_ehdr(struct elfhdr *ehdr) { }
 static inline void bswap_phdr(struct elf_phdr *phdr, int phnum) { }
 static inline void bswap_shdr(struct elf_shdr *shdr, int shnum) { }
 static inline void bswap_sym(struct elf_sym *sym) { }
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
 static inline void bswap_mips_abiflags(Elf_ABIFlags_v0 *abiflags) { }
 #endif
 #endif
@@ -1787,7 +1787,7 @@ static void load_elf_image(const char *image_name, int image_fd,
     info->end_data = 0;
     info->brk = 0;
     info->elf_flags = ehdr->e_flags;
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
     info->fp_abi = -1;
 #endif
 
@@ -1867,7 +1867,7 @@ static void load_elf_image(const char *image_name, int image_fd,
                 goto exit_errmsg;
             }
             *pinterp_name = interp_name;
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
         } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
             Elf_ABIFlags_v0 abiflags;
             if (eppnt->p_filesz < sizeof(Elf_ABIFlags_v0)) {
@@ -1889,7 +1889,7 @@ static void load_elf_image(const char *image_name, int image_fd,
 #endif
         }
     }
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
     if (info->fp_abi == -1) {
         info->fp_abi = Val_GNU_MIPS_ABI_FP_DOUBLE;
     }
@@ -2138,7 +2138,7 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
             target_mmap(0, qemu_host_page_size, PROT_READ | PROT_EXEC,
                         MAP_FIXED | MAP_PRIVATE, -1, 0);
         }
-#ifdef TARGET_ABI_MIPSO32
+#ifdef TARGET_MIPS
 	info->interp_fp_abi = interp_info.fp_abi;
 #endif
     }
