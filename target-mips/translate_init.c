@@ -550,9 +550,6 @@ static const mips_def_t mips_defs[] =
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
-        /* The architectural limit is 59, but we have hardcoded 36 bit
-           in some places...
-        .PABITS = 59, */ /* the architectural limit */
         .PABITS = 36,
         .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D,
         .mmu_type = MMU_TYPE_R4000,
@@ -571,7 +568,8 @@ static const mips_def_t mips_defs[] =
                        (0 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_RXI) | (1 << CP0C3_BP) |
-                       (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1U << CP0C3_M),
+                       (1 << CP0C3_BI) | (1 << CP0C3_ULRI) | (1 << CP0C3_LPA) |
+                       (1U << CP0C3_M),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (3 << CP0C4_IE) | (1 << CP0C4_M),
         .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_LLB),
@@ -583,15 +581,12 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x30D8FFFF,
         .CP0_PageGrain = (1 << CP0PG_IEC) | (1 << CP0PG_XIE) |
                          (1U << CP0PG_RIE),
-        .CP0_PageGrain_rw_bitmask = 0,
+        .CP0_PageGrain_rw_bitmask = (1 << CP0PG_ELPA),
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x00 << FCR0_PRID) |
                     (0x0 << FCR0_REV),
         .SEGBITS = 42,
-        /* The architectural limit is 59, but we have hardcoded 36 bit
-           in some places...
-        .PABITS = 59, */ /* the architectural limit */
-        .PABITS = 36,
+        .PABITS = 48,
         .insn_flags = CPU_MIPS64R6,
         .mmu_type = MMU_TYPE_R4000,
     },
@@ -652,9 +647,6 @@ static const mips_def_t mips_defs[] =
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
-        /* The architectural limit is 59, but we have hardcoded 36 bit
-           in some places...
-        .PABITS = 59, */ /* the architectural limit */
         .PABITS = 36,
         .insn_flags = CPU_MIPS64R2 | ASE_DSP | ASE_DSPR2,
         .mmu_type = MMU_TYPE_R4000,
