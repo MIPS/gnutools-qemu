@@ -20311,6 +20311,13 @@ void cpu_state_reset(CPUMIPSState *env)
         env->CP0_Status |= (1 << CP0St_FR);
     }
 
+    if (env->insn_flags & ISA_MIPS32R6) {
+        env->CP0_PWField = 0x0C30C302;
+        env->CP0_PWSize = 0x40;
+    } else {
+        env->CP0_PWField = 0x02;
+    }
+
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         msa_reset(env);
