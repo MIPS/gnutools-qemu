@@ -820,6 +820,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env);
 /* op_helper.c */
 extern unsigned int ieee_rm[];
 int ieee_ex_to_mips(int xcpt);
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *pagemask);
 
 static inline void restore_rounding_mode(CPUMIPSState *env)
 {
