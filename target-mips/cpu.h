@@ -337,9 +337,24 @@ struct CPUMIPSState {
 #define CP0PG_IEC 27
     target_ulong CP0_PWBase;
     target_ulong CP0_PWField;
+#define CP0PF_GDI   24
+#define CP0PF_UDI   18
+#define CP0PF_MDI   12
+#define CP0PF_PTI   6
+#define CP0PF_PTEI  0
     target_ulong CP0_PWSize;
+#define CP0PS_PS    30
+#define CP0PS_GDW   24
+#define CP0PS_UDW   18
+#define CP0PS_MDW   12
+#define CP0PS_PTW   6
+#define CP0PS_PTEW  0
     int32_t CP0_Wired;
     int32_t CP0_PWCtl;
+#define CP0PC_PWEN      31
+#define CP0PC_DPH       7
+#define CP0PC_HUGEPG    6
+#define CP0PC_PSN       0
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
