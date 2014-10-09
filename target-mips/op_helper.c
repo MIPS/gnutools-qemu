@@ -1374,7 +1374,35 @@ void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
 #ifdef TARGET_MIPS64
         env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
 #else
-        env->CP0_PWField = arg1 & 0x3FFFFFFF;
+        {
+            uint32_t mask = 0x3FFFFFFF;
+            uint32_t old_ptei = (env->CP0_PWField >> CP0PF_PTEI) & 0x3F;
+            uint32_t new_ptei = (arg1 >> CP0PF_PTEI) & 0x3F;
+
+            if ((env->insn_flags & ISA_MIPS32R6)) {
+                if (((arg1 >> CP0PF_GDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_GDI);
+                }
+                if (((arg1 >> CP0PF_UDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_UDI);
+                }
+                if (((arg1 >> CP0PF_MDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_MDI);
+                }
+                if (((arg1 >> CP0PF_PTI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_PTI);
+                }
+            }
+            env->CP0_PWField = arg1 & mask;
+
+            if ((new_ptei >= 32) ||
+                    ((env->insn_flags & ISA_MIPS32R6) &&
+                            (new_ptei == 0 || new_ptei == 1))) {
+                env->CP0_PWField = (env->CP0_PWField & ~0x3F) |
+                        (old_ptei << CP0PF_PTEI);
+            }
+
+        }
 #endif
     }
 }
@@ -1429,11 +1457,11 @@ void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pwctl(CPUMIPSState *env, target_ulong arg1)
 {
     if (env->CP0_Config3 & (1 << CP0C3_PW)) {
-        /* PWEn = 0. Hardware page table walking is not implemented. */
 #ifdef TARGET_MIPS64
+        /* PWEn = 0. Hardware page table walking is not implemented. */
         env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
 #else
-        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x0000003F);
+        env->CP0_PWCtl = (arg1 & 0x800000FF);
 #endif
     }
 }
