@@ -638,6 +638,8 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
                      target_ulong address, int rw, int access_type);
 void r4k_helper_tlbwi(CPUMIPSState *env);
 void r4k_helper_tlbwr(CPUMIPSState *env);
+void r4k_helper_tlbwr_common(CPUMIPSState *env, int32_t PageMask,
+        target_ulong EntryHi, uint64_t EntryLo0, uint64_t EntryLo1);
 void r4k_helper_tlbp(CPUMIPSState *env);
 void r4k_helper_tlbr(CPUMIPSState *env);
 void r4k_helper_tlbinv(CPUMIPSState *env);
@@ -820,7 +822,8 @@ void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level);
 int mips_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
-void r4k_invalidate_tlb (CPUMIPSState *env, int idx, int use_extra);
+void r4k_invalidate_tlb(CPUMIPSState *env, int idx, int use_extra,
+        target_ulong EntryHi);
 hwaddr cpu_mips_translate_address (CPUMIPSState *env, target_ulong address,
 		                               int rw);
 #endif
@@ -829,6 +832,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env);
 /* op_helper.c */
 extern unsigned int ieee_rm[];
 int ieee_ex_to_mips(CPUMIPSState *env, int xcpt);
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *PageMask);
 
 static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)

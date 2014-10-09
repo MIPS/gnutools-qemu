@@ -46,7 +46,9 @@ void helper_avp_fail(void)
 # define SV6432 "32"
 #endif
 
-static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
+static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random,
+        int32_t PageMask, target_ulong EntryHi,
+        uint64_t EntryLo0, uint64_t EntryLo1)
 {
     r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[idx];
 
@@ -66,10 +68,10 @@ static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
 
     SVLOG_START_LINE();
     sv_log("Write TLB Entry[%d] = ", idx);
-    sv_log("%08x ", env->CP0_PageMask);
-    sv_log(TARGET_FMT_lx " ", env->CP0_EntryHi);
-    sv_log("%08x ", (uint32_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
-    sv_log("%08x\n", (uint32_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
+    sv_log("%08x ", PageMask);
+    sv_log(TARGET_FMT_lx " ", EntryHi);
+    sv_log("%08x ", (uint32_t)(EntryLo1 & ~1ULL) | tlb->G);
+    sv_log("%08x\n", (uint32_t)(EntryLo0 & ~1ULL) | tlb->G);
 }
 #endif
 #endif
@@ -1496,15 +1498,20 @@ void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Context = (env->CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
 }
 
-void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *PageMask)
 {
     uint64_t mask = arg1 >> (TARGET_PAGE_BITS + 1);
     if (!(env->insn_flags & ISA_MIPS32R6) || (arg1 == ~0) ||
         (mask == 0x0000 || mask == 0x0003 || mask == 0x000F ||
          mask == 0x003F || mask == 0x00FF || mask == 0x03FF ||
          mask == 0x0FFF || mask == 0x3FFF || mask == 0xFFFF)) {
-        env->CP0_PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
+        *PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
     }
+}
+
+void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+{
+    update_pagemask(env, arg1, &env->CP0_PageMask);
 }
 
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
@@ -2165,14 +2172,15 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
 {
     /* Discard entries from env->tlb[first] onwards.  */
     while (env->tlb->tlb_in_use > first) {
-        r4k_invalidate_tlb(env, --env->tlb->tlb_in_use, 0);
+        r4k_invalidate_tlb(env, --env->tlb->tlb_in_use, 0, env->CP0_EntryHi);
     }
 }
 
-static void r4k_fill_tlb(CPUMIPSState *env, int idx)
+static void r4k_fill_tlb(CPUMIPSState *env, int idx, int32_t PageMask,
+        target_ulong EntryHi, uint64_t EntryLo0, uint64_t EntryLo1)
 {
     r4k_tlb_t *tlb;
-    uint64_t mask = (uint32_t)env->CP0_PageMask >> (TARGET_PAGE_BITS + 1);
+    uint64_t mask = (uint32_t)PageMask >> (TARGET_PAGE_BITS + 1);
     // if mask is invalid then set all bits to 1
     if (mask & (mask + 1)) {
         mask = -1;
@@ -2180,39 +2188,39 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
-    if (env->CP0_EntryHi & (1 << CP0EnHi_EHINV)) {
+    if (EntryHi & (1 << CP0EnHi_EHINV)) {
         tlb->EHINV = 1;
         return;
     }
     tlb->EHINV = 0;
-    tlb->VPN = env->CP0_EntryHi & (~mask << (TARGET_PAGE_BITS + 1));
+    tlb->VPN = EntryHi & (~mask << (TARGET_PAGE_BITS + 1));
 #if defined(TARGET_MIPS64)
     tlb->VPN &= env->SEGMask;
 #endif
-    tlb->ASID = env->CP0_EntryHi & 0xFF;
-    tlb->PageMask = env->CP0_PageMask;
-    tlb->G = env->CP0_EntryLo0 & env->CP0_EntryLo1 & 1;
-    tlb->V0 = (env->CP0_EntryLo0 & 2) != 0;
-    tlb->D0 = (env->CP0_EntryLo0 & 4) != 0;
-    tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
-    tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
-    tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
+    tlb->ASID = EntryHi & 0xFF;
+    tlb->PageMask = PageMask;
+    tlb->G = EntryLo0 & EntryLo1 & 1;
+    tlb->V0 = (EntryLo0 & 2) != 0;
+    tlb->D0 = (EntryLo0 & 4) != 0;
+    tlb->C0 = (EntryLo0 >> 3) & 0x7;
+    tlb->XI0 = (EntryLo0 >> CP0EnLo_XI) & 1;
+    tlb->RI0 = (EntryLo0 >> CP0EnLo_RI) & 1;
 #if defined(TARGET_MIPS64)
-    tlb->PFN[0] = ((env->CP0_EntryLo0 >> 6) & ~mask);
+    tlb->PFN[0] = ((EntryLo0 >> 6) & ~mask);
 #else
-    tlb->PFN[0] = ((env->CP0_EntryLo0 & 0x3fffffff) >> 6 | /* PFN */
-                   (env->CP0_EntryLo0 >> 32) << 24) & ~mask; /* PFNX */
+    tlb->PFN[0] = ((EntryLo0 & 0x3fffffff) >> 6 | /* PFN */
+                   (EntryLo0 >> 32) << 24) & ~mask; /* PFNX */
 #endif
-    tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
-    tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
-    tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
-    tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
-    tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
+    tlb->V1 = (EntryLo1 & 2) != 0;
+    tlb->D1 = (EntryLo1 & 4) != 0;
+    tlb->C1 = (EntryLo1 >> 3) & 0x7;
+    tlb->XI1 = (EntryLo1 >> CP0EnLo_XI) & 1;
+    tlb->RI1 = (EntryLo1 >> CP0EnLo_RI) & 1;
 #if defined(TARGET_MIPS64)
-    tlb->PFN[1] = ((env->CP0_EntryLo1 >> 6) & ~mask);
+    tlb->PFN[1] = ((EntryLo1 >> 6) & ~mask);
 #else
-    tlb->PFN[1] = ((env->CP0_EntryLo1 & 0x3fffffff) >> 6 | /* PFN */
-                   (env->CP0_EntryLo1 >> 32) << 24) & ~mask; /* PFNX */
+    tlb->PFN[1] = ((EntryLo1 & 0x3fffffff) >> 6 | /* PFN */
+                   (EntryLo1 >> 32) << 24) & ~mask; /* PFNX */
 #endif
 }
 
@@ -2270,14 +2278,17 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
         r4k_mips_tlb_flush_extra(env, env->tlb->nb_tlb);
     }
 
-    r4k_invalidate_tlb(env, idx, 0);
-    r4k_fill_tlb(env, idx);
+    r4k_invalidate_tlb(env, idx, 0, env->CP0_EntryHi);
+    r4k_fill_tlb(env, idx, env->CP0_PageMask, env->CP0_EntryHi,
+            env->CP0_EntryLo0, env->CP0_EntryLo1);
 #ifdef MIPSSIM_COMPAT
-    trace_tlb_fill(env, idx, 0);
+    trace_tlb_fill(env, idx, 0, env->CP0_PageMask, env->CP0_EntryHi,
+            env->CP0_EntryLo0, env->CP0_EntryLo1);
 #endif
 }
 
-void r4k_helper_tlbwr(CPUMIPSState *env)
+void r4k_helper_tlbwr_common(CPUMIPSState *env, int32_t PageMask,
+        target_ulong EntryHi, uint64_t EntryLo0, uint64_t EntryLo1)
 {
     int idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     int r = cpu_mips_get_random(env);
@@ -2286,11 +2297,19 @@ void r4k_helper_tlbwr(CPUMIPSState *env)
         r = (r + 1) % env->tlb->nb_tlb;
     }
 
-    r4k_invalidate_tlb(env, r, 1);
-    r4k_fill_tlb(env, r);
+    r4k_invalidate_tlb(env, r, 1, EntryHi);
+    r4k_fill_tlb(env, r, PageMask, EntryHi,
+            EntryLo0, EntryLo1);
 #ifdef MIPSSIM_COMPAT
-    trace_tlb_fill(env, r, 1);
+    trace_tlb_fill(env, r, 1, PageMask, EntryHi,
+            EntryLo0, EntryLo1);
 #endif
+}
+
+void r4k_helper_tlbwr(CPUMIPSState *env)
+{
+    r4k_helper_tlbwr_common(env, env->CP0_PageMask, env->CP0_EntryHi,
+            env->CP0_EntryLo0, env->CP0_EntryLo1);
 }
 
 void r4k_helper_tlbp(CPUMIPSState *env)

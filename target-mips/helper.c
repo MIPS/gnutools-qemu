@@ -800,14 +800,15 @@ void mips_cpu_do_interrupt(CPUState *cs)
 }
 
 #if !defined(CONFIG_USER_ONLY)
-void r4k_invalidate_tlb (CPUMIPSState *env, int idx, int use_extra)
+void r4k_invalidate_tlb(CPUMIPSState *env, int idx, int use_extra,
+        target_ulong EntryHi)
 {
     MIPSCPU *cpu = mips_env_get_cpu(env);
     CPUState *cs;
     r4k_tlb_t *tlb;
     target_ulong addr;
     target_ulong end;
-    uint8_t ASID = env->CP0_EntryHi & 0xFF;
+    uint8_t ASID = EntryHi & 0xFF;
     target_ulong mask;
 
     tlb = &env->tlb->mmu.r4k.tlb[idx];
