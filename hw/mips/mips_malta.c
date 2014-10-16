@@ -54,6 +54,7 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
+#include "hw/mips/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
 
@@ -1164,6 +1165,11 @@ void mips_malta_init(MachineState *machine)
     /* Init internal devices */
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
+
+    /* GCR/GIC */
+    if (/*kvm_enabled() &&*/ smp_cpus > 1) {
+        gic_init(smp_cpus, first_cpu, system_memory);
+    }
 
     /*
      * We have a circular dependency problem: pci_bus depends on isa_irq,
