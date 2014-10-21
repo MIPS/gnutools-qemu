@@ -391,9 +391,9 @@ static bool get_pte(CPUMIPSState *env, uint64_t vaddr, int entry_size,
         return false;
     }
     if (entry_size == 64) {
-        *pte = cpu_ldq_kernel(env, vaddr);
+        *pte = cpu_ldq_code(env, vaddr);
     } else {
-        *pte = cpu_ldl_kernel(env, vaddr);
+        *pte = cpu_ldl_code(env, vaddr);
     }
     return true;
 }
