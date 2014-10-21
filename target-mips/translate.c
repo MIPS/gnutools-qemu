@@ -17034,6 +17034,12 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
+    case OPC_DLSA:
+        if ((ctx->insn_flags & ISA_MIPS32R6) ||
+            (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) {
+            decode_opc_special_r6(env, ctx);
+        }
+        break;
 #endif
     default:
         if (ctx->insn_flags & ISA_MIPS32R6) {
