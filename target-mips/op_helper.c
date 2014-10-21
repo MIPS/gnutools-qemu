@@ -186,6 +186,84 @@ void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
     do_raise_exception(env, exception, 0);
 }
 
+#if !defined(CONFIG_USER_ONLY)
+#include "exec/softmmu_exec.h"
+#endif /* !defined(CONFIG_USER_ONLY) */
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    return (type) insn##_raw(addr);                                     \
+}
+#else
+#define HELPER_LD(name, insn, type)                                     \
+static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             int mem_idx)                               \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        return (type) cpu_##insn##_kernel(env, addr);                   \
+        break;                                                          \
+    case 1:                                                             \
+        return (type) cpu_##insn##_super(env, addr);                    \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        return (type) cpu_##insn##_user(env, addr);                     \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_LD(lbu, ldub, uint8_t)
+HELPER_LD(lw, ldl, int32_t)
+#ifdef TARGET_MIPS64
+HELPER_LD(ld, ldq, int64_t)
+#endif
+HELPER_LD(ld8, ldub, uint8_t)
+HELPER_LD(ld16, lduw, uint16_t)
+HELPER_LD(ld32, ldl, int32_t)
+HELPER_LD(ld64, ldq, int64_t)
+#undef HELPER_LD
+
+#if defined(CONFIG_USER_ONLY)
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    insn##_raw(addr, val);                                              \
+}
+#else
+#define HELPER_ST(name, insn, type)                                     \
+static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
+                             type val, int mem_idx)                     \
+{                                                                       \
+    switch (mem_idx) {                                                  \
+    case 0:                                                             \
+        cpu_##insn##_kernel(env, addr, val);                            \
+        break;                                                          \
+    case 1:                                                             \
+        cpu_##insn##_super(env, addr, val);                             \
+        break;                                                          \
+    default:                                                            \
+    case 2:                                                             \
+        cpu_##insn##_user(env, addr, val);                              \
+        break;                                                          \
+    }                                                                   \
+}
+#endif
+HELPER_ST(sb, stb, uint8_t)
+HELPER_ST(sw, stl, uint32_t)
+#ifdef TARGET_MIPS64
+HELPER_ST(sd, stq, uint64_t)
+#endif
+HELPER_ST(st8, stb, uint8_t)
+HELPER_ST(st16, stw, uint16_t)
+HELPER_ST(st32, stl, int32_t)
+HELPER_ST(st64, stq, int64_t)
+#undef HELPER_ST
+
 target_ulong helper_clo (target_ulong arg1)
 {
     return clo32(arg1);
@@ -4174,3 +4252,92 @@ FOP_CONDN_S(sune, (float32_unordered(fst1, fst0, &env->active_fpu.fp_status)
                    || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
 FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
                    || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
+
+/* MSA */
+#define DF_BYTE   0
+#define DF_HALF   1
+#define DF_WORD   2
+#define DF_DOUBLE 3
+#define DF_QUAD   4
+
+/* Data format min and max values */
+#define DF_BITS(df) (1 << ((df) + 3))
+
+/* Element-by-element access macros */
+#define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
+
+void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
+                     int64_t s10)
+{
+   wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
+   target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
+   int i;
+
+   switch (df) {
+   case DF_BYTE:
+       for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
+           pwd->b[i] = do_ld8(env, addr + (i << DF_BYTE),
+                              env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_HALF:
+       for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
+           pwd->h[i] = do_ld16(env, addr + (i << DF_HALF),
+                               env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_WORD:
+       for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
+           pwd->w[i] = do_ld32(env, addr + (i << DF_WORD),
+                               env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_DOUBLE:
+       for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
+           pwd->d[i] = do_ld64(env, addr + (i << DF_DOUBLE),
+                               env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   }
+   if (env->active_msa.msair & MSAIR_WRP_BIT) {
+       env->active_msa.msamodify |= (1 << wd);
+   }
+}
+
+void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
+                     int64_t s10)
+{
+   wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
+   target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
+   int i;
+
+   switch (df) {
+   case DF_BYTE:
+       for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
+           do_st8(env, addr + (i << DF_BYTE), pwd->b[i],
+                  env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_HALF:
+       for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
+           do_st16(env, addr + (i << DF_HALF), pwd->h[i],
+                   env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_WORD:
+       for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
+           do_st32(env, addr + (i << DF_WORD), pwd->w[i],
+                   env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   case DF_DOUBLE:
+       for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
+           do_st64(env, addr + (i << DF_DOUBLE), pwd->d[i],
+                   env->hflags & MIPS_HFLAG_KSU);
+       }
+       break;
+   }
+   if (env->active_msa.msair & (1 << MSAIR_WRP_POS)) {
+       env->active_msa.msamodify |= (1 << wd);
+   }
+}
