@@ -20,12 +20,6 @@
 #include "cpu.h"
 #include "helper.h"
 
-#define DF_BYTE   0
-#define DF_HALF   1
-#define DF_WORD   2
-#define DF_DOUBLE 3
-#define DF_QUAD   4
-
 /* Data format min and max values */
 #define DF_BITS(df) (1 << ((df) + 3))
 
@@ -60,192 +54,61 @@ static inline void msa_move_v(wr_t *pwd, wr_t *pws)
     }
 }
 
-void helper_msa_and_v(CPUMIPSState *env, uint32_t wd, uint32_t ws,
-        uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        pwd->d[i] = pws->d[i] & pwt->d[i];
-    }
-    update_msamodify(env, wd);
+#define MSA_FN_VECTOR(FUNC, OPERATION)                                  \
+void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
+        uint32_t wt)                                                    \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    wr_t *pws = &(env->active_fpu.fpr[ws].wr);                          \
+    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);                          \
+    uint32_t i;                                                         \
+    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {                      \
+        OPERATION;                                                      \
+    }                                                                   \
+    update_msamodify(env, wd);                                          \
 }
 
-void helper_msa_andi_b(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        pwd->b[i] = pws->b[i] & i8;
-    }
-    update_msamodify(env, wd);
+#define MSA_FN_IMM8(FUNC, OPERATION)                                    \
+void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
+        uint32_t i8)                                                    \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    wr_t *pws = &(env->active_fpu.fpr[ws].wr);                          \
+    uint32_t i;                                                         \
+    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {                        \
+        OPERATION;                                                      \
+    }                                                                   \
+    update_msamodify(env, wd);                                          \
 }
 
-void helper_msa_or_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        pwd->d[i] = pws->d[i] | pwt->d[i];
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_ori_b(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        pwd->b[i] = pws->b[i] | i8;
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_nor_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        pwd->d[i] = ~(pws->d[i] | pwt->d[i]);
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_nori_b(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        pwd->b[i] = ~(pws->b[i] | i8);
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_xor_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        pwd->d[i] = pws->d[i] ^ pwt->d[i];
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_xori_b(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        pwd->b[i] = pws->b[i] ^ i8;
-    }
-    update_msamodify(env, wd);
-}
+MSA_FN_VECTOR(and_v, pwd->d[i] = pws->d[i] & pwt->d[i])
+MSA_FN_IMM8(andi_b, pwd->b[i] = pws->b[i] & i8)
+MSA_FN_VECTOR(or_v, pwd->d[i] = pws->d[i] | pwt->d[i])
+MSA_FN_IMM8(ori_b, pwd->b[i] = pws->b[i] | i8)
+MSA_FN_VECTOR(nor_v, pwd->d[i] = ~(pws->d[i] | pwt->d[i]))
+MSA_FN_IMM8(nori_b, pwd->b[i] = ~(pws->b[i] | i8))
+MSA_FN_VECTOR(xor_v, pwd->d[i] = pws->d[i] ^ pwt->d[i])
+MSA_FN_IMM8(xori_b, pwd->b[i] = pws->b[i] ^ i8)
 
 #define BIT_MOVE_IF_NOT_ZERO(dest, arg1, arg2, df) \
             dest = UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
-
-void helper_msa_bmnz_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        BIT_MOVE_IF_NOT_ZERO(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE);
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_bmnzi_b(CPUMIPSState *env, uint32_t wd, uint32_t ws,
-                        uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        BIT_MOVE_IF_NOT_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE);
-    }
-    update_msamodify(env, wd);
-}
+MSA_FN_VECTOR(bmnz_v, BIT_MOVE_IF_NOT_ZERO(pwd->d[i], pws->d[i], pwt->d[i], \
+        DF_DOUBLE))
+MSA_FN_IMM8(bmnzi_b, BIT_MOVE_IF_NOT_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
 
 #define BIT_MOVE_IF_ZERO(dest, arg1, arg2, df) \
             dest = UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
-
-void helper_msa_bmz_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        BIT_MOVE_IF_ZERO(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE);
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_bmzi_b(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        BIT_MOVE_IF_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE);
-    }
-    update_msamodify(env, wd);
-}
+MSA_FN_VECTOR(bmz_v, BIT_MOVE_IF_ZERO(pwd->d[i], pws->d[i], pwt->d[i], \
+        DF_DOUBLE))
+MSA_FN_IMM8(bmzi_b, BIT_MOVE_IF_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
 
 #define BIT_SELECT(dest, arg1, arg2, df) \
             dest = UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
+MSA_FN_VECTOR(bsel_v, BIT_SELECT(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE))
+MSA_FN_IMM8(bseli_b, BIT_SELECT(pwd->b[i], pws->b[i], i8, DF_BYTE))
 
-void helper_msa_bsel_v(CPUMIPSState *env, uint32_t wd, uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-        BIT_SELECT(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE);
-    }
-    update_msamodify(env, wd);
-}
-
-void helper_msa_bseli_b(CPUMIPSState *env, uint32_t wd, uint32_t ws,
-                        uint32_t i8)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    uint32_t i;
-
-    for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-        BIT_SELECT(pwd->b[i], pws->b[i], i8, DF_BYTE);
-    }
-    update_msamodify(env, wd);
-}
+#undef MSA_FN_VECTOR
+#undef MSA_FN_IMM8
 
 void helper_msa_copy_s_df(CPUMIPSState *env, uint32_t df, uint32_t rd,
                           uint32_t ws, uint32_t n)
@@ -297,310 +160,124 @@ void helper_msa_copy_u_df(CPUMIPSState *env, uint32_t df, uint32_t rd,
     }
 }
 
-void helper_msa_ilvev_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                         uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_DO_B MSA_DO(b)
+#define MSA_DO_H MSA_DO(h)
+#define MSA_DO_W MSA_DO(w)
+#define MSA_DO_D MSA_DO(d)
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwx->b[2*i]   = pwt->b[2*i];
-            pwx->b[2*i+1] = pws->b[2*i];
+#define MSA_LOOP_B MSA_LOOP(B)
+#define MSA_LOOP_H MSA_LOOP(H)
+#define MSA_LOOP_W MSA_LOOP(W)
+#define MSA_LOOP_D MSA_LOOP(D)
+
+#define MSA_LOOP_COND_B MSA_LOOP_COND(DF_BYTE)
+#define MSA_LOOP_COND_H MSA_LOOP_COND(DF_HALF)
+#define MSA_LOOP_COND_W MSA_LOOP_COND(DF_WORD)
+#define MSA_LOOP_COND_D MSA_LOOP_COND(DF_DOUBLE)
+
+#define MSA_LOOP(DF) \
+        for (i = 0; i < (MSA_LOOP_COND_ ## DF) ; i++) { \
+            MSA_DO_ ## DF \
         }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwx->h[2*i]   = pwt->h[2*i];
-            pwx->h[2*i+1] = pws->h[2*i];
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwx->w[2*i]   = pwt->w[2*i];
-            pwx->w[2*i+1] = pws->w[2*i];
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            pwx->d[2*i]   = pwt->d[2*i];
-            pwx->d[2*i+1] = pws->d[2*i];
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
+
+#define MSA_FN_DF(FUNC)                                             \
+void helper_msa_##FUNC(CPUMIPSState *env, uint32_t df, uint32_t wd, \
+        uint32_t ws, uint32_t wt)                                   \
+{                                                                   \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                      \
+    wr_t *pws = &(env->active_fpu.fpr[ws].wr);                      \
+    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);                      \
+    wr_t wx, *pwx = &wx;                                            \
+    uint32_t i;                                                     \
+    switch (df) {                                                   \
+    case DF_BYTE:                                                   \
+        MSA_LOOP_B                                                  \
+        break;                                                      \
+    case DF_HALF:                                                   \
+        MSA_LOOP_H                                                  \
+        break;                                                      \
+    case DF_WORD:                                                   \
+        MSA_LOOP_W                                                  \
+        break;                                                      \
+    case DF_DOUBLE:                                                 \
+        MSA_LOOP_D                                                  \
+       break;                                                       \
+    default:                                                        \
+        assert(0);                                                  \
+    }                                                               \
+    msa_move_v(pwd, pwx);                                           \
+    update_msamodify(env, wd);                                      \
 }
 
-void helper_msa_ilvod_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                         uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_LOOP_COND(DF) \
+            (DF_ELEMENTS(DF) / 2)
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwx->b[2*i]   = pwt->b[2*i+1];
-            pwx->b[2*i+1] = pws->b[2*i+1];
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwx->h[2*i]   = pwt->h[2*i+1];
-            pwx->h[2*i+1] = pws->h[2*i+1];
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwx->w[2*i]   = pwt->w[2*i+1];
-            pwx->w[2*i+1] = pws->w[2*i+1];
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            pwx->d[2*i]   = pwt->d[2*i+1];
-            pwx->d[2*i+1] = pws->d[2*i+1];
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+#define MSA_DO(DF) \
+            pwx->DF[2*i]   = pwt->DF[2*i]; \
+            pwx->DF[2*i+1] = pws->DF[2*i];
 
-#define BR(pwr, i) (pwr->b[i])
-#define BL(pwr, i) (pwr->b[i + DF_ELEMENTS(DF_BYTE)/2])
+MSA_FN_DF(ilvev_df)
+#undef MSA_DO
 
-#define HR(pwr, i) (pwr->h[i])
-#define HL(pwr, i) (pwr->h[i + DF_ELEMENTS(DF_HALF)/2])
+#define MSA_DO(DF) \
+            pwx->DF[2*i]   = pwt->DF[2*i+1]; \
+            pwx->DF[2*i+1] = pws->DF[2*i+1];
+MSA_FN_DF(ilvod_df)
+#undef MSA_DO
 
-#define WR(pwr, i) (pwr->w[i])
-#define WL(pwr, i) (pwr->w[i + DF_ELEMENTS(DF_WORD)/2])
+#define Rb(pwr, i) (pwr->b[i])
+#define Lb(pwr, i) (pwr->b[i + DF_ELEMENTS(DF_BYTE)/2])
 
-#define DR(pwr, i) (pwr->d[i])
-#define DL(pwr, i) (pwr->d[i + DF_ELEMENTS(DF_DOUBLE)/2])
+#define Rh(pwr, i) (pwr->h[i])
+#define Lh(pwr, i) (pwr->h[i + DF_ELEMENTS(DF_HALF)/2])
 
-void helper_msa_ilvl_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                        uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define Rw(pwr, i) (pwr->w[i])
+#define Lw(pwr, i) (pwr->w[i + DF_ELEMENTS(DF_WORD)/2])
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwx->b[2*i]   = BL(pwt, i);
-            pwx->b[2*i+1] = BL(pws, i);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwx->h[2*i]   = HL(pwt, i);
-            pwx->h[2*i+1] = HL(pws, i);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwx->w[2*i]   = WL(pwt, i);
-            pwx->w[2*i+1] = WL(pws, i);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            pwx->d[2*i]   = DL(pwt, i);
-            pwx->d[2*i+1] = DL(pws, i);
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+#define Rd(pwr, i) (pwr->d[i])
+#define Ld(pwr, i) (pwr->d[i + DF_ELEMENTS(DF_DOUBLE)/2])
 
-void helper_msa_ilvr_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                        uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_DO(DF) \
+        pwx->DF[2*i]   = L##DF(pwt, i); \
+        pwx->DF[2*i+1] = L##DF(pws, i);
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwx->b[2*i]   = BR(pwt, i);
-            pwx->b[2*i+1] = BR(pws, i);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwx->h[2*i]   = HR(pwt, i);
-            pwx->h[2*i+1] = HR(pws, i);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwx->w[2*i]   = WR(pwt, i);
-            pwx->w[2*i+1] = WR(pws, i);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            pwx->d[2*i]   = DR(pwt, i);
-            pwx->d[2*i+1] = DR(pws, i);
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+MSA_FN_DF(ilvl_df)
+#undef MSA_DO
 
-void helper_msa_pckev_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                         uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_DO(DF) \
+        pwx->DF[2*i]   = R##DF(pwt, i); \
+        pwx->DF[2*i+1] = R##DF(pws, i);
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            BR(pwx, i) = pwt->b[2*i];
-            BL(pwx, i) = pws->b[2*i];
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            HR(pwx, i) = pwt->h[2*i];
-            HL(pwx, i) = pws->h[2*i];
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            WR(pwx, i) = pwt->w[2*i];
-            WL(pwx, i) = pws->w[2*i];
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            DR(pwx, i) = pwt->d[2*i];
-            DL(pwx, i) = pws->d[2*i];
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+MSA_FN_DF(ilvr_df)
+#undef MSA_DO
 
-void helper_msa_pckod_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                         uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_DO(DF) \
+            R##DF(pwx, i) = pwt->DF[2*i]; \
+            L##DF(pwx, i) = pws->DF[2*i];
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            BR(pwx, i) = pwt->b[2*i+1];
-            BL(pwx, i) = pws->b[2*i+1];
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            HR(pwx, i) = pwt->h[2*i+1];
-            HL(pwx, i) = pws->h[2*i+1];
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            WR(pwx, i) = pwt->w[2*i+1];
-            WL(pwx, i) = pws->w[2*i+1];
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_QUAD); i++) {
-            DR(pwx, i) = pwt->d[2*i+1];
-            DL(pwx, i) = pws->d[2*i+1];
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+MSA_FN_DF(pckev_df)
+#undef MSA_DO
 
-void helper_msa_vshf_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                        uint32_t ws, uint32_t wt)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
-    wr_t *pwt = &(env->active_fpu.fpr[wt].wr);
-    uint32_t n = DF_ELEMENTS(df);
-    uint32_t k;
-    wr_t wx, *pwx = &wx;
-    uint32_t i;
+#define MSA_DO(DF) \
+            R##DF(pwx, i) = pwt->DF[2*i+1]; \
+            L##DF(pwx, i) = pws->DF[2*i+1];
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            k = (pwd->b[i] & 0x3f) % (2 * n);
-            pwx->b[i] =
-                (pwd->b[i] & 0xc0) ? 0 : k < n ? pwt->b[k] : pws->b[k - n];
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            k = (pwd->h[i] & 0x3f) % (2 * n);
-            pwx->h[i] =
-                (pwd->h[i] & 0xc0) ? 0 : k < n ? pwt->h[k] : pws->h[k - n];
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            k = (pwd->w[i] & 0x3f) % (2 * n);
-            pwx->w[i] =
-                (pwd->w[i] & 0xc0) ? 0 : k < n ? pwt->w[k] : pws->w[k - n];
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            k = (pwd->d[i] & 0x3f) % (2 * n);
-            pwx->d[i] =
-                (pwd->d[i] & 0xc0) ? 0 : k < n ? pwt->d[k] : pws->d[k - n];
-        }
-       break;
-    default:
-        assert(0);
-    }
-    msa_move_v(pwd, pwx);
-    update_msamodify(env, wd);
-}
+MSA_FN_DF(pckod_df)
+#undef MSA_DO
+
+#undef MSA_LOOP_COND
+#define MSA_LOOP_COND(DF) \
+            (DF_ELEMENTS(DF))
+
+#define MSA_DO(DF) \
+        uint32_t n = DF_ELEMENTS(df); \
+        uint32_t k = (pwd->DF[i] & 0x3f) % (2 * n); \
+        pwx->DF[i] = \
+            (pwd->DF[i] & 0xc0) ? 0 : k < n ? pwt->DF[k] : pws->DF[k - n];
+
+MSA_FN_DF(vshf_df)
+#undef MSA_DO
+#undef MSA_FN_DF
 
 #define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
 
@@ -3216,14 +2893,14 @@ void helper_msa_fexdo_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
 
-            MSA_FLOAT_BINOP(HL(pwx, i), from_float32, pws->w[i], ieee, 16);
-            MSA_FLOAT_BINOP(HR(pwx, i), from_float32, pwt->w[i], ieee, 16);
+            MSA_FLOAT_BINOP(Lh(pwx, i), from_float32, pws->w[i], ieee, 16);
+            MSA_FLOAT_BINOP(Rh(pwx, i), from_float32, pwt->w[i], ieee, 16);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP(WL(pwx, i), from_float64, pws->d[i], 32);
-            MSA_FLOAT_UNOP(WR(pwx, i), from_float64, pwt->d[i], 32);
+            MSA_FLOAT_UNOP(Lw(pwx, i), from_float64, pws->d[i], 32);
+            MSA_FLOAT_UNOP(Rw(pwx, i), from_float64, pwt->d[i], 32);
         }
         break;
     default:
@@ -3250,12 +2927,12 @@ void helper_msa_fexupl_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
 
-            MSA_FLOAT_BINOP(pwx->w[i], from_float16, HL(pws, i), ieee, 32);
+            MSA_FLOAT_BINOP(pwx->w[i], from_float16, Lh(pws, i), ieee, 32);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP(pwx->d[i], from_float32, WL(pws, i), 64);
+            MSA_FLOAT_UNOP(pwx->d[i], from_float32, Lw(pws, i), 64);
         }
         break;
     default:
@@ -3282,12 +2959,12 @@ void helper_msa_fexupr_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
                range by omitting the NaN/Inf encodings.  */
             flag ieee = 1;
 
-            MSA_FLOAT_BINOP(pwx->w[i], from_float16, HR(pws, i), ieee, 32);
+            MSA_FLOAT_BINOP(pwx->w[i], from_float16, Rh(pws, i), ieee, 32);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP(pwx->d[i], from_float32, WR(pws, i), 64);
+            MSA_FLOAT_UNOP(pwx->d[i], from_float32, Rw(pws, i), 64);
         }
         break;
     default:
@@ -3651,12 +3328,12 @@ void helper_msa_ffql_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            MSA_FLOAT_UNOP(pwx->w[i], from_q16, HL(pws, i), 32);
+            MSA_FLOAT_UNOP(pwx->w[i], from_q16, Lh(pws, i), 32);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP(pwx->d[i], from_q32, WL(pws, i), 64);
+            MSA_FLOAT_UNOP(pwx->d[i], from_q32, Lw(pws, i), 64);
         }
         break;
     default:
@@ -3677,12 +3354,12 @@ void helper_msa_ffqr_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            MSA_FLOAT_UNOP(pwx->w[i], from_q16, HR(pws, i), 32);
+            MSA_FLOAT_UNOP(pwx->w[i], from_q16, Rh(pws, i), 32);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP(pwx->d[i], from_q32, WR(pws, i), 64);
+            MSA_FLOAT_UNOP(pwx->d[i], from_q32, Rw(pws, i), 64);
         }
         break;
     default:
@@ -3706,14 +3383,14 @@ void helper_msa_ftq_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            MSA_FLOAT_UNOP_XD(HL(pwx, i), to_q16, pws->w[i], 32, 16);
-            MSA_FLOAT_UNOP_XD(HR(pwx, i), to_q16, pwt->w[i], 32, 16);
+            MSA_FLOAT_UNOP_XD(Lh(pwx, i), to_q16, pws->w[i], 32, 16);
+            MSA_FLOAT_UNOP_XD(Rh(pwx, i), to_q16, pwt->w[i], 32, 16);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            MSA_FLOAT_UNOP_XD(WL(pwx, i), to_q32, pws->d[i], 64, 32);
-            MSA_FLOAT_UNOP_XD(WR(pwx, i), to_q32, pwt->d[i], 64, 32);
+            MSA_FLOAT_UNOP_XD(Lw(pwx, i), to_q32, pws->d[i], 64, 32);
+            MSA_FLOAT_UNOP_XD(Rw(pwx, i), to_q32, pwt->d[i], 64, 32);
         }
         break;
     default:

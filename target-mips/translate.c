@@ -197,14 +197,10 @@ enum {
     OPC_SRA      = 0x03 | OPC_SPECIAL,
     OPC_SLLV     = 0x04 | OPC_SPECIAL,
 
-    OPC_MSA_S05  = 0x05 | OPC_SPECIAL,
-
     OPC_SRLV     = 0x06 | OPC_SPECIAL, /* also ROTRV */
     OPC_ROTRV    = OPC_SRLV | (1 << 6),
     OPC_SRAV     = 0x07 | OPC_SPECIAL,
     OPC_DSLLV    = 0x14 | OPC_SPECIAL,
-
-    OPC_MSA_S15  = 0x15 | OPC_SPECIAL,
 
     OPC_DSRLV    = 0x16 | OPC_SPECIAL, /* also DROTRV */
     OPC_DROTRV   = OPC_DSRLV | (1 << 6),
@@ -17918,31 +17914,31 @@ static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
     return 1;
 }
 
-static void determ_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
+static void gen_check_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
 {
     /* Note this function only works with MSA_WRLEN = 128 */
     uint64_t eval_zero_or_big = 0;
     uint64_t eval_big = 0;
     switch (df) {
-    case 0: /*DF_BYTE*/
+    case DF_BYTE:
         eval_zero_or_big = 0x0101010101010101ULL;
         eval_big = 0x8080808080808080ULL;
         break;
-    case 1: /*DF_HALF*/
+    case DF_HALF:
         eval_zero_or_big = 0x0001000100010001ULL;
         eval_big = 0x8000800080008000ULL;
         break;
-    case 2: /*DF_WORD*/
+    case DF_WORD:
         eval_zero_or_big = 0x0000000100000001ULL;
         eval_big = 0x8000000080000000ULL;
         break;
-    case 3: /*DF_DOUBLE*/
+    case DF_DOUBLE:
         eval_zero_or_big = 0x0000000000000001ULL;
         eval_big = 0x8000000000000000ULL;
         break;
     }
-    TCGv_i64 t0 = tcg_temp_local_new_i64();
-    TCGv_i64 t1 = tcg_temp_local_new_i64();
+    TCGv_i64 t0 = tcg_temp_new_i64();
+    TCGv_i64 t1 = tcg_temp_new_i64();
     tcg_gen_subi_i64(t0, msa_wr_d[wt<<1], eval_zero_or_big);
     tcg_gen_andc_i64(t0, t0, msa_wr_d[wt<<1]);
     tcg_gen_andi_i64(t0, t0, eval_big);
@@ -17960,12 +17956,9 @@ static void determ_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
 
 static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
 {
-    check_insn(ctx, ASE_MSA);
-
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    int64_t s16 = (ctx->opcode >> 0) & 0xffff /* s16 [15:0] */;
-    s16 = (s16 << 48) >> 48; /* sign extend s16 to 64 bits*/
+    uint8_t df = (ctx->opcode >> 21) & 0x3;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    int64_t s16 = (int16_t)ctx->opcode;
 
     check_msa_access(env, ctx, wt, -1, -1);
 
@@ -17974,7 +17967,6 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
         generate_exception(ctx, EXCP_RI);
         return;
     }
-
     switch (op1) {
     case OPC_MSA_BZ_V:
     case OPC_MSA_BNZ_V:
@@ -17991,13 +17983,13 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
     case OPC_MSA_BZ_H:
     case OPC_MSA_BZ_W:
     case OPC_MSA_BZ_D:
-        determ_zero_element(bcond, df, wt);
+        gen_check_zero_element(bcond, df, wt);
         break;
     case OPC_MSA_BNZ_B:
     case OPC_MSA_BNZ_H:
     case OPC_MSA_BNZ_W:
     case OPC_MSA_BNZ_D:
-        determ_zero_element(bcond, df, wt);
+        gen_check_zero_element(bcond, df, wt);
         tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, bcond, 0);
         break;
     }
@@ -18015,9 +18007,9 @@ static void gen_msa_i8(CPUMIPSState *env, DisasContext *ctx)
 
     uint32_t opcode = ctx->opcode;
 
-    uint8_t i8 = (opcode >> 16) & 0xff /* i8 [23:16] */;
-    uint8_t ws = (opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t i8 = (opcode >> 16) & 0xff;
+    uint8_t ws = (opcode >> 11) & 0x1f;
+    uint8_t wd = (opcode >> 6) & 0x1f;
 
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -18057,7 +18049,7 @@ static void gen_msa_i8(CPUMIPSState *env, DisasContext *ctx)
     case OPC_MSA_SHF_W:
         {
             uint8_t df = (opcode >> 24) & 0x3;
-            if (df == 3) {
+            if (df == DF_DOUBLE) {
                 check_msa_access(env, ctx, -1, -1, -1);
                 generate_exception(ctx, EXCP_RI);
             } else {
@@ -18085,12 +18077,12 @@ static void gen_msa_i5(CPUMIPSState *env, DisasContext *ctx)
 #define MASK_MSA_I5(op)    (MASK_MSA_MINOR(op) | (op & (0x7 << 23)))
     uint32_t opcode = ctx->opcode;
 
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    int64_t s5 = (ctx->opcode >> 16) & 0x1f /* s5 [20:16] */;
+    uint8_t df = (ctx->opcode >> 21) & 0x3;
+    int64_t s5 = (ctx->opcode >> 16) & 0x1f;
     s5 = (s5 << 59) >> 59; /* sign extend s5 to 64 bits*/
-    uint8_t u5 = (ctx->opcode >> 16) & 0x1f /* u5 [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t u5 = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -18145,7 +18137,7 @@ static void gen_msa_i5(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_MSA_LDI_df:
         {
-            int64_t s10 = (ctx->opcode >> 11) & 0x3ff /* s10 [20:11] */;
+            int64_t s10 = (ctx->opcode >> 11) & 0x3ff;
             s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
 
             TCGv_i32 ts10 = tcg_const_i32(s10);
@@ -18173,29 +18165,28 @@ static void gen_msa_bit(CPUMIPSState *env, DisasContext *ctx)
 #define MASK_MSA_BIT(op)    (MASK_MSA_MINOR(op) | (op & (0x7 << 23)))
     uint32_t opcode = ctx->opcode;
 
-    uint8_t dfm = (ctx->opcode >> 16) & 0x7f /* dfm [22:16] */;
+    uint8_t dfm = (ctx->opcode >> 16) & 0x7f;
     uint32_t df = 0, m = 0;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
 
-    if ((dfm & 0x40) == 0x00) {         /* double data format */
+    if ((dfm & 0x40) == 0x00) {
         m = dfm & 0x3f;
-        df = 3;
-    } else if ((dfm & 0x60) == 0x40) {  /* word data format */
+        df = DF_DOUBLE;
+    } else if ((dfm & 0x60) == 0x40) {
         m = dfm & 0x1f;
-        df = 2;
-    } else if ((dfm & 0x70) == 0x60) {  /* half data format */
+        df = DF_WORD;
+    } else if ((dfm & 0x70) == 0x60) {
         m = dfm & 0x0f;
-        df = 1;
-    } else if ((dfm & 0x78) == 0x70) {  /* byte data format */
+        df = DF_HALF;
+    } else if ((dfm & 0x78) == 0x70) {
         m = dfm & 0x7;
-        df = 0;
+        df = DF_BYTE;
     } else {
         check_msa_access(env, ctx, -1, -1, -1);
         generate_exception(ctx, EXCP_RI);
         return;
     }
-
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 tm  = tcg_const_i32(m);
@@ -18269,10 +18260,10 @@ static void gen_msa_3r(CPUMIPSState *env, DisasContext *ctx)
 #define MASK_MSA_3R(op)    (MASK_MSA_MINOR(op) | (op & (0x7 << 23)))
     uint32_t opcode = ctx->opcode;
 
-    uint8_t df = (ctx->opcode >> 21) & 0x3 /* df [22:21] */;
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t df = (ctx->opcode >> 21) & 0x3;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
 
     TCGv_i32 tdf = tcg_const_i32(df);
     TCGv_i32 twd = tcg_const_i32(wd);
@@ -18503,7 +18494,7 @@ static void gen_msa_3r(CPUMIPSState *env, DisasContext *ctx)
     case OPC_MSA_HADD_U_df:
     case OPC_MSA_HSUB_S_df:
     case OPC_MSA_HSUB_U_df:
-        if (df == 0) {
+        if (df == DF_BYTE) {
             check_msa_access(env, ctx, -1, -1, -1);
             generate_exception(ctx, EXCP_RI);
         }
@@ -18553,138 +18544,138 @@ static void gen_msa_3r(CPUMIPSState *env, DisasContext *ctx)
     tcg_temp_free_i32(tdf);
 }
 
-static void gen_msa_elm(CPUMIPSState *env, DisasContext *ctx)
+static void gen_msa_elm_3e(CPUMIPSState *env, DisasContext *ctx)
+{
+#define MASK_MSA_ELM_DF3E(op)   (MASK_MSA_MINOR(op) | (op & (0x3FF << 16)))
+    uint8_t source = (ctx->opcode >> 11) & 0x1f;
+    uint8_t dest = (ctx->opcode >> 6) & 0x1f;
+    TCGv telm = tcg_temp_new();
+    TCGv_i32 tsr = tcg_const_i32(source);
+    TCGv_i32 tdt = tcg_const_i32(dest);
+
+    switch (MASK_MSA_ELM_DF3E(ctx->opcode)) {
+    case OPC_MSA_CTCMSA:
+        {
+            check_msa_access(env, ctx, -1, -1, -1);
+            gen_load_gpr(telm, source);
+            gen_helper_msa_ctcmsa(cpu_env, telm, tdt);
+        }
+        break;
+    case OPC_MSA_CFCMSA:
+        {
+            check_msa_access(env, ctx, -1, -1, -1);
+            gen_helper_msa_cfcmsa(telm, cpu_env, tsr);
+            gen_store_gpr(telm, dest);
+        }
+        break;
+    case OPC_MSA_MOVE_V:
+        {
+            check_msa_access(env, ctx, -1, source, dest);
+            gen_helper_msa_move_v(cpu_env, tdt, tsr);
+        }
+        break;
+    default:
+        MIPS_INVAL("MSA instruction");
+        check_msa_access(env, ctx, -1, -1, -1);
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+
+    tcg_temp_free(telm);
+    tcg_temp_free_i32(tdt);
+    tcg_temp_free_i32(tsr);
+}
+
+static void gen_msa_elm_df(CPUMIPSState *env, DisasContext *ctx, uint32_t df,
+        uint32_t n)
 {
 #define MASK_MSA_ELM(op)    (MASK_MSA_MINOR(op) | (op & (0xf << 22)))
-#define MASK_MSA_ELM_DF3E(op)   (MASK_MSA_MINOR(op) | (op & (0x3FF << 16)))
-    uint32_t opcode = ctx->opcode;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
 
-    uint8_t dfn = (ctx->opcode >> 16) & 0x3f /* dfn [21:16] */;
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tn  = tcg_const_i32(n);
+    TCGv_i32 tdf = tcg_const_i32(df);
 
+    switch (MASK_MSA_ELM(ctx->opcode)) {
+    case OPC_MSA_SLDI_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_sldi_df(cpu_env, tdf, twd, tws, tn);
+        break;
+    case OPC_MSA_SPLATI_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_splati_df(cpu_env, tdf, twd, tws, tn);
+        break;
+    case OPC_MSA_INSVE_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_insve_df(cpu_env, tdf, twd, tws, tn);
+        break;
+    case OPC_MSA_COPY_S_df:
+    case OPC_MSA_COPY_U_df:
+    case OPC_MSA_INSERT_df:
+#if !defined(TARGET_MIPS64)
+        /* Double format valid only for MIPS64 */
+        if (df == DF_DOUBLE) {
+            check_msa_access(env, ctx, -1, -1, -1);
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+#endif
+        switch (MASK_MSA_ELM(ctx->opcode)) {
+        case OPC_MSA_COPY_S_df:
+            check_msa_access(env, ctx, -1, ws, -1);
+            gen_helper_msa_copy_s_df(cpu_env, tdf, twd, tws, tn);
+            break;
+        case OPC_MSA_COPY_U_df:
+            check_msa_access(env, ctx, -1, ws, -1);
+            gen_helper_msa_copy_u_df(cpu_env, tdf, twd, tws, tn);
+            break;
+        case OPC_MSA_INSERT_df:
+            check_msa_access(env, ctx, -1, -1, wd);
+            gen_helper_msa_insert_df(cpu_env, tdf, twd, tws, tn);
+            break;
+        }
+        break;
+    default:
+        MIPS_INVAL("MSA instruction");
+        check_msa_access(env, ctx, -1, -1, -1);
+        generate_exception(ctx, EXCP_RI);
+    }
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(tn);
+    tcg_temp_free_i32(tdf);
+}
+
+static void gen_msa_elm(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint8_t dfn = (ctx->opcode >> 16) & 0x3f;
     uint32_t df = 0, n = 0;
 
-    if ((dfn & 0x20) == 0x00) {         /* byte data format */
-        n = dfn & 0x1f;
-        df = 0;
-    } else if ((dfn & 0x30) == 0x20) {  /* half data format */
+    if ((dfn & 0x30) == 0x00) {
         n = dfn & 0x0f;
-        df = 1;
-    } else if ((dfn & 0x38) == 0x30) {  /* word data format */
+        df = DF_BYTE;
+    } else if ((dfn & 0x38) == 0x20) {
         n = dfn & 0x07;
-        df = 2;
-    } else if ((dfn & 0x3c) == 0x38) {  /* double data format */
-        n = dfn & 0x3;
-        df = 3;
-    } else if (dfn == 0x3E) {  /* CTCMSA, CFCMSA, MOVE.V */
-        df = 4;
+        df = DF_HALF;
+    } else if ((dfn & 0x3c) == 0x30) {
+        n = dfn & 0x03;
+        df = DF_WORD;
+    } else if ((dfn & 0x3e) == 0x38) {
+        n = dfn & 0x01;
+        df = DF_DOUBLE;
+    } else if (dfn == 0x3E) {
+        /* CTCMSA, CFCMSA, MOVE.V */
+        gen_msa_elm_3e(env, ctx);
+        return;
     } else {
         check_msa_access(env, ctx, -1, -1, -1);
         generate_exception(ctx, EXCP_RI);
         return;
     }
 
-    if (df == 4) {
-        uint8_t source = (ctx->opcode >> 11) & 0x1f /* rs/cs/ws [15:11] */;
-        uint8_t dest = (ctx->opcode >> 6) & 0x1f /* cd/rd/wd [10:6] */;
-        TCGv telm = tcg_temp_new();
-        TCGv_i32 tsr = tcg_const_i32(source);
-        TCGv_i32 tdt = tcg_const_i32(dest);
-
-        switch (MASK_MSA_ELM_DF3E(opcode)) {
-        case OPC_MSA_CTCMSA:
-            {
-                check_msa_access(env, ctx, -1, -1, -1);
-                gen_load_gpr(telm, source);
-                gen_helper_msa_ctcmsa(cpu_env, telm, tdt);
-            }
-            break;
-        case OPC_MSA_CFCMSA:
-            {
-                check_msa_access(env, ctx, -1, -1, -1);
-                gen_helper_msa_cfcmsa(telm, cpu_env, tsr);
-                gen_store_gpr(telm, dest);
-            }
-            break;
-        case OPC_MSA_MOVE_V:
-            {
-                check_msa_access(env, ctx, -1, source, dest);
-                gen_helper_msa_move_v(cpu_env, tdt, tsr);
-            }
-            break;
-        default:
-            MIPS_INVAL("MSA instruction");
-            check_msa_access(env, ctx, -1, -1, -1);
-            generate_exception(ctx, EXCP_RI);
-            break;
-        }
-
-        tcg_temp_free(telm);
-        tcg_temp_free_i32(tdt);
-        tcg_temp_free_i32(tsr);
-    } else {
-        int df_bits = 8 * (1 << df);
-        if (n >= MSA_WRLEN / df_bits) {
-            check_msa_access(env, ctx, -1, -1, -1);
-            generate_exception(ctx, EXCP_RI);
-        } else {
-            uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-            uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
-            TCGv_i32 tws = tcg_const_i32(ws);
-            TCGv_i32 twd = tcg_const_i32(wd);
-            TCGv_i32 tn  = tcg_const_i32(n);
-            TCGv_i32 tdf = tcg_const_i32(df);
-
-            switch (MASK_MSA_ELM(opcode)) {
-            case OPC_MSA_SLDI_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_sldi_df(cpu_env, tdf, twd, tws, tn);
-                break;
-            case OPC_MSA_SPLATI_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_splati_df(cpu_env, tdf, twd, tws, tn);
-                break;
-            case OPC_MSA_INSVE_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_insve_df(cpu_env, tdf, twd, tws, tn);
-                break;
-            case OPC_MSA_COPY_S_df:
-            case OPC_MSA_COPY_U_df:
-            case OPC_MSA_INSERT_df:
-#if !defined(TARGET_MIPS64)
-                /* Double format valid only for MIPS64 */
-                if (df == 3) {
-                    check_msa_access(env, ctx, -1, -1, -1);
-                    generate_exception(ctx, EXCP_RI);
-                    break;
-                }
-#endif
-                switch (MASK_MSA_ELM(opcode)) {
-                case OPC_MSA_COPY_S_df:
-                    check_msa_access(env, ctx, -1, ws, -1);
-                    gen_helper_msa_copy_s_df(cpu_env, tdf, twd, tws, tn);
-                    break;
-                case OPC_MSA_COPY_U_df:
-                    check_msa_access(env, ctx, -1, ws, -1);
-                    gen_helper_msa_copy_u_df(cpu_env, tdf, twd, tws, tn);
-                    break;
-                case OPC_MSA_INSERT_df:
-                    check_msa_access(env, ctx, -1, -1, wd);
-                    gen_helper_msa_insert_df(cpu_env, tdf, twd, tws, tn);
-                    break;
-                }
-                break;
-            default:
-                MIPS_INVAL("MSA instruction");
-                check_msa_access(env, ctx, -1, -1, -1);
-                generate_exception(ctx, EXCP_RI);
-            }
-            tcg_temp_free_i32(twd);
-            tcg_temp_free_i32(tws);
-            tcg_temp_free_i32(tn);
-            tcg_temp_free_i32(tdf);
-        }
-    }
+    gen_msa_elm_df(env, ctx, df, n);
 }
 
 static void gen_msa_3rf(CPUMIPSState *env, DisasContext *ctx)
@@ -18692,14 +18683,14 @@ static void gen_msa_3rf(CPUMIPSState *env, DisasContext *ctx)
 #define MASK_MSA_3RF(op)    (MASK_MSA_MINOR(op) | (op & (0xf << 22)))
     uint32_t opcode = ctx->opcode;
 
-    uint8_t df2 = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
-    uint8_t df1 = (ctx->opcode >> 21) & 0x1 /* df [21:21] */;
+    uint8_t df2 = (ctx->opcode >> 21) & 0x1;
+    uint8_t df1 = (ctx->opcode >> 21) & 0x1;
     /* adjust df value for floating-point instruction */
     df2 = df2 + 2;
     df1 = df1 + 1;
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
 
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
@@ -18886,25 +18877,157 @@ static void gen_msa_3rf(CPUMIPSState *env, DisasContext *ctx)
     tcg_temp_free_i32(tdf1);
 }
 
-static void gen_msa_vec(CPUMIPSState *env, DisasContext *ctx)
+static void gen_msa_2r(CPUMIPSState *env, DisasContext *ctx)
 {
-#define MASK_MSA_VEC(op)    (MASK_MSA_MINOR(op) | (op & (0x1f << 21)))
 #define MASK_MSA_2R(op)     (MASK_MSA_MINOR(op) | (op & (0x1f << 21)) | \
                             (op & (0x7 << 18)))
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
+    uint8_t df = (ctx->opcode >> 16) & 0x3;
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twt = tcg_const_i32(wt);
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    switch (MASK_MSA_2R(ctx->opcode)) {
+    case OPC_MSA_FILL_df:
+#if !defined(TARGET_MIPS64)
+        /* Double format valid only for MIPS64 */
+        if (df == DF_DOUBLE) {
+            check_msa_access(env, ctx, -1, -1, -1);
+            generate_exception(ctx, EXCP_RI);
+            break;
+        }
+#endif
+        check_msa_access(env, ctx, -1, -1, wd);
+        gen_helper_msa_fill_df(cpu_env, tdf, twd, tws); /* trs */
+        break;
+    case OPC_MSA_PCNT_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_pcnt_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_NLOC_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_nloc_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_NLZC_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_nlzc_df(cpu_env, tdf, twd, tws);
+        break;
+    default:
+        MIPS_INVAL("MSA instruction");
+        check_msa_access(env, ctx, -1, -1, -1);
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(twt);
+    tcg_temp_free_i32(tdf);
+}
+
+static void gen_msa_2rf(CPUMIPSState *env, DisasContext *ctx)
+{
 #define MASK_MSA_2RF(op)    (MASK_MSA_MINOR(op) | (op & (0x1f << 21)) | \
                             (op & (0xf << 17)))
-
-    uint32_t opcode = ctx->opcode;
-
-    uint8_t wt = (ctx->opcode >> 16) & 0x1f /* wt [20:16] */;
-    uint8_t ws = (ctx->opcode >> 11) & 0x1f /* ws [15:11] */;
-    uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
     TCGv_i32 twd = tcg_const_i32(wd);
     TCGv_i32 tws = tcg_const_i32(ws);
     TCGv_i32 twt = tcg_const_i32(wt);
 
-    switch (MASK_MSA_VEC(opcode)) {
+    uint8_t df = (ctx->opcode >> 16) & 0x1;
+    /* adjust df value for floating-point instruction */
+    df = df + 2;
+    TCGv_i32 tdf = tcg_const_i32(df);
+
+    switch (MASK_MSA_2RF(ctx->opcode)) {
+    case OPC_MSA_FCLASS_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_fclass_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FTRUNC_S_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ftrunc_s_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FTRUNC_U_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ftrunc_u_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FSQRT_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_fsqrt_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FRSQRT_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_frsqrt_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FRCP_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_frcp_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FRINT_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_frint_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FLOG2_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_flog2_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FEXUPL_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_fexupl_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FEXUPR_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_fexupr_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FFQL_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ffql_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FFQR_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ffqr_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FINT_S_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ftint_s_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FINT_U_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ftint_u_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FFINT_S_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ffint_s_df(cpu_env, tdf, twd, tws);
+        break;
+    case OPC_MSA_FFINT_U_df:
+        check_msa_access(env, ctx, -1, ws, wd);
+        gen_helper_msa_ffint_u_df(cpu_env, tdf, twd, tws);
+        break;
+    }
+
+    tcg_temp_free_i32(twd);
+    tcg_temp_free_i32(tws);
+    tcg_temp_free_i32(twt);
+    tcg_temp_free_i32(tdf);
+}
+
+static void gen_msa_vec_v(CPUMIPSState *env, DisasContext *ctx)
+{
+#define MASK_MSA_VEC(op)    (MASK_MSA_MINOR(op) | (op & (0x1f << 21)))
+    uint8_t wt = (ctx->opcode >> 16) & 0x1f;
+    uint8_t ws = (ctx->opcode >> 11) & 0x1f;
+    uint8_t wd = (ctx->opcode >> 6) & 0x1f;
+    TCGv_i32 twd = tcg_const_i32(wd);
+    TCGv_i32 tws = tcg_const_i32(ws);
+    TCGv_i32 twt = tcg_const_i32(wt);
+
+    switch (MASK_MSA_VEC(ctx->opcode)) {
     case OPC_MSA_AND_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_and_v(cpu_env, twd, tws, twt);
@@ -18933,124 +19056,6 @@ static void gen_msa_vec(CPUMIPSState *env, DisasContext *ctx)
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bsel_v(cpu_env, twd, tws, twt);
         break;
-
-    case OPC_MSA_2R:
-        {
-            uint8_t df = (ctx->opcode >> 16) & 0x3 /* df [17:16] */;
-            TCGv_i32 tdf = tcg_const_i32(df);
-
-            switch (MASK_MSA_2R(opcode)) {
-            case OPC_MSA_FILL_df:
-#if !defined(TARGET_MIPS64)
-                /* Double format valid only for MIPS64 */
-                if (df == 3) {
-                    check_msa_access(env, ctx, -1, -1, -1);
-                    generate_exception(ctx, EXCP_RI);
-                    break;
-                }
-#endif
-                check_msa_access(env, ctx, -1, -1, wd);
-                gen_helper_msa_fill_df(cpu_env, tdf, twd, tws); /* trs */
-                break;
-            case OPC_MSA_PCNT_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_pcnt_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_NLOC_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_nloc_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_NLZC_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_nlzc_df(cpu_env, tdf, twd, tws);
-                break;
-            default:
-                MIPS_INVAL("MSA instruction");
-                check_msa_access(env, ctx, -1, -1, -1);
-                generate_exception(ctx, EXCP_RI);
-                break;
-            }
-
-            tcg_temp_free_i32(tdf);
-        }
-        break;
-    case OPC_MSA_2RF:
-        {
-            uint8_t df = (ctx->opcode >> 16) & 0x1 /* df [16:16] */;
-            /* adjust df value for floating-point instruction */
-            df = df + 2;
-            TCGv_i32 tdf = tcg_const_i32(df);
-
-            switch (MASK_MSA_2RF(opcode)) {
-            case OPC_MSA_FCLASS_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_fclass_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FTRUNC_S_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ftrunc_s_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FTRUNC_U_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ftrunc_u_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FSQRT_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_fsqrt_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FRSQRT_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_frsqrt_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FRCP_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_frcp_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FRINT_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_frint_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FLOG2_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_flog2_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FEXUPL_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_fexupl_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FEXUPR_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_fexupr_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FFQL_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ffql_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FFQR_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ffqr_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FINT_S_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ftint_s_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FINT_U_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ftint_u_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FFINT_S_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ffint_s_df(cpu_env, tdf, twd, tws);
-                break;
-            case OPC_MSA_FFINT_U_df:
-                check_msa_access(env, ctx, -1, ws, wd);
-                gen_helper_msa_ffint_u_df(cpu_env, tdf, twd, tws);
-                break;
-            }
-
-            tcg_temp_free_i32(tdf);
-        }
-        break;
     default:
         MIPS_INVAL("MSA instruction");
         check_msa_access(env, ctx, -1, -1, -1);
@@ -19061,6 +19066,32 @@ static void gen_msa_vec(CPUMIPSState *env, DisasContext *ctx)
     tcg_temp_free_i32(twd);
     tcg_temp_free_i32(tws);
     tcg_temp_free_i32(twt);
+}
+
+static void gen_msa_vec(CPUMIPSState *env, DisasContext *ctx)
+{
+    switch (MASK_MSA_VEC(ctx->opcode)) {
+    case OPC_MSA_AND_V:
+    case OPC_MSA_OR_V:
+    case OPC_MSA_NOR_V:
+    case OPC_MSA_XOR_V:
+    case OPC_MSA_BMNZ_V:
+    case OPC_MSA_BMZ_V:
+    case OPC_MSA_BSEL_V:
+        gen_msa_vec_v(env, ctx);
+        break;
+    case OPC_MSA_2R:
+        gen_msa_2r(env, ctx);
+        break;
+    case OPC_MSA_2RF:
+        gen_msa_2rf(env, ctx);
+        break;
+    default:
+        MIPS_INVAL("MSA instruction");
+        check_msa_access(env, ctx, -1, -1, -1);
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
 }
 
 static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
@@ -19113,11 +19144,11 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     case OPC_MSA_ST_W:
     case OPC_MSA_ST_D:
         {
-            int64_t s10 = (ctx->opcode >> 16) & 0x3ff /* s10 [25:16] */;
+            int64_t s10 = (ctx->opcode >> 16) & 0x3ff;
             s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
-            uint8_t rs = (ctx->opcode >> 11) & 0x1f /* rs [15:11] */;
-            uint8_t wd = (ctx->opcode >> 6) & 0x1f /* wd [10:6] */;
-            uint8_t df = (ctx->opcode >> 0) & 0x3 /* df [1:0] */;
+            uint8_t rs = (ctx->opcode >> 11) & 0x1f;
+            uint8_t wd = (ctx->opcode >> 6) & 0x1f;
+            uint8_t df = (ctx->opcode >> 0) & 0x3;
 
             TCGv_i32 tdf = tcg_const_i32(df);
             TCGv_i32 twd = tcg_const_i32(wd);
@@ -19482,145 +19513,150 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_CP1:
         op1 = MASK_CP1(ctx->opcode);
 
-        if ((ctx->insn_flags & ASE_MSA) &&
-                (op1 == OPC_MSA_BZ_V ||
-                 op1 == OPC_MSA_BNZ_V ||
-                 op1 == OPC_MSA_BZ_B ||
-                 op1 == OPC_MSA_BZ_H ||
-                 op1 == OPC_MSA_BZ_W ||
-                 op1 == OPC_MSA_BZ_D ||
-                 op1 == OPC_MSA_BNZ_B ||
-                 op1 == OPC_MSA_BNZ_H ||
-                 op1 == OPC_MSA_BNZ_W ||
-                 op1 == OPC_MSA_BNZ_D)) {
-            gen_msa_branch(env, ctx, op1);
-        } else if (ctx->CP0_Config1 & (1 << CP0C1_FP)) {
+        switch (op1) {
+        case OPC_MFHC1:
+        case OPC_MTHC1:
             check_cp1_enabled(ctx);
-
-            switch (op1) {
-            case OPC_MFHC1:
-            case OPC_MTHC1:
-                check_insn(ctx, ISA_MIPS32R2);
-            case OPC_MFC1:
-            case OPC_CFC1:
-            case OPC_MTC1:
-            case OPC_CTC1:
-                gen_cp1(ctx, op1, rt, rd);
-                break;
+            check_insn(ctx, ISA_MIPS32R2);
+        case OPC_MFC1:
+        case OPC_CFC1:
+        case OPC_MTC1:
+        case OPC_CTC1:
+            check_cp1_enabled(ctx);
+            gen_cp1(ctx, op1, rt, rd);
+            break;
 #if defined(TARGET_MIPS64)
-            case OPC_DMFC1:
-            case OPC_DMTC1:
-                check_insn(ctx, ISA_MIPS3);
-                gen_cp1(ctx, op1, rt, rd);
-                break;
+        case OPC_DMFC1:
+        case OPC_DMTC1:
+            check_cp1_enabled(ctx);
+            check_insn(ctx, ISA_MIPS3);
+            gen_cp1(ctx, op1, rt, rd);
+            break;
 #endif
-            case OPC_BC1EQZ: /* OPC_BC1ANY2 */
-                if (ctx->insn_flags & ISA_MIPS32R6) {
-                    /* OPC_BC1EQZ */
-                    gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
-                                    rt, imm << 2);
-                } else {
-                    /* OPC_BC1ANY2 */
-                    check_cop1x(ctx);
-                    check_insn(ctx, ASE_MIPS3D);
-                    gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
-                                    (rt >> 2) & 0x7, imm << 2);
-                }
-                break;
-            case OPC_BC1NEZ:
-                check_insn(ctx, ISA_MIPS32R6);
+        case OPC_BC1EQZ: /* OPC_BC1ANY2 */
+            check_cp1_enabled(ctx);
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                /* OPC_BC1EQZ */
                 gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
                                 rt, imm << 2);
-                break;
-            case OPC_BC1ANY4:
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            } else {
+                /* OPC_BC1ANY2 */
                 check_cop1x(ctx);
                 check_insn(ctx, ASE_MIPS3D);
-                /* fall through */
-            case OPC_BC1:
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
                 gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
-                                    (rt >> 2) & 0x7, imm << 2);
-                break;
-            case OPC_PS_FMT:
-                check_insn_opc_removed(ctx, ISA_MIPS32R6);
-            case OPC_S_FMT:
-            case OPC_D_FMT:
+                                (rt >> 2) & 0x7, imm << 2);
+            }
+            break;
+        case OPC_BC1NEZ:
+            check_cp1_enabled(ctx);
+            check_insn(ctx, ISA_MIPS32R6);
+            gen_compute_branch1_r6(ctx, MASK_CP1(ctx->opcode),
+                            rt, imm << 2);
+            break;
+        case OPC_BC1ANY4:
+            check_cp1_enabled(ctx);
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            check_cop1x(ctx);
+            check_insn(ctx, ASE_MIPS3D);
+            /* fall through */
+        case OPC_BC1:
+            check_cp1_enabled(ctx);
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            gen_compute_branch1(ctx, MASK_BC1(ctx->opcode),
+                                (rt >> 2) & 0x7, imm << 2);
+            break;
+        case OPC_PS_FMT:
+            check_cp1_enabled(ctx);
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+        case OPC_S_FMT:
+        case OPC_D_FMT:
+            check_cp1_enabled(ctx);
+            gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
+                       (imm >> 8) & 0x7);
+            break;
+        case OPC_W_FMT:
+        case OPC_L_FMT:
+        {
+            int r6_op = ctx->opcode & FOP(0x3f, 0x1f);
+            check_cp1_enabled(ctx);
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                switch (r6_op) {
+                case R6_OPC_CMP_AF_S:
+                case R6_OPC_CMP_UN_S:
+                case R6_OPC_CMP_EQ_S:
+                case R6_OPC_CMP_UEQ_S:
+                case R6_OPC_CMP_LT_S:
+                case R6_OPC_CMP_ULT_S:
+                case R6_OPC_CMP_LE_S:
+                case R6_OPC_CMP_ULE_S:
+                case R6_OPC_CMP_SAF_S:
+                case R6_OPC_CMP_SUN_S:
+                case R6_OPC_CMP_SEQ_S:
+                case R6_OPC_CMP_SEUQ_S:
+                case R6_OPC_CMP_SLT_S:
+                case R6_OPC_CMP_SULT_S:
+                case R6_OPC_CMP_SLE_S:
+                case R6_OPC_CMP_SULE_S:
+                case R6_OPC_CMP_OR_S:
+                case R6_OPC_CMP_UNE_S:
+                case R6_OPC_CMP_NE_S:
+                case R6_OPC_CMP_SOR_S:
+                case R6_OPC_CMP_SUNE_S:
+                case R6_OPC_CMP_SNE_S:
+                    gen_r6_cmp_s(ctx, ctx->opcode & 0x1f, rt, rd, sa);
+                    break;
+                case R6_OPC_CMP_AF_D:
+                case R6_OPC_CMP_UN_D:
+                case R6_OPC_CMP_EQ_D:
+                case R6_OPC_CMP_UEQ_D:
+                case R6_OPC_CMP_LT_D:
+                case R6_OPC_CMP_ULT_D:
+                case R6_OPC_CMP_LE_D:
+                case R6_OPC_CMP_ULE_D:
+                case R6_OPC_CMP_SAF_D:
+                case R6_OPC_CMP_SUN_D:
+                case R6_OPC_CMP_SEQ_D:
+                case R6_OPC_CMP_SEUQ_D:
+                case R6_OPC_CMP_SLT_D:
+                case R6_OPC_CMP_SULT_D:
+                case R6_OPC_CMP_SLE_D:
+                case R6_OPC_CMP_SULE_D:
+                case R6_OPC_CMP_OR_D:
+                case R6_OPC_CMP_UNE_D:
+                case R6_OPC_CMP_NE_D:
+                case R6_OPC_CMP_SOR_D:
+                case R6_OPC_CMP_SUNE_D:
+                case R6_OPC_CMP_SNE_D:
+                    gen_r6_cmp_d(ctx, ctx->opcode & 0x1f, rt, rd, sa);
+                    break;
+                default:
+                    gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
+                                                   (imm >> 8) & 0x7);
+                    break;
+                }
+            } else {
                 gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
                            (imm >> 8) & 0x7);
-                break;
-            case OPC_W_FMT:
-            case OPC_L_FMT:
-            {
-                int r6_op = ctx->opcode & FOP(0x3f, 0x1f);
-                if (ctx->insn_flags & ISA_MIPS32R6) {
-                    switch (r6_op) {
-                    case R6_OPC_CMP_AF_S:
-                    case R6_OPC_CMP_UN_S:
-                    case R6_OPC_CMP_EQ_S:
-                    case R6_OPC_CMP_UEQ_S:
-                    case R6_OPC_CMP_LT_S:
-                    case R6_OPC_CMP_ULT_S:
-                    case R6_OPC_CMP_LE_S:
-                    case R6_OPC_CMP_ULE_S:
-                    case R6_OPC_CMP_SAF_S:
-                    case R6_OPC_CMP_SUN_S:
-                    case R6_OPC_CMP_SEQ_S:
-                    case R6_OPC_CMP_SEUQ_S:
-                    case R6_OPC_CMP_SLT_S:
-                    case R6_OPC_CMP_SULT_S:
-                    case R6_OPC_CMP_SLE_S:
-                    case R6_OPC_CMP_SULE_S:
-                    case R6_OPC_CMP_OR_S:
-                    case R6_OPC_CMP_UNE_S:
-                    case R6_OPC_CMP_NE_S:
-                    case R6_OPC_CMP_SOR_S:
-                    case R6_OPC_CMP_SUNE_S:
-                    case R6_OPC_CMP_SNE_S:
-                        gen_r6_cmp_s(ctx, ctx->opcode & 0x1f, rt, rd, sa);
-                        break;
-                    case R6_OPC_CMP_AF_D:
-                    case R6_OPC_CMP_UN_D:
-                    case R6_OPC_CMP_EQ_D:
-                    case R6_OPC_CMP_UEQ_D:
-                    case R6_OPC_CMP_LT_D:
-                    case R6_OPC_CMP_ULT_D:
-                    case R6_OPC_CMP_LE_D:
-                    case R6_OPC_CMP_ULE_D:
-                    case R6_OPC_CMP_SAF_D:
-                    case R6_OPC_CMP_SUN_D:
-                    case R6_OPC_CMP_SEQ_D:
-                    case R6_OPC_CMP_SEUQ_D:
-                    case R6_OPC_CMP_SLT_D:
-                    case R6_OPC_CMP_SULT_D:
-                    case R6_OPC_CMP_SLE_D:
-                    case R6_OPC_CMP_SULE_D:
-                    case R6_OPC_CMP_OR_D:
-                    case R6_OPC_CMP_UNE_D:
-                    case R6_OPC_CMP_NE_D:
-                    case R6_OPC_CMP_SOR_D:
-                    case R6_OPC_CMP_SUNE_D:
-                    case R6_OPC_CMP_SNE_D:
-                        gen_r6_cmp_d(ctx, ctx->opcode & 0x1f, rt, rd, sa);
-                        break;
-                    default:
-                        gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
-                                                       (imm >> 8) & 0x7);
-                        break;
-                    }
-                } else {
-                    gen_farith(ctx, ctx->opcode & FOP(0x3f, 0x1f), rt, rd, sa,
-                               (imm >> 8) & 0x7);
-                }
-                break;
             }
-            default:
-                MIPS_INVAL("cp1");
-                generate_exception (ctx, EXCP_RI);
-                break;
-            }
-        } else {
-            generate_exception_err(ctx, EXCP_CpU, 1);
+            break;
+        }
+        case OPC_MSA_BZ_V:
+        case OPC_MSA_BNZ_V:
+        case OPC_MSA_BZ_B:
+        case OPC_MSA_BZ_H:
+        case OPC_MSA_BZ_W:
+        case OPC_MSA_BZ_D:
+        case OPC_MSA_BNZ_B:
+        case OPC_MSA_BNZ_H:
+        case OPC_MSA_BNZ_W:
+        case OPC_MSA_BNZ_D:
+            check_insn(ctx, ASE_MSA);
+            gen_msa_branch(env, ctx, op1);
+            break;
+        default:
+            MIPS_INVAL("cp1");
+            generate_exception (ctx, EXCP_RI);
+            break;
         }
         break;
 

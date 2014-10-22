@@ -221,9 +221,7 @@ HELPER_LD(lw, ldl, int32_t)
 #ifdef TARGET_MIPS64
 HELPER_LD(ld, ldq, int64_t)
 #endif
-HELPER_LD(ld8, ldub, uint8_t)
 HELPER_LD(ld16, lduw, uint16_t)
-HELPER_LD(ld32, ldl, int32_t)
 HELPER_LD(ld64, ldq, int64_t)
 #undef HELPER_LD
 
@@ -258,9 +256,7 @@ HELPER_ST(sw, stl, uint32_t)
 #ifdef TARGET_MIPS64
 HELPER_ST(sd, stq, uint64_t)
 #endif
-HELPER_ST(st8, stb, uint8_t)
 HELPER_ST(st16, stw, uint16_t)
-HELPER_ST(st32, stl, int32_t)
 HELPER_ST(st64, stq, int64_t)
 #undef HELPER_ST
 
@@ -4254,11 +4250,6 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
                    || float32_lt(fst0, fst1, &env->active_fpu.fp_status)))
 
 /* MSA */
-#define DF_BYTE   0
-#define DF_HALF   1
-#define DF_WORD   2
-#define DF_DOUBLE 3
-#define DF_QUAD   4
 
 /* Data format min and max values */
 #define DF_BITS(df) (1 << ((df) + 3))
@@ -4276,7 +4267,7 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
    switch (df) {
    case DF_BYTE:
        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-           pwd->b[i] = do_ld8(env, addr + (i << DF_BYTE),
+           pwd->b[i] = do_lbu(env, addr + (i << DF_BYTE),
                               env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4288,7 +4279,7 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_WORD:
        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-           pwd->w[i] = do_ld32(env, addr + (i << DF_WORD),
+           pwd->w[i] = do_lw(env, addr + (i << DF_WORD),
                                env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4314,7 +4305,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
    switch (df) {
    case DF_BYTE:
        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-           do_st8(env, addr + (i << DF_BYTE), pwd->b[i],
+           do_sb(env, addr + (i << DF_BYTE), pwd->b[i],
                   env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4326,7 +4317,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_WORD:
        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-           do_st32(env, addr + (i << DF_WORD), pwd->w[i],
+           do_sw(env, addr + (i << DF_WORD), pwd->w[i],
                    env->hflags & MIPS_HFLAG_KSU);
        }
        break;

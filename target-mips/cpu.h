@@ -71,8 +71,14 @@ struct CPUMIPSTLBContext {
 #endif
 
 /* MSA Context */
-
 #define MSA_WRLEN (128)
+
+enum CPUMIPSMSADataFormat {
+    DF_BYTE = 0,
+    DF_HALF,
+    DF_WORD,
+    DF_DOUBLE
+};
 
 typedef union wr_t wr_t;
 union wr_t {
