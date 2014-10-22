@@ -963,8 +963,8 @@ enum {
     OPC_BC1      = (0x08 << 21) | OPC_CP1, /* bc */
     OPC_BC1ANY2  = (0x09 << 21) | OPC_CP1,
     OPC_BC1ANY4  = (0x0A << 21) | OPC_CP1,
-    OPC_MSA_BZ_V = (0x0B << 21) | OPC_CP1,
-    OPC_MSA_BNZ_V = (0x0F << 21) | OPC_CP1,
+    OPC_BZ_V = (0x0B << 21) | OPC_CP1,
+    OPC_BNZ_V = (0x0F << 21) | OPC_CP1,
     OPC_S_FMT    = (FMT_S << 21) | OPC_CP1,
     OPC_D_FMT    = (FMT_D << 21) | OPC_CP1,
     OPC_E_FMT    = (FMT_E << 21) | OPC_CP1,
@@ -975,14 +975,14 @@ enum {
     OPC_BC1EQZ   = (0x09 << 21) | OPC_CP1,
     OPC_BC1NEZ   = (0x0D << 21) | OPC_CP1,
 
-    OPC_MSA_BZ_B = (0x18 << 21) | OPC_CP1,
-    OPC_MSA_BZ_H = (0x19 << 21) | OPC_CP1,
-    OPC_MSA_BZ_W = (0x1A << 21) | OPC_CP1,
-    OPC_MSA_BZ_D = (0x1B << 21) | OPC_CP1,
-    OPC_MSA_BNZ_B = (0x1C << 21) | OPC_CP1,
-    OPC_MSA_BNZ_H = (0x1D << 21) | OPC_CP1,
-    OPC_MSA_BNZ_W = (0x1E << 21) | OPC_CP1,
-    OPC_MSA_BNZ_D = (0x1F << 21) | OPC_CP1,
+    OPC_BZ_B = (0x18 << 21) | OPC_CP1,
+    OPC_BZ_H = (0x19 << 21) | OPC_CP1,
+    OPC_BZ_W = (0x1A << 21) | OPC_CP1,
+    OPC_BZ_D = (0x1B << 21) | OPC_CP1,
+    OPC_BNZ_B = (0x1C << 21) | OPC_CP1,
+    OPC_BNZ_H = (0x1D << 21) | OPC_CP1,
+    OPC_BNZ_W = (0x1E << 21) | OPC_CP1,
+    OPC_BNZ_D = (0x1F << 21) | OPC_CP1,
 };
 
 #define MASK_CP1_FUNC(op)       MASK_CP1(op) | (op & 0x3F)
@@ -1170,211 +1170,211 @@ enum {
     OPC_MSA_VEC     = 0x1E | OPC_MSA,
 
     /* MI10 instruction */
-    OPC_MSA_LD_B    = (0x20) | OPC_MSA,
-    OPC_MSA_LD_H    = (0x21) | OPC_MSA,
-    OPC_MSA_LD_W    = (0x22) | OPC_MSA,
-    OPC_MSA_LD_D    = (0x23) | OPC_MSA,
-    OPC_MSA_ST_B    = (0x24) | OPC_MSA,
-    OPC_MSA_ST_H    = (0x25) | OPC_MSA,
-    OPC_MSA_ST_W    = (0x26) | OPC_MSA,
-    OPC_MSA_ST_D    = (0x27) | OPC_MSA,
+    OPC_LD_B    = (0x20) | OPC_MSA,
+    OPC_LD_H    = (0x21) | OPC_MSA,
+    OPC_LD_W    = (0x22) | OPC_MSA,
+    OPC_LD_D    = (0x23) | OPC_MSA,
+    OPC_ST_B    = (0x24) | OPC_MSA,
+    OPC_ST_H    = (0x25) | OPC_MSA,
+    OPC_ST_W    = (0x26) | OPC_MSA,
+    OPC_ST_D    = (0x27) | OPC_MSA,
 };
 
 enum {
     /* I5 instruction df(bits 22..21) = _b, _h, _w, _d */
-    OPC_MSA_ADDVI_df    = (0x0 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_CEQI_df     = (0x0 << 23) | OPC_MSA_I5_07,
-    OPC_MSA_SUBVI_df    = (0x1 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_MAXI_S_df   = (0x2 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_CLTI_S_df   = (0x2 << 23) | OPC_MSA_I5_07,
-    OPC_MSA_MAXI_U_df   = (0x3 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_CLTI_U_df   = (0x3 << 23) | OPC_MSA_I5_07,
-    OPC_MSA_MINI_S_df   = (0x4 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_CLEI_S_df   = (0x4 << 23) | OPC_MSA_I5_07,
-    OPC_MSA_MINI_U_df   = (0x5 << 23) | OPC_MSA_I5_06,
-    OPC_MSA_CLEI_U_df   = (0x5 << 23) | OPC_MSA_I5_07,
-    OPC_MSA_LDI_df      = (0x6 << 23) | OPC_MSA_I5_07,
+    OPC_ADDVI_df    = (0x0 << 23) | OPC_MSA_I5_06,
+    OPC_CEQI_df     = (0x0 << 23) | OPC_MSA_I5_07,
+    OPC_SUBVI_df    = (0x1 << 23) | OPC_MSA_I5_06,
+    OPC_MAXI_S_df   = (0x2 << 23) | OPC_MSA_I5_06,
+    OPC_CLTI_S_df   = (0x2 << 23) | OPC_MSA_I5_07,
+    OPC_MAXI_U_df   = (0x3 << 23) | OPC_MSA_I5_06,
+    OPC_CLTI_U_df   = (0x3 << 23) | OPC_MSA_I5_07,
+    OPC_MINI_S_df   = (0x4 << 23) | OPC_MSA_I5_06,
+    OPC_CLEI_S_df   = (0x4 << 23) | OPC_MSA_I5_07,
+    OPC_MINI_U_df   = (0x5 << 23) | OPC_MSA_I5_06,
+    OPC_CLEI_U_df   = (0x5 << 23) | OPC_MSA_I5_07,
+    OPC_LDI_df      = (0x6 << 23) | OPC_MSA_I5_07,
 
     /* I8 instruction */
-    OPC_MSA_ANDI_B  = (0x0 << 24) | OPC_MSA_I8_00,
-    OPC_MSA_BMNZI_B = (0x0 << 24) | OPC_MSA_I8_01,
-    OPC_MSA_SHF_B   = (0x0 << 24) | OPC_MSA_I8_02,
-    OPC_MSA_ORI_B   = (0x1 << 24) | OPC_MSA_I8_00,
-    OPC_MSA_BMZI_B  = (0x1 << 24) | OPC_MSA_I8_01,
-    OPC_MSA_SHF_H   = (0x1 << 24) | OPC_MSA_I8_02,
-    OPC_MSA_NORI_B  = (0x2 << 24) | OPC_MSA_I8_00,
-    OPC_MSA_BSELI_B = (0x2 << 24) | OPC_MSA_I8_01,
-    OPC_MSA_SHF_W   = (0x2 << 24) | OPC_MSA_I8_02,
-    OPC_MSA_XORI_B  = (0x3 << 24) | OPC_MSA_I8_00,
+    OPC_ANDI_B  = (0x0 << 24) | OPC_MSA_I8_00,
+    OPC_BMNZI_B = (0x0 << 24) | OPC_MSA_I8_01,
+    OPC_SHF_B   = (0x0 << 24) | OPC_MSA_I8_02,
+    OPC_ORI_B   = (0x1 << 24) | OPC_MSA_I8_00,
+    OPC_BMZI_B  = (0x1 << 24) | OPC_MSA_I8_01,
+    OPC_SHF_H   = (0x1 << 24) | OPC_MSA_I8_02,
+    OPC_NORI_B  = (0x2 << 24) | OPC_MSA_I8_00,
+    OPC_BSELI_B = (0x2 << 24) | OPC_MSA_I8_01,
+    OPC_SHF_W   = (0x2 << 24) | OPC_MSA_I8_02,
+    OPC_XORI_B  = (0x3 << 24) | OPC_MSA_I8_00,
 
     /* VEC/2R/2RF instruction */
-    OPC_MSA_AND_V   = (0x00 << 21) | OPC_MSA_VEC,
-    OPC_MSA_OR_V    = (0x01 << 21) | OPC_MSA_VEC,
-    OPC_MSA_NOR_V   = (0x02 << 21) | OPC_MSA_VEC,
-    OPC_MSA_XOR_V   = (0x03 << 21) | OPC_MSA_VEC,
-    OPC_MSA_BMNZ_V  = (0x04 << 21) | OPC_MSA_VEC,
-    OPC_MSA_BMZ_V   = (0x05 << 21) | OPC_MSA_VEC,
-    OPC_MSA_BSEL_V  = (0x06 << 21) | OPC_MSA_VEC,
+    OPC_AND_V   = (0x00 << 21) | OPC_MSA_VEC,
+    OPC_OR_V    = (0x01 << 21) | OPC_MSA_VEC,
+    OPC_NOR_V   = (0x02 << 21) | OPC_MSA_VEC,
+    OPC_XOR_V   = (0x03 << 21) | OPC_MSA_VEC,
+    OPC_BMNZ_V  = (0x04 << 21) | OPC_MSA_VEC,
+    OPC_BMZ_V   = (0x05 << 21) | OPC_MSA_VEC,
+    OPC_BSEL_V  = (0x06 << 21) | OPC_MSA_VEC,
 
     OPC_MSA_2R      = (0x18 << 21) | OPC_MSA_VEC,
     OPC_MSA_2RF     = (0x19 << 21) | OPC_MSA_VEC,
 
     /* 2R instruction df(bits 17..16) = _b, _h, _w, _d */
-    OPC_MSA_FILL_df = (0x00 << 16) | OPC_MSA_2R,
-    OPC_MSA_PCNT_df = (0x04 << 16) | OPC_MSA_2R,
-    OPC_MSA_NLOC_df = (0x08 << 16) | OPC_MSA_2R,
-    OPC_MSA_NLZC_df = (0x0C << 16) | OPC_MSA_2R,
+    OPC_FILL_df = (0x00 << 18) | OPC_MSA_2R,
+    OPC_PCNT_df = (0x01 << 18) | OPC_MSA_2R,
+    OPC_NLOC_df = (0x02 << 18) | OPC_MSA_2R,
+    OPC_NLZC_df = (0x03 << 18) | OPC_MSA_2R,
 
     /* 2RF instruction df(bit 16) = _w, _d */
-    OPC_MSA_FCLASS_df   = (0x00 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FTRUNC_S_df = (0x02 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FTRUNC_U_df = (0x04 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FSQRT_df    = (0x06 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FRSQRT_df   = (0x08 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FRCP_df     = (0x0A << 16) | OPC_MSA_2RF,
-    OPC_MSA_FRINT_df    = (0x0C << 16) | OPC_MSA_2RF,
-    OPC_MSA_FLOG2_df    = (0x0E << 16) | OPC_MSA_2RF,
-    OPC_MSA_FEXUPL_df   = (0x10 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FEXUPR_df   = (0x12 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FFQL_df     = (0x14 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FFQR_df     = (0x16 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FINT_S_df   = (0x18 << 16) | OPC_MSA_2RF,
-    OPC_MSA_FINT_U_df   = (0x1A << 16) | OPC_MSA_2RF,
-    OPC_MSA_FFINT_S_df  = (0x1C << 16) | OPC_MSA_2RF,
-    OPC_MSA_FFINT_U_df  = (0x1E << 16) | OPC_MSA_2RF,
+    OPC_FCLASS_df   = (0x00 << 17) | OPC_MSA_2RF,
+    OPC_FTRUNC_S_df = (0x01 << 17) | OPC_MSA_2RF,
+    OPC_FTRUNC_U_df = (0x02 << 17) | OPC_MSA_2RF,
+    OPC_FSQRT_df    = (0x03 << 17) | OPC_MSA_2RF,
+    OPC_FRSQRT_df   = (0x04 << 17) | OPC_MSA_2RF,
+    OPC_FRCP_df     = (0x05 << 17) | OPC_MSA_2RF,
+    OPC_FRINT_df    = (0x06 << 17) | OPC_MSA_2RF,
+    OPC_FLOG2_df    = (0x07 << 17) | OPC_MSA_2RF,
+    OPC_FEXUPL_df   = (0x08 << 17) | OPC_MSA_2RF,
+    OPC_FEXUPR_df   = (0x09 << 17) | OPC_MSA_2RF,
+    OPC_FFQL_df     = (0x0A << 17) | OPC_MSA_2RF,
+    OPC_FFQR_df     = (0x0B << 17) | OPC_MSA_2RF,
+    OPC_FTINT_S_df  = (0x0C << 17) | OPC_MSA_2RF,
+    OPC_FTINT_U_df  = (0x0D << 17) | OPC_MSA_2RF,
+    OPC_FFINT_S_df  = (0x0E << 17) | OPC_MSA_2RF,
+    OPC_FFINT_U_df  = (0x0F << 17) | OPC_MSA_2RF,
 
     /* 3R instruction df(bits 22..21) = _b, _h, _w, d */
-    OPC_MSA_SLL_df      = (0x0 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_ADDV_df     = (0x0 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_CEQ_df      = (0x0 << 23) | OPC_MSA_3R_0F,
-    OPC_MSA_ADD_A_df    = (0x0 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_SUBS_S_df   = (0x0 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_MULV_df     = (0x0 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_DOTP_S_df   = (0x0 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_SLD_df      = (0x0 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_VSHF_df     = (0x0 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_SRA_df      = (0x1 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_SUBV_df     = (0x1 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_ADDS_A_df   = (0x1 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_SUBS_U_df   = (0x1 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_MADDV_df    = (0x1 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_DOTP_U_df   = (0x1 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_SPLAT_df    = (0x1 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_SRAR_df     = (0x1 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_SRL_df      = (0x2 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MAX_S_df    = (0x2 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_CLT_S_df    = (0x2 << 23) | OPC_MSA_3R_0F,
-    OPC_MSA_ADDS_S_df   = (0x2 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_SUBSUS_U_df = (0x2 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_MSUBV_df    = (0x2 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_DPADD_S_df  = (0x2 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_PCKEV_df    = (0x2 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_SRLR_df     = (0x2 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_BCLR_df     = (0x3 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MAX_U_df    = (0x3 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_CLT_U_df    = (0x3 << 23) | OPC_MSA_3R_0F,
-    OPC_MSA_ADDS_U_df   = (0x3 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_SUBSUU_S_df = (0x3 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_DPADD_U_df  = (0x3 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_PCKOD_df    = (0x3 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_BSET_df     = (0x4 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MIN_S_df    = (0x4 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_CLE_S_df    = (0x4 << 23) | OPC_MSA_3R_0F,
-    OPC_MSA_AVE_S_df    = (0x4 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_ASUB_S_df   = (0x4 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_DIV_S_df    = (0x4 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_DPSUB_S_df  = (0x4 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_ILVL_df     = (0x4 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_HADD_S_df   = (0x4 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_BNEG_df     = (0x5 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MIN_U_df    = (0x5 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_CLE_U_df    = (0x5 << 23) | OPC_MSA_3R_0F,
-    OPC_MSA_AVE_U_df    = (0x5 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_ASUB_U_df   = (0x5 << 23) | OPC_MSA_3R_11,
-    OPC_MSA_DIV_U_df    = (0x5 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_DPSUB_U_df  = (0x5 << 23) | OPC_MSA_3R_13,
-    OPC_MSA_ILVR_df     = (0x5 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_HADD_U_df   = (0x5 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_BINSL_df    = (0x6 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MAX_A_df    = (0x6 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_AVER_S_df   = (0x6 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_MOD_S_df    = (0x6 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_ILVEV_df    = (0x6 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_HSUB_S_df   = (0x6 << 23) | OPC_MSA_3R_15,
-    OPC_MSA_BINSR_df    = (0x7 << 23) | OPC_MSA_3R_0D,
-    OPC_MSA_MIN_A_df    = (0x7 << 23) | OPC_MSA_3R_0E,
-    OPC_MSA_AVER_U_df   = (0x7 << 23) | OPC_MSA_3R_10,
-    OPC_MSA_MOD_U_df    = (0x7 << 23) | OPC_MSA_3R_12,
-    OPC_MSA_ILVOD_df    = (0x7 << 23) | OPC_MSA_3R_14,
-    OPC_MSA_HSUB_U_df   = (0x7 << 23) | OPC_MSA_3R_15,
+    OPC_SLL_df      = (0x0 << 23) | OPC_MSA_3R_0D,
+    OPC_ADDV_df     = (0x0 << 23) | OPC_MSA_3R_0E,
+    OPC_CEQ_df      = (0x0 << 23) | OPC_MSA_3R_0F,
+    OPC_ADD_A_df    = (0x0 << 23) | OPC_MSA_3R_10,
+    OPC_SUBS_S_df   = (0x0 << 23) | OPC_MSA_3R_11,
+    OPC_MULV_df     = (0x0 << 23) | OPC_MSA_3R_12,
+    OPC_DOTP_S_df   = (0x0 << 23) | OPC_MSA_3R_13,
+    OPC_SLD_df      = (0x0 << 23) | OPC_MSA_3R_14,
+    OPC_VSHF_df     = (0x0 << 23) | OPC_MSA_3R_15,
+    OPC_SRA_df      = (0x1 << 23) | OPC_MSA_3R_0D,
+    OPC_SUBV_df     = (0x1 << 23) | OPC_MSA_3R_0E,
+    OPC_ADDS_A_df   = (0x1 << 23) | OPC_MSA_3R_10,
+    OPC_SUBS_U_df   = (0x1 << 23) | OPC_MSA_3R_11,
+    OPC_MADDV_df    = (0x1 << 23) | OPC_MSA_3R_12,
+    OPC_DOTP_U_df   = (0x1 << 23) | OPC_MSA_3R_13,
+    OPC_SPLAT_df    = (0x1 << 23) | OPC_MSA_3R_14,
+    OPC_SRAR_df     = (0x1 << 23) | OPC_MSA_3R_15,
+    OPC_SRL_df      = (0x2 << 23) | OPC_MSA_3R_0D,
+    OPC_MAX_S_df    = (0x2 << 23) | OPC_MSA_3R_0E,
+    OPC_CLT_S_df    = (0x2 << 23) | OPC_MSA_3R_0F,
+    OPC_ADDS_S_df   = (0x2 << 23) | OPC_MSA_3R_10,
+    OPC_SUBSUS_U_df = (0x2 << 23) | OPC_MSA_3R_11,
+    OPC_MSUBV_df    = (0x2 << 23) | OPC_MSA_3R_12,
+    OPC_DPADD_S_df  = (0x2 << 23) | OPC_MSA_3R_13,
+    OPC_PCKEV_df    = (0x2 << 23) | OPC_MSA_3R_14,
+    OPC_SRLR_df     = (0x2 << 23) | OPC_MSA_3R_15,
+    OPC_BCLR_df     = (0x3 << 23) | OPC_MSA_3R_0D,
+    OPC_MAX_U_df    = (0x3 << 23) | OPC_MSA_3R_0E,
+    OPC_CLT_U_df    = (0x3 << 23) | OPC_MSA_3R_0F,
+    OPC_ADDS_U_df   = (0x3 << 23) | OPC_MSA_3R_10,
+    OPC_SUBSUU_S_df = (0x3 << 23) | OPC_MSA_3R_11,
+    OPC_DPADD_U_df  = (0x3 << 23) | OPC_MSA_3R_13,
+    OPC_PCKOD_df    = (0x3 << 23) | OPC_MSA_3R_14,
+    OPC_BSET_df     = (0x4 << 23) | OPC_MSA_3R_0D,
+    OPC_MIN_S_df    = (0x4 << 23) | OPC_MSA_3R_0E,
+    OPC_CLE_S_df    = (0x4 << 23) | OPC_MSA_3R_0F,
+    OPC_AVE_S_df    = (0x4 << 23) | OPC_MSA_3R_10,
+    OPC_ASUB_S_df   = (0x4 << 23) | OPC_MSA_3R_11,
+    OPC_DIV_S_df    = (0x4 << 23) | OPC_MSA_3R_12,
+    OPC_DPSUB_S_df  = (0x4 << 23) | OPC_MSA_3R_13,
+    OPC_ILVL_df     = (0x4 << 23) | OPC_MSA_3R_14,
+    OPC_HADD_S_df   = (0x4 << 23) | OPC_MSA_3R_15,
+    OPC_BNEG_df     = (0x5 << 23) | OPC_MSA_3R_0D,
+    OPC_MIN_U_df    = (0x5 << 23) | OPC_MSA_3R_0E,
+    OPC_CLE_U_df    = (0x5 << 23) | OPC_MSA_3R_0F,
+    OPC_AVE_U_df    = (0x5 << 23) | OPC_MSA_3R_10,
+    OPC_ASUB_U_df   = (0x5 << 23) | OPC_MSA_3R_11,
+    OPC_DIV_U_df    = (0x5 << 23) | OPC_MSA_3R_12,
+    OPC_DPSUB_U_df  = (0x5 << 23) | OPC_MSA_3R_13,
+    OPC_ILVR_df     = (0x5 << 23) | OPC_MSA_3R_14,
+    OPC_HADD_U_df   = (0x5 << 23) | OPC_MSA_3R_15,
+    OPC_BINSL_df    = (0x6 << 23) | OPC_MSA_3R_0D,
+    OPC_MAX_A_df    = (0x6 << 23) | OPC_MSA_3R_0E,
+    OPC_AVER_S_df   = (0x6 << 23) | OPC_MSA_3R_10,
+    OPC_MOD_S_df    = (0x6 << 23) | OPC_MSA_3R_12,
+    OPC_ILVEV_df    = (0x6 << 23) | OPC_MSA_3R_14,
+    OPC_HSUB_S_df   = (0x6 << 23) | OPC_MSA_3R_15,
+    OPC_BINSR_df    = (0x7 << 23) | OPC_MSA_3R_0D,
+    OPC_MIN_A_df    = (0x7 << 23) | OPC_MSA_3R_0E,
+    OPC_AVER_U_df   = (0x7 << 23) | OPC_MSA_3R_10,
+    OPC_MOD_U_df    = (0x7 << 23) | OPC_MSA_3R_12,
+    OPC_ILVOD_df    = (0x7 << 23) | OPC_MSA_3R_14,
+    OPC_HSUB_U_df   = (0x7 << 23) | OPC_MSA_3R_15,
 
     /* ELM instructions df(bits 21..16) = _b, _h, _w, _d */
-    OPC_MSA_SLDI_df     = (0x0 << 22) | (0x00 << 16) | OPC_MSA_ELM,
-    OPC_MSA_CTCMSA      = (0x0 << 22) | (0x3E << 16) | OPC_MSA_ELM,
-    OPC_MSA_SPLATI_df   = (0x1 << 22) | (0x00 << 16) | OPC_MSA_ELM,
-    OPC_MSA_CFCMSA      = (0x1 << 22) | (0x3E << 16) | OPC_MSA_ELM,
-    OPC_MSA_COPY_S_df   = (0x2 << 22) | (0x00 << 16) | OPC_MSA_ELM,
-    OPC_MSA_MOVE_V      = (0x2 << 22) | (0x3E << 16) | OPC_MSA_ELM,
-    OPC_MSA_COPY_U_df   = (0x3 << 22) | (0x00 << 16) | OPC_MSA_ELM,
-    OPC_MSA_INSERT_df   = (0x4 << 22) | (0x00 << 16) | OPC_MSA_ELM,
-    OPC_MSA_INSVE_df    = (0x5 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_SLDI_df     = (0x0 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_CTCMSA      = (0x0 << 22) | (0x3E << 16) | OPC_MSA_ELM,
+    OPC_SPLATI_df   = (0x1 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_CFCMSA      = (0x1 << 22) | (0x3E << 16) | OPC_MSA_ELM,
+    OPC_COPY_S_df   = (0x2 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_MOVE_V      = (0x2 << 22) | (0x3E << 16) | OPC_MSA_ELM,
+    OPC_COPY_U_df   = (0x3 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_INSERT_df   = (0x4 << 22) | (0x00 << 16) | OPC_MSA_ELM,
+    OPC_INSVE_df    = (0x5 << 22) | (0x00 << 16) | OPC_MSA_ELM,
 
     /* 3RF instruction _df(bit 21) = _w, _d */
-    OPC_MSA_FCAF_df     = (0x0 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FADD_df     = (0x0 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FCUN_df     = (0x1 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FSUB_df     = (0x1 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FCOR_df     = (0x1 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCEQ_df     = (0x2 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMUL_df     = (0x2 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FCUNE_df    = (0x2 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCUEQ_df    = (0x3 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FDIV_df     = (0x3 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FCNE_df     = (0x3 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCLT_df     = (0x4 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMADD_df    = (0x4 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_MUL_Q_df    = (0x4 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCULT_df    = (0x5 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMSUB_df    = (0x5 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_MADD_Q_df   = (0x5 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCLE_df     = (0x6 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_MSUB_Q_df   = (0x6 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FCULE_df    = (0x7 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FEXP2_df    = (0x7 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FSAF_df     = (0x8 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FEXDO_df    = (0x8 << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FSUN_df     = (0x9 << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FSOR_df     = (0x9 << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSEQ_df     = (0xA << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FTQ_df      = (0xA << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_FSUNE_df    = (0xA << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSUEQ_df    = (0xB << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FSNE_df     = (0xB << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSLT_df     = (0xC << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMIN_df     = (0xC << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_MULR_Q_df   = (0xC << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSULT_df    = (0xD << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMIN_A_df   = (0xD << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_MADDR_Q_df  = (0xD << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSLE_df     = (0xE << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMAX_df     = (0xE << 22) | OPC_MSA_3RF_1B,
-    OPC_MSA_MSUBR_Q_df  = (0xE << 22) | OPC_MSA_3RF_1C,
-    OPC_MSA_FSULE_df    = (0xF << 22) | OPC_MSA_3RF_1A,
-    OPC_MSA_FMAX_A_df   = (0xF << 22) | OPC_MSA_3RF_1B,
+    OPC_FCAF_df     = (0x0 << 22) | OPC_MSA_3RF_1A,
+    OPC_FADD_df     = (0x0 << 22) | OPC_MSA_3RF_1B,
+    OPC_FCUN_df     = (0x1 << 22) | OPC_MSA_3RF_1A,
+    OPC_FSUB_df     = (0x1 << 22) | OPC_MSA_3RF_1B,
+    OPC_FCOR_df     = (0x1 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCEQ_df     = (0x2 << 22) | OPC_MSA_3RF_1A,
+    OPC_FMUL_df     = (0x2 << 22) | OPC_MSA_3RF_1B,
+    OPC_FCUNE_df    = (0x2 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCUEQ_df    = (0x3 << 22) | OPC_MSA_3RF_1A,
+    OPC_FDIV_df     = (0x3 << 22) | OPC_MSA_3RF_1B,
+    OPC_FCNE_df     = (0x3 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCLT_df     = (0x4 << 22) | OPC_MSA_3RF_1A,
+    OPC_FMADD_df    = (0x4 << 22) | OPC_MSA_3RF_1B,
+    OPC_MUL_Q_df    = (0x4 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCULT_df    = (0x5 << 22) | OPC_MSA_3RF_1A,
+    OPC_FMSUB_df    = (0x5 << 22) | OPC_MSA_3RF_1B,
+    OPC_MADD_Q_df   = (0x5 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCLE_df     = (0x6 << 22) | OPC_MSA_3RF_1A,
+    OPC_MSUB_Q_df   = (0x6 << 22) | OPC_MSA_3RF_1C,
+    OPC_FCULE_df    = (0x7 << 22) | OPC_MSA_3RF_1A,
+    OPC_FEXP2_df    = (0x7 << 22) | OPC_MSA_3RF_1B,
+    OPC_FSAF_df     = (0x8 << 22) | OPC_MSA_3RF_1A,
+    OPC_FEXDO_df    = (0x8 << 22) | OPC_MSA_3RF_1B,
+    OPC_FSUN_df     = (0x9 << 22) | OPC_MSA_3RF_1A,
+    OPC_FSOR_df     = (0x9 << 22) | OPC_MSA_3RF_1C,
+    OPC_FSEQ_df     = (0xA << 22) | OPC_MSA_3RF_1A,
+    OPC_FTQ_df      = (0xA << 22) | OPC_MSA_3RF_1B,
+    OPC_FSUNE_df    = (0xA << 22) | OPC_MSA_3RF_1C,
+    OPC_FSUEQ_df    = (0xB << 22) | OPC_MSA_3RF_1A,
+    OPC_FSNE_df     = (0xB << 22) | OPC_MSA_3RF_1C,
+    OPC_FSLT_df     = (0xC << 22) | OPC_MSA_3RF_1A,
+    OPC_FMIN_df     = (0xC << 22) | OPC_MSA_3RF_1B,
+    OPC_MULR_Q_df   = (0xC << 22) | OPC_MSA_3RF_1C,
+    OPC_FSULT_df    = (0xD << 22) | OPC_MSA_3RF_1A,
+    OPC_FMIN_A_df   = (0xD << 22) | OPC_MSA_3RF_1B,
+    OPC_MADDR_Q_df  = (0xD << 22) | OPC_MSA_3RF_1C,
+    OPC_FSLE_df     = (0xE << 22) | OPC_MSA_3RF_1A,
+    OPC_FMAX_df     = (0xE << 22) | OPC_MSA_3RF_1B,
+    OPC_MSUBR_Q_df  = (0xE << 22) | OPC_MSA_3RF_1C,
+    OPC_FSULE_df    = (0xF << 22) | OPC_MSA_3RF_1A,
+    OPC_FMAX_A_df   = (0xF << 22) | OPC_MSA_3RF_1B,
 
     /* BIT instruction df(bits 22..16) = _B _H _W _D */
-    OPC_MSA_SLLI_df     = (0x0 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_SAT_S_df    = (0x0 << 23) | OPC_MSA_BIT_0A,
-    OPC_MSA_SRAI_df     = (0x1 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_SAT_U_df    = (0x1 << 23) | OPC_MSA_BIT_0A,
-    OPC_MSA_SRLI_df     = (0x2 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_SRARI_df    = (0x2 << 23) | OPC_MSA_BIT_0A,
-    OPC_MSA_BCLRI_df    = (0x3 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_SRLRI_df    = (0x3 << 23) | OPC_MSA_BIT_0A,
-    OPC_MSA_BSETI_df    = (0x4 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_BNEGI_df    = (0x5 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_BINSLI_df   = (0x6 << 23) | OPC_MSA_BIT_09,
-    OPC_MSA_BINSRI_df   = (0x7 << 23) | OPC_MSA_BIT_09,
+    OPC_SLLI_df     = (0x0 << 23) | OPC_MSA_BIT_09,
+    OPC_SAT_S_df    = (0x0 << 23) | OPC_MSA_BIT_0A,
+    OPC_SRAI_df     = (0x1 << 23) | OPC_MSA_BIT_09,
+    OPC_SAT_U_df    = (0x1 << 23) | OPC_MSA_BIT_0A,
+    OPC_SRLI_df     = (0x2 << 23) | OPC_MSA_BIT_09,
+    OPC_SRARI_df    = (0x2 << 23) | OPC_MSA_BIT_0A,
+    OPC_BCLRI_df    = (0x3 << 23) | OPC_MSA_BIT_09,
+    OPC_SRLRI_df    = (0x3 << 23) | OPC_MSA_BIT_0A,
+    OPC_BSETI_df    = (0x4 << 23) | OPC_MSA_BIT_09,
+    OPC_BNEGI_df    = (0x5 << 23) | OPC_MSA_BIT_09,
+    OPC_BINSLI_df   = (0x6 << 23) | OPC_MSA_BIT_09,
+    OPC_BINSRI_df   = (0x7 << 23) | OPC_MSA_BIT_09,
 };
 
 /* global register indices */
@@ -1492,7 +1492,7 @@ static const char * const fregnames[] = {
 static const char * const msaregnames[] = {
     "w0.d0",  "w0.d1",  "w1.d0",  "w1.d1",
     "w2.d0",  "w2.d1",  "w3.d0",  "w3.d1",
-    "w4.d0",  "w4.d1",  "w4.d0",  "w4.d1",
+    "w4.d0",  "w4.d1",  "w5.d0",  "w5.d1",
     "w6.d0",  "w6.d1",  "w7.d0",  "w7.d1",
     "w8.d0",  "w8.d1",  "w9.d0",  "w9.d1",
     "w10.d0", "w10.d1", "w11.d0", "w11.d1",
@@ -17968,27 +17968,27 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
         return;
     }
     switch (op1) {
-    case OPC_MSA_BZ_V:
-    case OPC_MSA_BNZ_V:
+    case OPC_BZ_V:
+    case OPC_BNZ_V:
         {
             TCGv_i64 t0 = tcg_temp_local_new_i64();
             tcg_gen_or_i64(t0, msa_wr_d[wt<<1], msa_wr_d[(wt<<1)+1]);
-            tcg_gen_setcondi_i64((op1 == OPC_MSA_BZ_V) ?
+            tcg_gen_setcondi_i64((op1 == OPC_BZ_V) ?
                     TCG_COND_EQ : TCG_COND_NE, t0, t0, 0);
             tcg_gen_trunc_i64_tl(bcond, t0);
             tcg_temp_free_i64(t0);
         }
         break;
-    case OPC_MSA_BZ_B:
-    case OPC_MSA_BZ_H:
-    case OPC_MSA_BZ_W:
-    case OPC_MSA_BZ_D:
+    case OPC_BZ_B:
+    case OPC_BZ_H:
+    case OPC_BZ_W:
+    case OPC_BZ_D:
         gen_check_zero_element(bcond, df, wt);
         break;
-    case OPC_MSA_BNZ_B:
-    case OPC_MSA_BNZ_H:
-    case OPC_MSA_BNZ_W:
-    case OPC_MSA_BNZ_D:
+    case OPC_BNZ_B:
+    case OPC_BNZ_H:
+    case OPC_BNZ_W:
+    case OPC_BNZ_D:
         gen_check_zero_element(bcond, df, wt);
         tcg_gen_setcondi_tl(TCG_COND_EQ, bcond, bcond, 0);
         break;
@@ -18016,37 +18016,37 @@ static void gen_msa_i8(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 ti8 = tcg_const_i32(i8);
 
     switch (MASK_MSA_I8(opcode)) {
-    case OPC_MSA_ANDI_B:
+    case OPC_ANDI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_andi_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_ORI_B:
+    case OPC_ORI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ori_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_NORI_B:
+    case OPC_NORI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_nori_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_XORI_B:
+    case OPC_XORI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_xori_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_BMNZI_B:
+    case OPC_BMNZI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bmnzi_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_BMZI_B:
+    case OPC_BMZI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bmzi_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_BSELI_B:
+    case OPC_BSELI_B:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bseli_b(cpu_env, twd, tws, ti8);
         break;
-    case OPC_MSA_SHF_B:
-    case OPC_MSA_SHF_H:
-    case OPC_MSA_SHF_W:
+    case OPC_SHF_B:
+    case OPC_SHF_H:
+    case OPC_SHF_W:
         {
             uint8_t df = (opcode >> 24) & 0x3;
             if (df == DF_DOUBLE) {
@@ -18091,51 +18091,51 @@ static void gen_msa_i5(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i64 ts5 = tcg_const_i64(s5);
 
     switch (MASK_MSA_I5(opcode)) {
-    case OPC_MSA_ADDVI_df:
+    case OPC_ADDVI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_addvi_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_SUBVI_df:
+    case OPC_SUBVI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_subvi_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_MAXI_S_df:
+    case OPC_MAXI_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_maxi_s_df(cpu_env, tdf, twd, tws, ts5);
         break;
-    case OPC_MSA_MAXI_U_df:
+    case OPC_MAXI_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_maxi_u_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_MINI_S_df:
+    case OPC_MINI_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_mini_s_df(cpu_env, tdf, twd, tws, ts5);
         break;
-    case OPC_MSA_MINI_U_df:
+    case OPC_MINI_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_mini_u_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_CEQI_df:
+    case OPC_CEQI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ceqi_df(cpu_env, tdf, twd, tws, ts5);
         break;
-    case OPC_MSA_CLTI_S_df:
+    case OPC_CLTI_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_clti_s_df(cpu_env, tdf, twd, tws, ts5);
         break;
-    case OPC_MSA_CLTI_U_df:
+    case OPC_CLTI_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_clti_u_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_CLEI_S_df:
+    case OPC_CLEI_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_clei_s_df(cpu_env, tdf, twd, tws, ts5);
         break;
-    case OPC_MSA_CLEI_U_df:
+    case OPC_CLEI_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_clei_u_df(cpu_env, tdf, twd, tws, tu5);
         break;
-    case OPC_MSA_LDI_df:
+    case OPC_LDI_df:
         {
             int64_t s10 = (ctx->opcode >> 11) & 0x3ff;
             s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
@@ -18194,51 +18194,51 @@ static void gen_msa_bit(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 tws = tcg_const_i32(ws);
 
     switch (MASK_MSA_BIT(opcode)) {
-    case OPC_MSA_SLLI_df:
+    case OPC_SLLI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_slli_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SRAI_df:
+    case OPC_SRAI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_srai_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SRLI_df:
+    case OPC_SRLI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_srli_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_BCLRI_df:
+    case OPC_BCLRI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bclri_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_BSETI_df:
+    case OPC_BSETI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bseti_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_BNEGI_df:
+    case OPC_BNEGI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_bnegi_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_BINSLI_df:
+    case OPC_BINSLI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_binsli_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_BINSRI_df:
+    case OPC_BINSRI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_binsri_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SAT_S_df:
+    case OPC_SAT_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_sat_s_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SAT_U_df:
+    case OPC_SAT_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_sat_u_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SRARI_df:
+    case OPC_SRARI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_srari_df(cpu_env, tdf, twd, tws, tm);
         break;
-    case OPC_MSA_SRLRI_df:
+    case OPC_SRLRI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_srlri_df(cpu_env, tdf, twd, tws, tm);
         break;
@@ -18271,263 +18271,263 @@ static void gen_msa_3r(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 twt = tcg_const_i32(wt);
 
     switch (MASK_MSA_3R(opcode)) {
-    case OPC_MSA_SLL_df:
+    case OPC_SLL_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_sll_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ADDV_df:
+    case OPC_ADDV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_addv_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_CEQ_df:
+    case OPC_CEQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ceq_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ADD_A_df:
+    case OPC_ADD_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_add_a_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SUBS_S_df:
+    case OPC_SUBS_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_subs_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MULV_df:
+    case OPC_MULV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_mulv_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SLD_df:
+    case OPC_SLD_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_sld_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_VSHF_df:
+    case OPC_VSHF_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_vshf_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SRA_df:
+    case OPC_SRA_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_sra_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SUBV_df:
+    case OPC_SUBV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_subv_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ADDS_A_df:
+    case OPC_ADDS_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_adds_a_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SUBS_U_df:
+    case OPC_SUBS_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_subs_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MADDV_df:
+    case OPC_MADDV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_maddv_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SPLAT_df:
+    case OPC_SPLAT_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_splat_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SRAR_df:
+    case OPC_SRAR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_srar_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SRL_df:
+    case OPC_SRL_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_srl_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MAX_S_df:
+    case OPC_MAX_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_max_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_CLT_S_df:
+    case OPC_CLT_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_clt_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ADDS_S_df:
+    case OPC_ADDS_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_adds_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SUBSUS_U_df:
+    case OPC_SUBSUS_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_subsus_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MSUBV_df:
+    case OPC_MSUBV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_msubv_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_PCKEV_df:
+    case OPC_PCKEV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_pckev_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SRLR_df:
+    case OPC_SRLR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_srlr_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_BCLR_df:
+    case OPC_BCLR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bclr_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MAX_U_df:
+    case OPC_MAX_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_max_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_CLT_U_df:
+    case OPC_CLT_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_clt_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ADDS_U_df:
+    case OPC_ADDS_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_adds_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_SUBSUU_S_df:
+    case OPC_SUBSUU_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_subsuu_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_PCKOD_df:
+    case OPC_PCKOD_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_pckod_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_BSET_df:
+    case OPC_BSET_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bset_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MIN_S_df:
+    case OPC_MIN_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_min_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_CLE_S_df:
+    case OPC_CLE_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_cle_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_AVE_S_df:
+    case OPC_AVE_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ave_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ASUB_S_df:
+    case OPC_ASUB_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_asub_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_DIV_S_df:
+    case OPC_DIV_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_div_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ILVL_df:
+    case OPC_ILVL_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ilvl_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_BNEG_df:
+    case OPC_BNEG_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bneg_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MIN_U_df:
+    case OPC_MIN_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_min_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_CLE_U_df:
+    case OPC_CLE_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_cle_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_AVE_U_df:
+    case OPC_AVE_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ave_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ASUB_U_df:
+    case OPC_ASUB_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_asub_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_DIV_U_df:
+    case OPC_DIV_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_div_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ILVR_df:
+    case OPC_ILVR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ilvr_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_BINSL_df:
+    case OPC_BINSL_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_binsl_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MAX_A_df:
+    case OPC_MAX_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_max_a_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_AVER_S_df:
+    case OPC_AVER_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_aver_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MOD_S_df:
+    case OPC_MOD_S_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_mod_s_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ILVEV_df:
+    case OPC_ILVEV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ilvev_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_BINSR_df:
+    case OPC_BINSR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_binsr_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MIN_A_df:
+    case OPC_MIN_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_min_a_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_AVER_U_df:
+    case OPC_AVER_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_aver_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_MOD_U_df:
+    case OPC_MOD_U_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_mod_u_df(cpu_env, tdf, twd, tws, twt);
         break;
-    case OPC_MSA_ILVOD_df:
+    case OPC_ILVOD_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ilvod_df(cpu_env, tdf, twd, tws, twt);
         break;
 
-    case OPC_MSA_DOTP_S_df:
-    case OPC_MSA_DOTP_U_df:
-    case OPC_MSA_DPADD_S_df:
-    case OPC_MSA_DPADD_U_df:
-    case OPC_MSA_DPSUB_S_df:
-    case OPC_MSA_HADD_S_df:
-    case OPC_MSA_DPSUB_U_df:
-    case OPC_MSA_HADD_U_df:
-    case OPC_MSA_HSUB_S_df:
-    case OPC_MSA_HSUB_U_df:
+    case OPC_DOTP_S_df:
+    case OPC_DOTP_U_df:
+    case OPC_DPADD_S_df:
+    case OPC_DPADD_U_df:
+    case OPC_DPSUB_S_df:
+    case OPC_HADD_S_df:
+    case OPC_DPSUB_U_df:
+    case OPC_HADD_U_df:
+    case OPC_HSUB_S_df:
+    case OPC_HSUB_U_df:
         if (df == DF_BYTE) {
             check_msa_access(env, ctx, -1, -1, -1);
             generate_exception(ctx, EXCP_RI);
         }
         check_msa_access(env, ctx, wt, ws, wd);
         switch (MASK_MSA_3R(opcode)) {
-        case OPC_MSA_DOTP_S_df:
+        case OPC_DOTP_S_df:
             gen_helper_msa_dotp_s_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_DOTP_U_df:
+        case OPC_DOTP_U_df:
             gen_helper_msa_dotp_u_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_DPADD_S_df:
+        case OPC_DPADD_S_df:
             gen_helper_msa_dpadd_s_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_DPADD_U_df:
+        case OPC_DPADD_U_df:
             gen_helper_msa_dpadd_u_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_DPSUB_S_df:
+        case OPC_DPSUB_S_df:
             gen_helper_msa_dpsub_s_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_HADD_S_df:
+        case OPC_HADD_S_df:
             gen_helper_msa_hadd_s_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_DPSUB_U_df:
+        case OPC_DPSUB_U_df:
             gen_helper_msa_dpsub_u_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_HADD_U_df:
+        case OPC_HADD_U_df:
             gen_helper_msa_hadd_u_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_HSUB_S_df:
+        case OPC_HSUB_S_df:
             gen_helper_msa_hsub_s_df(cpu_env, tdf, twd, tws, twt);
             break;
-        case OPC_MSA_HSUB_U_df:
+        case OPC_HSUB_U_df:
             gen_helper_msa_hsub_u_df(cpu_env, tdf, twd, tws, twt);
             break;
         }
@@ -18554,21 +18554,21 @@ static void gen_msa_elm_3e(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 tdt = tcg_const_i32(dest);
 
     switch (MASK_MSA_ELM_DF3E(ctx->opcode)) {
-    case OPC_MSA_CTCMSA:
+    case OPC_CTCMSA:
         {
             check_msa_access(env, ctx, -1, -1, -1);
             gen_load_gpr(telm, source);
             gen_helper_msa_ctcmsa(cpu_env, telm, tdt);
         }
         break;
-    case OPC_MSA_CFCMSA:
+    case OPC_CFCMSA:
         {
             check_msa_access(env, ctx, -1, -1, -1);
             gen_helper_msa_cfcmsa(telm, cpu_env, tsr);
             gen_store_gpr(telm, dest);
         }
         break;
-    case OPC_MSA_MOVE_V:
+    case OPC_MOVE_V:
         {
             check_msa_access(env, ctx, -1, source, dest);
             gen_helper_msa_move_v(cpu_env, tdt, tsr);
@@ -18599,21 +18599,21 @@ static void gen_msa_elm_df(CPUMIPSState *env, DisasContext *ctx, uint32_t df,
     TCGv_i32 tdf = tcg_const_i32(df);
 
     switch (MASK_MSA_ELM(ctx->opcode)) {
-    case OPC_MSA_SLDI_df:
+    case OPC_SLDI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_sldi_df(cpu_env, tdf, twd, tws, tn);
         break;
-    case OPC_MSA_SPLATI_df:
+    case OPC_SPLATI_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_splati_df(cpu_env, tdf, twd, tws, tn);
         break;
-    case OPC_MSA_INSVE_df:
+    case OPC_INSVE_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_insve_df(cpu_env, tdf, twd, tws, tn);
         break;
-    case OPC_MSA_COPY_S_df:
-    case OPC_MSA_COPY_U_df:
-    case OPC_MSA_INSERT_df:
+    case OPC_COPY_S_df:
+    case OPC_COPY_U_df:
+    case OPC_INSERT_df:
 #if !defined(TARGET_MIPS64)
         /* Double format valid only for MIPS64 */
         if (df == DF_DOUBLE) {
@@ -18623,15 +18623,15 @@ static void gen_msa_elm_df(CPUMIPSState *env, DisasContext *ctx, uint32_t df,
         }
 #endif
         switch (MASK_MSA_ELM(ctx->opcode)) {
-        case OPC_MSA_COPY_S_df:
+        case OPC_COPY_S_df:
             check_msa_access(env, ctx, -1, ws, -1);
             gen_helper_msa_copy_s_df(cpu_env, tdf, twd, tws, tn);
             break;
-        case OPC_MSA_COPY_U_df:
+        case OPC_COPY_U_df:
             check_msa_access(env, ctx, -1, ws, -1);
             gen_helper_msa_copy_u_df(cpu_env, tdf, twd, tws, tn);
             break;
-        case OPC_MSA_INSERT_df:
+        case OPC_INSERT_df:
             check_msa_access(env, ctx, -1, -1, wd);
             gen_helper_msa_insert_df(cpu_env, tdf, twd, tws, tn);
             break;
@@ -18699,167 +18699,167 @@ static void gen_msa_3rf(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 tdf1 = tcg_const_i32(df1);
 
     switch (MASK_MSA_3RF(opcode)) {
-    case OPC_MSA_FCAF_df:
+    case OPC_FCAF_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcaf_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FADD_df:
+    case OPC_FADD_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fadd_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCUN_df:
+    case OPC_FCUN_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcun_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSUB_df:
+    case OPC_FSUB_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsub_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCOR_df:
+    case OPC_FCOR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcor_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCEQ_df:
+    case OPC_FCEQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fceq_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMUL_df:
+    case OPC_FMUL_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmul_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCUNE_df:
+    case OPC_FCUNE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcune_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCUEQ_df:
+    case OPC_FCUEQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcueq_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FDIV_df:
+    case OPC_FDIV_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fdiv_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCNE_df:
+    case OPC_FCNE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcne_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FCLT_df:
+    case OPC_FCLT_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fclt_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMADD_df:
+    case OPC_FMADD_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmadd_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MUL_Q_df:
+    case OPC_MUL_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_mul_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FCULT_df:
+    case OPC_FCULT_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcult_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMSUB_df:
+    case OPC_FMSUB_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmsub_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MADD_Q_df:
+    case OPC_MADD_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_madd_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FCLE_df:
+    case OPC_FCLE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcle_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MSUB_Q_df:
+    case OPC_MSUB_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_msub_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FCULE_df:
+    case OPC_FCULE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fcule_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FEXP2_df:
+    case OPC_FEXP2_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fexp2_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSAF_df:
+    case OPC_FSAF_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsaf_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FEXDO_df:
+    case OPC_FEXDO_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fexdo_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSUN_df:
+    case OPC_FSUN_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsun_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSOR_df:
+    case OPC_FSOR_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsor_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSEQ_df:
+    case OPC_FSEQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fseq_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FTQ_df:
+    case OPC_FTQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_ftq_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSUNE_df:
+    case OPC_FSUNE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsune_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSUEQ_df:
+    case OPC_FSUEQ_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsueq_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSNE_df:
+    case OPC_FSNE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsne_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FSLT_df:
+    case OPC_FSLT_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fslt_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMIN_df:
+    case OPC_FMIN_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmin_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MULR_Q_df:
+    case OPC_MULR_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_mulr_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FSULT_df:
+    case OPC_FSULT_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsult_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMIN_A_df:
+    case OPC_FMIN_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmin_a_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MADDR_Q_df:
+    case OPC_MADDR_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_maddr_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FSLE_df:
+    case OPC_FSLE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsle_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMAX_df:
+    case OPC_FMAX_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmax_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_MSUBR_Q_df:
+    case OPC_MSUBR_Q_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_msubr_q_df(cpu_env, tdf1, twd, tws, twt);
         break;
-    case OPC_MSA_FSULE_df:
+    case OPC_FSULE_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fsule_df(cpu_env, tdf2, twd, tws, twt);
         break;
-    case OPC_MSA_FMAX_A_df:
+    case OPC_FMAX_A_df:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_fmax_a_df(cpu_env, tdf2, twd, tws, twt);
         break;
@@ -18891,7 +18891,7 @@ static void gen_msa_2r(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 tdf = tcg_const_i32(df);
 
     switch (MASK_MSA_2R(ctx->opcode)) {
-    case OPC_MSA_FILL_df:
+    case OPC_FILL_df:
 #if !defined(TARGET_MIPS64)
         /* Double format valid only for MIPS64 */
         if (df == DF_DOUBLE) {
@@ -18903,15 +18903,15 @@ static void gen_msa_2r(CPUMIPSState *env, DisasContext *ctx)
         check_msa_access(env, ctx, -1, -1, wd);
         gen_helper_msa_fill_df(cpu_env, tdf, twd, tws); /* trs */
         break;
-    case OPC_MSA_PCNT_df:
+    case OPC_PCNT_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_pcnt_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_NLOC_df:
+    case OPC_NLOC_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_nloc_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_NLZC_df:
+    case OPC_NLZC_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_nlzc_df(cpu_env, tdf, twd, tws);
         break;
@@ -18945,67 +18945,67 @@ static void gen_msa_2rf(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 tdf = tcg_const_i32(df);
 
     switch (MASK_MSA_2RF(ctx->opcode)) {
-    case OPC_MSA_FCLASS_df:
+    case OPC_FCLASS_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_fclass_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FTRUNC_S_df:
+    case OPC_FTRUNC_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ftrunc_s_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FTRUNC_U_df:
+    case OPC_FTRUNC_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ftrunc_u_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FSQRT_df:
+    case OPC_FSQRT_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_fsqrt_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FRSQRT_df:
+    case OPC_FRSQRT_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_frsqrt_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FRCP_df:
+    case OPC_FRCP_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_frcp_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FRINT_df:
+    case OPC_FRINT_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_frint_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FLOG2_df:
+    case OPC_FLOG2_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_flog2_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FEXUPL_df:
+    case OPC_FEXUPL_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_fexupl_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FEXUPR_df:
+    case OPC_FEXUPR_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_fexupr_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FFQL_df:
+    case OPC_FFQL_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ffql_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FFQR_df:
+    case OPC_FFQR_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ffqr_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FINT_S_df:
+    case OPC_FTINT_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ftint_s_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FINT_U_df:
+    case OPC_FTINT_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ftint_u_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FFINT_S_df:
+    case OPC_FFINT_S_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ffint_s_df(cpu_env, tdf, twd, tws);
         break;
-    case OPC_MSA_FFINT_U_df:
+    case OPC_FFINT_U_df:
         check_msa_access(env, ctx, -1, ws, wd);
         gen_helper_msa_ffint_u_df(cpu_env, tdf, twd, tws);
         break;
@@ -19028,31 +19028,31 @@ static void gen_msa_vec_v(CPUMIPSState *env, DisasContext *ctx)
     TCGv_i32 twt = tcg_const_i32(wt);
 
     switch (MASK_MSA_VEC(ctx->opcode)) {
-    case OPC_MSA_AND_V:
+    case OPC_AND_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_and_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_OR_V:
+    case OPC_OR_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_or_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_NOR_V:
+    case OPC_NOR_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_nor_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_XOR_V:
+    case OPC_XOR_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_xor_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_BMNZ_V:
+    case OPC_BMNZ_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bmnz_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_BMZ_V:
+    case OPC_BMZ_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bmz_v(cpu_env, twd, tws, twt);
         break;
-    case OPC_MSA_BSEL_V:
+    case OPC_BSEL_V:
         check_msa_access(env, ctx, wt, ws, wd);
         gen_helper_msa_bsel_v(cpu_env, twd, tws, twt);
         break;
@@ -19071,13 +19071,13 @@ static void gen_msa_vec_v(CPUMIPSState *env, DisasContext *ctx)
 static void gen_msa_vec(CPUMIPSState *env, DisasContext *ctx)
 {
     switch (MASK_MSA_VEC(ctx->opcode)) {
-    case OPC_MSA_AND_V:
-    case OPC_MSA_OR_V:
-    case OPC_MSA_NOR_V:
-    case OPC_MSA_XOR_V:
-    case OPC_MSA_BMNZ_V:
-    case OPC_MSA_BMZ_V:
-    case OPC_MSA_BSEL_V:
+    case OPC_AND_V:
+    case OPC_OR_V:
+    case OPC_NOR_V:
+    case OPC_XOR_V:
+    case OPC_BMNZ_V:
+    case OPC_BMZ_V:
+    case OPC_BSEL_V:
         gen_msa_vec_v(env, ctx);
         break;
     case OPC_MSA_2R:
@@ -19135,14 +19135,14 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     case OPC_MSA_VEC:
         gen_msa_vec(env, ctx);
         break;
-    case OPC_MSA_LD_B:
-    case OPC_MSA_LD_H:
-    case OPC_MSA_LD_W:
-    case OPC_MSA_LD_D:
-    case OPC_MSA_ST_B:
-    case OPC_MSA_ST_H:
-    case OPC_MSA_ST_W:
-    case OPC_MSA_ST_D:
+    case OPC_LD_B:
+    case OPC_LD_H:
+    case OPC_LD_W:
+    case OPC_LD_D:
+    case OPC_ST_B:
+    case OPC_ST_H:
+    case OPC_ST_W:
+    case OPC_ST_D:
         {
             int64_t s10 = (ctx->opcode >> 16) & 0x3ff;
             s10 = (s10 << 54) >> 54; /* sign extend s10 to 64 bits*/
@@ -19156,17 +19156,17 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
             TCGv_i64 ts10 = tcg_const_i64(s10);
 
             switch (MASK_MSA_MINOR(opcode)) {
-            case OPC_MSA_LD_B:
-            case OPC_MSA_LD_H:
-            case OPC_MSA_LD_W:
-            case OPC_MSA_LD_D:
+            case OPC_LD_B:
+            case OPC_LD_H:
+            case OPC_LD_W:
+            case OPC_LD_D:
                 check_msa_access(env, ctx, -1, -1, wd);
                 gen_helper_msa_ld_df(cpu_env, tdf, twd, trs, ts10);
                 break;
-            case OPC_MSA_ST_B:
-            case OPC_MSA_ST_H:
-            case OPC_MSA_ST_W:
-            case OPC_MSA_ST_D:
+            case OPC_ST_B:
+            case OPC_ST_H:
+            case OPC_ST_W:
+            case OPC_ST_D:
                 check_msa_access(env, ctx, -1, -1, wd);
                 gen_helper_msa_st_df(cpu_env, tdf, twd, trs, ts10);
                 break;
@@ -19640,16 +19640,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             }
             break;
         }
-        case OPC_MSA_BZ_V:
-        case OPC_MSA_BNZ_V:
-        case OPC_MSA_BZ_B:
-        case OPC_MSA_BZ_H:
-        case OPC_MSA_BZ_W:
-        case OPC_MSA_BZ_D:
-        case OPC_MSA_BNZ_B:
-        case OPC_MSA_BNZ_H:
-        case OPC_MSA_BNZ_W:
-        case OPC_MSA_BNZ_D:
+        case OPC_BZ_V:
+        case OPC_BNZ_V:
+        case OPC_BZ_B:
+        case OPC_BZ_H:
+        case OPC_BZ_W:
+        case OPC_BZ_D:
+        case OPC_BNZ_B:
+        case OPC_BNZ_H:
+        case OPC_BNZ_W:
+        case OPC_BNZ_D:
             check_insn(ctx, ASE_MSA);
             gen_msa_branch(env, ctx, op1);
             break;
