@@ -73,6 +73,7 @@ struct mips_def_t {
     int32_t CP0_SRSCtl;
     int32_t CP1_fcr0;
     int32_t CP1_fcr31;
+    int32_t MSAIR;
     int32_t SEGBITS;
     int32_t PABITS;
     int32_t CP0_SRSConf0_rw_bitmask;
@@ -493,6 +494,7 @@ static mips_def_t mips_defs[] =
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
+        .MSAIR = 0x03 << MSAIR_ProcID | 0x20 << MSAIR_Rev,
         .SEGBITS = 32,
         .PABITS = 40,
         .insn_flags = CPU_MIPS32R5 | ASE_MSA,
@@ -931,18 +933,11 @@ static void msa_reset(CPUMIPSState *env)
 #ifdef CONFIG_USER_ONLY
     /* MSA access enabled */
     env->CP0_Config5 |= 1 << CP0C5_MSAEn;
-
-    /* DSP and CP1 enabled, 64-bit FPRs */
-    env->CP0_Status |= (1 << CP0St_MX);
-    env->hflags |= MIPS_HFLAG_DSP;
-
     env->CP0_Status |= (1 << CP0St_CU1) | (1 << CP0St_FR);
-    env->hflags |= MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X;
 #endif
 
     /* Vector register partitioning not implemented */
-    env->active_msa.msair = 0;
-    env->active_msa.msaaccess  = 0xffffffff;
+    env->active_msa.msaaccess  = 0;
     env->active_msa.msasave    = 0;
     env->active_msa.msarequest = 0;
 

@@ -104,7 +104,8 @@ struct CPUMIPSMSAContext {
 
 #define MSAIR_WRP_POS 16
 #define MSAIR_WRP_BIT (1 << MSAIR_WRP_POS)
-
+#define MSAIR_ProcID    8
+#define MSAIR_Rev       0
     int32_t msacsr;
 
 #define MSACSR_RM_POS   0
