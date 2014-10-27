@@ -1890,9 +1890,6 @@ static void load_elf_image(const char *image_name, int image_fd,
         }
     }
 #ifdef TARGET_MIPS
-    if (info->fp_abi == -1) {
-        info->fp_abi = Val_GNU_MIPS_ABI_FP_DOUBLE;
-    }
     info->interp_fp_abi = info->fp_abi;
 #endif
 
