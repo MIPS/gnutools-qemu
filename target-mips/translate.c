@@ -17893,7 +17893,7 @@ static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
         }
     }
 
-    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+    if (env->msair & MSAIR_WRP_MASK) {
         int curr_request  = 0;
         if (wd != -1) {
             curr_request |= (1 << wd);
@@ -17904,9 +17904,9 @@ static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
         if (ws != -1) {
             curr_request |= (1 << ws);
         }
-        env->active_msa.msarequest = curr_request
-                & (~env->active_msa.msaaccess | env->active_msa.msasave);
-        if (unlikely(env->active_msa.msarequest != 0)) {
+        env->active_tc.msarequest = curr_request
+                & (~env->active_tc.msaaccess | env->active_tc.msasave);
+        if (unlikely(env->active_tc.msarequest != 0)) {
             generate_exception(ctx, EXCP_MSADIS);
             return 0;
         }
@@ -20362,9 +20362,9 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     }
 
     //MSA
-    if (env_prev.active_msa.msacsr != env->active_msa.msacsr) {
+    if (env_prev.active_tc.msacsr != env->active_tc.msacsr) {
         SVLOG_START_LINE();
-        sv_log("Write msa_csr      = %08x\n", env->active_msa.msacsr);
+        sv_log("Write msa_csr      = %08x\n", env->active_tc.msacsr);
     }
 
     for (i = 0; i < 32; i++) {
@@ -20539,7 +20539,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_PageGrain = env->cpu_model->CP0_PageGrain;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
     env->active_fpu.fcr31 = env->cpu_model->CP1_fcr31;
-    env->active_msa.msair = env->cpu_model->MSAIR;
+    env->msair = env->cpu_model->MSAIR;
     env->insn_flags = env->cpu_model->insn_flags;
 
 #if defined(CONFIG_USER_ONLY)

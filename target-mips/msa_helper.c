@@ -40,8 +40,8 @@
 #define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
 
 static inline void update_msamodify(CPUMIPSState *env, uint32_t wd) {
-    if (env->active_msa.msair & MSAIR_WRP_BIT) {
-        env->active_msa.msamodify |= (1 << wd);
+    if (env->msair & MSAIR_WRP_MASK) {
+        env->active_tc.msamodify |= (1 << wd);
     }
 }
 
@@ -1558,15 +1558,15 @@ MSA_TEROP_IMMU_DF(binsri, binsr)
 
 static inline void clear_msacsr_cause(CPUMIPSState *env)
 {
-    SET_FP_CAUSE(env->active_msa.msacsr, 0);
+    SET_FP_CAUSE(env->active_tc.msacsr, 0);
 }
 
 static inline void check_msacsr_cause(CPUMIPSState *env)
 {
-    if ((GET_FP_CAUSE(env->active_msa.msacsr) &
-            (GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)) == 0) {
-        UPDATE_FP_FLAGS(env->active_msa.msacsr,
-                GET_FP_CAUSE(env->active_msa.msacsr));
+    if ((GET_FP_CAUSE(env->active_tc.msacsr) &
+            (GET_FP_ENABLE(env->active_tc.msacsr) | FP_UNIMPLEMENTED)) == 0) {
+        UPDATE_FP_FLAGS(env->active_tc.msacsr,
+                GET_FP_CAUSE(env->active_tc.msacsr));
     } else {
         helper_raise_exception(env, EXCP_MSAFPE);
     }
@@ -1585,7 +1585,7 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
     int cause;
     int enable;
 
-    ieee_ex = get_float_exception_flags(&env->active_msa.fp_status);
+    ieee_ex = get_float_exception_flags(&env->active_tc.msa_fp_status);
 
     /* QEMU softfloat does not signal all underflow cases */
     if (denormal) {
@@ -1593,11 +1593,11 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
     }
 
     c = ieee_ex_to_mips(env, ieee_ex);
-    enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
+    enable = GET_FP_ENABLE(env->active_tc.msacsr) | FP_UNIMPLEMENTED;
 
     /* Set Inexact (I) when flushing inputs to zero */
     if ((ieee_ex & float_flag_input_denormal) &&
-            (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
+            (env->active_tc.msacsr & MSACSR_FS_MASK) != 0) {
         if (action & CLEAR_IS_INEXACT) {
             c &= ~FP_INEXACT;
         } else {
@@ -1607,7 +1607,7 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
 
     /* Set Inexact (I) and Underflow (U) when flushing outputs to zero */
     if ((ieee_ex & float_flag_output_denormal) &&
-            (env->active_msa.msacsr & MSACSR_FS_BIT) != 0) {
+            (env->active_tc.msacsr & MSACSR_FS_MASK) != 0) {
         c |= FP_INEXACT;
         if (action & CLEAR_FS_UNDERFLOW) {
             c &= ~FP_UNDERFLOW;
@@ -1639,15 +1639,15 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
     if (cause == 0) {
         /* No enabled exception, update the MSACSR Cause
          with all current exceptions */
-        SET_FP_CAUSE(env->active_msa.msacsr,
-                (GET_FP_CAUSE(env->active_msa.msacsr) | c));
+        SET_FP_CAUSE(env->active_tc.msacsr,
+                (GET_FP_CAUSE(env->active_tc.msacsr) | c));
     } else {
         /* Current exceptions are enabled */
-        if ((env->active_msa.msacsr & MSACSR_NX_BIT) == 0) {
+        if ((env->active_tc.msacsr & MSACSR_NX_MASK) == 0) {
             /* Exception(s) will trap, update MSACSR Cause
            with all enabled exceptions */
-            SET_FP_CAUSE(env->active_msa.msacsr,
-                    (GET_FP_CAUSE(env->active_msa.msacsr) | c));
+            SET_FP_CAUSE(env->active_tc.msacsr,
+                    (GET_FP_CAUSE(env->active_tc.msacsr) | c));
         }
     }
 
@@ -1655,7 +1655,7 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
 }
 
 static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
-    int enable = GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED;
+    int enable = GET_FP_ENABLE(env->active_tc.msacsr) | FP_UNIMPLEMENTED;
     return c & enable;
 }
 
@@ -1670,8 +1670,8 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
-        DEST = float ## BITS ## _ ## OP(ARG, &env->active_msa.fp_status);   \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
+        DEST = float ## BITS ## _ ## OP(ARG, &env->active_tc.msa_fp_status);\
         c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -1685,8 +1685,8 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
-        DEST = float ## BITS ## _ ## OP(ARG, &env->active_msa.fp_status);   \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
+        DEST = float ## BITS ## _ ## OP(ARG, &env->active_tc.msa_fp_status);\
         c = update_msacsr(env, CLEAR_FS_UNDERFLOW, 0);                      \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -1698,8 +1698,8 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
-        DEST = float ## BITS ## _ ## OP(ARG, &env->active_msa.fp_status);   \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
+        DEST = float ## BITS ## _ ## OP(ARG, &env->active_tc.msa_fp_status);\
         c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -1711,21 +1711,21 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         set_float_rounding_mode(float_round_down,                           \
-                                &env->active_msa.fp_status);                \
+                                &env->active_tc.msa_fp_status);             \
         DEST = float ## BITS ## _ ## log2(ARG,                              \
-                                          &env->active_msa.fp_status);      \
+                                          &env->active_tc.msa_fp_status);   \
         DEST = float ## BITS ## _ ## round_to_int(DEST,                     \
-                                               &env->active_msa.fp_status); \
-        set_float_rounding_mode(ieee_rm[(env->active_msa.msacsr &           \
-                                         MSACSR_RM_MASK) >> MSACSR_RM_POS], \
-                                &env->active_msa.fp_status);                \
+                                          &env->active_tc.msa_fp_status);   \
+        set_float_rounding_mode(ieee_rm[(env->active_tc.msacsr &            \
+                                         MSACSR_RM_MASK) >> MSACSR_RM],     \
+                                &env->active_tc.msa_fp_status);             \
                                                                             \
         set_float_exception_flags(                                          \
-            get_float_exception_flags(&env->active_msa.fp_status)           \
+            get_float_exception_flags(&env->active_tc.msa_fp_status)        \
                                                 & (~float_flag_inexact),    \
-            &env->active_msa.fp_status);                                    \
+            &env->active_tc.msa_fp_status);                                 \
                                                                             \
         c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
                                                                             \
@@ -1738,9 +1738,9 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
-                                        &env->active_msa.fp_status);        \
+                                        &env->active_tc.msa_fp_status);     \
         c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -1752,9 +1752,9 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         DEST = float ## BITS ## _ ## OP(ARG1, ARG2,                         \
-                                        &env->active_msa.fp_status);        \
+                                        &env->active_tc.msa_fp_status);     \
         c = update_msacsr(env, 0, 0);                                       \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -1766,9 +1766,9 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         DEST = float ## BITS ## _ ## div(FLOAT_ONE ## BITS, ARG,            \
-                                         &env->active_msa.fp_status);       \
+                                         &env->active_tc.msa_fp_status);    \
         c = update_msacsr(env, float ## BITS ## _is_infinity(ARG) ||        \
                           float ## BITS ## _is_quiet_nan(DEST) ?            \
                           0 : RECIPROCAL_INEXACT,                           \
@@ -1783,9 +1783,9 @@ static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
     do {                                                                    \
         int c;                                                              \
                                                                             \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         DEST = float ## BITS ## _muladd(ARG2, ARG3, ARG1, NEGATE,           \
-                                        &env->active_msa.fp_status);        \
+                                        &env->active_tc.msa_fp_status);     \
         c = update_msacsr(env, 0, IS_DENORMAL(DEST, BITS));                 \
                                                                             \
         if (get_enabled_exceptions(env, c)) {                               \
@@ -2254,13 +2254,13 @@ void helper_msa_fmin_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     do {                                                                    \
         int c;                                                              \
         int64_t cond;                                                       \
-        set_float_exception_flags(0, &env->active_msa.fp_status);           \
+        set_float_exception_flags(0, &env->active_tc.msa_fp_status);        \
         if (!QUIET) {                                                       \
             cond = float ## BITS ## _ ## OP(ARG1, ARG2,                     \
-                                          &env->active_msa.fp_status);      \
+                                          &env->active_tc.msa_fp_status);   \
         } else {                                                            \
             cond = float ## BITS ## _ ## OP ## _quiet(ARG1, ARG2,           \
-                                               &env->active_msa.fp_status); \
+                                          &env->active_tc.msa_fp_status);   \
         }                                                                   \
         DEST = cond ? M_MAX_UINT(BITS) : 0;                                 \
         c = update_msacsr(env, CLEAR_IS_INEXACT, 0);                        \
@@ -3445,13 +3445,13 @@ void helper_msa_frsqrt_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
             MSA_FLOAT_RECIPROCAL(pwx->w[i], float32_sqrt(pws->w[i],
-                    &env->active_msa.fp_status), 32);
+                    &env->active_tc.msa_fp_status), 32);
          }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
             MSA_FLOAT_RECIPROCAL(pwx->d[i], float64_sqrt(pws->d[i],
-                    &env->active_msa.fp_status), 64);
+                    &env->active_tc.msa_fp_status), 64);
         }
         break;
     default:
@@ -3466,26 +3466,26 @@ void helper_msa_frsqrt_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
 target_ulong helper_msa_cfcmsa(CPUMIPSState *env, uint32_t cs)
 {
     switch (cs) {
-    case MSAIR_REGISTER:
-        return env->active_msa.msair;
-    case MSACSR_REGISTER:
-        return env->active_msa.msacsr & MSACSR_BITS;
+    case 0:
+        return env->msair;
+    case 1:
+        return env->active_tc.msacsr & MSACSR_MASK;
     }
 
-    if (env->active_msa.msair & MSAIR_WRP_BIT) {
+    if (env->msair & MSAIR_WRP_MASK) {
         switch (cs) {
-        case MSAACCESS_REGISTER:
-            return env->active_msa.msaaccess;
-        case MSASAVE_REGISTER:
-            return env->active_msa.msasave;
-        case MSAMODIFY_REGISTER:
-            return env->active_msa.msamodify;
-        case MSAREQUEST_REGISTER:
-            return env->active_msa.msarequest;
-        case MSAMAP_REGISTER:
-            return env->active_msa.msamap;
-        case MSAUNMAP_REGISTER:
-            return env->active_msa.msaunmap;
+        case 2:
+            return env->active_tc.msaaccess;
+        case 3:
+            return env->active_tc.msasave;
+        case 4:
+            return env->active_tc.msamodify;
+        case 5:
+            return env->active_tc.msarequest;
+        case 6:
+            return env->active_tc.msamap;
+        case 7:
+            return env->active_tc.msaunmap;
         }
     }
     return 0;
@@ -3494,52 +3494,51 @@ target_ulong helper_msa_cfcmsa(CPUMIPSState *env, uint32_t cs)
 void helper_msa_ctcmsa(CPUMIPSState *env, target_ulong elm, uint32_t cd)
 {
     switch (cd) {
-    case MSAIR_REGISTER:
+    case 0:
         break;
-    case MSACSR_REGISTER:
-        env->active_msa.msacsr = (int32_t)elm & MSACSR_BITS;
+    case 1:
+        env->active_tc.msacsr = (int32_t)elm & MSACSR_MASK;
         /* set float_status rounding mode */
         set_float_rounding_mode(
-            ieee_rm[(env->active_msa.msacsr & MSACSR_RM_MASK) >> MSACSR_RM_POS],
-            &env->active_msa.fp_status);
+            ieee_rm[(env->active_tc.msacsr & MSACSR_RM_MASK) >> MSACSR_RM],
+            &env->active_tc.msa_fp_status);
         /* set float_status flush modes */
         set_flush_to_zero(
-          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
-          &env->active_msa.fp_status);
+          (env->active_tc.msacsr & MSACSR_FS_MASK) != 0 ? 1 : 0,
+          &env->active_tc.msa_fp_status);
         set_flush_inputs_to_zero(
-          (env->active_msa.msacsr & MSACSR_FS_BIT) != 0 ? 1 : 0,
-          &env->active_msa.fp_status);
+          (env->active_tc.msacsr & MSACSR_FS_MASK) != 0 ? 1 : 0,
+          &env->active_tc.msa_fp_status);
         /* check exception */
-        if ((GET_FP_ENABLE(env->active_msa.msacsr) | FP_UNIMPLEMENTED)
-            & GET_FP_CAUSE(env->active_msa.msacsr)) {
+        if ((GET_FP_ENABLE(env->active_tc.msacsr) | FP_UNIMPLEMENTED)
+            & GET_FP_CAUSE(env->active_tc.msacsr)) {
             helper_raise_exception(env, EXCP_MSAFPE);
         }
         break;
-    case MSAACCESS_REGISTER:
+    case 2:
         break;
-    case MSASAVE_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msasave = (int32_t)elm;
+    case 3:
+        if (env->msair & MSAIR_WRP_MASK) {
+            env->active_tc.msasave = (int32_t)elm;
         }
         break;
-    case MSAMODIFY_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msamodify = (int32_t)elm;
+    case 4:
+        if (env->msair & MSAIR_WRP_MASK) {
+            env->active_tc.msamodify = (int32_t)elm;
         }
         break;
-    case MSAREQUEST_REGISTER:
+    case 5:
         break;
-    case MSAMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msamap = (int32_t)elm;
-            env->active_msa.msaaccess |= 1 << (int32_t)elm;
-            return;
+    case 6:
+        if (env->msair & MSAIR_WRP_MASK) {
+            env->active_tc.msamap = (int32_t)elm;
+            env->active_tc.msaaccess |= 1 << (int32_t)elm;
         }
         break;
-    case MSAUNMAP_REGISTER:
-        if (env->active_msa.msair & MSAIR_WRP_BIT) {
-            env->active_msa.msaunmap = (int32_t)elm;
-            env->active_msa.msaaccess &= ~(1 << (int32_t)elm);
+    case 7:
+        if (env->msair & MSAIR_WRP_MASK) {
+            env->active_tc.msaunmap = (int32_t)elm;
+            env->active_tc.msaaccess &= ~(1 << (int32_t)elm);
         }
         break;
     }

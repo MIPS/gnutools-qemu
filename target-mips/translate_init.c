@@ -937,33 +937,33 @@ static void msa_reset(CPUMIPSState *env)
 #endif
 
     /* Vector register partitioning not implemented */
-    env->active_msa.msaaccess  = 0;
-    env->active_msa.msasave    = 0;
-    env->active_msa.msarequest = 0;
+    env->active_tc.msaaccess  = 0;
+    env->active_tc.msasave    = 0;
+    env->active_tc.msarequest = 0;
 
     /* MSA CSR:
        - non-signaling floating point exception mode off (NX bit is 0)
        - Cause, Enables, and Flags are all 0
        - round to nearest / ties to even (RM bits are 0) */
-    env->active_msa.msacsr = 0;
+    env->active_tc.msacsr = 0;
 
     /* tininess detected after rounding.*/
     set_float_detect_tininess(float_tininess_after_rounding,
-                              &env->active_msa.fp_status);
+                              &env->active_tc.msa_fp_status);
 
     /* clear float_status exception flags */
-    set_float_exception_flags(0, &env->active_msa.fp_status);
+    set_float_exception_flags(0, &env->active_tc.msa_fp_status);
 
     /* set float_status rounding mode */
     set_float_rounding_mode(float_round_nearest_even,
-                            &env->active_msa.fp_status);
+                            &env->active_tc.msa_fp_status);
 
     /* set float_status flush modes */
-    set_flush_to_zero(0, &env->active_msa.fp_status);
-    set_flush_inputs_to_zero(0, &env->active_msa.fp_status);
+    set_flush_to_zero(0, &env->active_tc.msa_fp_status);
+    set_flush_inputs_to_zero(0, &env->active_tc.msa_fp_status);
 
     /* clear float_status nan mode */
-    set_default_nan_mode(0, &env->active_msa.fp_status);
+    set_default_nan_mode(0, &env->active_tc.msa_fp_status);
 }
 
 #ifdef MIPSSIM_COMPAT

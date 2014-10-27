@@ -4290,8 +4290,8 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        }
        break;
    }
-   if (env->active_msa.msair & MSAIR_WRP_BIT) {
-       env->active_msa.msamodify |= (1 << wd);
+   if (env->msair & MSAIR_WRP_MASK) {
+       env->active_tc.msamodify |= (1 << wd);
    }
 }
 
@@ -4328,7 +4328,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        }
        break;
    }
-   if (env->active_msa.msair & (1 << MSAIR_WRP_POS)) {
-       env->active_msa.msamodify |= (1 << wd);
+   if (env->msair & MSAIR_WRP_MASK) {
+       env->active_tc.msamodify |= (1 << wd);
    }
 }

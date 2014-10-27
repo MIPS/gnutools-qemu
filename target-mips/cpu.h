@@ -88,55 +88,6 @@ union wr_t {
     int64_t d[MSA_WRLEN/64];
 };
 
-typedef struct CPUMIPSMSAContext CPUMIPSMSAContext;
-struct CPUMIPSMSAContext {
-
-#define MSAIR_REGISTER      0
-#define MSACSR_REGISTER     1
-#define MSAACCESS_REGISTER  2
-#define MSASAVE_REGISTER    3
-#define MSAMODIFY_REGISTER  4
-#define MSAREQUEST_REGISTER 5
-#define MSAMAP_REGISTER     6
-#define MSAUNMAP_REGISTER   7
-
-    int32_t msair;
-
-#define MSAIR_WRP_POS 16
-#define MSAIR_WRP_BIT (1 << MSAIR_WRP_POS)
-#define MSAIR_ProcID    8
-#define MSAIR_Rev       0
-    int32_t msacsr;
-
-#define MSACSR_RM_POS   0
-#define MSACSR_RM_MASK  (0x3 << MSACSR_RM_POS)
-
-#define MSACSR_CAUSE_ENABLE_FLAGS_POS 2
-#define MSACSR_CAUSE_ENABLE_FLAGS_MASK \
-    (0xffff << MSACSR_CAUSE_ENABLE_FLAGS_POS)
-
-#define MSACSR_NX_POS 18
-#define MSACSR_NX_BIT (1 << MSACSR_NX_POS)
-
-#define MSACSR_FS_POS 24
-#define MSACSR_FS_BIT (1 << MSACSR_FS_POS)
-
-#define MSACSR_BITS                             \
-    (MSACSR_RM_MASK |                           \
-     MSACSR_CAUSE_ENABLE_FLAGS_MASK |           \
-     MSACSR_FS_BIT |                            \
-     MSACSR_NX_BIT)
-
-    int32_t msaaccess;
-    int32_t msasave;
-    int32_t msamodify;
-    int32_t msarequest;
-    int32_t msamap;
-    int32_t msaunmap;
-
-    float_status fp_status;
-};
-
 typedef union fpr_t fpr_t;
 union fpr_t {
     float64  fd;   /* ieee double precision */
@@ -266,13 +217,32 @@ struct TCState {
     target_ulong CP0_UserLocal;
     uint32_t CP0_BadInstr;
     uint32_t CP0_BadInstrP;
+
+    int32_t msacsr;
+
+#define MSACSR_FS       24
+#define MSACSR_FS_MASK  (1 << MSACSR_FS)
+#define MSACSR_NX       18
+#define MSACSR_NX_MASK  (1 << MSACSR_NX)
+#define MSACSR_Flags    2
+#define MSACSR_CEF_MASK (0xffff << MSACSR_Flags)
+#define MSACSR_RM       0
+#define MSACSR_RM_MASK  (0x3 << MSACSR_RM)
+#define MSACSR_MASK     (MSACSR_RM_MASK | MSACSR_CEF_MASK | MSACSR_NX_MASK | \
+        MSACSR_FS_MASK)
+    int32_t msaaccess;
+    int32_t msasave;
+    int32_t msamodify;
+    int32_t msarequest;
+    int32_t msamap;
+    int32_t msaunmap;
+    float_status msa_fp_status;
 };
 
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
     CPUMIPSFPUContext active_fpu;
-    CPUMIPSMSAContext active_msa;
 
     uint32_t current_tc;
     uint32_t current_fpu;
@@ -281,6 +251,12 @@ struct CPUMIPSState {
     uint32_t PABITS;
     target_ulong SEGMask;
     target_ulong PAMask;
+
+    int32_t msair;
+#define MSAIR_WRP       16
+#define MSAIR_WRP_MASK  (1 << MSAIR_WRP)
+#define MSAIR_ProcID    8
+#define MSAIR_Rev       0
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
