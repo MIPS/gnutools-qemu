@@ -217,12 +217,9 @@ static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
 }
 #endif
 HELPER_LD(lbu, ldub, uint8_t)
+HELPER_LD(lhu, lduw, uint16_t)
 HELPER_LD(lw, ldl, int32_t)
-#ifdef TARGET_MIPS64
 HELPER_LD(ld, ldq, int64_t)
-#endif
-HELPER_LD(ld16, lduw, uint16_t)
-HELPER_LD(ld64, ldq, int64_t)
 #undef HELPER_LD
 
 #if defined(CONFIG_USER_ONLY)
@@ -252,12 +249,9 @@ static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
 }
 #endif
 HELPER_ST(sb, stb, uint8_t)
+HELPER_ST(sh, stw, uint16_t)
 HELPER_ST(sw, stl, uint32_t)
-#ifdef TARGET_MIPS64
 HELPER_ST(sd, stq, uint64_t)
-#endif
-HELPER_ST(st16, stw, uint16_t)
-HELPER_ST(st64, stq, int64_t)
 #undef HELPER_ST
 
 target_ulong helper_clo (target_ulong arg1)
@@ -4273,7 +4267,7 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_HALF:
        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-           pwd->h[i] = do_ld16(env, addr + (i << DF_HALF),
+           pwd->h[i] = do_lhu(env, addr + (i << DF_HALF),
                                env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4285,7 +4279,7 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_DOUBLE:
        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-           pwd->d[i] = do_ld64(env, addr + (i << DF_DOUBLE),
+           pwd->d[i] = do_ld(env, addr + (i << DF_DOUBLE),
                                env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4311,7 +4305,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_HALF:
        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-           do_st16(env, addr + (i << DF_HALF), pwd->h[i],
+           do_sh(env, addr + (i << DF_HALF), pwd->h[i],
                    env->hflags & MIPS_HFLAG_KSU);
        }
        break;
@@ -4323,7 +4317,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
        break;
    case DF_DOUBLE:
        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-           do_st64(env, addr + (i << DF_DOUBLE), pwd->d[i],
+           do_sd(env, addr + (i << DF_DOUBLE), pwd->d[i],
                    env->hflags & MIPS_HFLAG_KSU);
        }
        break;
