@@ -1017,11 +1017,6 @@ static inline int64_t msa_sll_df(uint32_t df, int64_t arg1, int64_t arg2)
     return arg1 << b_arg2;
 }
 
-static inline int64_t msa_slli_df(uint32_t df, int64_t arg1, uint32_t m)
-{
-    return arg1 << m;
-}
-
 static inline int64_t msa_sra_df(uint32_t df, int64_t arg1, int64_t arg2)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
@@ -1035,12 +1030,6 @@ static inline int64_t msa_srl_df(uint32_t df, int64_t arg1, int64_t arg2)
     return u_arg1 >> b_arg2;
 }
 
-static inline int64_t msa_srli_df(uint32_t df, int64_t arg, uint32_t m)
-{
-    uint64_t u_arg = UNSIGNED(arg, df);
-    return u_arg >> m;
-}
-
 static inline int64_t msa_srar_df(uint32_t df, int64_t arg1, int64_t arg2)
 {
     int32_t b_arg2 = BIT_POSITION(arg2, df);
@@ -1049,16 +1038,6 @@ static inline int64_t msa_srar_df(uint32_t df, int64_t arg1, int64_t arg2)
     } else {
         int64_t r_bit = (arg1 >> (b_arg2 - 1)) & 1;
         return (arg1 >> b_arg2) + r_bit;
-    }
-}
-
-static inline int64_t msa_srari_df(uint32_t df, int64_t arg, uint32_t m)
-{
-    if (m == 0) {
-        return arg;
-    } else {
-        int64_t r_bit = (arg >> (m - 1)) & 1;
-        return (arg >> m) + r_bit;
     }
 }
 
@@ -1071,17 +1050,6 @@ static inline int64_t msa_srlr_df(uint32_t df, int64_t arg1, int64_t arg2)
     } else {
         uint64_t r_bit = (u_arg1 >> (b_arg2 - 1)) & 1;
         return (u_arg1 >> b_arg2) + r_bit;
-    }
-}
-
-static inline int64_t msa_srlri_df(uint32_t df, int64_t arg, uint32_t m)
-{
-    uint64_t u_arg = UNSIGNED(arg, df);
-    if (m == 0) {
-        return u_arg;
-    } else {
-        uint64_t r_bit = (u_arg >> (m - 1)) & 1;
-        return (u_arg >> m) + r_bit;
     }
 }
 
@@ -1449,11 +1417,11 @@ MSA_BINOP_IMMU_DF(bnegi, bneg)
 MSA_BINOP_IMMU_DF(bseti, bset)
 MSA_BINOP_IMMU_DF(sat_u, sat_u)
 MSA_BINOP_IMMU_DF(sat_s, sat_s)
-MSA_BINOP_IMMU_DF(slli, slli)
+MSA_BINOP_IMMU_DF(slli, sll)
 MSA_BINOP_IMMU_DF(srai, sra)
-MSA_BINOP_IMMU_DF(srli, srli)
-MSA_BINOP_IMMU_DF(srari, srari)
-MSA_BINOP_IMMU_DF(srlri, srlri)
+MSA_BINOP_IMMU_DF(srli, srl)
+MSA_BINOP_IMMU_DF(srari, srar)
+MSA_BINOP_IMMU_DF(srlri, srlr)
 #undef MSA_BINOP_IMMU_DF
 
 #define MSA_TEROP_DF(func) \
