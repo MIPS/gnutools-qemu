@@ -286,7 +286,7 @@ MSA_FN_DF(vshf_df)
 #undef MSA_DO
 #undef MSA_FN_DF
 
-#define SHF_POS(i, imm) ((i & 0xfc) + ((imm >> (2 * (i & 0x03))) & 0x03))
+#define SHF_POS(i, imm) (((i) & 0xfc) + (((imm) >> (2 * ((i) & 0x03))) & 0x03))
 
 void helper_msa_shf_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
                        uint32_t ws, uint32_t imm)

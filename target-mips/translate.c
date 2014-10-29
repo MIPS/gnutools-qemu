@@ -17913,9 +17913,12 @@ static inline int check_msa_access(CPUMIPSState *env, DisasContext *ctx,
 
 static void gen_check_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
 {
+    /* generates tcg ops to check if any element is 0 */
     /* Note this function only works with MSA_WRLEN = 128 */
     uint64_t eval_zero_or_big = 0;
     uint64_t eval_big = 0;
+    TCGv_i64 t0 = tcg_temp_new_i64();
+    TCGv_i64 t1 = tcg_temp_new_i64();
     switch (df) {
     case DF_BYTE:
         eval_zero_or_big = 0x0101010101010101ULL;
@@ -17934,8 +17937,6 @@ static void gen_check_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
         eval_big = 0x8000000000000000ULL;
         break;
     }
-    TCGv_i64 t0 = tcg_temp_new_i64();
-    TCGv_i64 t1 = tcg_temp_new_i64();
     tcg_gen_subi_i64(t0, msa_wr_d[wt<<1], eval_zero_or_big);
     tcg_gen_andc_i64(t0, t0, msa_wr_d[wt<<1]);
     tcg_gen_andi_i64(t0, t0, eval_big);
@@ -17943,7 +17944,7 @@ static void gen_check_zero_element(TCGv tresult, uint8_t df, uint8_t wt)
     tcg_gen_andc_i64(t1, t1, msa_wr_d[(wt<<1)+1]);
     tcg_gen_andi_i64(t1, t1, eval_big);
     tcg_gen_or_i64(t0, t0, t1);
-    /* if all bits is zero then all element is not zero */
+    /* if all bits are zero then all elements are not zero */
     /* if some bit is non-zero then some element is zero */
     tcg_gen_setcondi_i64(TCG_COND_NE, t0, t0, 0);
     tcg_gen_trunc_i64_tl(tresult, t0);
@@ -17968,7 +17969,7 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
     case OPC_BZ_V:
     case OPC_BNZ_V:
         {
-            TCGv_i64 t0 = tcg_temp_local_new_i64();
+            TCGv_i64 t0 = tcg_temp_new_i64();
             tcg_gen_or_i64(t0, msa_wr_d[wt<<1], msa_wr_d[(wt<<1)+1]);
             tcg_gen_setcondi_i64((op1 == OPC_BZ_V) ?
                     TCG_COND_EQ : TCG_COND_NE, t0, t0, 0);
@@ -17991,8 +17992,7 @@ static void gen_msa_branch(CPUMIPSState *env, DisasContext *ctx, uint32_t op1)
         break;
     }
 
-    int64_t offset = s16 << 2;
-    ctx->btarget = ctx->pc + offset + 4;
+    ctx->btarget = ctx->pc + (s16 << 2) + 4;
 
     ctx->hflags |= MIPS_HFLAG_BC;
     ctx->hflags |= MIPS_HFLAG_BDS32;
