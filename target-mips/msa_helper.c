@@ -54,7 +54,7 @@ static inline void msa_move_v(wr_t *pwd, wr_t *pws)
     }
 }
 
-#define MSA_FN_VECTOR(FUNC, OPERATION)                                  \
+#define MSA_FN_VECTOR(FUNC, DEST, OPERATION)                            \
 void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
         uint32_t wt)                                                    \
 {                                                                       \
@@ -63,12 +63,12 @@ void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
     wr_t *pwt = &(env->active_fpu.fpr[wt].wr);                          \
     uint32_t i;                                                         \
     for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {                      \
-        OPERATION;                                                      \
+        DEST = OPERATION;                                               \
     }                                                                   \
     update_msamodify(env, wd);                                          \
 }
 
-#define MSA_FN_IMM8(FUNC, OPERATION)                                    \
+#define MSA_FN_IMM8(FUNC, DEST, OPERATION)                              \
 void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
         uint32_t i8)                                                    \
 {                                                                       \
@@ -76,36 +76,43 @@ void helper_msa_ ## FUNC(CPUMIPSState *env, uint32_t wd, uint32_t ws,   \
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);                          \
     uint32_t i;                                                         \
     for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {                        \
-        OPERATION;                                                      \
+        DEST = OPERATION;                                               \
     }                                                                   \
     update_msamodify(env, wd);                                          \
 }
 
-MSA_FN_VECTOR(and_v, pwd->d[i] = pws->d[i] & pwt->d[i])
-MSA_FN_IMM8(andi_b, pwd->b[i] = pws->b[i] & i8)
-MSA_FN_VECTOR(or_v, pwd->d[i] = pws->d[i] | pwt->d[i])
-MSA_FN_IMM8(ori_b, pwd->b[i] = pws->b[i] | i8)
-MSA_FN_VECTOR(nor_v, pwd->d[i] = ~(pws->d[i] | pwt->d[i]))
-MSA_FN_IMM8(nori_b, pwd->b[i] = ~(pws->b[i] | i8))
-MSA_FN_VECTOR(xor_v, pwd->d[i] = pws->d[i] ^ pwt->d[i])
-MSA_FN_IMM8(xori_b, pwd->b[i] = pws->b[i] ^ i8)
+MSA_FN_VECTOR(and_v, pwd->d[i], pws->d[i] & pwt->d[i])
+MSA_FN_IMM8(andi_b, pwd->b[i], pws->b[i] & i8)
+MSA_FN_VECTOR(or_v, pwd->d[i], pws->d[i] | pwt->d[i])
+MSA_FN_IMM8(ori_b, pwd->b[i], pws->b[i] | i8)
+MSA_FN_VECTOR(nor_v, pwd->d[i], ~(pws->d[i] | pwt->d[i]))
+MSA_FN_IMM8(nori_b, pwd->b[i], ~(pws->b[i] | i8))
+MSA_FN_VECTOR(xor_v, pwd->d[i], pws->d[i] ^ pwt->d[i])
+MSA_FN_IMM8(xori_b, pwd->b[i], pws->b[i] ^ i8)
 
 #define BIT_MOVE_IF_NOT_ZERO(dest, arg1, arg2, df) \
-            dest = UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
-MSA_FN_VECTOR(bmnz_v, BIT_MOVE_IF_NOT_ZERO(pwd->d[i], pws->d[i], pwt->d[i], \
-        DF_DOUBLE))
-MSA_FN_IMM8(bmnzi_b, BIT_MOVE_IF_NOT_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
+            UNSIGNED(((dest & (~arg2)) | (arg1 & arg2)), df)
+MSA_FN_VECTOR(bmnz_v, pwd->d[i],
+        BIT_MOVE_IF_NOT_ZERO(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE))
+MSA_FN_IMM8(bmnzi_b, pwd->b[i],
+        BIT_MOVE_IF_NOT_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
+#undef BIT_MOVE_IF_NOT_ZERO
 
 #define BIT_MOVE_IF_ZERO(dest, arg1, arg2, df) \
-            dest = UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
-MSA_FN_VECTOR(bmz_v, BIT_MOVE_IF_ZERO(pwd->d[i], pws->d[i], pwt->d[i], \
-        DF_DOUBLE))
-MSA_FN_IMM8(bmzi_b, BIT_MOVE_IF_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
+            UNSIGNED((dest & arg2) | (arg1 & (~arg2)), df)
+MSA_FN_VECTOR(bmz_v, pwd->d[i],
+        BIT_MOVE_IF_ZERO(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE))
+MSA_FN_IMM8(bmzi_b, pwd->b[i],
+        BIT_MOVE_IF_ZERO(pwd->b[i], pws->b[i], i8, DF_BYTE))
+#undef BIT_MOVE_IF_ZERO
 
 #define BIT_SELECT(dest, arg1, arg2, df) \
-            dest = UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
-MSA_FN_VECTOR(bsel_v, BIT_SELECT(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE))
-MSA_FN_IMM8(bseli_b, BIT_SELECT(pwd->b[i], pws->b[i], i8, DF_BYTE))
+            UNSIGNED((arg1 & (~dest)) | (arg2 & dest), df)
+MSA_FN_VECTOR(bsel_v, pwd->d[i],
+        BIT_SELECT(pwd->d[i], pws->d[i], pwt->d[i], DF_DOUBLE))
+MSA_FN_IMM8(bseli_b, pwd->b[i],
+        BIT_SELECT(pwd->b[i], pws->b[i], i8, DF_BYTE))
+#undef BIT_SELECT
 
 #undef MSA_FN_VECTOR
 #undef MSA_FN_IMM8
