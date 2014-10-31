@@ -16930,15 +16930,15 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_LSA: /* OPC_PMON */
         if ((ctx->insn_flags & ISA_MIPS32R6) ||
-            (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) {
+            (env->CP0_Config3 & (1 << CP0C3_MSAP))) {
             decode_opc_special_r6(env, ctx);
         } else {
             /* Pmon entry point, also R4010 selsl */
 #ifdef MIPS_STRICT_STANDARD
-        MIPS_INVAL("PMON / selsl");
-        generate_exception(ctx, EXCP_RI);
+            MIPS_INVAL("PMON / selsl");
+            generate_exception(ctx, EXCP_RI);
 #else
-        gen_helper_0e0i(pmon, sa);
+            gen_helper_0e0i(pmon, sa);
 #endif
         }
         break;
@@ -17030,7 +17030,7 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_DLSA:
         if ((ctx->insn_flags & ISA_MIPS32R6) ||
-            (env->CP0_Config3 & (1 << CP0C3_MSAP)) ) {
+            (env->CP0_Config3 & (1 << CP0C3_MSAP))) {
             decode_opc_special_r6(env, ctx);
         }
         break;

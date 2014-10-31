@@ -689,12 +689,16 @@ static inline int64_t msa_mod_u_df(uint32_t df, int64_t arg1, int64_t arg2)
         ((((uint64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
 
 #define SIGNED_EXTRACT(e, o, a, df)     \
-    e = SIGNED_EVEN(a, df);             \
-    o = SIGNED_ODD(a, df);
+    do {                                \
+        e = SIGNED_EVEN(a, df);         \
+        o = SIGNED_ODD(a, df);          \
+    } while (0);
 
 #define UNSIGNED_EXTRACT(e, o, a, df)   \
-    e = UNSIGNED_EVEN(a, df);           \
-    o = UNSIGNED_ODD(a, df);
+    do {                                \
+        e = UNSIGNED_EVEN(a, df);       \
+        o = UNSIGNED_ODD(a, df);        \
+    } while (0);
 
 static inline int64_t msa_dotp_s_df(uint32_t df, int64_t arg1, int64_t arg2)
 {
@@ -1672,7 +1676,8 @@ static inline int update_msacsr(CPUMIPSState *env, int action, int denormal)
     return c;
 }
 
-static inline int get_enabled_exceptions(const CPUMIPSState *env, int c) {
+static inline int get_enabled_exceptions(const CPUMIPSState *env, int c)
+{
     int enable = GET_FP_ENABLE(env->active_tc.msacsr) | FP_UNIMPLEMENTED;
     return c & enable;
 }
@@ -1933,12 +1938,12 @@ static inline void compare_af(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_AF(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_AF(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_AF(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_AF(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -1991,7 +1996,7 @@ static inline void compare_eq(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_COND(pwx->w[i], eq, pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_COND(pwx->w[i], eq, pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
@@ -2019,12 +2024,12 @@ static inline void compare_ueq(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_UEQ(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_UEQ(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_UEQ(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_UEQ(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -2075,12 +2080,12 @@ static inline void compare_ult(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_ULT(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_ULT(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_ULT(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_ULT(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -2131,12 +2136,12 @@ static inline void compare_ule(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_ULE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_ULE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_ULE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_ULE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -2187,12 +2192,12 @@ static inline void compare_une(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_UNE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_UNE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_UNE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_UNE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -2214,12 +2219,12 @@ static inline void compare_ne(CPUMIPSState *env, wr_t *pwd, wr_t *pws,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_NE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
+            MSA_FLOAT_NE(pwx->w[i], pws->w[i], pwt->w[i], 32, quiet);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_NE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
+            MSA_FLOAT_NE(pwx->d[i], pws->d[i], pwt->d[i], 64, quiet);
         }
         break;
     default:
@@ -2600,13 +2605,13 @@ void helper_msa_fmadd_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_MULADD(pwx->w[i], pwd->w[i],
+            MSA_FLOAT_MULADD(pwx->w[i], pwd->w[i],
                            pws->w[i], pwt->w[i], 0, 32);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_MULADD(pwx->d[i], pwd->d[i],
+            MSA_FLOAT_MULADD(pwx->d[i], pwd->d[i],
                            pws->d[i], pwt->d[i], 0, 64);
         }
         break;
@@ -2633,14 +2638,14 @@ void helper_msa_fmsub_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-          MSA_FLOAT_MULADD(pwx->w[i], pwd->w[i],
+            MSA_FLOAT_MULADD(pwx->w[i], pwd->w[i],
                            pws->w[i], pwt->w[i],
                            float_muladd_negate_product, 32);
       }
       break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-          MSA_FLOAT_MULADD(pwx->d[i], pwd->d[i],
+            MSA_FLOAT_MULADD(pwx->d[i], pwd->d[i],
                            pws->d[i], pwt->d[i],
                            float_muladd_negate_product, 64);
         }
@@ -2957,7 +2962,7 @@ void helper_msa_fmax_a_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-           FMAXMIN_A(max, min, pwx->d[i], pws->d[i], pwt->d[i], 64);
+            FMAXMIN_A(max, min, pwx->d[i], pws->d[i], pwt->d[i], 64);
         }
         break;
     default:
