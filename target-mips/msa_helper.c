@@ -216,7 +216,7 @@ static inline int64_t msa_min_u_df(uint32_t df, int64_t arg1, int64_t arg2)
 
 #define MSA_BINOP_IMM_DF(helper, func)                                  \
 void helper_msa_ ## helper ## _df(CPUMIPSState *env, uint32_t df,       \
-                        uint32_t wd, uint32_t ws, int64_t u5)           \
+                        uint32_t wd, uint32_t ws, int32_t u5)           \
 {                                                                       \
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);                          \
@@ -263,10 +263,9 @@ MSA_BINOP_IMM_DF(mini_u, min_u)
 #undef MSA_BINOP_IMM_DF
 
 void helper_msa_ldi_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
-                       uint32_t s10)
+                       int32_t s10)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    int64_t s64 = ((int64_t)s10 << 54) >> 54;
     uint32_t i;
 
     switch (df) {
@@ -277,17 +276,17 @@ void helper_msa_ldi_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
         break;
     case DF_HALF:
         for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwd->h[i] = (int16_t)s64;
+            pwd->h[i] = (int16_t)s10;
         }
         break;
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwd->w[i] = (int32_t)s64;
+            pwd->w[i] = (int32_t)s10;
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwd->d[i] = s64;
+            pwd->d[i] = (int64_t)s10;
         }
        break;
     default:
@@ -689,16 +688,20 @@ static inline int64_t msa_mod_u_df(uint32_t df, int64_t arg1, int64_t arg2)
 #define UNSIGNED_ODD(a, df) \
         ((((uint64_t)(a)) << (64 - DF_BITS(df))) >> (64 - DF_BITS(df)/2))
 
-#define SIGNED_EXTRACT(e, o, a, df)             \
-    int64_t e = SIGNED_EVEN(a, df);             \
-    int64_t o = SIGNED_ODD(a, df);
+#define SIGNED_EXTRACT(e, o, a, df)     \
+    e = SIGNED_EVEN(a, df);             \
+    o = SIGNED_ODD(a, df);
 
-#define UNSIGNED_EXTRACT(e, o, a, df)           \
-    int64_t e = UNSIGNED_EVEN(a, df);           \
-    int64_t o = UNSIGNED_ODD(a, df);
+#define UNSIGNED_EXTRACT(e, o, a, df)   \
+    e = UNSIGNED_EVEN(a, df);           \
+    o = UNSIGNED_ODD(a, df);
 
 static inline int64_t msa_dotp_s_df(uint32_t df, int64_t arg1, int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
@@ -706,6 +709,10 @@ static inline int64_t msa_dotp_s_df(uint32_t df, int64_t arg1, int64_t arg2)
 
 static inline int64_t msa_dotp_u_df(uint32_t df, int64_t arg1, int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
@@ -908,6 +915,10 @@ static inline int64_t msa_msubv_df(uint32_t df, int64_t dest, int64_t arg1,
 static inline int64_t msa_dpadd_s_df(uint32_t df, int64_t dest, int64_t arg1,
                                      int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
@@ -916,6 +927,10 @@ static inline int64_t msa_dpadd_s_df(uint32_t df, int64_t dest, int64_t arg1,
 static inline int64_t msa_dpadd_u_df(uint32_t df, int64_t dest, int64_t arg1,
                                      int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return dest + (even_arg1 * even_arg2) + (odd_arg1 * odd_arg2);
@@ -924,6 +939,10 @@ static inline int64_t msa_dpadd_u_df(uint32_t df, int64_t dest, int64_t arg1,
 static inline int64_t msa_dpsub_s_df(uint32_t df, int64_t dest, int64_t arg1,
                                      int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     SIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     SIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
@@ -932,6 +951,10 @@ static inline int64_t msa_dpsub_s_df(uint32_t df, int64_t dest, int64_t arg1,
 static inline int64_t msa_dpsub_u_df(uint32_t df, int64_t dest, int64_t arg1,
                                      int64_t arg2)
 {
+    int64_t even_arg1;
+    int64_t even_arg2;
+    int64_t odd_arg1;
+    int64_t odd_arg2;
     UNSIGNED_EXTRACT(even_arg1, odd_arg1, arg1, df);
     UNSIGNED_EXTRACT(even_arg2, odd_arg2, arg2, df);
     return dest - ((even_arg1 * even_arg2) + (odd_arg1 * odd_arg2));
@@ -2848,22 +2871,22 @@ void helper_msa_ftq_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     } while (0)
 
 #define FMAXMIN_A(F, G, X, _S, _T, BITS)                            \
-{                                                                   \
-    uint## BITS ##_t S = _S, T = _T;                                \
-    if (NUMBER_QNAN_PAIR(S, T, BITS)) {                             \
-        T = S;                                                      \
-    }                                                               \
-    else if (NUMBER_QNAN_PAIR(T, S, BITS)) {                        \
-        S = T;                                                      \
-    }                                                               \
-    uint## BITS ##_t as = float## BITS ##_abs(S);                   \
-    uint## BITS ##_t at = float## BITS ##_abs(T);                   \
-    uint## BITS ##_t xs, xt, xd;                                    \
-    MSA_FLOAT_MAXOP(xs, F,  S,  T, BITS);                           \
-    MSA_FLOAT_MAXOP(xt, G,  S,  T, BITS);                           \
-    MSA_FLOAT_MAXOP(xd, F, as, at, BITS);                           \
-    X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;      \
-}
+    do {                                                            \
+        uint## BITS ##_t S = _S, T = _T;                            \
+        uint## BITS ##_t as, at, xs, xt, xd;                        \
+        if (NUMBER_QNAN_PAIR(S, T, BITS)) {                         \
+            T = S;                                                  \
+        }                                                           \
+        else if (NUMBER_QNAN_PAIR(T, S, BITS)) {                    \
+            S = T;                                                  \
+        }                                                           \
+        as = float## BITS ##_abs(S);                                \
+        at = float## BITS ##_abs(T);                                \
+        MSA_FLOAT_MAXOP(xs, F,  S,  T, BITS);                       \
+        MSA_FLOAT_MAXOP(xt, G,  S,  T, BITS);                       \
+        MSA_FLOAT_MAXOP(xd, F, as, at, BITS);                       \
+        X = (as == at || xd == float## BITS ##_abs(xs)) ? xs : xt;  \
+    } while (0)
 
 void helper_msa_fmin_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
         uint32_t ws, uint32_t wt)

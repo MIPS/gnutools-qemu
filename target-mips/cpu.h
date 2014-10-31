@@ -224,8 +224,8 @@ struct TCState {
 #define MSACSR_FS_MASK  (1 << MSACSR_FS)
 #define MSACSR_NX       18
 #define MSACSR_NX_MASK  (1 << MSACSR_NX)
-#define MSACSR_Flags    2
-#define MSACSR_CEF_MASK (0xffff << MSACSR_Flags)
+#define MSACSR_CEF      2
+#define MSACSR_CEF_MASK (0xffff << MSACSR_CEF)
 #define MSACSR_RM       0
 #define MSACSR_RM_MASK  (0x3 << MSACSR_RM)
 #define MSACSR_MASK     (MSACSR_RM_MASK | MSACSR_CEF_MASK | MSACSR_NX_MASK | \
