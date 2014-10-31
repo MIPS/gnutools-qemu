@@ -19136,7 +19136,7 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     case OPC_ST_W:
     case OPC_ST_D:
         {
-            int64_t s10 = sextract32(ctx->opcode, 16, 10);
+            int32_t s10 = sextract32(ctx->opcode, 16, 10);
             uint8_t rs = (ctx->opcode >> 11) & 0x1f;
             uint8_t wd = (ctx->opcode >> 6) & 0x1f;
             uint8_t df = (ctx->opcode >> 0) & 0x3;
@@ -19144,7 +19144,7 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
             TCGv_i32 tdf = tcg_const_i32(df);
             TCGv_i32 twd = tcg_const_i32(wd);
             TCGv_i32 trs = tcg_const_i32(rs);
-            TCGv_i64 ts10 = tcg_const_i64(s10);
+            TCGv_i32 ts10 = tcg_const_i32(s10);
 
             switch (MASK_MSA_MINOR(opcode)) {
             case OPC_LD_B:
@@ -19166,7 +19166,7 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
             tcg_temp_free_i32(twd);
             tcg_temp_free_i32(tdf);
             tcg_temp_free_i32(trs);
-            tcg_temp_free_i64(ts10);
+            tcg_temp_free_i32(ts10);
         }
         break;
     default:

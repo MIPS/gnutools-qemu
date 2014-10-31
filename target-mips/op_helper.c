@@ -4252,7 +4252,7 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
 #define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
 
 void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int64_t s10)
+                     int32_t s10)
 {
    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
@@ -4290,7 +4290,7 @@ void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
 }
 
 void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int64_t s10)
+                     int32_t s10)
 {
    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
