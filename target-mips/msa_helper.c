@@ -729,7 +729,7 @@ static inline int64_t msa_dotp_u_df(uint32_t df, int64_t arg1, int64_t arg2)
         }                                       \
     } while (0)
 
-static inline void msa_sld_df(CPUMIPSState *env, uint32_t df, wr_t *pwd,
+static inline void msa_sld_df(uint32_t df, wr_t *pwd,
                               wr_t *pws, target_ulong rt)
 {
     uint32_t n = rt % DF_ELEMENTS(df);
@@ -896,7 +896,7 @@ void helper_msa_sld_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_sld_df(env, df, pwd, pws, env->active_tc.gpr[rt]);
+    msa_sld_df(df, pwd, pws, env->active_tc.gpr[rt]);
     update_msamodify(env, wd);
 }
 
@@ -1072,7 +1072,7 @@ MSA_TEROP_DF(maddr_q)
 MSA_TEROP_DF(msubr_q)
 #undef MSA_TEROP_DF
 
-static inline void msa_splat_df(CPUMIPSState *env, uint32_t df, wr_t *pwd,
+static inline void msa_splat_df(uint32_t df, wr_t *pwd,
                                 wr_t *pws, target_ulong rt)
 {
     uint32_t n = rt % DF_ELEMENTS(df);
@@ -1110,7 +1110,7 @@ void helper_msa_splat_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_splat_df(env, df, pwd, pws, env->active_tc.gpr[rt]);
+    msa_splat_df(df, pwd, pws, env->active_tc.gpr[rt]);
     update_msamodify(env, wd);
 }
 
@@ -1245,7 +1245,7 @@ void helper_msa_sldi_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_sld_df(env, df, pwd, pws, n);
+    msa_sld_df(df, pwd, pws, n);
     update_msamodify(env, wd);
 }
 
@@ -1255,7 +1255,7 @@ void helper_msa_splati_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_splat_df(env, df, pwd, pws, n);
+    msa_splat_df(df, pwd, pws, n);
     update_msamodify(env, wd);
 }
 
