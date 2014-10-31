@@ -1562,73 +1562,6 @@ void helper_msa_ ## func ## _df(CPUMIPSState *env, uint32_t df,         \
 MSA_UNOP_DF(nlzc)
 MSA_UNOP_DF(nloc)
 MSA_UNOP_DF(pcnt)
-
-#define MSA_FLOAT_CLASS_SIGNALING_NAN      0x001
-#define MSA_FLOAT_CLASS_QUIET_NAN          0x002
-
-#define MSA_FLOAT_CLASS_NEGATIVE_INFINITY  0x004
-#define MSA_FLOAT_CLASS_NEGATIVE_NORMAL    0x008
-#define MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
-#define MSA_FLOAT_CLASS_NEGATIVE_ZERO      0x020
-
-#define MSA_FLOAT_CLASS_POSITIVE_INFINITY  0x040
-#define MSA_FLOAT_CLASS_POSITIVE_NORMAL    0x080
-#define MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
-#define MSA_FLOAT_CLASS_POSITIVE_ZERO      0x200
-
-#define MSA_FLOAT_CLASS(ARG, BITS)                              \
-    do {                                                        \
-        int mask;                                               \
-        int snan, qnan, inf, neg, zero, dnmz;                   \
-                                                                \
-        snan = float ## BITS ## _is_signaling_nan(ARG);         \
-        qnan = float ## BITS ## _is_quiet_nan(ARG);             \
-        inf  = float ## BITS ## _is_infinity(ARG);              \
-        neg  = float ## BITS ## _is_neg(ARG);                   \
-        zero = float ## BITS ## _is_zero(ARG);                  \
-        dnmz = float ## BITS ## _is_zero_or_denormal(ARG);      \
-                                                                \
-        mask = 0;                                               \
-        if (snan) {                                             \
-            mask |= MSA_FLOAT_CLASS_SIGNALING_NAN;              \
-        }                                                       \
-        else if (qnan) {                                        \
-            mask |= MSA_FLOAT_CLASS_QUIET_NAN;                  \
-        } else if (neg) {                                       \
-            if (inf) {                                          \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_SUBNORMAL;     \
-            }                                                   \
-            else {                                              \
-                mask |= MSA_FLOAT_CLASS_NEGATIVE_NORMAL;        \
-            }                                                   \
-        } else {                                                \
-            if (inf) {                                          \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_INFINITY;      \
-            } else if (zero) {                                  \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_ZERO;          \
-            } else if (dnmz) {                                  \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_SUBNORMAL;     \
-            } else {                                            \
-                mask |= MSA_FLOAT_CLASS_POSITIVE_NORMAL;        \
-            }                                                   \
-        }                                                       \
-        return mask;                                            \
-    } while (0)
-
-static inline int64_t msa_fclass_df(uint32_t df, int64_t arg)
-{
-    if (df == DF_WORD) {
-        MSA_FLOAT_CLASS(arg, 32);
-    } else {
-        MSA_FLOAT_CLASS(arg, 64);
-    }
-}
-
-MSA_UNOP_DF(fclass)
 #undef MSA_UNOP_DF
 
 #define FLOAT_ONE32 make_float32(0x3f8 << 20)
@@ -3034,6 +2967,22 @@ void helper_msa_fmax_a_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     check_msacsr_cause(env);
 
     msa_move_v(pwd, pwx);
+}
+
+void helper_msa_fclass_df(CPUMIPSState *env, uint32_t df,
+        uint32_t wd, uint32_t ws)
+{
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
+    wr_t *pws = &(env->active_fpu.fpr[ws].wr);
+    if (df == DF_WORD) {
+        pwd->w[0] = helper_float_class_s(pws->w[0]);
+        pwd->w[1] = helper_float_class_s(pws->w[1]);
+        pwd->w[2] = helper_float_class_s(pws->w[2]);
+        pwd->w[3] = helper_float_class_s(pws->w[3]);
+    } else {
+        pwd->d[0] = helper_float_class_d(pws->d[0]);
+        pwd->d[1] = helper_float_class_d(pws->d[1]);
+    }
 }
 
 #define MSA_FLOAT_UNOP0(DEST, OP, ARG, BITS)                                \
