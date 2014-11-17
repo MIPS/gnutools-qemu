@@ -19270,7 +19270,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #else
 	    {
 #endif
-                gen_compute_branch(ctx, op1, 4, rs, -1, imm << 2);
+                gen_compute_branch(ctx, op1, 4, rs, -1, imm << 2, 4);
             }
             break;
         case OPC_TGEI ... OPC_TEQI: /* REGIMM traps */

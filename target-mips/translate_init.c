@@ -593,7 +593,7 @@ static mips_def_t mips_defs[] =
         .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 32,
         .PABITS = 32,
-        .insn_flags = CPU_MIPS32R6 | INSN_TLBINV | ASE_MSA,
+        .insn_flags = CPU_MIPS32R6 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
 #if defined(TARGET_MIPS64)
