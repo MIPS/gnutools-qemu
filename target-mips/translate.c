@@ -18642,6 +18642,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     if (ctx->pc & 0x3) {
         env->CP0_BadVAddr = ctx->pc;
         generate_exception_err(ctx, EXCP_AdEL, EXCP_INST_NOTAVAIL);
+        ctx->bstate = BS_STOP;
         return;
     }
 
