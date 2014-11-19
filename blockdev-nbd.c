@@ -27,8 +27,9 @@ static void nbd_accept(void *opaque)
     socklen_t addr_len = sizeof(addr);
 
     int fd = accept(server_fd, (struct sockaddr *)&addr, &addr_len);
-    if (fd >= 0) {
-        nbd_client_new(NULL, fd, nbd_client_put);
+    if (fd >= 0 && !nbd_client_new(NULL, fd, nbd_client_put)) {
+        shutdown(fd, 2);
+        close(fd);
     }
 }
 
@@ -91,6 +92,10 @@ void qmp_nbd_server_add(const char *device, bool has_writable, bool writable,
         error_set(errp, QERR_DEVICE_NOT_FOUND, device);
         return;
     }
+    if (!bdrv_is_inserted(bs)) {
+        error_set(errp, QERR_DEVICE_HAS_NO_MEDIUM, device);
+        return;
+    }
 
     if (!has_writable) {
         writable = false;
@@ -103,7 +108,7 @@ void qmp_nbd_server_add(const char *device, bool has_writable, bool writable,
 
     nbd_export_set_name(exp, device);
 
-    n = g_malloc0(sizeof(NBDCloseNotifier));
+    n = g_new0(NBDCloseNotifier, 1);
     n->n.notify = nbd_close_notifier;
     n->exp = exp;
     bdrv_add_close_notifier(bs, &n->n);

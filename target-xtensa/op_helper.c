@@ -26,33 +26,17 @@
  */
 
 #include "cpu.h"
-#include "helper.h"
+#include "exec/helper-proto.h"
 #include "qemu/host-utils.h"
-#include "exec/softmmu_exec.h"
+#include "exec/cpu_ldst.h"
 #include "exec/address-spaces.h"
+#include "qemu/timer.h"
 
-static void do_unaligned_access(CPUXtensaState *env,
-        target_ulong addr, int is_write, int is_user, uintptr_t retaddr);
-
-#define ALIGNED_ONLY
-#define MMUSUFFIX _mmu
-
-#define SHIFT 0
-#include "exec/softmmu_template.h"
-
-#define SHIFT 1
-#include "exec/softmmu_template.h"
-
-#define SHIFT 2
-#include "exec/softmmu_template.h"
-
-#define SHIFT 3
-#include "exec/softmmu_template.h"
-
-static void do_unaligned_access(CPUXtensaState *env,
-        target_ulong addr, int is_write, int is_user, uintptr_t retaddr)
+void xtensa_cpu_do_unaligned_access(CPUState *cs,
+        vaddr addr, int is_write, int is_user, uintptr_t retaddr)
 {
-    XtensaCPU *cpu = xtensa_env_get_cpu(env);
+    XtensaCPU *cpu = XTENSA_CPU(cs);
+    CPUXtensaState *env = &cpu->env;
 
     if (xtensa_option_enabled(env->config, XTENSA_OPTION_UNALIGNED_EXCEPTION) &&
             !xtensa_option_enabled(env->config, XTENSA_OPTION_HW_ALIGNMENT)) {
@@ -251,6 +235,12 @@ void HELPER(entry)(CPUXtensaState *env, uint32_t pc, uint32_t s, uint32_t imm)
                 pc, env->sregs[PS]);
         HELPER(exception_cause)(env, pc, ILLEGAL_INSTRUCTION_CAUSE);
     } else {
+        uint32_t windowstart = xtensa_replicate_windowstart(env) >>
+            (env->sregs[WINDOW_BASE] + 1);
+
+        if (windowstart & ((1 << callinc) - 1)) {
+            HELPER(window_check)(env, pc, callinc);
+        }
         env->regs[(callinc << 2) | (s & 3)] = env->regs[s] - (imm << 3);
         rotate_window(env, callinc);
         env->sregs[WINDOW_START] |=

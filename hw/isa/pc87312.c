@@ -25,6 +25,7 @@
 
 #include "hw/isa/pc87312.h"
 #include "qemu/error-report.h"
+#include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/char.h"
@@ -84,11 +85,6 @@ static inline uint32_t get_parallel_irq(PC87312State *s)
     } else {
         return parallel_irq[idx];
     }
-}
-
-static inline bool is_parallel_epp(PC87312State *s)
-{
-    return s->regs[REG_PTR] & PTR_EPP_MODE;
 }
 
 
@@ -325,11 +321,13 @@ static void pc87312_realize(DeviceState *dev, Error **errp)
         qdev_prop_set_uint32(d, "irq", 6);
         drive = drive_get(IF_FLOPPY, 0, 0);
         if (drive != NULL) {
-            qdev_prop_set_drive_nofail(d, "driveA", drive->bdrv);
+            qdev_prop_set_drive_nofail(d, "driveA",
+                                       blk_by_legacy_dinfo(drive));
         }
         drive = drive_get(IF_FLOPPY, 0, 1);
         if (drive != NULL) {
-            qdev_prop_set_drive_nofail(d, "driveB", drive->bdrv);
+            qdev_prop_set_drive_nofail(d, "driveB",
+                                       blk_by_legacy_dinfo(drive));
         }
         qdev_init_nofail(d);
         s->fdc.dev = isa;

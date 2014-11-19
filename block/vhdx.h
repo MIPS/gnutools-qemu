@@ -23,6 +23,7 @@
 #define GiB            (MiB * 1024)
 #define TiB ((uint64_t) GiB * 1024)
 
+#define DEFAULT_LOG_SIZE 1048576 /* 1MiB */
 /* Structures and fields present in the VHDX file */
 
 /* The header section has the following blocks,
@@ -434,6 +435,7 @@ void vhdx_header_le_import(VHDXHeader *h);
 void vhdx_header_le_export(VHDXHeader *orig_h, VHDXHeader *new_h);
 void vhdx_log_desc_le_import(VHDXLogDescriptor *d);
 void vhdx_log_desc_le_export(VHDXLogDescriptor *d);
+void vhdx_log_data_le_import(VHDXLogDataSector *d);
 void vhdx_log_data_le_export(VHDXLogDataSector *d);
 void vhdx_log_entry_hdr_le_import(VHDXLogEntryHeader *hdr);
 void vhdx_log_entry_hdr_le_export(VHDXLogEntryHeader *hdr);

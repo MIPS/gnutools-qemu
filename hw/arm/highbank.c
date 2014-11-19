@@ -24,7 +24,7 @@
 #include "net/net.h"
 #include "sysemu/sysemu.h"
 #include "hw/boards.h"
-#include "sysemu/blockdev.h"
+#include "sysemu/block-backend.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
 
@@ -134,7 +134,6 @@ static VMStateDescription vmstate_highbank_regs = {
     .name = "highbank-regs",
     .version_id = 0,
     .minimum_version_id = 0,
-    .minimum_version_id_old = 0,
     .fields = (VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, HighbankRegsState, NUM_REGS),
         VMSTATE_END_OF_LIST(),
@@ -200,13 +199,13 @@ enum cxmachines {
  * 32-bit host, set the reg value of memory to 0xf7ff00000 in the
  * device tree and pass -m 2047 to QEMU.
  */
-static void calxeda_init(QEMUMachineInitArgs *args, enum cxmachines machine)
+static void calxeda_init(MachineState *machine, enum cxmachines machine_id)
 {
-    ram_addr_t ram_size = args->ram_size;
-    const char *cpu_model = args->cpu_model;
-    const char *kernel_filename = args->kernel_filename;
-    const char *kernel_cmdline = args->kernel_cmdline;
-    const char *initrd_filename = args->initrd_filename;
+    ram_addr_t ram_size = machine->ram_size;
+    const char *cpu_model = machine->cpu_model;
+    const char *kernel_filename = machine->kernel_filename;
+    const char *kernel_cmdline = machine->kernel_cmdline;
+    const char *initrd_filename = machine->initrd_filename;
     DeviceState *dev = NULL;
     SysBusDevice *busdev;
     qemu_irq pic[128];
@@ -218,7 +217,7 @@ static void calxeda_init(QEMUMachineInitArgs *args, enum cxmachines machine)
     char *sysboot_filename;
 
     if (!cpu_model) {
-        switch (machine) {
+        switch (machine_id) {
         case CALXEDA_HIGHBANK:
             cpu_model = "cortex-a9";
             break;
@@ -256,12 +255,13 @@ static void calxeda_init(QEMUMachineInitArgs *args, enum cxmachines machine)
 
     sysmem = get_system_memory();
     dram = g_new(MemoryRegion, 1);
-    memory_region_init_ram(dram, NULL, "highbank.dram", ram_size);
+    memory_region_init_ram(dram, NULL, "highbank.dram", ram_size, &error_abort);
     /* SDRAM at address zero.  */
     memory_region_add_subregion(sysmem, 0, dram);
 
     sysram = g_new(MemoryRegion, 1);
-    memory_region_init_ram(sysram, NULL, "highbank.sysram", 0x8000);
+    memory_region_init_ram(sysram, NULL, "highbank.sysram", 0x8000,
+                           &error_abort);
     memory_region_add_subregion(sysmem, 0xfff88000, sysram);
     if (bios_name != NULL) {
         sysboot_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
@@ -275,7 +275,7 @@ static void calxeda_init(QEMUMachineInitArgs *args, enum cxmachines machine)
         }
     }
 
-    switch (machine) {
+    switch (machine_id) {
     case CALXEDA_HIGHBANK:
         dev = qdev_create(NULL, "l2x0");
         qdev_init_nofail(dev);
@@ -360,14 +360,14 @@ static void calxeda_init(QEMUMachineInitArgs *args, enum cxmachines machine)
     arm_load_kernel(ARM_CPU(first_cpu), &highbank_binfo);
 }
 
-static void highbank_init(QEMUMachineInitArgs *args)
+static void highbank_init(MachineState *machine)
 {
-    calxeda_init(args, CALXEDA_HIGHBANK);
+    calxeda_init(machine, CALXEDA_HIGHBANK);
 }
 
-static void midway_init(QEMUMachineInitArgs *args)
+static void midway_init(MachineState *machine)
 {
-    calxeda_init(args, CALXEDA_MIDWAY);
+    calxeda_init(machine, CALXEDA_MIDWAY);
 }
 
 static QEMUMachine highbank_machine = {

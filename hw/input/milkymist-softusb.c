@@ -156,31 +156,6 @@ static inline void softusb_write_dmem(MilkymistSoftUsbState *s,
     memcpy(s->dmem_ptr + offset, buf, len);
 }
 
-static inline void softusb_read_pmem(MilkymistSoftUsbState *s,
-        uint32_t offset, uint8_t *buf, uint32_t len)
-{
-    if (offset + len >= s->pmem_size) {
-        error_report("milkymist_softusb: read pmem out of bounds "
-                "at offset 0x%x, len %d", offset, len);
-        memset(buf, 0, len);
-        return;
-    }
-
-    memcpy(buf, s->pmem_ptr + offset, len);
-}
-
-static inline void softusb_write_pmem(MilkymistSoftUsbState *s,
-        uint32_t offset, uint8_t *buf, uint32_t len)
-{
-    if (offset + len >= s->pmem_size) {
-        error_report("milkymist_softusb: write pmem out of bounds "
-                "at offset 0x%x, len %d", offset, len);
-        return;
-    }
-
-    memcpy(s->pmem_ptr + offset, buf, len);
-}
-
 static void softusb_mouse_changed(MilkymistSoftUsbState *s)
 {
     uint8_t m;
@@ -275,12 +250,12 @@ static int milkymist_softusb_init(SysBusDevice *dev)
 
     /* register pmem and dmem */
     memory_region_init_ram(&s->pmem, OBJECT(s), "milkymist-softusb.pmem",
-                           s->pmem_size);
+                           s->pmem_size, &error_abort);
     vmstate_register_ram_global(&s->pmem);
     s->pmem_ptr = memory_region_get_ram_ptr(&s->pmem);
     sysbus_init_mmio(dev, &s->pmem);
     memory_region_init_ram(&s->dmem, OBJECT(s), "milkymist-softusb.dmem",
-                           s->dmem_size);
+                           s->dmem_size, &error_abort);
     vmstate_register_ram_global(&s->dmem);
     s->dmem_ptr = memory_region_get_ram_ptr(&s->dmem);
     sysbus_init_mmio(dev, &s->dmem);
@@ -295,8 +270,7 @@ static const VMStateDescription vmstate_milkymist_softusb = {
     .name = "milkymist-softusb",
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField[]) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, MilkymistSoftUsbState, R_MAX),
         VMSTATE_HID_KEYBOARD_DEVICE(hid_kbd, MilkymistSoftUsbState),
         VMSTATE_HID_POINTER_DEVICE(hid_mouse, MilkymistSoftUsbState),

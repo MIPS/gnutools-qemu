@@ -33,14 +33,16 @@
 #include "tcg-op.h"
 #include "qemu/log.h"
 #include "qemu/host-utils.h"
+#include "exec/cpu_ldst.h"
 
 /* global register indexes */
 static TCGv_ptr cpu_env;
 
 #include "exec/gen-icount.h"
-#include "helper.h"
-#define GEN_HELPER 1
-#include "helper.h"
+#include "exec/helper-proto.h"
+#include "exec/helper-gen.h"
+
+#include "trace-tcg.h"
 
 
 /* Information that (most) every instruction needs to manipulate.  */
@@ -262,11 +264,6 @@ static inline uint64_t ld_code2(CPUS390XState *env, uint64_t pc)
 static inline uint64_t ld_code4(CPUS390XState *env, uint64_t pc)
 {
     return (uint64_t)(uint32_t)cpu_ldl_code(env, pc);
-}
-
-static inline uint64_t ld_code6(CPUS390XState *env, uint64_t pc)
-{
-    return (ld_code2(env, pc) << 32) | ld_code4(env, pc + 2);
 }
 
 static int get_mem_index(DisasContext *s)
@@ -2926,6 +2923,18 @@ static ExitStatus op_sacf(DisasContext *s, DisasOps *o)
     check_privileged(s);
     gen_helper_sacf(cpu_env, o->in2);
     /* Addressing mode has changed, so end the block.  */
+    return EXIT_PC_STALE;
+}
+
+static ExitStatus op_sam(DisasContext *s, DisasOps *o)
+{
+    int sam = s->insn->data;
+    TCGv_i64 tsam = tcg_const_i64(sam);
+
+    /* Overwrite PSW_MASK_64 and PSW_MASK_32 */
+    tcg_gen_deposit_i64(psw_mask, psw_mask, tsam, 31, 2);
+
+    tcg_temp_free_i64(tsam);
     return EXIT_PC_STALE;
 }
 #endif

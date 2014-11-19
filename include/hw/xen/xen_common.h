@@ -144,6 +144,13 @@ static inline int xen_xc_hvm_inject_msi(XenXC xen_xc, domid_t dom,
 {
     return -ENOSYS;
 }
+/* The followings are only to compile op_discard related code on older
+ * Xen releases. */
+#define BLKIF_OP_DISCARD 5
+struct blkif_request_discard {
+    uint64_t nr_sectors;
+    uint64_t sector_number;
+};
 #else
 static inline int xen_xc_hvm_inject_msi(XenXC xen_xc, domid_t dom,
         uint64_t addr, uint32_t data)
@@ -156,5 +163,20 @@ void destroy_hvm_domain(bool reboot);
 
 /* shutdown/destroy current domain because of an error */
 void xen_shutdown_fatal_error(const char *fmt, ...) GCC_FMT_ATTR(1, 2);
+
+#ifdef HVM_PARAM_VMPORT_REGS_PFN
+static inline int xen_get_vmport_regs_pfn(XenXC xc, domid_t dom,
+                                          unsigned long *vmport_regs_pfn)
+{
+    return xc_get_hvm_param(xc, dom, HVM_PARAM_VMPORT_REGS_PFN,
+                            vmport_regs_pfn);
+}
+#else
+static inline int xen_get_vmport_regs_pfn(XenXC xc, domid_t dom,
+                                          unsigned long *vmport_regs_pfn)
+{
+    return -ENOSYS;
+}
+#endif
 
 #endif /* QEMU_HW_XEN_COMMON_H */

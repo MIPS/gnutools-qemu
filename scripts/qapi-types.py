@@ -177,6 +177,8 @@ const int %(name)s_qtypes[QTYPE_MAX] = {
             qtype = "QTYPE_QDICT"
         elif find_union(qapi_type):
             qtype = "QTYPE_QDICT"
+        elif find_enum(qapi_type):
+            qtype = "QTYPE_QSTRING"
         else:
             assert False, "Invalid anonymous union member"
 
@@ -279,14 +281,15 @@ void qapi_free_%(type)s(%(c_type)s obj)
 
 
 try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "chbp:o:",
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "chbp:i:o:",
                                    ["source", "header", "builtins",
-                                    "prefix=", "output-dir="])
+                                    "prefix=", "input-file=", "output-dir="])
 except getopt.GetoptError, err:
     print str(err)
     sys.exit(1)
 
 output_dir = ""
+input_file = ""
 prefix = ""
 c_file = 'qapi-types.c'
 h_file = 'qapi-types.h'
@@ -298,6 +301,8 @@ do_builtins = False
 for o, a in opts:
     if o in ("-p", "--prefix"):
         prefix = a
+    elif o in ("-i", "--input-file"):
+        input_file = a
     elif o in ("-o", "--output-dir"):
         output_dir = a + "/"
     elif o in ("-c", "--source"):
@@ -378,7 +383,7 @@ fdecl.write(mcgen('''
 ''',
                   guard=guardname(h_file)))
 
-exprs = parse_schema(sys.stdin)
+exprs = parse_schema(input_file)
 exprs = filter(lambda expr: not expr.has_key('gen'), exprs)
 
 fdecl.write(guardstart("QAPI_TYPES_BUILTIN_STRUCT_DECL"))
