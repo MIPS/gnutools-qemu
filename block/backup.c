@@ -227,9 +227,25 @@ static BlockErrorAction backup_error_action(BackupBlockJob *job,
     }
 }
 
+typedef struct {
+    int ret;
+} BackupCompleteData;
+
+static void backup_complete(BlockJob *job, void *opaque)
+{
+    BackupBlockJob *s = container_of(job, BackupBlockJob, common);
+    BackupCompleteData *data = opaque;
+
+    bdrv_unref(s->target);
+
+    block_job_completed(job, data->ret);
+    g_free(data);
+}
+
 static void coroutine_fn backup_run(void *opaque)
 {
     BackupBlockJob *job = opaque;
+    BackupCompleteData *data;
     BlockDriverState *bs = job->common.bs;
     BlockDriverState *target = job->target;
     BlockdevOnError on_target_error = job->on_target_error;
@@ -307,7 +323,7 @@ static void coroutine_fn backup_run(void *opaque)
                                 BACKUP_SECTORS_PER_CLUSTER - i, &n);
                     i += n;
 
-                    if (alloced == 1) {
+                    if (alloced == 1 || n == 0) {
                         break;
                     }
                 }
@@ -325,7 +341,7 @@ static void coroutine_fn backup_run(void *opaque)
                 /* Depending on error action, fail now or retry cluster */
                 BlockErrorAction action =
                     backup_error_action(job, error_is_read, -ret);
-                if (action == BDRV_ACTION_REPORT) {
+                if (action == BLOCK_ERROR_ACTION_REPORT) {
                     break;
                 } else {
                     start--;
@@ -344,16 +360,17 @@ static void coroutine_fn backup_run(void *opaque)
     hbitmap_free(job->bitmap);
 
     bdrv_iostatus_disable(target);
-    bdrv_unref(target);
 
-    block_job_completed(&job->common, ret);
+    data = g_malloc(sizeof(*data));
+    data->ret = ret;
+    block_job_defer_to_main_loop(&job->common, backup_complete, data);
 }
 
 void backup_start(BlockDriverState *bs, BlockDriverState *target,
                   int64_t speed, MirrorSyncMode sync_mode,
                   BlockdevOnError on_source_error,
                   BlockdevOnError on_target_error,
-                  BlockDriverCompletionFunc *cb, void *opaque,
+                  BlockCompletionFunc *cb, void *opaque,
                   Error **errp)
 {
     int64_t len;

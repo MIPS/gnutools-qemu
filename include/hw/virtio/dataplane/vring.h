@@ -17,8 +17,8 @@
 #ifndef VRING_H
 #define VRING_H
 
-#include <linux/virtio_ring.h>
 #include "qemu-common.h"
+#include "hw/virtio/virtio_ring.h"
 #include "hw/virtio/virtio.h"
 
 typedef struct {
@@ -53,8 +53,7 @@ void vring_teardown(Vring *vring, VirtIODevice *vdev, int n);
 void vring_disable_notification(VirtIODevice *vdev, Vring *vring);
 bool vring_enable_notification(VirtIODevice *vdev, Vring *vring);
 bool vring_should_notify(VirtIODevice *vdev, Vring *vring);
-int vring_pop(VirtIODevice *vdev, Vring *vring, VirtQueueElement **elem);
+int vring_pop(VirtIODevice *vdev, Vring *vring, VirtQueueElement *elem);
 void vring_push(Vring *vring, VirtQueueElement *elem, int len);
-void vring_free_element(VirtQueueElement *elem);
 
 #endif /* VRING_H */

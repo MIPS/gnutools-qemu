@@ -24,20 +24,19 @@ struct MACAddr {
 
 typedef struct NICPeers {
     NetClientState *ncs[MAX_QUEUE_NUM];
+    int32_t queues;
 } NICPeers;
 
 typedef struct NICConf {
     MACAddr macaddr;
     NICPeers peers;
     int32_t bootindex;
-    int32_t queues;
 } NICConf;
 
 #define DEFINE_NIC_PROPERTIES(_state, _conf)                            \
     DEFINE_PROP_MACADDR("mac",   _state, _conf.macaddr),                \
     DEFINE_PROP_VLAN("vlan",     _state, _conf.peers),                   \
-    DEFINE_PROP_NETDEV("netdev", _state, _conf.peers),                   \
-    DEFINE_PROP_INT32("bootindex", _state, _conf.bootindex, -1)
+    DEFINE_PROP_NETDEV("netdev", _state, _conf.peers)
 
 
 /* Net clients */
@@ -177,6 +176,7 @@ struct NICInfo {
 extern int nb_nics;
 extern NICInfo nd_table[MAX_NICS];
 extern int default_net;
+extern const char *host_net_devices[];
 
 /* from net.c */
 extern const char *legacy_tftp_prefix;

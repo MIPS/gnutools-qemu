@@ -379,18 +379,18 @@ static const VMStateDescription vmstate_i6300esb = {
      * version_id to be set for every build. This eventually broke
      * migration.
      *
-     * To correct this without breaking old->new migration for older versions
-     * of QEMU, we've set version_id to a value high enough to exceed all past
-     * values of sizeof(I6300State) across various build environments, and have
-     * reset minimum_version_id_old/minimum_version_id to 1, since this VMSD
-     * has never changed and thus can accept all past versions.
+     * To correct this without breaking old->new migration for older
+     * versions of QEMU, we've set version_id to a value high enough
+     * to exceed all past values of sizeof(I6300State) across various
+     * build environments, and have reset minimum_version_id to 1,
+     * since this VMSD has never changed and thus can accept all past
+     * versions.
      *
      * For future changes we can treat these values as we normally would.
      */
     .version_id = 10000,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_PCI_DEVICE(dev, I6300State),
         VMSTATE_INT32(reboot_enabled, I6300State),
         VMSTATE_INT32(clock_scale, I6300State),
@@ -425,13 +425,6 @@ static int i6300esb_init(PCIDevice *dev)
     return 0;
 }
 
-static void i6300esb_exit(PCIDevice *dev)
-{
-    I6300State *d = DO_UPCAST(I6300State, dev, dev);
-
-    memory_region_destroy(&d->io_mem);
-}
-
 static WatchdogTimerModel model = {
     .wdt_name = "i6300esb",
     .wdt_description = "Intel 6300ESB",
@@ -445,7 +438,6 @@ static void i6300esb_class_init(ObjectClass *klass, void *data)
     k->config_read = i6300esb_config_read;
     k->config_write = i6300esb_config_write;
     k->init = i6300esb_init;
-    k->exit = i6300esb_exit;
     k->vendor_id = PCI_VENDOR_ID_INTEL;
     k->device_id = PCI_DEVICE_ID_INTEL_ESB_9;
     k->class_id = PCI_CLASS_SYSTEM_OTHER;

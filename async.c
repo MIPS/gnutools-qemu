@@ -26,6 +26,7 @@
 #include "block/aio.h"
 #include "block/thread-pool.h"
 #include "qemu/main-loop.h"
+#include "qemu/atomic.h"
 
 /***********************************************************/
 /* bottom halves (can be seen as timers which expire ASAP) */
@@ -117,15 +118,21 @@ void qemu_bh_schedule_idle(QEMUBH *bh)
 
 void qemu_bh_schedule(QEMUBH *bh)
 {
+    AioContext *ctx;
+
     if (bh->scheduled)
         return;
+    ctx = bh->ctx;
     bh->idle = 0;
-    /* Make sure that idle & any writes needed by the callback are done
-     * before the locations are read in the aio_bh_poll.
+    /* Make sure that:
+     * 1. idle & any writes needed by the callback are done before the
+     *    locations are read in the aio_bh_poll.
+     * 2. ctx is loaded before scheduled is set and the callback has a chance
+     *    to execute.
      */
-    smp_wmb();
+    smp_mb();
     bh->scheduled = 1;
-    aio_notify(bh->ctx);
+    aio_notify(ctx);
 }
 
 
@@ -145,39 +152,48 @@ void qemu_bh_delete(QEMUBH *bh)
     bh->deleted = 1;
 }
 
-static gboolean
-aio_ctx_prepare(GSource *source, gint    *timeout)
+int64_t
+aio_compute_timeout(AioContext *ctx)
 {
-    AioContext *ctx = (AioContext *) source;
+    int64_t deadline;
+    int timeout = -1;
     QEMUBH *bh;
-    int deadline;
 
-    /* We assume there is no timeout already supplied */
-    *timeout = -1;
     for (bh = ctx->first_bh; bh; bh = bh->next) {
         if (!bh->deleted && bh->scheduled) {
             if (bh->idle) {
                 /* idle bottom halves will be polled at least
                  * every 10ms */
-                *timeout = 10;
+                timeout = 10000000;
             } else {
                 /* non-idle bottom halves will be executed
                  * immediately */
-                *timeout = 0;
-                return true;
+                return 0;
             }
         }
     }
 
-    deadline = qemu_timeout_ns_to_ms(timerlistgroup_deadline_ns(&ctx->tlg));
+    deadline = timerlistgroup_deadline_ns(&ctx->tlg);
     if (deadline == 0) {
-        *timeout = 0;
-        return true;
+        return 0;
     } else {
-        *timeout = qemu_soonest_timeout(*timeout, deadline);
+        return qemu_soonest_timeout(timeout, deadline);
+    }
+}
+
+static gboolean
+aio_ctx_prepare(GSource *source, gint    *timeout)
+{
+    AioContext *ctx = (AioContext *) source;
+
+    /* We assume there is no timeout already supplied */
+    *timeout = qemu_timeout_ns_to_ms(aio_compute_timeout(ctx));
+
+    if (aio_prepare(ctx)) {
+        *timeout = 0;
     }
 
-    return false;
+    return *timeout == 0;
 }
 
 static gboolean
@@ -202,7 +218,7 @@ aio_ctx_dispatch(GSource     *source,
     AioContext *ctx = (AioContext *) source;
 
     assert(callback == NULL);
-    aio_poll(ctx, false);
+    aio_dispatch(ctx);
     return true;
 }
 
@@ -241,9 +257,25 @@ ThreadPool *aio_get_thread_pool(AioContext *ctx)
     return ctx->thread_pool;
 }
 
+void aio_set_dispatching(AioContext *ctx, bool dispatching)
+{
+    ctx->dispatching = dispatching;
+    if (!dispatching) {
+        /* Write ctx->dispatching before reading e.g. bh->scheduled.
+         * Optimization: this is only needed when we're entering the "unsafe"
+         * phase where other threads must call event_notifier_set.
+         */
+        smp_mb();
+    }
+}
+
 void aio_notify(AioContext *ctx)
 {
-    event_notifier_set(&ctx->notifier);
+    /* Write e.g. bh->scheduled before reading ctx->dispatching.  */
+    smp_mb();
+    if (!ctx->dispatching) {
+        event_notifier_set(&ctx->notifier);
+    }
 }
 
 static void aio_timerlist_notify(void *opaque)
@@ -257,18 +289,24 @@ static void aio_rfifolock_cb(void *opaque)
     aio_notify(opaque);
 }
 
-AioContext *aio_context_new(void)
+AioContext *aio_context_new(Error **errp)
 {
+    int ret;
     AioContext *ctx;
     ctx = (AioContext *) g_source_new(&aio_source_funcs, sizeof(AioContext));
+    ret = event_notifier_init(&ctx->notifier, false);
+    if (ret < 0) {
+        g_source_destroy(&ctx->source);
+        error_setg_errno(errp, -ret, "Failed to initialize event notifier");
+        return NULL;
+    }
+    aio_set_event_notifier(ctx, &ctx->notifier,
+                           (EventNotifierHandler *)
+                           event_notifier_test_and_clear);
     ctx->pollfds = g_array_new(FALSE, FALSE, sizeof(GPollFD));
     ctx->thread_pool = NULL;
     qemu_mutex_init(&ctx->bh_lock);
     rfifolock_init(&ctx->lock, aio_rfifolock_cb, ctx);
-    event_notifier_init(&ctx->notifier, false);
-    aio_set_event_notifier(ctx, &ctx->notifier, 
-                           (EventNotifierHandler *)
-                           event_notifier_test_and_clear);
     timerlistgroup_init(&ctx->tlg, aio_timerlist_notify, ctx);
 
     return ctx;

@@ -30,8 +30,6 @@
 # define AI_ADDRCONFIG 0
 #endif
 
-static const int on=1, off=0;
-
 /* used temporarily until all users are converted to QemuOpts */
 QemuOptsList socket_optslist = {
     .name = "socket",
@@ -94,14 +92,14 @@ static void inet_setport(struct addrinfo *e, int port)
     }
 }
 
-const char *inet_strfamily(int family)
+NetworkAddressFamily inet_netfamily(int family)
 {
     switch (family) {
-    case PF_INET6: return "ipv6";
-    case PF_INET:  return "ipv4";
-    case PF_UNIX:  return "unix";
+    case PF_INET6: return NETWORK_ADDRESS_FAMILY_IPV6;
+    case PF_INET:  return NETWORK_ADDRESS_FAMILY_IPV4;
+    case PF_UNIX:  return NETWORK_ADDRESS_FAMILY_UNIX;
     }
-    return "unknown";
+    return NETWORK_ADDRESS_FAMILY_UNKNOWN;
 }
 
 int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
@@ -133,8 +131,19 @@ int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
         ai.ai_family = PF_INET6;
 
     /* lookup */
-    if (port_offset)
-        snprintf(port, sizeof(port), "%d", atoi(port) + port_offset);
+    if (port_offset) {
+        unsigned long long baseport;
+        if (parse_uint_full(port, &baseport, 10) < 0) {
+            error_setg(errp, "can't convert to a number: %s", port);
+            return -1;
+        }
+        if (baseport > 65535 ||
+            baseport + port_offset > 65535) {
+            error_setg(errp, "port %s out of range", port);
+            return -1;
+        }
+        snprintf(port, sizeof(port), "%d", (int)baseport + port_offset);
+    }
     rc = getaddrinfo(strlen(addr) ? addr : NULL, port, &ai, &res);
     if (rc != 0) {
         error_setg(errp, "address resolution failed for %s:%s: %s", addr, port,
@@ -150,7 +159,7 @@ int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
         slisten = qemu_socket(e->ai_family, e->ai_socktype, e->ai_protocol);
         if (slisten < 0) {
             if (!e->ai_next) {
-                error_set_errno(errp, errno, QERR_SOCKET_CREATE_FAILED);
+                error_setg_errno(errp, errno, "Failed to create socket");
             }
             continue;
         }
@@ -159,6 +168,7 @@ int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
 #ifdef IPV6_V6ONLY
         if (e->ai_family == PF_INET6) {
             /* listen on both ipv4 and ipv6 */
+            const int off = 0;
             qemu_setsockopt(slisten, IPPROTO_IPV6, IPV6_V6ONLY, &off,
                             sizeof(off));
         }
@@ -173,7 +183,7 @@ int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
             }
             if (p == port_max) {
                 if (!e->ai_next) {
-                    error_set_errno(errp, errno, QERR_SOCKET_BIND_FAILED);
+                    error_setg_errno(errp, errno, "Failed to bind socket");
                 }
             }
         }
@@ -184,7 +194,7 @@ int inet_listen_opts(QemuOpts *opts, int port_offset, Error **errp)
 
 listen:
     if (listen(slisten,1) != 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_LISTEN_FAILED);
+        error_setg_errno(errp, errno, "Failed to listen on socket");
         closesocket(slisten);
         freeaddrinfo(res);
         return -1;
@@ -224,6 +234,7 @@ static void wait_for_connect(void *opaque)
     int val = 0, rc = 0;
     socklen_t valsize = sizeof(val);
     bool in_progress;
+    Error *err = NULL;
 
     qemu_set_fd_handler2(s->fd, NULL, NULL, NULL, NULL);
 
@@ -234,10 +245,12 @@ static void wait_for_connect(void *opaque)
     /* update rc to contain error */
     if (!rc && val) {
         rc = -1;
+        errno = val;
     }
 
     /* connect error */
     if (rc < 0) {
+        error_setg_errno(&err, errno, "Error connecting to socket");
         closesocket(s->fd);
         s->fd = rc;
     }
@@ -247,9 +260,14 @@ static void wait_for_connect(void *opaque)
         while (s->current_addr->ai_next != NULL && s->fd < 0) {
             s->current_addr = s->current_addr->ai_next;
             s->fd = inet_connect_addr(s->current_addr, &in_progress, s, NULL);
+            if (s->fd < 0) {
+                error_free(err);
+                err = NULL;
+                error_setg_errno(&err, errno, "Unable to start socket connect");
+            }
             /* connect in progress */
             if (in_progress) {
-                return;
+                goto out;
             }
         }
 
@@ -257,9 +275,11 @@ static void wait_for_connect(void *opaque)
     }
 
     if (s->callback) {
-        s->callback(s->fd, s->opaque);
+        s->callback(s->fd, err, s->opaque);
     }
     g_free(s);
+out:
+    error_free(err);
 }
 
 static int inet_connect_addr(struct addrinfo *addr, bool *in_progress,
@@ -271,7 +291,7 @@ static int inet_connect_addr(struct addrinfo *addr, bool *in_progress,
 
     sock = qemu_socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (sock < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CREATE_FAILED);
+        error_setg_errno(errp, errno, "Failed to create socket");
         return -1;
     }
     socket_set_fast_reuse(sock);
@@ -292,7 +312,7 @@ static int inet_connect_addr(struct addrinfo *addr, bool *in_progress,
                              connect_state);
         *in_progress = true;
     } else if (rc < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CONNECT_FAILED);
+        error_setg_errno(errp, errno, "Failed to connect socket");
         closesocket(sock);
         return -1;
     }
@@ -354,6 +374,7 @@ static struct addrinfo *inet_parse_connect_opts(QemuOpts *opts, Error **errp)
 int inet_connect_opts(QemuOpts *opts, Error **errp,
                       NonBlockingConnectHandler *callback, void *opaque)
 {
+    Error *local_err = NULL;
     struct addrinfo *res, *e;
     int sock = -1;
     bool in_progress;
@@ -372,22 +393,25 @@ int inet_connect_opts(QemuOpts *opts, Error **errp,
     }
 
     for (e = res; e != NULL; e = e->ai_next) {
-        if (error_is_set(errp)) {
-            error_free(*errp);
-            *errp = NULL;
-        }
+        error_free(local_err);
+        local_err = NULL;
         if (connect_state != NULL) {
             connect_state->current_addr = e;
         }
-        sock = inet_connect_addr(e, &in_progress, connect_state, errp);
-        if (in_progress) {
-            return sock;
-        } else if (sock >= 0) {
-            /* non blocking socket immediate success, call callback */
-            if (callback != NULL) {
-                callback(sock, opaque);
-            }
+        sock = inet_connect_addr(e, &in_progress, connect_state, &local_err);
+        if (sock >= 0) {
             break;
+        }
+    }
+
+    if (sock < 0) {
+        error_propagate(errp, local_err);
+    } else if (in_progress) {
+        /* wait_for_connect() will do the rest */
+        return sock;
+    } else {
+        if (callback) {
+            callback(sock, NULL, opaque);
         }
     }
     g_free(connect_state);
@@ -452,20 +476,20 @@ int inet_dgram_opts(QemuOpts *opts, Error **errp)
     /* create socket */
     sock = qemu_socket(peer->ai_family, peer->ai_socktype, peer->ai_protocol);
     if (sock < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CREATE_FAILED);
+        error_setg_errno(errp, errno, "Failed to create socket");
         goto err;
     }
     socket_set_fast_reuse(sock);
 
     /* bind socket */
     if (bind(sock, local->ai_addr, local->ai_addrlen) < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_BIND_FAILED);
+        error_setg_errno(errp, errno, "Failed to bind socket");
         goto err;
     }
 
     /* connect to peer */
     if (connect(sock,peer->ai_addr,peer->ai_addrlen) < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CONNECT_FAILED);
+        error_setg_errno(errp, errno, "Failed to connect socket");
         goto err;
     }
 
@@ -670,7 +694,7 @@ int unix_listen_opts(QemuOpts *opts, Error **errp)
 
     sock = qemu_socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CREATE_FAILED);
+        error_setg_errno(errp, errno, "Failed to create socket");
         return -1;
     }
 
@@ -695,11 +719,11 @@ int unix_listen_opts(QemuOpts *opts, Error **errp)
 
     unlink(un.sun_path);
     if (bind(sock, (struct sockaddr*) &un, sizeof(un)) < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_BIND_FAILED);
+        error_setg_errno(errp, errno, "Failed to bind socket");
         goto err;
     }
     if (listen(sock, 1) < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_LISTEN_FAILED);
+        error_setg_errno(errp, errno, "Failed to listen on socket");
         goto err;
     }
 
@@ -718,14 +742,14 @@ int unix_connect_opts(QemuOpts *opts, Error **errp,
     ConnectState *connect_state = NULL;
     int sock, rc;
 
-    if (NULL == path) {
+    if (path == NULL) {
         error_setg(errp, "unix connect: no path specified");
         return -1;
     }
 
     sock = qemu_socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
-        error_set_errno(errp, errno, QERR_SOCKET_CREATE_FAILED);
+        error_setg_errno(errp, errno, "Failed to create socket");
         return -1;
     }
     if (callback != NULL) {
@@ -755,12 +779,12 @@ int unix_connect_opts(QemuOpts *opts, Error **errp,
     } else if (rc >= 0) {
         /* non blocking socket immediate success, call callback */
         if (callback != NULL) {
-            callback(sock, opaque);
+            callback(sock, NULL, opaque);
         }
     }
 
     if (rc < 0) {
-        error_set_errno(errp, -rc, QERR_SOCKET_CONNECT_FAILED);
+        error_setg_errno(errp, -rc, "Failed to connect socket");
         close(sock);
         sock = -1;
     }
@@ -905,7 +929,7 @@ int socket_connect(SocketAddress *addr, Error **errp,
         fd = monitor_get_fd(cur_mon, addr->fd->str, errp);
         if (fd >= 0 && callback) {
             qemu_set_nonblock(fd);
-            callback(fd, opaque);
+            callback(fd, NULL, opaque);
         }
         break;
 
@@ -952,8 +976,7 @@ int socket_dgram(SocketAddress *remote, SocketAddress *local, Error **errp)
     opts = qemu_opts_create(&socket_optslist, NULL, 0, &error_abort);
     switch (remote->kind) {
     case SOCKET_ADDRESS_KIND_INET:
-        qemu_opt_set(opts, "host", remote->inet->host);
-        qemu_opt_set(opts, "port", remote->inet->port);
+        inet_addr_to_opts(opts, remote->inet);
         if (local) {
             qemu_opt_set(opts, "localaddr", local->inet->host);
             qemu_opt_set(opts, "localport", local->inet->port);

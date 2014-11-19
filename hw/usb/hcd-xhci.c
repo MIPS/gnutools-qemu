@@ -459,6 +459,7 @@ struct XHCIState {
     uint32_t numintrs;
     uint32_t numslots;
     uint32_t flags;
+    uint32_t max_pstreams_mask;
 
     /* Operational Registers */
     uint32_t usbcmd;
@@ -498,6 +499,9 @@ typedef struct XHCIEvRingSeg {
 enum xhci_flags {
     XHCI_FLAG_USE_MSI = 1,
     XHCI_FLAG_USE_MSI_X,
+    XHCI_FLAG_SS_FIRST,
+    XHCI_FLAG_FORCE_PCIE_ENDCAP,
+    XHCI_FLAG_ENABLE_STREAMS,
 };
 
 static void xhci_kick_ep(XHCIState *xhci, unsigned int slotid,
@@ -621,6 +625,11 @@ static const char *ep_state_name(uint32_t state)
                        ARRAY_SIZE(ep_state_names));
 }
 
+static bool xhci_get_flag(XHCIState *xhci, enum xhci_flags bit)
+{
+    return xhci->flags & (1 << bit);
+}
+
 static uint64_t xhci_mfindex_get(XHCIState *xhci)
 {
     int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -709,10 +718,18 @@ static XHCIPort *xhci_lookup_port(XHCIState *xhci, struct USBPort *uport)
     case USB_SPEED_LOW:
     case USB_SPEED_FULL:
     case USB_SPEED_HIGH:
-        index = uport->index;
+        if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+            index = uport->index + xhci->numports_3;
+        } else {
+            index = uport->index;
+        }
         break;
     case USB_SPEED_SUPER:
-        index = uport->index + xhci->numports_2;
+        if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+            index = uport->index;
+        } else {
+            index = uport->index + xhci->numports_2;
+        }
         break;
     default:
         return NULL;
@@ -1137,7 +1154,7 @@ static void xhci_reset_streams(XHCIEPContext *epctx)
 static void xhci_alloc_streams(XHCIEPContext *epctx, dma_addr_t base)
 {
     assert(epctx->pstreams == NULL);
-    epctx->nr_pstreams = 2 << (epctx->max_pstreams + 1);
+    epctx->nr_pstreams = 2 << epctx->max_pstreams;
     epctx->pstreams = xhci_alloc_stream_contexts(epctx->nr_pstreams, base);
 }
 
@@ -1166,7 +1183,7 @@ static int xhci_epmask_to_eps_with_streams(XHCIState *xhci,
     slot = &xhci->slots[slotid - 1];
 
     for (i = 2, j = 0; i <= 31; i++) {
-        if (!(epmask & (1 << i))) {
+        if (!(epmask & (1u << i))) {
             continue;
         }
 
@@ -1366,14 +1383,11 @@ static void xhci_init_epctx(XHCIEPContext *epctx,
     dequeue = xhci_addr64(ctx[2] & ~0xf, ctx[3]);
 
     epctx->type = (ctx[1] >> EP_TYPE_SHIFT) & EP_TYPE_MASK;
-    DPRINTF("xhci: endpoint %d.%d type is %d\n", epid/2, epid%2, epctx->type);
     epctx->pctx = pctx;
     epctx->max_psize = ctx[1]>>16;
     epctx->max_psize *= 1+((ctx[1]>>8)&0xff);
-    epctx->max_pstreams = (ctx[0] >> 10) & 0xf;
+    epctx->max_pstreams = (ctx[0] >> 10) & epctx->xhci->max_pstreams_mask;
     epctx->lsa = (ctx[0] >> 15) & 1;
-    DPRINTF("xhci: endpoint %d.%d max transaction (burst) size is %d\n",
-            epid/2, epid%2, epctx->max_psize);
     if (epctx->max_pstreams) {
         xhci_alloc_streams(epctx, dequeue);
     } else {
@@ -1403,6 +1417,9 @@ static TRBCCode xhci_enable_ep(XHCIState *xhci, unsigned int slotid,
     epctx = xhci_alloc_epctx(xhci, slotid, epid);
     slot->eps[epid-1] = epctx;
     xhci_init_epctx(epctx, pctx, ctx);
+
+    DPRINTF("xhci: endpoint %d.%d type is %d, max transaction (burst) "
+            "size is %d\n", epid/2, epid%2, epctx->type, epctx->max_psize);
 
     epctx->mfindex_last = 0;
 
@@ -1591,12 +1608,6 @@ static TRBCCode xhci_reset_ep(XHCIState *xhci, unsigned int slotid,
     if (xhci_ep_nuke_xfers(xhci, slotid, epid, 0) > 0) {
         DPRINTF("xhci: FIXME: endpoint reset w/ xfers running, "
                 "data might be lost\n");
-    }
-
-    uint8_t ep = epid>>1;
-
-    if (epid & 1) {
-        ep |= 0x80;
     }
 
     if (!xhci->slots[slotid-1].uport ||
@@ -2451,7 +2462,7 @@ static TRBCCode xhci_configure_slot(XHCIState *xhci, unsigned int slotid,
     res = xhci_alloc_device_streams(xhci, slotid, ictl_ctx[1]);
     if (res != CC_SUCCESS) {
         for (i = 2; i <= 31; i++) {
-            if (ictl_ctx[1] & (1 << i)) {
+            if (ictl_ctx[1] & (1u << i)) {
                 xhci_disable_ep(xhci, slotid, i);
             }
         }
@@ -2851,7 +2862,7 @@ static void xhci_port_update(XHCIPort *port, int is_detach)
 
 static void xhci_port_reset(XHCIPort *port, bool warm_reset)
 {
-    trace_usb_xhci_port_reset(port->portnr);
+    trace_usb_xhci_port_reset(port->portnr, warm_reset);
 
     if (!xhci_port_have_device(port)) {
         return;
@@ -2947,9 +2958,9 @@ static uint64_t xhci_cap_read(void *ptr, hwaddr reg, unsigned size)
         break;
     case 0x10: /* HCCPARAMS */
         if (sizeof(dma_addr_t) == 4) {
-            ret = 0x00087000;
+            ret = 0x00080000 | (xhci->max_pstreams_mask << 12);
         } else {
-            ret = 0x00087001;
+            ret = 0x00080001 | (xhci->max_pstreams_mask << 12);
         }
         break;
     case 0x14: /* DBOFF */
@@ -2967,7 +2978,11 @@ static uint64_t xhci_cap_read(void *ptr, hwaddr reg, unsigned size)
         ret = 0x20425355; /* "USB " */
         break;
     case 0x28: /* Supported Protocol:08 */
-        ret = 0x00000001 | (xhci->numports_2<<8);
+        if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+            ret = (xhci->numports_2<<8) | (xhci->numports_3+1);
+        } else {
+            ret = (xhci->numports_2<<8) | 1;
+        }
         break;
     case 0x2c: /* Supported Protocol:0c */
         ret = 0x00000000; /* reserved */
@@ -2979,7 +2994,11 @@ static uint64_t xhci_cap_read(void *ptr, hwaddr reg, unsigned size)
         ret = 0x20425355; /* "USB " */
         break;
     case 0x38: /* Supported Protocol:08 */
-        ret = 0x00000000 | (xhci->numports_2+1) | (xhci->numports_3<<8);
+        if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+            ret = (xhci->numports_3<<8) | 1;
+        } else {
+            ret = (xhci->numports_3<<8) | (xhci->numports_2+1);
+        }
         break;
     case 0x3c: /* Supported Protocol:0c */
         ret = 0x00000000; /* reserved */
@@ -3435,7 +3454,7 @@ static void xhci_child_detach(USBPort *uport, USBDevice *child)
     USBBus *bus = usb_bus_from_device(child);
     XHCIState *xhci = container_of(bus, XHCIState, bus);
 
-    xhci_detach_slot(xhci, uport);
+    xhci_detach_slot(xhci, child->port);
 }
 
 static USBPortOps xhci_uport_ops = {
@@ -3512,8 +3531,13 @@ static void usb_xhci_init(XHCIState *xhci)
     for (i = 0; i < usbports; i++) {
         speedmask = 0;
         if (i < xhci->numports_2) {
-            port = &xhci->ports[i];
-            port->portnr = i + 1;
+            if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+                port = &xhci->ports[i + xhci->numports_3];
+                port->portnr = i + 1 + xhci->numports_3;
+            } else {
+                port = &xhci->ports[i];
+                port->portnr = i + 1;
+            }
             port->uport = &xhci->uports[i];
             port->speedmask =
                 USB_SPEED_MASK_LOW  |
@@ -3523,8 +3547,13 @@ static void usb_xhci_init(XHCIState *xhci)
             speedmask |= port->speedmask;
         }
         if (i < xhci->numports_3) {
-            port = &xhci->ports[i + xhci->numports_2];
-            port->portnr = i + 1 + xhci->numports_2;
+            if (xhci_get_flag(xhci, XHCI_FLAG_SS_FIRST)) {
+                port = &xhci->ports[i];
+                port->portnr = i + 1;
+            } else {
+                port = &xhci->ports[i + xhci->numports_2];
+                port->portnr = i + 1 + xhci->numports_2;
+            }
             port->uport = &xhci->uports[i];
             port->speedmask = USB_SPEED_MASK_SUPER;
             snprintf(port->name, sizeof(port->name), "usb3 port #%d", i+1);
@@ -3563,6 +3592,11 @@ static int usb_xhci_initfn(struct PCIDevice *dev)
     if (xhci->numslots < 1) {
         xhci->numslots = 1;
     }
+    if (xhci_get_flag(xhci, XHCI_FLAG_ENABLE_STREAMS)) {
+        xhci->max_pstreams_mask = 7; /* == 256 primary streams */
+    } else {
+        xhci->max_pstreams_mask = 0;
+    }
 
     xhci->mfwrap_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, xhci_mfwrap_timer, xhci);
 
@@ -3594,13 +3628,16 @@ static int usb_xhci_initfn(struct PCIDevice *dev)
                      PCI_BASE_ADDRESS_SPACE_MEMORY|PCI_BASE_ADDRESS_MEM_TYPE_64,
                      &xhci->mem);
 
-    ret = pcie_endpoint_cap_init(dev, 0xa0);
-    assert(ret >= 0);
+    if (pci_bus_is_express(dev->bus) ||
+        xhci_get_flag(xhci, XHCI_FLAG_FORCE_PCIE_ENDCAP)) {
+        ret = pcie_endpoint_cap_init(dev, 0xa0);
+        assert(ret >= 0);
+    }
 
-    if (xhci->flags & (1 << XHCI_FLAG_USE_MSI)) {
+    if (xhci_get_flag(xhci, XHCI_FLAG_USE_MSI)) {
         msi_init(dev, 0x70, xhci->numintrs, true, false);
     }
-    if (xhci->flags & (1 << XHCI_FLAG_USE_MSI_X)) {
+    if (xhci_get_flag(xhci, XHCI_FLAG_USE_MSI_X)) {
         msix_init(dev, xhci->numintrs,
                   &xhci->mem, 0, OFF_MSIX_TABLE,
                   &xhci->mem, 0, OFF_MSIX_PBA,
@@ -3608,6 +3645,43 @@ static int usb_xhci_initfn(struct PCIDevice *dev)
     }
 
     return 0;
+}
+
+static void usb_xhci_exit(PCIDevice *dev)
+{
+    int i;
+    XHCIState *xhci = XHCI(dev);
+
+    trace_usb_xhci_exit();
+
+    for (i = 0; i < xhci->numslots; i++) {
+        xhci_disable_slot(xhci, i + 1);
+    }
+
+    if (xhci->mfwrap_timer) {
+        timer_del(xhci->mfwrap_timer);
+        timer_free(xhci->mfwrap_timer);
+        xhci->mfwrap_timer = NULL;
+    }
+
+    memory_region_del_subregion(&xhci->mem, &xhci->mem_cap);
+    memory_region_del_subregion(&xhci->mem, &xhci->mem_oper);
+    memory_region_del_subregion(&xhci->mem, &xhci->mem_runtime);
+    memory_region_del_subregion(&xhci->mem, &xhci->mem_doorbell);
+
+    for (i = 0; i < xhci->numports; i++) {
+        XHCIPort *port = &xhci->ports[i];
+        memory_region_del_subregion(&xhci->mem, &port->mem);
+    }
+
+    /* destroy msix memory region */
+    if (dev->msix_table && dev->msix_pba
+        && dev->msix_entry_used) {
+        memory_region_del_subregion(&xhci->mem, &dev->msix_table_mmio);
+        memory_region_del_subregion(&xhci->mem, &dev->msix_pba_mmio);
+    }
+
+    usb_bus_release(&xhci->bus);
 }
 
 static int usb_xhci_post_load(void *opaque, int version_id)
@@ -3703,6 +3777,7 @@ static const VMStateDescription vmstate_xhci_event = {
         VMSTATE_UINT32(flags,  XHCIEvent),
         VMSTATE_UINT8(slotid,  XHCIEvent),
         VMSTATE_UINT8(epid,    XHCIEvent),
+        VMSTATE_END_OF_LIST()
     }
 };
 
@@ -3781,6 +3856,12 @@ static const VMStateDescription vmstate_xhci = {
 static Property xhci_properties[] = {
     DEFINE_PROP_BIT("msi",      XHCIState, flags, XHCI_FLAG_USE_MSI, true),
     DEFINE_PROP_BIT("msix",     XHCIState, flags, XHCI_FLAG_USE_MSI_X, true),
+    DEFINE_PROP_BIT("superspeed-ports-first",
+                    XHCIState, flags, XHCI_FLAG_SS_FIRST, true),
+    DEFINE_PROP_BIT("force-pcie-endcap", XHCIState, flags,
+                    XHCI_FLAG_FORCE_PCIE_ENDCAP, false),
+    DEFINE_PROP_BIT("streams", XHCIState, flags,
+                    XHCI_FLAG_ENABLE_STREAMS, true),
     DEFINE_PROP_UINT32("intrs", XHCIState, numintrs, MAXINTRS),
     DEFINE_PROP_UINT32("slots", XHCIState, numslots, MAXSLOTS),
     DEFINE_PROP_UINT32("p2",    XHCIState, numports_2, 4),
@@ -3796,9 +3877,9 @@ static void xhci_class_init(ObjectClass *klass, void *data)
     dc->vmsd    = &vmstate_xhci;
     dc->props   = xhci_properties;
     dc->reset   = xhci_reset;
-    dc->hotpluggable   = false;
     set_bit(DEVICE_CATEGORY_USB, dc->categories);
     k->init         = usb_xhci_initfn;
+    k->exit         = usb_xhci_exit;
     k->vendor_id    = PCI_VENDOR_ID_NEC;
     k->device_id    = PCI_DEVICE_ID_NEC_UPD720200;
     k->class_id     = PCI_CLASS_SERIAL_USB;

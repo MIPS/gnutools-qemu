@@ -297,7 +297,7 @@ static void gt64120_pci_mapping(GT64120State *s)
       if (s->PCI0IO_length)
       {
           memory_region_del_subregion(get_system_memory(), &s->PCI0IO_mem);
-          memory_region_destroy(&s->PCI0IO_mem);
+          object_unparent(OBJECT(&s->PCI0IO_mem));
       }
       /* Map new IO address */
       s->PCI0IO_start = s->regs[GT_PCI0IOLD] << 21;
@@ -311,6 +311,27 @@ static void gt64120_pci_mapping(GT64120State *s)
       }
     }
 }
+
+static int gt64120_post_load(void *opaque, int version_id)
+{
+    GT64120State *s = opaque;
+
+    gt64120_isd_mapping(s);
+    gt64120_pci_mapping(s);
+
+    return 0;
+}
+
+static const VMStateDescription vmstate_gt64120 = {
+    .name = "gt64120",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = gt64120_post_load,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT32_ARRAY(regs, GT64120State, GT_REGS),
+        VMSTATE_END_OF_LIST()
+    }
+};
 
 static void gt64120_writel (void *opaque, hwaddr addr,
                             uint64_t val, unsigned size)
@@ -1174,9 +1195,11 @@ static const TypeInfo gt64120_pci_info = {
 
 static void gt64120_class_init(ObjectClass *klass, void *data)
 {
+    DeviceClass *dc = DEVICE_CLASS(klass);
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
     sdc->init = gt64120_init;
+    dc->vmsd = &vmstate_gt64120;
 }
 
 static const TypeInfo gt64120_info = {
