@@ -24,15 +24,16 @@
 #define TCG_MAX_QEMU_LDST       640
 
 typedef struct TCGLabelQemuLdst {
-    int is_ld:1;            /* qemu_ld: 1, qemu_st: 0 */
-    TCGMemOp opc:4;
+    bool is_ld;             /* qemu_ld: true, qemu_st: false */
+    TCGMemOp opc;
+    TCGType type;           /* result type of a load */
     TCGReg addrlo_reg;      /* reg index for low word of guest virtual addr */
     TCGReg addrhi_reg;      /* reg index for high word of guest virtual addr */
     TCGReg datalo_reg;      /* reg index for low word to be loaded or stored */
     TCGReg datahi_reg;      /* reg index for high word to be loaded or stored */
     int mem_index;          /* soft MMU memory index */
-    uint8_t *raddr;         /* gen code addr of the next IR of qemu_ld/st IR */
-    uint8_t *label_ptr[2];  /* label pointers to be updated */
+    tcg_insn_unit *raddr;   /* gen code addr of the next IR of qemu_ld/st IR */
+    tcg_insn_unit *label_ptr[2]; /* label pointers to be updated */
 } TCGLabelQemuLdst;
 
 typedef struct TCGBackendData {

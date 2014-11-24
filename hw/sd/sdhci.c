@@ -23,6 +23,7 @@
  */
 
 #include "hw/hw.h"
+#include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
 #include "sysemu/dma.h"
 #include "qemu/timer.h"
@@ -702,7 +703,8 @@ static void sdhci_do_adma(SDHCIState *s)
                         length -= block_size - begin;
                     }
                     dma_memory_read(&address_space_memory, dscr.addr,
-                                    &s->fifo_buffer[begin], s->data_count);
+                                    &s->fifo_buffer[begin],
+                                    s->data_count - begin);
                     dscr.addr += s->data_count - begin;
                     if (s->data_count == block_size) {
                         for (n = 0; n < block_size; n++) {
@@ -1164,12 +1166,12 @@ static void sdhci_initfn(Object *obj)
     DriveInfo *di;
 
     di = drive_get_next(IF_SD);
-    s->card = sd_init(di ? di->bdrv : NULL, false);
+    s->card = sd_init(di ? blk_by_legacy_dinfo(di) : NULL, false);
     if (s->card == NULL) {
         exit(1);
     }
-    s->eject_cb = qemu_allocate_irqs(sdhci_insert_eject_cb, s, 1)[0];
-    s->ro_cb = qemu_allocate_irqs(sdhci_card_readonly_cb, s, 1)[0];
+    s->eject_cb = qemu_allocate_irq(sdhci_insert_eject_cb, s, 0);
+    s->ro_cb = qemu_allocate_irq(sdhci_card_readonly_cb, s, 0);
     sd_set_cb(s->card, s->ro_cb, s->eject_cb);
 
     s->insert_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sdhci_raise_insertion_irq, s);
@@ -1184,8 +1186,8 @@ static void sdhci_uninitfn(Object *obj)
     timer_free(s->insert_timer);
     timer_del(s->transfer_timer);
     timer_free(s->transfer_timer);
-    qemu_free_irqs(&s->eject_cb);
-    qemu_free_irqs(&s->ro_cb);
+    qemu_free_irq(s->eject_cb);
+    qemu_free_irq(s->ro_cb);
 
     if (s->fifo_buffer) {
         g_free(s->fifo_buffer);
@@ -1197,7 +1199,7 @@ const VMStateDescription sdhci_vmstate = {
     .name = "sdhci",
     .version_id = 1,
     .minimum_version_id = 1,
-    .fields      = (VMStateField[]) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT32(sdmasysad, SDHCIState),
         VMSTATE_UINT16(blksize, SDHCIState),
         VMSTATE_UINT16(blkcnt, SDHCIState),

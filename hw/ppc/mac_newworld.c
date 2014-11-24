@@ -65,13 +65,15 @@
 #include "sysemu/kvm.h"
 #include "kvm_ppc.h"
 #include "hw/usb.h"
-#include "sysemu/blockdev.h"
+#include "sysemu/block-backend.h"
 #include "exec/address-spaces.h"
 #include "hw/sysbus.h"
 
 #define MAX_IDE_BUS 2
 #define CFG_ADDR 0xf0000510
 #define TBFREQ (100UL * 1000UL * 1000UL)
+#define CLOCKFREQ (266UL * 1000UL * 1000UL)
+#define BUSFREQ (100UL * 1000UL * 1000UL)
 
 /* debug UniNorth */
 //#define DEBUG_UNIN
@@ -140,14 +142,14 @@ static void ppc_core99_reset(void *opaque)
 }
 
 /* PowerPC Mac99 hardware initialisation */
-static void ppc_core99_init(QEMUMachineInitArgs *args)
+static void ppc_core99_init(MachineState *machine)
 {
-    ram_addr_t ram_size = args->ram_size;
-    const char *cpu_model = args->cpu_model;
-    const char *kernel_filename = args->kernel_filename;
-    const char *kernel_cmdline = args->kernel_cmdline;
-    const char *initrd_filename = args->initrd_filename;
-    const char *boot_device = args->boot_order;
+    ram_addr_t ram_size = machine->ram_size;
+    const char *cpu_model = machine->cpu_model;
+    const char *kernel_filename = machine->kernel_filename;
+    const char *kernel_cmdline = machine->kernel_cmdline;
+    const char *initrd_filename = machine->initrd_filename;
+    const char *boot_device = machine->boot_order;
     PowerPCCPU *cpu = NULL;
     CPUPPCState *env = NULL;
     char *filename;
@@ -174,6 +176,8 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
     SysBusDevice *s;
     DeviceState *dev;
     int *token = g_new(int, 1);
+    hwaddr nvram_addr = 0xFFF04000;
+    uint64_t tbfreq;
 
     linux_boot = (kernel_filename != NULL);
 
@@ -198,13 +202,14 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
     }
 
     /* allocate RAM */
-    memory_region_init_ram(ram, NULL, "ppc_core99.ram", ram_size);
-    vmstate_register_ram_global(ram);
+    memory_region_allocate_system_memory(ram, NULL, "ppc_core99.ram", ram_size);
     memory_region_add_subregion(get_system_memory(), 0, ram);
 
     /* allocate and load BIOS */
-    memory_region_init_ram(bios, NULL, "ppc_core99.bios", BIOS_SIZE);
+    memory_region_init_ram(bios, NULL, "ppc_core99.bios", BIOS_SIZE,
+                           &error_abort);
     vmstate_register_ram_global(bios);
+
     if (bios_name == NULL)
         bios_name = PROM_FILENAME;
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
@@ -344,7 +349,7 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
         }
     }
 
-    pic = g_new(qemu_irq, 64);
+    pic = g_new0(qemu_irq, 64);
 
     dev = qdev_create(NULL, TYPE_OPENPIC);
     qdev_prop_set_uint32(dev, "model", OPENPIC_MODEL_RAVEN);
@@ -370,18 +375,19 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
         pci_bus = pci_pmac_init(pic, get_system_memory(), get_system_io());
         machine_arch = ARCH_MAC99;
     }
-    /* init basic PC hardware */
-    pci_vga_init(pci_bus);
 
+    /* Timebase Frequency */
+    if (kvm_enabled()) {
+        tbfreq = kvmppc_get_tbfreq();
+    } else {
+        tbfreq = TBFREQ;
+    }
+
+    /* init basic PC hardware */
     escc_mem = escc_init(0, pic[0x25], pic[0x24],
                          serial_hds[0], serial_hds[1], ESCC_CLOCK, 4);
     memory_region_init_alias(escc_bar, NULL, "escc-bar",
                              escc_mem, 0, memory_region_size(escc_mem));
-
-    for(i = 0; i < nb_nics; i++)
-        pci_nic_init_nofail(&nd_table[i], pci_bus, "ne2k_pci", NULL);
-
-    ide_drive_get(hd, MAX_IDE_BUS);
 
     macio = pci_create(pci_bus, -1, TYPE_NEWWORLD_MACIO);
     dev = DEVICE(macio);
@@ -390,9 +396,12 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
     qdev_connect_gpio_out(dev, 2, pic[0x02]); /* IDE DMA */
     qdev_connect_gpio_out(dev, 3, pic[0x0e]); /* IDE */
     qdev_connect_gpio_out(dev, 4, pic[0x03]); /* IDE DMA */
+    qdev_prop_set_uint64(dev, "frequency", tbfreq);
     macio_init(macio, pic_mem, escc_bar);
 
     /* We only emulate 2 out of 3 IDE controllers for now */
+    ide_drive_get(hd, ARRAY_SIZE(hd));
+
     macio_ide = MACIO_IDE(object_resolve_path_component(OBJECT(macio),
                                                         "ide[0]"));
     macio_ide_init_drives(macio_ide, hd);
@@ -418,15 +427,29 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
         }
     }
 
-    if (graphic_depth != 15 && graphic_depth != 32 && graphic_depth != 8)
+    pci_vga_init(pci_bus);
+
+    if (graphic_depth != 15 && graphic_depth != 32 && graphic_depth != 8) {
         graphic_depth = 15;
+    }
+
+    for (i = 0; i < nb_nics; i++) {
+        pci_nic_init_nofail(&nd_table[i], pci_bus, "ne2k_pci", NULL);
+    }
 
     /* The NewWorld NVRAM is not located in the MacIO device */
+#ifdef CONFIG_KVM
+    if (kvm_enabled() && getpagesize() > 4096) {
+        /* We can't combine read-write and read-only in a single page, so
+           move the NVRAM out of ROM again for KVM */
+        nvram_addr = 0xFFE00000;
+    }
+#endif
     dev = qdev_create(NULL, TYPE_MACIO_NVRAM);
     qdev_prop_set_uint32(dev, "size", 0x2000);
     qdev_prop_set_uint32(dev, "it_shift", 1);
     qdev_init_nofail(dev);
-    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, 0xFFF04000);
+    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, nvram_addr);
     nvr = MACIO_NVRAM(dev);
     pmac_format_nvram_partition(nvr, 0x2000);
     /* No PCI init: the BIOS will do it */
@@ -457,19 +480,25 @@ static void ppc_core99_init(QEMUMachineInitArgs *args)
 #ifdef CONFIG_KVM
         uint8_t *hypercall;
 
-        fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_TBFREQ, kvmppc_get_tbfreq());
         hypercall = g_malloc(16);
         kvmppc_get_hypercall(env, hypercall, 16);
         fw_cfg_add_bytes(fw_cfg, FW_CFG_PPC_KVM_HC, hypercall, 16);
         fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_KVM_PID, getpid());
 #endif
-    } else {
-        fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_TBFREQ, TBFREQ);
     }
+    fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_TBFREQ, tbfreq);
     /* Mac OS X requires a "known good" clock-frequency value; pass it one. */
-    fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_CLOCKFREQ, 266000000);
+    fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_CLOCKFREQ, CLOCKFREQ);
+    fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_BUSFREQ, BUSFREQ);
+    fw_cfg_add_i32(fw_cfg, FW_CFG_PPC_NVRAM_ADDR, nvram_addr);
 
     qemu_register_boot_set(fw_cfg_boot_set, fw_cfg);
+}
+
+static int core99_kvm_type(const char *arg)
+{
+    /* Always force PR KVM */
+    return 2;
 }
 
 static QEMUMachine core99_machine = {
@@ -478,6 +507,7 @@ static QEMUMachine core99_machine = {
     .init = ppc_core99_init,
     .max_cpus = MAX_CPUS,
     .default_boot_order = "cd",
+    .kvm_type = core99_kvm_type,
 };
 
 static void core99_machine_init(void)

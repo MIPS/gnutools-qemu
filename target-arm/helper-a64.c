@@ -19,10 +19,13 @@
 
 #include "cpu.h"
 #include "exec/gdbstub.h"
-#include "helper.h"
+#include "exec/helper-proto.h"
 #include "qemu/host-utils.h"
 #include "sysemu/sysemu.h"
 #include "qemu/bitops.h"
+#include "internals.h"
+#include "qemu/crc32c.h"
+#include <zlib.h> /* For crc32 */
 
 /* C2.4.7 Multiply and divide */
 /* special cases for 0 and LLONG_MIN are mandated by the standard */
@@ -183,36 +186,6 @@ uint64_t HELPER(simd_tbl)(CPUARMState *env, uint64_t result, uint64_t indices,
         }
     }
     return result;
-}
-
-/* Helper function for 64 bit polynomial multiply case:
- * perform PolynomialMult(op1, op2) and return either the top or
- * bottom half of the 128 bit result.
- */
-uint64_t HELPER(neon_pmull_64_lo)(uint64_t op1, uint64_t op2)
-{
-    int bitnum;
-    uint64_t res = 0;
-
-    for (bitnum = 0; bitnum < 64; bitnum++) {
-        if (op1 & (1ULL << bitnum)) {
-            res ^= op2 << bitnum;
-        }
-    }
-    return res;
-}
-uint64_t HELPER(neon_pmull_64_hi)(uint64_t op1, uint64_t op2)
-{
-    int bitnum;
-    uint64_t res = 0;
-
-    /* bit 0 of op1 can't influence the high 64 bits at all */
-    for (bitnum = 1; bitnum < 64; bitnum++) {
-        if (op1 & (1ULL << bitnum)) {
-            res ^= op2 >> (64 - bitnum);
-        }
-    }
-    return res;
 }
 
 /* 64bit/double versions of the neon float compare functions */
@@ -436,3 +409,121 @@ float32 HELPER(fcvtx_f64_to_f32)(float64 a, CPUARMState *env)
     set_float_exception_flags(exflags, fpst);
     return r;
 }
+
+/* 64-bit versions of the CRC helpers. Note that although the operation
+ * (and the prototypes of crc32c() and crc32() mean that only the bottom
+ * 32 bits of the accumulator and result are used, we pass and return
+ * uint64_t for convenience of the generated code. Unlike the 32-bit
+ * instruction set versions, val may genuinely have 64 bits of data in it.
+ * The upper bytes of val (above the number specified by 'bytes') must have
+ * been zeroed out by the caller.
+ */
+uint64_t HELPER(crc32_64)(uint64_t acc, uint64_t val, uint32_t bytes)
+{
+    uint8_t buf[8];
+
+    stq_le_p(buf, val);
+
+    /* zlib crc32 converts the accumulator and output to one's complement.  */
+    return crc32(acc ^ 0xffffffff, buf, bytes) ^ 0xffffffff;
+}
+
+uint64_t HELPER(crc32c_64)(uint64_t acc, uint64_t val, uint32_t bytes)
+{
+    uint8_t buf[8];
+
+    stq_le_p(buf, val);
+
+    /* Linux crc32c converts the output to one's complement.  */
+    return crc32c(acc, buf, bytes) ^ 0xffffffff;
+}
+
+#if !defined(CONFIG_USER_ONLY)
+
+/* Handle a CPU exception.  */
+void aarch64_cpu_do_interrupt(CPUState *cs)
+{
+    ARMCPU *cpu = ARM_CPU(cs);
+    CPUARMState *env = &cpu->env;
+    unsigned int new_el = arm_excp_target_el(cs, cs->exception_index);
+    target_ulong addr = env->cp15.vbar_el[new_el];
+    unsigned int new_mode = aarch64_pstate_mode(new_el, true);
+    int i;
+
+    if (arm_current_el(env) < new_el) {
+        if (env->aarch64) {
+            addr += 0x400;
+        } else {
+            addr += 0x600;
+        }
+    } else if (pstate_read(env) & PSTATE_SP) {
+        addr += 0x200;
+    }
+
+    arm_log_exception(cs->exception_index);
+    qemu_log_mask(CPU_LOG_INT, "...from EL%d\n", arm_current_el(env));
+    if (qemu_loglevel_mask(CPU_LOG_INT)
+        && !excp_is_internal(cs->exception_index)) {
+        qemu_log_mask(CPU_LOG_INT, "...with ESR 0x%" PRIx32 "\n",
+                      env->exception.syndrome);
+    }
+
+    if (arm_is_psci_call(cpu, cs->exception_index)) {
+        arm_handle_psci_call(cpu);
+        qemu_log_mask(CPU_LOG_INT, "...handled as PSCI call\n");
+        return;
+    }
+
+    switch (cs->exception_index) {
+    case EXCP_PREFETCH_ABORT:
+    case EXCP_DATA_ABORT:
+        env->cp15.far_el[new_el] = env->exception.vaddress;
+        qemu_log_mask(CPU_LOG_INT, "...with FAR 0x%" PRIx64 "\n",
+                      env->cp15.far_el[new_el]);
+        /* fall through */
+    case EXCP_BKPT:
+    case EXCP_UDEF:
+    case EXCP_SWI:
+    case EXCP_HVC:
+    case EXCP_HYP_TRAP:
+    case EXCP_SMC:
+        env->cp15.esr_el[new_el] = env->exception.syndrome;
+        break;
+    case EXCP_IRQ:
+    case EXCP_VIRQ:
+        addr += 0x80;
+        break;
+    case EXCP_FIQ:
+    case EXCP_VFIQ:
+        addr += 0x100;
+        break;
+    default:
+        cpu_abort(cs, "Unhandled exception 0x%x\n", cs->exception_index);
+    }
+
+    if (is_a64(env)) {
+        env->banked_spsr[aarch64_banked_spsr_index(new_el)] = pstate_read(env);
+        aarch64_save_sp(env, arm_current_el(env));
+        env->elr_el[new_el] = env->pc;
+    } else {
+        env->banked_spsr[0] = cpsr_read(env);
+        if (!env->thumb) {
+            env->cp15.esr_el[new_el] |= 1 << 25;
+        }
+        env->elr_el[new_el] = env->regs[15];
+
+        for (i = 0; i < 15; i++) {
+            env->xregs[i] = env->regs[i];
+        }
+
+        env->condexec_bits = 0;
+    }
+
+    pstate_write(env, PSTATE_DAIF | new_mode);
+    env->aarch64 = 1;
+    aarch64_restore_sp(env, new_el);
+
+    env->pc = addr;
+    cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
+}
+#endif

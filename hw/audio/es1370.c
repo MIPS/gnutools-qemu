@@ -953,8 +953,7 @@ static const VMStateDescription vmstate_es1370_channel = {
     .name = "es1370_channel",
     .version_id = 2,
     .minimum_version_id = 2,
-    .minimum_version_id_old = 2,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT32 (shift, struct chan),
         VMSTATE_UINT32 (leftover, struct chan),
         VMSTATE_UINT32 (scount, struct chan),
@@ -997,9 +996,8 @@ static const VMStateDescription vmstate_es1370 = {
     .name = "es1370",
     .version_id = 2,
     .minimum_version_id = 2,
-    .minimum_version_id_old = 2,
     .post_load = es1370_post_load,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_PCI_DEVICE (dev, ES1370State),
         VMSTATE_STRUCT_ARRAY (chan, ES1370State, NB_CHANNELS, 2,
                               vmstate_es1370_channel, struct chan),
@@ -1044,13 +1042,6 @@ static int es1370_initfn (PCIDevice *dev)
     return 0;
 }
 
-static void es1370_exitfn (PCIDevice *dev)
-{
-    ES1370State *s = DO_UPCAST (ES1370State, dev, dev);
-
-    memory_region_destroy (&s->io);
-}
-
 static int es1370_init (PCIBus *bus)
 {
     pci_create_simple (bus, -1, "ES1370");
@@ -1063,7 +1054,6 @@ static void es1370_class_init (ObjectClass *klass, void *data)
     PCIDeviceClass *k = PCI_DEVICE_CLASS (klass);
 
     k->init = es1370_initfn;
-    k->exit = es1370_exitfn;
     k->vendor_id = PCI_VENDOR_ID_ENSONIQ;
     k->device_id = PCI_DEVICE_ID_ENSONIQ_ES1370;
     k->class_id = PCI_CLASS_MULTIMEDIA_AUDIO;

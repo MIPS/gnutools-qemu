@@ -4,16 +4,10 @@ QA output created by 082
 
 Testing: create -f foo -f qcow2 TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 encryption=off cluster_size=65536 lazy_refcounts=off 
-
-Testing: info TEST_DIR/t.qcow2
-image: TEST_DIR/t.qcow2
-file format: qcow2
+image: TEST_DIR/t.IMGFMT
+file format: IMGFMT
 virtual size: 128M (134217728 bytes)
-disk size: 196K
 cluster_size: 65536
-Format specific information:
-    compat: 1.1
-    lazy refcounts: false
 
 Testing: create -f qcow2 -o cluster_size=4k -o lazy_refcounts=on TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 encryption=off cluster_size=4096 lazy_refcounts=on 
@@ -27,6 +21,7 @@ cluster_size: 4096
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: create -f qcow2 -o cluster_size=4k -o lazy_refcounts=on -o cluster_size=8k TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 encryption=off cluster_size=8192 lazy_refcounts=on 
@@ -40,19 +35,14 @@ cluster_size: 8192
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: create -f qcow2 -o cluster_size=4k,cluster_size=8k TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 encryption=off cluster_size=8192 lazy_refcounts=off 
-
-Testing: info TEST_DIR/t.qcow2
-image: TEST_DIR/t.qcow2
-file format: qcow2
+image: TEST_DIR/t.IMGFMT
+file format: IMGFMT
 virtual size: 128M (134217728 bytes)
-disk size: 28K
 cluster_size: 8192
-Format specific information:
-    compat: 1.1
-    lazy refcounts: false
 
 === create: help for -o ===
 
@@ -64,8 +54,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o ? TEST_DIR/t.qcow2 128M
 Supported options:
@@ -75,8 +66,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o cluster_size=4k,help TEST_DIR/t.qcow2 128M
 Supported options:
@@ -86,8 +78,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o cluster_size=4k,? TEST_DIR/t.qcow2 128M
 Supported options:
@@ -97,8 +90,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o help,cluster_size=4k TEST_DIR/t.qcow2 128M
 Supported options:
@@ -108,8 +102,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o ?,cluster_size=4k TEST_DIR/t.qcow2 128M
 Supported options:
@@ -119,8 +114,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o cluster_size=4k -o help TEST_DIR/t.qcow2 128M
 Supported options:
@@ -130,8 +126,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o cluster_size=4k -o ? TEST_DIR/t.qcow2 128M
 Supported options:
@@ -141,8 +138,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: create -f qcow2 -o backing_file=TEST_DIR/t.qcow2,,help TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 backing_file='TEST_DIR/t.qcow2,help' encryption=off cluster_size=65536 lazy_refcounts=off 
@@ -167,7 +165,7 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
 
 Testing: create -o help
@@ -180,24 +178,15 @@ Testing: create -f qcow2 TEST_DIR/t.qcow2 128M
 Formatting 'TEST_DIR/t.qcow2', fmt=qcow2 size=134217728 encryption=off cluster_size=65536 lazy_refcounts=off 
 
 Testing: convert -f foo -f qcow2 TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
-
-Testing: info TEST_DIR/t.qcow2.base
-image: TEST_DIR/t.qcow2.base
+image: TEST_DIR/t.IMGFMT.base
 file format: raw
 virtual size: 128M (134217728 bytes)
-disk size: 0
 
 Testing: convert -O foo -O qcow2 TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
-
-Testing: info TEST_DIR/t.qcow2.base
-image: TEST_DIR/t.qcow2.base
-file format: qcow2
+image: TEST_DIR/t.IMGFMT.base
+file format: IMGFMT
 virtual size: 128M (134217728 bytes)
-disk size: 196K
 cluster_size: 65536
-Format specific information:
-    compat: 1.1
-    lazy refcounts: false
 
 Testing: convert -O qcow2 -o cluster_size=4k -o lazy_refcounts=on TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 
@@ -210,6 +199,7 @@ cluster_size: 4096
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: convert -O qcow2 -o cluster_size=4k -o lazy_refcounts=on -o cluster_size=8k TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 
@@ -222,18 +212,13 @@ cluster_size: 8192
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: convert -O qcow2 -o cluster_size=4k,cluster_size=8k TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
-
-Testing: info TEST_DIR/t.qcow2.base
-image: TEST_DIR/t.qcow2.base
-file format: qcow2
+image: TEST_DIR/t.IMGFMT.base
+file format: IMGFMT
 virtual size: 128M (134217728 bytes)
-disk size: 28K
 cluster_size: 8192
-Format specific information:
-    compat: 1.1
-    lazy refcounts: false
 
 === convert: help for -o ===
 
@@ -245,8 +230,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o ? TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -256,8 +242,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o cluster_size=4k,help TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -267,8 +254,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o cluster_size=4k,? TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -278,8 +266,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o help,cluster_size=4k TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -289,8 +278,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o ?,cluster_size=4k TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -300,8 +290,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o cluster_size=4k -o help TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -311,8 +302,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o cluster_size=4k -o ? TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 Supported options:
@@ -322,8 +314,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: convert -O qcow2 -o backing_file=TEST_DIR/t.qcow2,,help TEST_DIR/t.qcow2 TEST_DIR/t.qcow2.base
 qemu-img: Could not open 'TEST_DIR/t.qcow2.base': Could not open backing file: Could not open 'TEST_DIR/t.qcow2,help': No such file or directory
@@ -348,7 +341,7 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
 
 Testing: convert -o help
@@ -368,6 +361,7 @@ cluster_size: 65536
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: amend -f qcow2 -o size=130M -o lazy_refcounts=off TEST_DIR/t.qcow2
 
@@ -380,6 +374,7 @@ cluster_size: 65536
 Format specific information:
     compat: 1.1
     lazy refcounts: false
+    corrupt: false
 
 Testing: amend -f qcow2 -o size=8M -o lazy_refcounts=on -o size=132M TEST_DIR/t.qcow2
 
@@ -392,18 +387,13 @@ cluster_size: 65536
 Format specific information:
     compat: 1.1
     lazy refcounts: true
+    corrupt: false
 
 Testing: amend -f qcow2 -o size=4M,size=148M TEST_DIR/t.qcow2
-
-Testing: info TEST_DIR/t.qcow2
-image: TEST_DIR/t.qcow2
-file format: qcow2
+image: TEST_DIR/t.IMGFMT
+file format: IMGFMT
 virtual size: 148M (155189248 bytes)
-disk size: 196K
 cluster_size: 65536
-Format specific information:
-    compat: 1.1
-    lazy refcounts: true
 
 === amend: help for -o ===
 
@@ -415,8 +405,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o ? TEST_DIR/t.qcow2
 Supported options:
@@ -426,8 +417,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o cluster_size=4k,help TEST_DIR/t.qcow2
 Supported options:
@@ -437,8 +429,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o cluster_size=4k,? TEST_DIR/t.qcow2
 Supported options:
@@ -448,8 +441,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o help,cluster_size=4k TEST_DIR/t.qcow2
 Supported options:
@@ -459,8 +453,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o ?,cluster_size=4k TEST_DIR/t.qcow2
 Supported options:
@@ -470,8 +465,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o cluster_size=4k -o help TEST_DIR/t.qcow2
 Supported options:
@@ -481,8 +477,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o cluster_size=4k -o ? TEST_DIR/t.qcow2
 Supported options:
@@ -492,8 +489,9 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
+nocow            Turn off copy-on-write (valid only on btrfs)
 
 Testing: amend -f qcow2 -o backing_file=TEST_DIR/t.qcow2,,help TEST_DIR/t.qcow2
 
@@ -520,7 +518,7 @@ backing_file     File name of a base image
 backing_fmt      Image format of the base image
 encryption       Encrypt the image
 cluster_size     qcow2 cluster size
-preallocation    Preallocation mode (allowed values: off, metadata)
+preallocation    Preallocation mode (allowed values: off, metadata, falloc, full)
 lazy_refcounts   Postpone refcount updates
 
 Testing: convert -o help

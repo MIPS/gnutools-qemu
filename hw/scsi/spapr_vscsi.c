@@ -77,8 +77,9 @@ typedef struct vscsi_req {
     SCSIRequest             *sreq;
     uint32_t                qtag; /* qemu tag != srp tag */
     bool                    active;
-    uint32_t                data_len;
     bool                    writing;
+    bool                    dma_error;
+    uint32_t                data_len;
     uint32_t                senselen;
     uint8_t                 sense[SCSI_SENSE_BUF_SIZE];
 
@@ -536,8 +537,8 @@ static void vscsi_transfer_data(SCSIRequest *sreq, uint32_t len)
     }
     if (rc < 0) {
         fprintf(stderr, "VSCSI: RDMA error rc=%d!\n", rc);
-        vscsi_makeup_sense(s, req, HARDWARE_ERROR, 0, 0);
-        scsi_req_abort(req->sreq, CHECK_CONDITION);
+        req->dma_error = true;
+        scsi_req_cancel(req->sreq);
         return;
     }
 
@@ -591,6 +592,12 @@ static void vscsi_request_cancelled(SCSIRequest *sreq)
 {
     vscsi_req *req = sreq->hba_private;
 
+    if (req->dma_error) {
+        VSCSIState *s = VIO_SPAPR_VSCSI_DEVICE(sreq->bus->qbus.parent);
+
+        vscsi_makeup_sense(s, req, HARDWARE_ERROR, 0, 0);
+        vscsi_send_rsp(s, req, CHECK_CONDITION, 0, 0);
+    }
     vscsi_put_req(req);
 }
 
@@ -598,8 +605,7 @@ static const VMStateDescription vmstate_spapr_vscsi_req = {
     .name = "spapr_vscsi_req",
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_BUFFER(crq.raw, vscsi_req),
         VMSTATE_BUFFER(iu.srp.reserved, vscsi_req),
         VMSTATE_UINT32(qtag, vscsi_req),
@@ -800,8 +806,9 @@ static int vscsi_queue_cmd(VSCSIState *s, vscsi_req *req)
     req->sreq = scsi_req_new(sdev, req->qtag, lun, srp->cmd.cdb, req);
     n = scsi_req_enqueue(req->sreq);
 
-    DPRINTF("VSCSI: Queued command tag 0x%x CMD 0x%x LUN %d ret: %d\n",
-            req->qtag, srp->cmd.cdb[0], lun, n);
+    DPRINTF("VSCSI: Queued command tag 0x%x CMD 0x%x=%s LUN %d ret: %d\n",
+            req->qtag, srp->cmd.cdb[0], scsi_command_name(srp->cmd.cdb[0]),
+            lun, n);
 
     if (n) {
         /* Transfer direction must be set before preprocessing the
@@ -1260,8 +1267,7 @@ static const VMStateDescription vmstate_spapr_vscsi = {
     .name = "spapr_vscsi",
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_SPAPR_VIO(vdev, VSCSIState),
         /* VSCSI state */
         /* ???? */

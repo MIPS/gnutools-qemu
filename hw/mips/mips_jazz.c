@@ -39,7 +39,7 @@
 #include "hw/timer/mc146818rtc.h"
 #include "hw/timer/i8254.h"
 #include "hw/audio/pcspk.h"
-#include "sysemu/blockdev.h"
+#include "sysemu/block-backend.h"
 #include "hw/sysbus.h"
 #include "exec/address-spaces.h"
 #include "sysemu/qtest.h"
@@ -179,11 +179,12 @@ static void mips_jazz_init(MemoryRegion *address_space,
     cc->do_unassigned_access = mips_jazz_do_unassigned_access;
 
     /* allocate RAM */
-    memory_region_init_ram(ram, NULL, "mips_jazz.ram", ram_size);
+    memory_region_init_ram(ram, NULL, "mips_jazz.ram", ram_size, &error_abort);
     vmstate_register_ram_global(ram);
     memory_region_add_subregion(address_space, 0, ram);
 
-    memory_region_init_ram(bios, NULL, "mips_jazz.bios", MAGNUM_BIOS_SIZE);
+    memory_region_init_ram(bios, NULL, "mips_jazz.bios", MAGNUM_BIOS_SIZE,
+                           &error_abort);
     vmstate_register_ram_global(bios);
     memory_region_set_readonly(bios, true);
     memory_region_init_alias(bios2, NULL, "mips_jazz.bios", bios,
@@ -244,7 +245,8 @@ static void mips_jazz_init(MemoryRegion *address_space,
         {
             /* Simple ROM, so user doesn't have to provide one */
             MemoryRegion *rom_mr = g_new(MemoryRegion, 1);
-            memory_region_init_ram(rom_mr, NULL, "g364fb.rom", 0x80000);
+            memory_region_init_ram(rom_mr, NULL, "g364fb.rom", 0x80000,
+                                   &error_abort);
             vmstate_register_ram_global(rom_mr);
             memory_region_set_readonly(rom_mr, true);
             uint8_t *rom = memory_region_get_ram_ptr(rom_mr);
@@ -329,19 +331,19 @@ static void mips_jazz_init(MemoryRegion *address_space,
 }
 
 static
-void mips_magnum_init(QEMUMachineInitArgs *args)
+void mips_magnum_init(MachineState *machine)
 {
-    ram_addr_t ram_size = args->ram_size;
-    const char *cpu_model = args->cpu_model;
+    ram_addr_t ram_size = machine->ram_size;
+    const char *cpu_model = machine->cpu_model;
         mips_jazz_init(get_system_memory(), get_system_io(),
                        ram_size, cpu_model, JAZZ_MAGNUM);
 }
 
 static
-void mips_pica61_init(QEMUMachineInitArgs *args)
+void mips_pica61_init(MachineState *machine)
 {
-    ram_addr_t ram_size = args->ram_size;
-    const char *cpu_model = args->cpu_model;
+    ram_addr_t ram_size = machine->ram_size;
+    const char *cpu_model = machine->cpu_model;
     mips_jazz_init(get_system_memory(), get_system_io(),
                    ram_size, cpu_model, JAZZ_PICA61);
 }

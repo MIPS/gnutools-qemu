@@ -26,15 +26,19 @@
 #include <hw/i386/pc.h>
 #include <hw/pci/pci.h>
 #include <hw/isa/isa.h>
-#include "block/block.h"
+#include "sysemu/block-backend.h"
 #include "sysemu/dma.h"
 
 #include <hw/ide/pci.h>
 
 #define BMDMA_PAGE_SIZE 4096
 
+#define BM_MIGRATION_COMPAT_STATUS_BITS \
+        (IDE_RETRY_DMA | IDE_RETRY_PIO | \
+        IDE_RETRY_READ | IDE_RETRY_FLUSH)
+
 static void bmdma_start_dma(IDEDMA *dma, IDEState *s,
-                            BlockDriverCompletionFunc *dma_cb)
+                            BlockCompletionFunc *dma_cb)
 {
     BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
 
@@ -152,23 +156,17 @@ static int bmdma_set_unit(IDEDMA *dma, int unit)
     return 0;
 }
 
-static int bmdma_add_status(IDEDMA *dma, int status)
-{
-    BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
-    bm->status |= status;
-
-    return 0;
-}
-
-static int bmdma_set_inactive(IDEDMA *dma)
+static void bmdma_set_inactive(IDEDMA *dma, bool more)
 {
     BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
 
-    bm->status &= ~BM_STATUS_DMAING;
     bm->dma_cb = NULL;
     bm->unit = -1;
-
-    return 0;
+    if (more) {
+        bm->status |= BM_STATUS_DMAING;
+    } else {
+        bm->status &= ~BM_STATUS_DMAING;
+    }
 }
 
 static void bmdma_restart_dma(BMDMAState *bm, enum ide_dma_cmd dma_cmd)
@@ -200,7 +198,7 @@ static void bmdma_restart_bh(void *opaque)
         return;
     }
 
-    is_read = (bus->error_status & BM_STATUS_RETRY_READ) != 0;
+    is_read = (bus->error_status & IDE_RETRY_READ) != 0;
 
     /* The error status must be cleared before resubmitting the request: The
      * request may fail again, and this case can only be distinguished if the
@@ -208,19 +206,19 @@ static void bmdma_restart_bh(void *opaque)
     error_status = bus->error_status;
     bus->error_status = 0;
 
-    if (error_status & BM_STATUS_DMA_RETRY) {
-        if (error_status & BM_STATUS_RETRY_TRIM) {
+    if (error_status & IDE_RETRY_DMA) {
+        if (error_status & IDE_RETRY_TRIM) {
             bmdma_restart_dma(bm, IDE_DMA_TRIM);
         } else {
             bmdma_restart_dma(bm, is_read ? IDE_DMA_READ : IDE_DMA_WRITE);
         }
-    } else if (error_status & BM_STATUS_PIO_RETRY) {
+    } else if (error_status & IDE_RETRY_PIO) {
         if (is_read) {
             ide_sector_read(bmdma_active_if(bm));
         } else {
             ide_sector_write(bmdma_active_if(bm));
         }
-    } else if (error_status & BM_STATUS_RETRY_FLUSH) {
+    } else if (error_status & IDE_RETRY_FLUSH) {
         ide_flush_cache(bmdma_active_if(bm));
     }
 }
@@ -243,11 +241,11 @@ static void bmdma_cancel(BMDMAState *bm)
 {
     if (bm->status & BM_STATUS_DMAING) {
         /* cancel DMA request */
-        bmdma_set_inactive(&bm->dma);
+        bmdma_set_inactive(&bm->dma, false);
     }
 }
 
-static int bmdma_reset(IDEDMA *dma)
+static void bmdma_reset(IDEDMA *dma)
 {
     BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
 
@@ -264,13 +262,6 @@ static int bmdma_reset(IDEDMA *dma)
     bm->cur_prd_len = 0;
     bm->sector_num = 0;
     bm->nsector = 0;
-
-    return 0;
-}
-
-static int bmdma_start_transfer(IDEDMA *dma)
-{
-    return 0;
 }
 
 static void bmdma_irq(void *opaque, int n, int level)
@@ -311,7 +302,7 @@ void bmdma_cmd_writeb(BMDMAState *bm, uint32_t val)
              * aio operation with preadv/pwritev.
              */
             if (bm->bus->dma->aiocb) {
-                bdrv_drain_all();
+                blk_drain_all();
                 assert(bm->bus->dma->aiocb == NULL);
             }
             bm->status &= ~BM_STATUS_DMAING;
@@ -411,8 +402,7 @@ static const VMStateDescription vmstate_bmdma_current = {
     .name = "ide bmdma_current",
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT32(cur_addr, BMDMAState),
         VMSTATE_UINT32(cur_prd_last, BMDMAState),
         VMSTATE_UINT32(cur_prd_addr, BMDMAState),
@@ -425,8 +415,7 @@ static const VMStateDescription vmstate_bmdma_status = {
     .name ="ide bmdma/status",
     .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT8(status, BMDMAState),
         VMSTATE_END_OF_LIST()
     }
@@ -436,9 +425,8 @@ static const VMStateDescription vmstate_bmdma = {
     .name = "ide bmdma",
     .version_id = 3,
     .minimum_version_id = 0,
-    .minimum_version_id_old = 0,
     .pre_save  = ide_bmdma_pre_save,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_UINT8(cmd, BMDMAState),
         VMSTATE_UINT8(migration_compat_status, BMDMAState),
         VMSTATE_UINT32(addr, BMDMAState),
@@ -479,9 +467,8 @@ const VMStateDescription vmstate_ide_pci = {
     .name = "ide",
     .version_id = 3,
     .minimum_version_id = 0,
-    .minimum_version_id_old = 0,
     .post_load = ide_pci_post_load,
-    .fields      = (VMStateField []) {
+    .fields = (VMStateField[]) {
         VMSTATE_PCI_DEVICE(parent_obj, PCIIDEState),
         VMSTATE_STRUCT_ARRAY(bmdma, PCIIDEState, 2, 0,
                              vmstate_bmdma, BMDMAState),
@@ -508,11 +495,9 @@ void pci_ide_create_devs(PCIDevice *dev, DriveInfo **hd_table)
 
 static const struct IDEDMAOps bmdma_ops = {
     .start_dma = bmdma_start_dma,
-    .start_transfer = bmdma_start_transfer,
     .prepare_buf = bmdma_prepare_buf,
     .rw_buf = bmdma_rw_buf,
     .set_unit = bmdma_set_unit,
-    .add_status = bmdma_add_status,
     .set_inactive = bmdma_set_inactive,
     .restart_cb = bmdma_restart_cb,
     .reset = bmdma_reset,

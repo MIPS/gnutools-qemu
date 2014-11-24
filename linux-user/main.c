@@ -28,7 +28,6 @@
 
 #include "qemu.h"
 #include "qemu-common.h"
-#include "qemu/cache-utils.h"
 #include "cpu.h"
 #include "tcg.h"
 #include "qemu/timer.h"
@@ -69,7 +68,7 @@ unsigned long reserved_va;
 static void usage(void);
 
 static const char *interp_prefix = CONFIG_QEMU_INTERP_PREFIX;
-const char *qemu_uname_release = CONFIG_UNAME_RELEASE;
+const char *qemu_uname_release;
 
 /* XXX: on x86 MAP_GROWSDOWN only works if ESP <= address + 32, so
    we allocate a bigger stack. Need a better solution, for example
@@ -310,7 +309,6 @@ void cpu_loop(CPUX86State *env)
                                           env->regs[8],
                                           env->regs[9],
                                           0, 0);
-            env->eip = env->exception_next_eip;
             break;
 #endif
         case EXCP0B_NOSEG:
@@ -483,17 +481,17 @@ static void arm_kernel_cmpxchg64_helper(CPUARMState *env)
     addr = env->regs[2];
 
     if (get_user_u64(oldval, env->regs[0])) {
-        env->cp15.c6_data = env->regs[0];
+        env->exception.vaddress = env->regs[0];
         goto segv;
     };
 
     if (get_user_u64(newval, env->regs[1])) {
-        env->cp15.c6_data = env->regs[1];
+        env->exception.vaddress = env->regs[1];
         goto segv;
     };
 
     if (get_user_u64(val, addr)) {
-        env->cp15.c6_data = addr;
+        env->exception.vaddress = addr;
         goto segv;
     }
 
@@ -501,7 +499,7 @@ static void arm_kernel_cmpxchg64_helper(CPUARMState *env)
         val = newval;
 
         if (put_user_u64(val, addr)) {
-            env->cp15.c6_data = addr;
+            env->exception.vaddress = addr;
             goto segv;
         };
 
@@ -523,7 +521,7 @@ segv:
     info.si_errno = 0;
     /* XXX: check env->error_code */
     info.si_code = TARGET_SEGV_MAPERR;
-    info._sifields._sigfault._addr = env->cp15.c6_data;
+    info._sifields._sigfault._addr = env->exception.vaddress;
     queue_signal(env, info.si_signo, &info);
 
     end_exclusive();
@@ -620,14 +618,14 @@ static int do_strex(CPUARMState *env)
         abort();
     }
     if (segv) {
-        env->cp15.c6_data = addr;
+        env->exception.vaddress = addr;
         goto done;
     }
     if (size == 3) {
         uint32_t valhi;
         segv = get_user_u32(valhi, addr + 4);
         if (segv) {
-            env->cp15.c6_data = addr + 4;
+            env->exception.vaddress = addr + 4;
             goto done;
         }
         val = deposit64(val, 32, 32, valhi);
@@ -650,14 +648,14 @@ static int do_strex(CPUARMState *env)
         break;
     }
     if (segv) {
-        env->cp15.c6_data = addr;
+        env->exception.vaddress = addr;
         goto done;
     }
     if (size == 3) {
         val = env->regs[(env->exclusive_info >> 12) & 0xf];
         segv = put_user_u32(val, addr + 4);
         if (segv) {
-            env->cp15.c6_data = addr + 4;
+            env->exception.vaddress = addr + 4;
             goto done;
         }
     }
@@ -807,6 +805,9 @@ void cpu_loop(CPUARMState *env)
                             cpu_set_tls(env, env->regs[0]);
                             env->regs[0] = 0;
                             break;
+                        case ARM_NR_breakpoint:
+                            env->regs[15] -= env->thumb ? 2 : 4;
+                            goto excp_debug;
                         default:
                             gemu_log("qemu: Unsupported ARM syscall: 0x%x\n",
                                      n);
@@ -832,12 +833,14 @@ void cpu_loop(CPUARMState *env)
         case EXCP_INTERRUPT:
             /* just indicate that signals should be handled asap */
             break;
+        case EXCP_STREX:
+            if (!do_strex(env)) {
+                break;
+            }
+            /* fall through for segv */
         case EXCP_PREFETCH_ABORT:
-            addr = env->cp15.c6_insn;
-            goto do_segv;
         case EXCP_DATA_ABORT:
-            addr = env->cp15.c6_data;
-        do_segv:
+            addr = env->exception.vaddress;
             {
                 info.si_signo = SIGSEGV;
                 info.si_errno = 0;
@@ -848,6 +851,7 @@ void cpu_loop(CPUARMState *env)
             }
             break;
         case EXCP_DEBUG:
+        excp_debug:
             {
                 int sig;
 
@@ -864,12 +868,6 @@ void cpu_loop(CPUARMState *env)
         case EXCP_KERNEL_TRAP:
             if (do_kernel_trap(env))
               goto error;
-            break;
-        case EXCP_STREX:
-            if (do_strex(env)) {
-                addr = env->cp15.c6_data;
-                goto do_segv;
-            }
             break;
         default:
         error:
@@ -933,7 +931,7 @@ static int do_strex_a64(CPUARMState *env)
         abort();
     }
     if (segv) {
-        env->cp15.c6_data = addr;
+        env->exception.vaddress = addr;
         goto error;
     }
     if (val != env->exclusive_val) {
@@ -946,7 +944,7 @@ static int do_strex_a64(CPUARMState *env)
             segv = get_user_u64(val, addr + 8);
         }
         if (segv) {
-            env->cp15.c6_data = addr + (size == 2 ? 4 : 8);
+            env->exception.vaddress = addr + (size == 2 ? 4 : 8);
             goto error;
         }
         if (val != env->exclusive_high) {
@@ -981,7 +979,7 @@ static int do_strex_a64(CPUARMState *env)
             segv = put_user_u64(val, addr + 8);
         }
         if (segv) {
-            env->cp15.c6_data = addr + (size == 2 ? 4 : 8);
+            env->exception.vaddress = addr + (size == 2 ? 4 : 8);
             goto error;
         }
     }
@@ -1008,7 +1006,6 @@ void cpu_loop(CPUARMState *env)
     CPUState *cs = CPU(arm_env_get_cpu(env));
     int trapnr, sig;
     target_siginfo_t info;
-    uint32_t addr;
 
     for (;;) {
         cpu_exec_start(cs);
@@ -1037,17 +1034,18 @@ void cpu_loop(CPUARMState *env)
             info._sifields._sigfault._addr = env->pc;
             queue_signal(env, info.si_signo, &info);
             break;
+        case EXCP_STREX:
+            if (!do_strex_a64(env)) {
+                break;
+            }
+            /* fall through for segv */
         case EXCP_PREFETCH_ABORT:
-            addr = env->cp15.c6_insn;
-            goto do_segv;
         case EXCP_DATA_ABORT:
-            addr = env->cp15.c6_data;
-        do_segv:
             info.si_signo = SIGSEGV;
             info.si_errno = 0;
             /* XXX: check env->error_code */
             info.si_code = TARGET_SEGV_MAPERR;
-            info._sifields._sigfault._addr = addr;
+            info._sifields._sigfault._addr = env->exception.vaddress;
             queue_signal(env, info.si_signo, &info);
             break;
         case EXCP_DEBUG:
@@ -1058,12 +1056,6 @@ void cpu_loop(CPUARMState *env)
                 info.si_errno = 0;
                 info.si_code = TARGET_TRAP_BRKPT;
                 queue_signal(env, info.si_signo, &info);
-            }
-            break;
-        case EXCP_STREX:
-            if (do_strex_a64(env)) {
-                addr = env->cp15.c6_data;
-                goto do_segv;
             }
             break;
         default:
@@ -1492,7 +1484,7 @@ static int do_store_exclusive(CPUPPCState *env)
 {
     target_ulong addr;
     target_ulong page_addr;
-    target_ulong val, val2 __attribute__((unused));
+    target_ulong val, val2 __attribute__((unused)) = 0;
     int flags;
     int segv = 0;
 
@@ -1505,7 +1497,7 @@ static int do_store_exclusive(CPUPPCState *env)
         segv = 1;
     } else {
         int reg = env->reserve_info & 0x1f;
-        int size = (env->reserve_info >> 5) & 0xf;
+        int size = env->reserve_info >> 5;
         int stored = 0;
 
         if (addr == env->reserve_addr) {
@@ -1535,6 +1527,12 @@ static int do_store_exclusive(CPUPPCState *env)
                 case 8: segv = put_user_u64(val, addr); break;
                 case 16: {
                     if (val2 == env->reserve_val2) {
+                        if (msr_le) {
+                            val2 = val;
+                            val = env->gpr[reg+1];
+                        } else {
+                            val2 = env->gpr[reg+1];
+                        }
                         segv = put_user_u64(val, addr);
                         if (!segv) {
                             segv = put_user_u64(val2, addr + 8);
@@ -3458,8 +3456,7 @@ CPUArchState *cpu_copy(CPUArchState *env)
         cpu_breakpoint_insert(new_cpu, bp->pc, bp->flags, NULL);
     }
     QTAILQ_FOREACH(wp, &cpu->watchpoints, entry) {
-        cpu_watchpoint_insert(new_cpu, wp->vaddr, (~wp->len_mask) + 1,
-                              wp->flags, NULL);
+        cpu_watchpoint_insert(new_cpu, wp->vaddr, wp->len, wp->flags, NULL);
     }
 #endif
 
@@ -3545,6 +3542,17 @@ static void handle_arg_pagesize(const char *arg)
         fprintf(stderr, "page size must be a power of two\n");
         exit(1);
     }
+}
+
+static void handle_arg_randseed(const char *arg)
+{
+    unsigned long long seed;
+
+    if (parse_uint_full(arg, &seed, 0) != 0 || seed > UINT_MAX) {
+        fprintf(stderr, "Invalid seed number: %s\n", arg);
+        exit(1);
+    }
+    srand(seed);
 }
 
 static void handle_arg_gdb(const char *arg)
@@ -3675,6 +3683,8 @@ static const struct qemu_argument arg_table[] = {
      "",           "run in singlestep mode"},
     {"strace",     "QEMU_STRACE",      false, handle_arg_strace,
      "",           "log system calls"},
+    {"seed",       "QEMU_RAND_SEED",   true,  handle_arg_randseed,
+     "",           "Seed for pseudo-random number generator"},
     {"version",    "QEMU_VERSION",     false, handle_arg_version,
      "",           "display version information and exit"},
     {NULL, NULL, false, NULL, NULL, NULL}
@@ -3831,9 +3841,6 @@ int main(int argc, char **argv, char **envp)
 
     module_call_init(MODULE_INIT_QOM);
 
-    qemu_init_auxval(envp);
-    qemu_cache_utils_init();
-
     if ((envlist = envlist_create()) == NULL) {
         (void) fprintf(stderr, "Unable to allocate envlist\n");
         exit(1);
@@ -3859,6 +3866,8 @@ int main(int argc, char **argv, char **envp)
 #if defined(cpudef_setup)
     cpudef_setup(); /* parse cpu definitions in target config file (TBD) */
 #endif
+
+    srand(time(NULL));
 
     optind = parse_args(argc, argv);
 
@@ -3903,11 +3912,11 @@ int main(int argc, char **argv, char **envp)
 #elif defined TARGET_OPENRISC
         cpu_model = "or1200";
 #elif defined(TARGET_PPC)
-#ifdef TARGET_PPC64
-        cpu_model = "970fx";
-#else
+# ifdef TARGET_PPC64
+        cpu_model = "POWER7";
+# else
         cpu_model = "750";
-#endif
+# endif
 #else
         cpu_model = "any";
 #endif
@@ -3928,6 +3937,10 @@ int main(int argc, char **argv, char **envp)
 
     if (getenv("QEMU_STRACE")) {
         do_strace = 1;
+    }
+
+    if (getenv("QEMU_RAND_SEED")) {
+        handle_arg_randseed(getenv("QEMU_RAND_SEED"));
     }
 
     target_environ = envlist_to_environ(envlist, NULL);
@@ -4059,10 +4072,8 @@ int main(int argc, char **argv, char **envp)
 #endif
 
 #if defined(TARGET_I386)
-    cpu_x86_set_cpl(env, 3);
-
     env->cr[0] = CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK;
-    env->hflags |= HF_PE_MASK;
+    env->hflags |= HF_PE_MASK | HF_CPL_MASK;
     if (env->features[FEAT_1_EDX] & CPUID_SSE) {
         env->cr[4] |= CR4_OSFXSR_MASK;
         env->hflags |= HF_OSFXSR_MASK;

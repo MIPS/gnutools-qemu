@@ -13,8 +13,10 @@
  */
 int get_image_size(const char *filename);
 int load_image(const char *filename, uint8_t *addr); /* deprecated */
+ssize_t load_image_size(const char *filename, void *addr, size_t size);
 int load_image_targphys(const char *filename, hwaddr,
                         uint64_t max_sz);
+int load_image_gzipped(const char *filename, hwaddr addr, uint64_t max_sz);
 
 #define ELF_LOAD_FAILED       -1
 #define ELF_LOAD_NOT_ELF      -2
@@ -28,7 +30,9 @@ int load_elf(const char *filename, uint64_t (*translate_fn)(void *, uint64_t),
 int load_aout(const char *filename, hwaddr addr, int max_sz,
               int bswap_needed, hwaddr target_page_size);
 int load_uimage(const char *filename, hwaddr *ep,
-                hwaddr *loadaddr, int *is_linux);
+                hwaddr *loadaddr, int *is_linux,
+                uint64_t (*translate_fn)(void *, uint64_t),
+                void *translate_opaque);
 
 /**
  * load_ramdisk:

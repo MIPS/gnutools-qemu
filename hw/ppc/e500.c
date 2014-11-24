@@ -36,10 +36,12 @@
 #include "exec/address-spaces.h"
 #include "qemu/host-utils.h"
 #include "hw/pci-host/ppce500.h"
+#include "qemu/error-report.h"
+#include "hw/platform-bus.h"
+#include "hw/net/fsl_etsec/etsec.h"
 
 #define EPAPR_MAGIC                (0x45504150)
 #define BINARY_DEVICE_TREE_FILE    "mpc8544ds.dtb"
-#define UIMAGE_LOAD_BASE           0
 #define DTC_LOAD_PAD               0x1800000
 #define DTC_PAD_MASK               0xFFFFF
 #define DTB_MAX_SIZE               (8 * 1024 * 1024)
@@ -62,6 +64,8 @@
 #define MPC8544_PCI_IO             0xE1000000ULL
 #define MPC8544_UTIL_OFFSET        0xe0000ULL
 #define MPC8544_SPIN_BASE          0xEF000000ULL
+#define MPC8XXX_GPIO_OFFSET        0x000FF000ULL
+#define MPC8XXX_GPIO_IRQ           43
 
 struct boot_info
 {
@@ -123,16 +127,154 @@ static void dt_serial_create(void *fdt, unsigned long long offset,
     }
 }
 
-static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
+static void create_dt_mpc8xxx_gpio(void *fdt, const char *soc, const char *mpic)
+{
+    hwaddr mmio0 = MPC8XXX_GPIO_OFFSET;
+    int irq0 = MPC8XXX_GPIO_IRQ;
+    gchar *node = g_strdup_printf("%s/gpio@%"PRIx64, soc, mmio0);
+    gchar *poweroff = g_strdup_printf("%s/power-off", soc);
+    int gpio_ph;
+
+    qemu_fdt_add_subnode(fdt, node);
+    qemu_fdt_setprop_string(fdt, node, "compatible", "fsl,qoriq-gpio");
+    qemu_fdt_setprop_cells(fdt, node, "reg", mmio0, 0x1000);
+    qemu_fdt_setprop_cells(fdt, node, "interrupts", irq0, 0x2);
+    qemu_fdt_setprop_phandle(fdt, node, "interrupt-parent", mpic);
+    qemu_fdt_setprop_cells(fdt, node, "#gpio-cells", 2);
+    qemu_fdt_setprop(fdt, node, "gpio-controller", NULL, 0);
+    gpio_ph = qemu_fdt_alloc_phandle(fdt);
+    qemu_fdt_setprop_cell(fdt, node, "phandle", gpio_ph);
+    qemu_fdt_setprop_cell(fdt, node, "linux,phandle", gpio_ph);
+
+    /* Power Off Pin */
+    qemu_fdt_add_subnode(fdt, poweroff);
+    qemu_fdt_setprop_string(fdt, poweroff, "compatible", "gpio-poweroff");
+    qemu_fdt_setprop_cells(fdt, poweroff, "gpios", gpio_ph, 0, 0);
+
+    g_free(node);
+    g_free(poweroff);
+}
+
+typedef struct PlatformDevtreeData {
+    void *fdt;
+    const char *mpic;
+    int irq_start;
+    const char *node;
+    PlatformBusDevice *pbus;
+} PlatformDevtreeData;
+
+static int create_devtree_etsec(SysBusDevice *sbdev, PlatformDevtreeData *data)
+{
+    eTSEC *etsec = ETSEC_COMMON(sbdev);
+    PlatformBusDevice *pbus = data->pbus;
+    hwaddr mmio0 = platform_bus_get_mmio_addr(pbus, sbdev, 0);
+    int irq0 = platform_bus_get_irqn(pbus, sbdev, 0);
+    int irq1 = platform_bus_get_irqn(pbus, sbdev, 1);
+    int irq2 = platform_bus_get_irqn(pbus, sbdev, 2);
+    gchar *node = g_strdup_printf("/platform/ethernet@%"PRIx64, mmio0);
+    gchar *group = g_strdup_printf("%s/queue-group", node);
+    void *fdt = data->fdt;
+
+    assert((int64_t)mmio0 >= 0);
+    assert(irq0 >= 0);
+    assert(irq1 >= 0);
+    assert(irq2 >= 0);
+
+    qemu_fdt_add_subnode(fdt, node);
+    qemu_fdt_setprop_string(fdt, node, "device_type", "network");
+    qemu_fdt_setprop_string(fdt, node, "compatible", "fsl,etsec2");
+    qemu_fdt_setprop_string(fdt, node, "model", "eTSEC");
+    qemu_fdt_setprop(fdt, node, "local-mac-address", etsec->conf.macaddr.a, 6);
+    qemu_fdt_setprop_cells(fdt, node, "fixed-link", 0, 1, 1000, 0, 0);
+
+    qemu_fdt_add_subnode(fdt, group);
+    qemu_fdt_setprop_cells(fdt, group, "reg", mmio0, 0x1000);
+    qemu_fdt_setprop_cells(fdt, group, "interrupts",
+        data->irq_start + irq0, 0x2,
+        data->irq_start + irq1, 0x2,
+        data->irq_start + irq2, 0x2);
+
+    g_free(node);
+    g_free(group);
+
+    return 0;
+}
+
+static int sysbus_device_create_devtree(SysBusDevice *sbdev, void *opaque)
+{
+    PlatformDevtreeData *data = opaque;
+    bool matched = false;
+
+    if (object_dynamic_cast(OBJECT(sbdev), TYPE_ETSEC_COMMON)) {
+        create_devtree_etsec(sbdev, data);
+        matched = true;
+    }
+
+    if (!matched) {
+        error_report("Device %s is not supported by this machine yet.",
+                     qdev_fw_name(DEVICE(sbdev)));
+        exit(1);
+    }
+
+    return 0;
+}
+
+static void platform_bus_create_devtree(PPCE500Params *params, void *fdt,
+                                        const char *mpic)
+{
+    gchar *node = g_strdup_printf("/platform@%"PRIx64, params->platform_bus_base);
+    const char platcomp[] = "qemu,platform\0simple-bus";
+    uint64_t addr = params->platform_bus_base;
+    uint64_t size = params->platform_bus_size;
+    int irq_start = params->platform_bus_first_irq;
+    PlatformBusDevice *pbus;
+    DeviceState *dev;
+
+    /* Create a /platform node that we can put all devices into */
+
+    qemu_fdt_add_subnode(fdt, node);
+    qemu_fdt_setprop(fdt, node, "compatible", platcomp, sizeof(platcomp));
+
+    /* Our platform bus region is less than 32bit big, so 1 cell is enough for
+       address and size */
+    qemu_fdt_setprop_cells(fdt, node, "#size-cells", 1);
+    qemu_fdt_setprop_cells(fdt, node, "#address-cells", 1);
+    qemu_fdt_setprop_cells(fdt, node, "ranges", 0, addr >> 32, addr, size);
+
+    qemu_fdt_setprop_phandle(fdt, node, "interrupt-parent", mpic);
+
+    dev = qdev_find_recursive(sysbus_get_default(), TYPE_PLATFORM_BUS_DEVICE);
+    pbus = PLATFORM_BUS_DEVICE(dev);
+
+    /* We can only create dt nodes for dynamic devices when they're ready */
+    if (pbus->done_gathering) {
+        PlatformDevtreeData data = {
+            .fdt = fdt,
+            .mpic = mpic,
+            .irq_start = irq_start,
+            .node = node,
+            .pbus = pbus,
+        };
+
+        /* Loop through all dynamic sysbus devices and create nodes for them */
+        foreach_dynamic_sysbus_device(sysbus_device_create_devtree, &data);
+    }
+
+    g_free(node);
+}
+
+static int ppce500_load_device_tree(MachineState *machine,
                                     PPCE500Params *params,
                                     hwaddr addr,
                                     hwaddr initrd_base,
                                     hwaddr initrd_size,
+                                    hwaddr kernel_base,
+                                    hwaddr kernel_size,
                                     bool dry_run)
 {
     CPUPPCState *env = first_cpu->env_ptr;
     int ret = -1;
-    uint64_t mem_reg_property[] = { 0, cpu_to_be64(args->ram_size) };
+    uint64_t mem_reg_property[] = { 0, cpu_to_be64(machine->ram_size) };
     int fdt_size;
     void *fdt;
     uint8_t hypercall[16];
@@ -204,10 +346,17 @@ static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
         if (ret < 0) {
             fprintf(stderr, "couldn't set /chosen/linux,initrd-end\n");
         }
+
+    }
+
+    if (kernel_base != -1ULL) {
+        qemu_fdt_setprop_cells(fdt, "/chosen", "qemu,boot-kernel",
+                                     kernel_base >> 32, kernel_base,
+                                     kernel_size >> 32, kernel_size);
     }
 
     ret = qemu_fdt_setprop_string(fdt, "/chosen", "bootargs",
-                                      args->kernel_cmdline);
+                                      machine->kernel_cmdline);
     if (ret < 0)
         fprintf(stderr, "couldn't set /chosen/bootargs\n");
 
@@ -308,10 +457,15 @@ static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
      * device it finds in the dt as serial output device. And we generate
      * devices in reverse order to the dt.
      */
-    dt_serial_create(fdt, MPC8544_SERIAL1_REGS_OFFSET,
-                     soc, mpic, "serial1", 1, false);
-    dt_serial_create(fdt, MPC8544_SERIAL0_REGS_OFFSET,
-                     soc, mpic, "serial0", 0, true);
+    if (serial_hds[1]) {
+        dt_serial_create(fdt, MPC8544_SERIAL1_REGS_OFFSET,
+                         soc, mpic, "serial1", 1, false);
+    }
+
+    if (serial_hds[0]) {
+        dt_serial_create(fdt, MPC8544_SERIAL0_REGS_OFFSET,
+                         soc, mpic, "serial0", 0, true);
+    }
 
     snprintf(gutil, sizeof(gutil), "%s/global-utilities@%llx", soc,
              MPC8544_UTIL_OFFSET);
@@ -366,6 +520,14 @@ static int ppce500_load_device_tree(QEMUMachineInitArgs *args,
     qemu_fdt_setprop_cell(fdt, pci, "#address-cells", 3);
     qemu_fdt_setprop_string(fdt, "/aliases", "pci0", pci);
 
+    if (params->has_mpc8xxx_gpio) {
+        create_dt_mpc8xxx_gpio(fdt, soc, mpic);
+    }
+
+    if (params->has_platform_bus) {
+        platform_bus_create_devtree(params, fdt, mpic);
+    }
+
     params->fixup_devtree(params, fdt);
 
     if (toplevel_compat) {
@@ -387,38 +549,55 @@ out:
 }
 
 typedef struct DeviceTreeParams {
-    QEMUMachineInitArgs args;
+    MachineState *machine;
     PPCE500Params params;
     hwaddr addr;
     hwaddr initrd_base;
     hwaddr initrd_size;
+    hwaddr kernel_base;
+    hwaddr kernel_size;
+    Notifier notifier;
 } DeviceTreeParams;
 
 static void ppce500_reset_device_tree(void *opaque)
 {
     DeviceTreeParams *p = opaque;
-    ppce500_load_device_tree(&p->args, &p->params, p->addr, p->initrd_base,
-                             p->initrd_size, false);
+    ppce500_load_device_tree(p->machine, &p->params, p->addr, p->initrd_base,
+                             p->initrd_size, p->kernel_base, p->kernel_size,
+                             false);
 }
 
-static int ppce500_prep_device_tree(QEMUMachineInitArgs *args,
+static void ppce500_init_notify(Notifier *notifier, void *data)
+{
+    DeviceTreeParams *p = container_of(notifier, DeviceTreeParams, notifier);
+    ppce500_reset_device_tree(p);
+}
+
+static int ppce500_prep_device_tree(MachineState *machine,
                                     PPCE500Params *params,
                                     hwaddr addr,
                                     hwaddr initrd_base,
-                                    hwaddr initrd_size)
+                                    hwaddr initrd_size,
+                                    hwaddr kernel_base,
+                                    hwaddr kernel_size)
 {
     DeviceTreeParams *p = g_new(DeviceTreeParams, 1);
-    p->args = *args;
+    p->machine = machine;
     p->params = *params;
     p->addr = addr;
     p->initrd_base = initrd_base;
     p->initrd_size = initrd_size;
+    p->kernel_base = kernel_base;
+    p->kernel_size = kernel_size;
 
     qemu_register_reset(ppce500_reset_device_tree, p);
+    p->notifier.notify = ppce500_init_notify;
+    qemu_add_machine_init_done_notifier(&p->notifier);
 
     /* Issue the device tree loader once, so that we get the size of the blob */
-    return ppce500_load_device_tree(args, params, addr, initrd_base,
-                                    initrd_size, true);
+    return ppce500_load_device_tree(machine, params, addr, initrd_base,
+                                    initrd_size, kernel_base, kernel_size,
+                                    true);
 }
 
 /* Create -kernel TLB entries for BookE.  */
@@ -562,7 +741,7 @@ static qemu_irq *ppce500_init_mpic(PPCE500Params *params, MemoryRegion *ccsr,
     SysBusDevice *s;
     int i;
 
-    mpic = g_new(qemu_irq, 256);
+    mpic = g_new0(qemu_irq, 256);
 
     if (kvm_enabled()) {
         QemuOpts *machine_opts = qemu_get_machine_opts();
@@ -597,23 +776,35 @@ static qemu_irq *ppce500_init_mpic(PPCE500Params *params, MemoryRegion *ccsr,
     return mpic;
 }
 
-void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
+static void ppce500_power_off(void *opaque, int line, int on)
+{
+    if (on) {
+        qemu_system_shutdown_request();
+    }
+}
+
+void ppce500_init(MachineState *machine, PPCE500Params *params)
 {
     MemoryRegion *address_space_mem = get_system_memory();
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     PCIBus *pci_bus;
     CPUPPCState *env = NULL;
-    uint64_t elf_entry;
-    uint64_t elf_lowaddr;
-    hwaddr entry=0;
-    hwaddr loadaddr=UIMAGE_LOAD_BASE;
-    target_long kernel_size=0;
-    target_ulong dt_base = 0;
-    target_ulong initrd_base = 0;
-    target_long initrd_size = 0;
-    target_ulong cur_base = 0;
+    uint64_t loadaddr;
+    hwaddr kernel_base = -1LL;
+    int kernel_size = 0;
+    hwaddr dt_base = 0;
+    hwaddr initrd_base = 0;
+    int initrd_size = 0;
+    hwaddr cur_base = 0;
+    char *filename;
+    hwaddr bios_entry = 0;
+    target_long bios_size;
+    struct boot_info *boot_info;
+    int dt_size;
     int i;
-    unsigned int pci_irq_nrs[4] = {1, 2, 3, 4};
+    /* irq num for pin INTA, INTB, INTC and INTD is 1, 2, 3 and
+     * 4 respectively */
+    unsigned int pci_irq_nrs[PCI_NUM_PINS] = {1, 2, 3, 4};
     qemu_irq **irqs, *mpic;
     DeviceState *dev;
     CPUPPCState *firstenv = NULL;
@@ -622,8 +813,8 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
     PPCE500CCSRState *ccsr;
 
     /* Setup CPUs */
-    if (args->cpu_model == NULL) {
-        args->cpu_model = "e500v2_v30";
+    if (machine->cpu_model == NULL) {
+        machine->cpu_model = "e500v2_v30";
     }
 
     irqs = g_malloc0(smp_cpus * sizeof(qemu_irq *));
@@ -633,7 +824,7 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
         CPUState *cs;
         qemu_irq *input;
 
-        cpu = cpu_ppc_init(args->cpu_model);
+        cpu = cpu_ppc_init(machine->cpu_model);
         if (cpu == NULL) {
             fprintf(stderr, "Unable to initialize CPU!\n");
             exit(1);
@@ -672,11 +863,10 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
 
     /* Fixup Memory size on a alignment boundary */
     ram_size &= ~(RAM_SIZES_ALIGN - 1);
-    args->ram_size = ram_size;
+    machine->ram_size = ram_size;
 
     /* Register Memory */
-    memory_region_init_ram(ram, NULL, "mpc8544ds.ram", ram_size);
-    vmstate_register_ram_global(ram);
+    memory_region_allocate_system_memory(ram, NULL, "mpc8544ds.ram", ram_size);
     memory_region_add_subregion(address_space_mem, 0, ram);
 
     dev = qdev_create(NULL, "e500-ccsr");
@@ -713,12 +903,13 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
     /* PCI */
     dev = qdev_create(NULL, "e500-pcihost");
     qdev_prop_set_uint32(dev, "first_slot", params->pci_first_slot);
+    qdev_prop_set_uint32(dev, "first_pin_irq", pci_irq_nrs[0]);
     qdev_init_nofail(dev);
     s = SYS_BUS_DEVICE(dev);
-    sysbus_connect_irq(s, 0, mpic[pci_irq_nrs[0]]);
-    sysbus_connect_irq(s, 1, mpic[pci_irq_nrs[1]]);
-    sysbus_connect_irq(s, 2, mpic[pci_irq_nrs[2]]);
-    sysbus_connect_irq(s, 3, mpic[pci_irq_nrs[3]]);
+    for (i = 0; i < PCI_NUM_PINS; i++) {
+        sysbus_connect_irq(s, i, mpic[pci_irq_nrs[i]]);
+    }
+
     memory_region_add_subregion(ccsr_addr_space, MPC8544_PCI_REGS_OFFSET,
                                 sysbus_mmio_get_region(s, 0));
 
@@ -738,64 +929,130 @@ void ppce500_init(QEMUMachineInitArgs *args, PPCE500Params *params)
     /* Register spinning region */
     sysbus_create_simple("e500-spin", MPC8544_SPIN_BASE, NULL);
 
-    /* Load kernel. */
-    if (args->kernel_filename) {
-        kernel_size = load_uimage(args->kernel_filename, &entry,
-                                  &loadaddr, NULL);
-        if (kernel_size < 0) {
-            kernel_size = load_elf(args->kernel_filename, NULL, NULL,
-                                   &elf_entry, &elf_lowaddr, NULL, 1,
-                                   ELF_MACHINE, 0);
-            entry = elf_entry;
-            loadaddr = elf_lowaddr;
+    if (cur_base < (32 * 1024 * 1024)) {
+        /* u-boot occupies memory up to 32MB, so load blobs above */
+        cur_base = (32 * 1024 * 1024);
+    }
+
+    if (params->has_mpc8xxx_gpio) {
+        qemu_irq poweroff_irq;
+
+        dev = qdev_create(NULL, "mpc8xxx_gpio");
+        s = SYS_BUS_DEVICE(dev);
+        qdev_init_nofail(dev);
+        sysbus_connect_irq(s, 0, mpic[MPC8XXX_GPIO_IRQ]);
+        memory_region_add_subregion(ccsr_addr_space, MPC8XXX_GPIO_OFFSET,
+                                    sysbus_mmio_get_region(s, 0));
+
+        /* Power Off GPIO at Pin 0 */
+        poweroff_irq = qemu_allocate_irq(ppce500_power_off, NULL, 0);
+        qdev_connect_gpio_out(dev, 0, poweroff_irq);
+    }
+
+    /* Platform Bus Device */
+    if (params->has_platform_bus) {
+        dev = qdev_create(NULL, TYPE_PLATFORM_BUS_DEVICE);
+        dev->id = TYPE_PLATFORM_BUS_DEVICE;
+        qdev_prop_set_uint32(dev, "num_irqs", params->platform_bus_num_irqs);
+        qdev_prop_set_uint32(dev, "mmio_size", params->platform_bus_size);
+        qdev_init_nofail(dev);
+        s = SYS_BUS_DEVICE(dev);
+
+        for (i = 0; i < params->platform_bus_num_irqs; i++) {
+            int irqn = params->platform_bus_first_irq + i;
+            sysbus_connect_irq(s, i, mpic[irqn]);
         }
-        /* XXX try again as binary */
+
+        memory_region_add_subregion(address_space_mem,
+                                    params->platform_bus_base,
+                                    sysbus_mmio_get_region(s, 0));
+    }
+
+    /* Load kernel. */
+    if (machine->kernel_filename) {
+        kernel_base = cur_base;
+        kernel_size = load_image_targphys(machine->kernel_filename,
+                                          cur_base,
+                                          ram_size - cur_base);
         if (kernel_size < 0) {
             fprintf(stderr, "qemu: could not load kernel '%s'\n",
-                    args->kernel_filename);
+                    machine->kernel_filename);
             exit(1);
         }
 
-        cur_base = loadaddr + kernel_size;
-
-        /* Reserve space for dtb */
-        dt_base = (cur_base + DTC_LOAD_PAD) & ~DTC_PAD_MASK;
-        cur_base += DTB_MAX_SIZE;
+        cur_base += kernel_size;
     }
 
     /* Load initrd. */
-    if (args->initrd_filename) {
+    if (machine->initrd_filename) {
         initrd_base = (cur_base + INITRD_LOAD_PAD) & ~INITRD_PAD_MASK;
-        initrd_size = load_image_targphys(args->initrd_filename, initrd_base,
+        initrd_size = load_image_targphys(machine->initrd_filename, initrd_base,
                                           ram_size - initrd_base);
 
         if (initrd_size < 0) {
             fprintf(stderr, "qemu: could not load initial ram disk '%s'\n",
-                    args->initrd_filename);
+                    machine->initrd_filename);
             exit(1);
         }
 
         cur_base = initrd_base + initrd_size;
     }
 
-    /* If we're loading a kernel directly, we must load the device tree too. */
-    if (args->kernel_filename) {
-        struct boot_info *boot_info;
-        int dt_size;
+    /*
+     * Smart firmware defaults ahead!
+     *
+     * We follow the following table to select which payload we execute.
+     *
+     *  -kernel | -bios | payload
+     * ---------+-------+---------
+     *     N    |   Y   | u-boot
+     *     N    |   N   | u-boot
+     *     Y    |   Y   | u-boot
+     *     Y    |   N   | kernel
+     *
+     * This ensures backwards compatibility with how we used to expose
+     * -kernel to users but allows them to run through u-boot as well.
+     */
+    if (bios_name == NULL) {
+        if (machine->kernel_filename) {
+            bios_name = machine->kernel_filename;
+        } else {
+            bios_name = "u-boot.e500";
+        }
+    }
+    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 
-        dt_size = ppce500_prep_device_tree(args, params, dt_base,
-                                           initrd_base, initrd_size);
-        if (dt_size < 0) {
-            fprintf(stderr, "couldn't load device tree\n");
+    bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
+                         1, ELF_MACHINE, 0);
+    if (bios_size < 0) {
+        /*
+         * Hrm. No ELF image? Try a uImage, maybe someone is giving us an
+         * ePAPR compliant kernel
+         */
+        kernel_size = load_uimage(filename, &bios_entry, &loadaddr, NULL,
+                                  NULL, NULL);
+        if (kernel_size < 0) {
+            fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
             exit(1);
         }
-        assert(dt_size < DTB_MAX_SIZE);
-
-        boot_info = env->load_info;
-        boot_info->entry = entry;
-        boot_info->dt_base = dt_base;
-        boot_info->dt_size = dt_size;
     }
+
+    /* Reserve space for dtb */
+    dt_base = (loadaddr + bios_size + DTC_LOAD_PAD) & ~DTC_PAD_MASK;
+
+    dt_size = ppce500_prep_device_tree(machine, params, dt_base,
+                                       initrd_base, initrd_size,
+                                       kernel_base, kernel_size);
+    if (dt_size < 0) {
+        fprintf(stderr, "couldn't load device tree\n");
+        exit(1);
+    }
+    assert(dt_size < DTB_MAX_SIZE);
+
+    boot_info = env->load_info;
+    boot_info->entry = bios_entry;
+    boot_info->dt_base = dt_base;
+    boot_info->dt_size = dt_size;
 
     if (kvm_enabled()) {
         kvmppc_init();

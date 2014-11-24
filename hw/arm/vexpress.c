@@ -28,8 +28,9 @@
 #include "net/net.h"
 #include "sysemu/sysemu.h"
 #include "hw/boards.h"
+#include "hw/loader.h"
 #include "exec/address-spaces.h"
-#include "sysemu/blockdev.h"
+#include "sysemu/block-backend.h"
 #include "hw/block/flash.h"
 #include "sysemu/device_tree.h"
 #include "qemu/error-report.h"
@@ -83,6 +84,7 @@ enum {
 };
 
 static hwaddr motherboard_legacy_map[] = {
+    [VE_NORFLASHALIAS] = 0,
     /* CS7: 0x10000000 .. 0x10020000 */
     [VE_SYSREGS] = 0x10000000,
     [VE_SP810] = 0x10001000,
@@ -113,7 +115,6 @@ static hwaddr motherboard_legacy_map[] = {
     [VE_VIDEORAM] = 0x4c000000,
     [VE_ETHERNET] = 0x4e000000,
     [VE_USB] = 0x4f000000,
-    [VE_NORFLASHALIAS] = -1, /* not present */
 };
 
 static hwaddr motherboard_aseries_map[] = {
@@ -251,7 +252,8 @@ static void a9_daughterboard_init(const VEDBoardInfo *daughterboard,
         exit(1);
     }
 
-    memory_region_init_ram(ram, NULL, "vexpress.highmem", ram_size);
+    memory_region_init_ram(ram, NULL, "vexpress.highmem", ram_size,
+                           &error_abort);
     vmstate_register_ram_global(ram);
     low_ram_size = ram_size;
     if (low_ram_size > 0x4000000) {
@@ -345,7 +347,8 @@ static void a15_daughterboard_init(const VEDBoardInfo *daughterboard,
         }
     }
 
-    memory_region_init_ram(ram, NULL, "vexpress.highmem", ram_size);
+    memory_region_init_ram(ram, NULL, "vexpress.highmem", ram_size,
+                           &error_abort);
     vmstate_register_ram_global(ram);
     /* RAM is from 0x80000000 upwards; there is no low-memory alias for it. */
     memory_region_add_subregion(sysmem, 0x80000000, ram);
@@ -363,7 +366,8 @@ static void a15_daughterboard_init(const VEDBoardInfo *daughterboard,
     /* 0x2b060000: SP805 watchdog: not modelled */
     /* 0x2b0a0000: PL341 dynamic memory controller: not modelled */
     /* 0x2e000000: system SRAM */
-    memory_region_init_ram(sram, NULL, "vexpress.a15sram", 0x10000);
+    memory_region_init_ram(sram, NULL, "vexpress.a15sram", 0x10000,
+                           &error_abort);
     vmstate_register_ram_global(sram);
     memory_region_add_subregion(sysmem, 0x2e000000, sram);
 
@@ -487,7 +491,8 @@ static pflash_t *ve_pflash_cfi01_register(hwaddr base, const char *name,
 {
     DeviceState *dev = qdev_create(NULL, "cfi.pflash01");
 
-    if (di && qdev_prop_set_drive(dev, "drive", di->bdrv)) {
+    if (di && qdev_prop_set_drive(dev, "drive",
+                                  blk_by_legacy_dinfo(di))) {
         abort();
     }
 
@@ -509,7 +514,7 @@ static pflash_t *ve_pflash_cfi01_register(hwaddr base, const char *name,
 }
 
 static void vexpress_common_init(VEDBoardInfo *daughterboard,
-                                 QEMUMachineInitArgs *args)
+                                 MachineState *machine)
 {
     DeviceState *dev, *sysctl, *pl041;
     qemu_irq pic[64];
@@ -525,7 +530,28 @@ static void vexpress_common_init(VEDBoardInfo *daughterboard,
     const hwaddr *map = daughterboard->motherboard_map;
     int i;
 
-    daughterboard->init(daughterboard, args->ram_size, args->cpu_model, pic);
+    daughterboard->init(daughterboard, machine->ram_size, machine->cpu_model,
+                        pic);
+
+    /*
+     * If a bios file was provided, attempt to map it into memory
+     */
+    if (bios_name) {
+        const char *fn;
+
+        if (drive_get(IF_PFLASH, 0, 0)) {
+            error_report("The contents of the first flash device may be "
+                         "specified with -bios or with -drive if=pflash... "
+                         "but you cannot use both options at once");
+            exit(1);
+        }
+        fn = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+        if (!fn || load_image_targphys(fn, map[VE_NORFLASH0],
+                                       VEXPRESS_FLASH_SIZE) < 0) {
+            error_report("Could not load ROM image '%s'", bios_name);
+            exit(1);
+        }
+    }
 
     /* Motherboard peripherals: the wiring is the same but the
      * addresses vary between the legacy and A-Series memory maps.
@@ -612,12 +638,14 @@ static void vexpress_common_init(VEDBoardInfo *daughterboard,
     }
 
     sram_size = 0x2000000;
-    memory_region_init_ram(sram, NULL, "vexpress.sram", sram_size);
+    memory_region_init_ram(sram, NULL, "vexpress.sram", sram_size,
+                           &error_abort);
     vmstate_register_ram_global(sram);
     memory_region_add_subregion(sysmem, map[VE_SRAM], sram);
 
     vram_size = 0x800000;
-    memory_region_init_ram(vram, NULL, "vexpress.vram", vram_size);
+    memory_region_init_ram(vram, NULL, "vexpress.vram", vram_size,
+                           &error_abort);
     vmstate_register_ram_global(vram);
     memory_region_add_subregion(sysmem, map[VE_VIDEORAM], vram);
 
@@ -639,10 +667,10 @@ static void vexpress_common_init(VEDBoardInfo *daughterboard,
                              pic[40 + i]);
     }
 
-    daughterboard->bootinfo.ram_size = args->ram_size;
-    daughterboard->bootinfo.kernel_filename = args->kernel_filename;
-    daughterboard->bootinfo.kernel_cmdline = args->kernel_cmdline;
-    daughterboard->bootinfo.initrd_filename = args->initrd_filename;
+    daughterboard->bootinfo.ram_size = machine->ram_size;
+    daughterboard->bootinfo.kernel_filename = machine->kernel_filename;
+    daughterboard->bootinfo.kernel_cmdline = machine->kernel_cmdline;
+    daughterboard->bootinfo.initrd_filename = machine->initrd_filename;
     daughterboard->bootinfo.nb_cpus = smp_cpus;
     daughterboard->bootinfo.board_id = VEXPRESS_BOARD_ID;
     daughterboard->bootinfo.loader_start = daughterboard->loader_start;
@@ -653,14 +681,14 @@ static void vexpress_common_init(VEDBoardInfo *daughterboard,
     arm_load_kernel(ARM_CPU(first_cpu), &daughterboard->bootinfo);
 }
 
-static void vexpress_a9_init(QEMUMachineInitArgs *args)
+static void vexpress_a9_init(MachineState *machine)
 {
-    vexpress_common_init(&a9_daughterboard, args);
+    vexpress_common_init(&a9_daughterboard, machine);
 }
 
-static void vexpress_a15_init(QEMUMachineInitArgs *args)
+static void vexpress_a15_init(MachineState *machine)
 {
-    vexpress_common_init(&a15_daughterboard, args);
+    vexpress_common_init(&a15_daughterboard, machine);
 }
 
 static QEMUMachine vexpress_a9_machine = {

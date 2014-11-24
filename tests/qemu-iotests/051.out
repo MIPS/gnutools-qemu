@@ -38,7 +38,10 @@ Testing: -drive file=TEST_DIR/t.qcow2,format=foo
 QEMU_PROG: -drive file=TEST_DIR/t.qcow2,format=foo: 'foo' invalid format
 
 Testing: -drive file=TEST_DIR/t.qcow2,driver=foo
-QEMU_PROG: -drive file=TEST_DIR/t.qcow2,driver=foo: could not open disk image TEST_DIR/t.qcow2: Invalid driver: 'foo'
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,driver=foo: could not open disk image TEST_DIR/t.qcow2: Unknown driver 'foo'
+
+Testing: -drive file=TEST_DIR/t.qcow2,driver=raw,format=qcow2
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,driver=raw,format=qcow2: could not open disk image TEST_DIR/t.qcow2: Driver specified twice
 
 
 === Overriding backing file ===
@@ -49,6 +52,15 @@ QEMU X.Y.Z monitor - type 'help' for more information
 ide0-hd0: TEST_DIR/t.qcow2 (qcow2)
     Backing file:     TEST_DIR/t.qcow2.orig (chain depth: 1)
 (qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K
+
+Testing: -drive file=TEST_DIR/t.qcow2,driver=raw,backing.file.filename=TEST_DIR/t.qcow2.orig
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,driver=raw,backing.file.filename=TEST_DIR/t.qcow2.orig: could not open disk image TEST_DIR/t.qcow2: Driver doesn't support backing files
+
+Testing: -drive file=TEST_DIR/t.qcow2,file.backing.driver=file,file.backing.filename=TEST_DIR/t.qcow2.orig
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,file.backing.driver=file,file.backing.filename=TEST_DIR/t.qcow2.orig: could not open disk image TEST_DIR/t.qcow2: Driver doesn't support backing files
+
+Testing: -drive file=TEST_DIR/t.qcow2,file.backing.driver=qcow2,file.backing.file.filename=TEST_DIR/t.qcow2.orig
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,file.backing.driver=qcow2,file.backing.file.filename=TEST_DIR/t.qcow2.orig: could not open disk image TEST_DIR/t.qcow2: Driver doesn't support backing files
 
 
 === Enable and disable lazy refcounting on the command line, plus some invalid values ===
@@ -137,13 +149,11 @@ QEMU_PROG: -device ide-hd,drive=disk: Device 'ide-hd' could not be initialized
 Testing: -drive if=none,id=disk -device lsi53c895a -device scsi-disk,drive=disk
 QEMU X.Y.Z monitor - type 'help' for more information
 (qemu) QEMU_PROG: -device scsi-disk,drive=disk: Device needs media, but drive is empty
-QEMU_PROG: -device scsi-disk,drive=disk: Device initialization failed.
 QEMU_PROG: -device scsi-disk,drive=disk: Device 'scsi-disk' could not be initialized
 
 Testing: -drive if=none,id=disk -device lsi53c895a -device scsi-hd,drive=disk
 QEMU X.Y.Z monitor - type 'help' for more information
 (qemu) QEMU_PROG: -device scsi-hd,drive=disk: Device needs media, but drive is empty
-QEMU_PROG: -device scsi-hd,drive=disk: Device initialization failed.
 QEMU_PROG: -device scsi-hd,drive=disk: Device 'scsi-hd' could not be initialized
 
 
@@ -264,6 +274,51 @@ Testing: -drive foo=bar
 QEMU_PROG: -drive foo=bar: could not open disk image ide0-hd0: Must specify either driver or file
 
 
+=== Specifying both an option and its legacy alias ===
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops=1234,throttling.iops-total=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops=1234,throttling.iops-total=5678: 'throttling.iops-total' and its alias 'iops' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_rd=1234,throttling.iops-read=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_rd=1234,throttling.iops-read=5678: 'throttling.iops-read' and its alias 'iops_rd' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_wr=1234,throttling.iops-write=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_wr=1234,throttling.iops-write=5678: 'throttling.iops-write' and its alias 'iops_wr' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps=1234,throttling.bps-total=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps=1234,throttling.bps-total=5678: 'throttling.bps-total' and its alias 'bps' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps_rd=1234,throttling.bps-read=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps_rd=1234,throttling.bps-read=5678: 'throttling.bps-read' and its alias 'bps_rd' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps_wr=1234,throttling.bps-write=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps_wr=1234,throttling.bps-write=5678: 'throttling.bps-write' and its alias 'bps_wr' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_max=1234,throttling.iops-total-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_max=1234,throttling.iops-total-max=5678: 'throttling.iops-total-max' and its alias 'iops_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_rd_max=1234,throttling.iops-read-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_rd_max=1234,throttling.iops-read-max=5678: 'throttling.iops-read-max' and its alias 'iops_rd_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_wr_max=1234,throttling.iops-write-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_wr_max=1234,throttling.iops-write-max=5678: 'throttling.iops-write-max' and its alias 'iops_wr_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps_max=1234,throttling.bps-total-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps_max=1234,throttling.bps-total-max=5678: 'throttling.bps-total-max' and its alias 'bps_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps_rd_max=1234,throttling.bps-read-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps_rd_max=1234,throttling.bps-read-max=5678: 'throttling.bps-read-max' and its alias 'bps_rd_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,bps_wr_max=1234,throttling.bps-write-max=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,bps_wr_max=1234,throttling.bps-write-max=5678: 'throttling.bps-write-max' and its alias 'bps_wr_max' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,iops_size=1234,throttling.iops-size=5678
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,iops_size=1234,throttling.iops-size=5678: 'throttling.iops-size' and its alias 'iops_size' can't be used at the same time
+
+Testing: -drive file=TEST_DIR/t.qcow2,readonly=on,read-only=off
+QEMU_PROG: -drive file=TEST_DIR/t.qcow2,readonly=on,read-only=off: 'read-only' and its alias 'readonly' can't be used at the same time
+
+
 === Parsing protocol from file name ===
 
 Testing: -hda foo:bar
@@ -354,6 +409,16 @@ QEMU X.Y.Z monitor - type 'help' for more information
 (qemu) q[K[Dqe[K[D[Dqem[K[D[D[Dqemu[K[D[D[D[Dqemu-[K[D[D[D[D[Dqemu-i[K[D[D[D[D[D[Dqemu-io[K[D[D[D[D[D[D[Dqemu-io [K[D[D[D[D[D[D[D[Dqemu-io i[K[D[D[D[D[D[D[D[D[Dqemu-io id[K[D[D[D[D[D[D[D[D[D[Dqemu-io ide[K[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0[K[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-[K[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-h[K[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "w[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "wr[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "wri[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "writ[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x2[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 0 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 0 4[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 0 4k[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x22 0 4k"[K
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+(qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K
+
+read 4096/4096 bytes at offset 0
+4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+Testing: -drive file=TEST_DIR/t.qcow2,snapshot=on
+QEMU X.Y.Z monitor - type 'help' for more information
+(qemu) q[K[Dqe[K[D[Dqem[K[D[D[Dqemu[K[D[D[D[Dqemu-[K[D[D[D[D[Dqemu-i[K[D[D[D[D[D[Dqemu-io[K[D[D[D[D[D[D[Dqemu-io [K[D[D[D[D[D[D[D[Dqemu-io i[K[D[D[D[D[D[D[D[D[Dqemu-io id[K[D[D[D[D[D[D[D[D[D[Dqemu-io ide[K[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0[K[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-[K[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-h[K[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "w[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "wr[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "wri[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "writ[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x3[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 0[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 0 [K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 0 4[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 0 4k[K[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[Dqemu-io ide0-hd0 "write -P 0x33 0 4k"[K
+wrote 4096/4096 bytes at offset 0
+4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+(qemu) c[K[Dco[K[D[Dcom[K[D[D[Dcomm[K[D[D[D[Dcommi[K[D[D[D[D[Dcommit[K[D[D[D[D[D[Dcommit [K[D[D[D[D[D[D[Dcommit i[K[D[D[D[D[D[D[D[Dcommit id[K[D[D[D[D[D[D[D[D[Dcommit ide[K[D[D[D[D[D[D[D[D[D[Dcommit ide0[K[D[D[D[D[D[D[D[D[D[D[Dcommit ide0-[K[D[D[D[D[D[D[D[D[D[D[D[Dcommit ide0-h[K[D[D[D[D[D[D[D[D[D[D[D[D[Dcommit ide0-hd[K[D[D[D[D[D[D[D[D[D[D[D[D[D[Dcommit ide0-hd0[K
 (qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K
 
 read 4096/4096 bytes at offset 0

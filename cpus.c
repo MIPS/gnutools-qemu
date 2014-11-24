@@ -26,6 +26,7 @@
 #include "config-host.h"
 
 #include "monitor/monitor.h"
+#include "qapi/qmp/qerror.h"
 #include "sysemu/sysemu.h"
 #include "exec/gdbstub.h"
 #include "sysemu/dma.h"
@@ -38,6 +39,8 @@
 #include "qemu/main-loop.h"
 #include "qemu/bitmap.h"
 #include "qemu/seqlock.h"
+#include "qapi-event.h"
+#include "hw/nmi.h"
 
 #ifndef _WIN32
 #include "qemu/compatfd.h"
@@ -62,6 +65,8 @@
 #endif /* CONFIG_LINUX */
 
 static CPUState *next_cpu;
+int64_t max_delay;
+int64_t max_advance;
 
 bool cpu_is_stopped(CPUState *cpu)
 {
@@ -100,16 +105,11 @@ static bool all_cpu_threads_idle(void)
 
 /* Protected by TimersState seqlock */
 
-/* Compensate for varying guest execution speed.  */
-static int64_t qemu_icount_bias;
-static int64_t vm_clock_warp_start;
+static int64_t vm_clock_warp_start = -1;
 /* Conversion factor from emulated instructions to virtual clock ticks.  */
 static int icount_time_shift;
 /* Arbitrarily pick 1MIPS as the minimum allowable speed.  */
 #define MAX_ICOUNT_SHIFT 10
-
-/* Only written by TCG thread */
-static int64_t qemu_icount;
 
 static QEMUTimer *icount_rt_timer;
 static QEMUTimer *icount_vm_timer;
@@ -127,6 +127,11 @@ typedef struct TimersState {
     int64_t cpu_clock_offset;
     int32_t cpu_ticks_enabled;
     int64_t dummy;
+
+    /* Compensate for varying guest execution speed.  */
+    int64_t qemu_icount_bias;
+    /* Only written by TCG thread */
+    int64_t qemu_icount;
 } TimersState;
 
 static TimersState timers_state;
@@ -137,14 +142,14 @@ static int64_t cpu_get_icount_locked(void)
     int64_t icount;
     CPUState *cpu = current_cpu;
 
-    icount = qemu_icount;
+    icount = timers_state.qemu_icount;
     if (cpu) {
         if (!cpu_can_do_io(cpu)) {
             fprintf(stderr, "Bad clock read\n");
         }
         icount -= (cpu->icount_decr.u16.low + cpu->icount_extra);
     }
-    return qemu_icount_bias + (icount << icount_time_shift);
+    return timers_state.qemu_icount_bias + cpu_icount_to_ns(icount);
 }
 
 int64_t cpu_get_icount(void)
@@ -158,6 +163,11 @@ int64_t cpu_get_icount(void)
     } while (seqlock_read_retry(&timers_state.vm_clock_seqlock, start));
 
     return icount;
+}
+
+int64_t cpu_icount_to_ns(int64_t icount)
+{
+    return icount << icount_time_shift;
 }
 
 /* return the host CPU cycle counter and handle stop/restart */
@@ -210,6 +220,23 @@ int64_t cpu_get_clock(void)
     } while (seqlock_read_retry(&timers_state.vm_clock_seqlock, start));
 
     return ti;
+}
+
+/* return the offset between the host clock and virtual CPU clock */
+int64_t cpu_get_clock_offset(void)
+{
+    int64_t ti;
+    unsigned start;
+
+    do {
+        start = seqlock_read_begin(&timers_state.vm_clock_seqlock);
+        ti = timers_state.cpu_clock_offset;
+        if (!timers_state.cpu_ticks_enabled) {
+            ti -= get_clock();
+        }
+    } while (seqlock_read_retry(&timers_state.vm_clock_seqlock, start));
+
+    return -ti;
 }
 
 /* enable cpu_get_ticks()
@@ -282,7 +309,8 @@ static void icount_adjust(void)
         icount_time_shift++;
     }
     last_delta = delta;
-    qemu_icount_bias = cur_icount - (qemu_icount << icount_time_shift);
+    timers_state.qemu_icount_bias = cur_icount
+                              - (timers_state.qemu_icount << icount_time_shift);
     seqlock_write_unlock(&timers_state.vm_clock_seqlock);
 }
 
@@ -331,7 +359,7 @@ static void icount_warp_rt(void *opaque)
             int64_t delta = cur_time - cur_icount;
             warp_delta = MIN(warp_delta, delta);
         }
-        qemu_icount_bias += warp_delta;
+        timers_state.qemu_icount_bias += warp_delta;
     }
     vm_clock_warp_start = -1;
     seqlock_write_unlock(&timers_state.vm_clock_seqlock);
@@ -347,9 +375,9 @@ void qtest_clock_warp(int64_t dest)
     assert(qtest_enabled());
     while (clock < dest) {
         int64_t deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL);
-        int64_t warp = MIN(dest - clock, deadline);
+        int64_t warp = qemu_soonest_timeout(dest - clock, deadline);
         seqlock_write_lock(&timers_state.vm_clock_seqlock);
-        qemu_icount_bias += warp;
+        timers_state.qemu_icount_bias += warp;
         seqlock_write_unlock(&timers_state.vm_clock_seqlock);
 
         qemu_clock_run_timers(QEMU_CLOCK_VIRTUAL);
@@ -426,33 +454,76 @@ void qemu_clock_warp(QEMUClockType type)
     }
 }
 
-static const VMStateDescription vmstate_timers = {
-    .name = "timer",
-    .version_id = 2,
+static bool icount_state_needed(void *opaque)
+{
+    return use_icount;
+}
+
+/*
+ * This is a subsection for icount migration.
+ */
+static const VMStateDescription icount_vmstate_timers = {
+    .name = "timer/icount",
+    .version_id = 1,
     .minimum_version_id = 1,
-    .minimum_version_id_old = 1,
-    .fields      = (VMStateField[]) {
-        VMSTATE_INT64(cpu_ticks_offset, TimersState),
-        VMSTATE_INT64(dummy, TimersState),
-        VMSTATE_INT64_V(cpu_clock_offset, TimersState, 2),
+    .fields = (VMStateField[]) {
+        VMSTATE_INT64(qemu_icount_bias, TimersState),
+        VMSTATE_INT64(qemu_icount, TimersState),
         VMSTATE_END_OF_LIST()
     }
 };
 
-void configure_icount(const char *option)
+static const VMStateDescription vmstate_timers = {
+    .name = "timer",
+    .version_id = 2,
+    .minimum_version_id = 1,
+    .fields = (VMStateField[]) {
+        VMSTATE_INT64(cpu_ticks_offset, TimersState),
+        VMSTATE_INT64(dummy, TimersState),
+        VMSTATE_INT64_V(cpu_clock_offset, TimersState, 2),
+        VMSTATE_END_OF_LIST()
+    },
+    .subsections = (VMStateSubsection[]) {
+        {
+            .vmsd = &icount_vmstate_timers,
+            .needed = icount_state_needed,
+        }, {
+            /* empty */
+        }
+    }
+};
+
+void cpu_ticks_init(void)
 {
     seqlock_init(&timers_state.vm_clock_seqlock, NULL);
     vmstate_register(NULL, 0, &vmstate_timers, &timers_state);
+}
+
+void configure_icount(QemuOpts *opts, Error **errp)
+{
+    const char *option;
+    char *rem_str = NULL;
+
+    option = qemu_opt_get(opts, "shift");
     if (!option) {
+        if (qemu_opt_get(opts, "align") != NULL) {
+            error_setg(errp, "Please specify shift option when using align");
+        }
         return;
     }
-
+    icount_align_option = qemu_opt_get_bool(opts, "align", false);
     icount_warp_timer = timer_new_ns(QEMU_CLOCK_REALTIME,
                                           icount_warp_rt, NULL);
     if (strcmp(option, "auto") != 0) {
-        icount_time_shift = strtol(option, NULL, 0);
+        errno = 0;
+        icount_time_shift = strtol(option, &rem_str, 0);
+        if (errno != 0 || *rem_str != '\0' || !strlen(option)) {
+            error_setg(errp, "icount: Invalid shift value");
+        }
         use_icount = 1;
         return;
+    } else if (icount_align_option) {
+        error_setg(errp, "shift=auto and align=on are incompatible");
     }
 
     use_icount = 2;
@@ -522,6 +593,15 @@ void cpu_synchronize_all_post_init(void)
     }
 }
 
+void cpu_clean_all_dirty(void)
+{
+    CPUState *cpu;
+
+    CPU_FOREACH(cpu) {
+        cpu_clean_state(cpu);
+    }
+}
+
 static int do_vm_stop(RunState state)
 {
     int ret = 0;
@@ -531,7 +611,7 @@ static int do_vm_stop(RunState state)
         pause_all_vcpus();
         runstate_set(state);
         vm_state_notify(0, state);
-        monitor_protocol_event(QEVENT_STOP, NULL);
+        qapi_event_send_stop(&error_abort);
     }
 
     bdrv_drain_all();
@@ -1207,6 +1287,7 @@ void cpu_stop_current(void)
 int vm_stop(RunState state)
 {
     if (qemu_in_vcpu_thread()) {
+        qemu_system_vmstop_request_prepare();
         qemu_system_vmstop_request(state);
         /*
          * FIXME: should not return to device code in case
@@ -1248,7 +1329,8 @@ static int tcg_cpu_exec(CPUArchState *env)
         int64_t count;
         int64_t deadline;
         int decr;
-        qemu_icount -= (cpu->icount_decr.u16.low + cpu->icount_extra);
+        timers_state.qemu_icount -= (cpu->icount_decr.u16.low
+                                    + cpu->icount_extra);
         cpu->icount_decr.u16.low = 0;
         cpu->icount_extra = 0;
         deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL);
@@ -1263,7 +1345,7 @@ static int tcg_cpu_exec(CPUArchState *env)
         }
 
         count = qemu_icount_round(deadline);
-        qemu_icount += count;
+        timers_state.qemu_icount += count;
         decr = (count > 0xffff) ? 0xffff : count;
         count -= decr;
         cpu->icount_decr.u16.low = decr;
@@ -1276,7 +1358,8 @@ static int tcg_cpu_exec(CPUArchState *env)
     if (use_icount) {
         /* Fold pending instructions back into the
            instruction counter, and clear the interrupt flag.  */
-        qemu_icount -= (cpu->icount_decr.u16.low + cpu->icount_extra);
+        timers_state.qemu_icount -= (cpu->icount_decr.u16.low
+                        + cpu->icount_extra);
         cpu->icount_decr.u32 = 0;
         cpu->icount_extra = 0;
     }
@@ -1313,20 +1396,6 @@ static void tcg_exec_all(void)
     exit_request = 0;
 }
 
-void set_numa_modes(void)
-{
-    CPUState *cpu;
-    int i;
-
-    CPU_FOREACH(cpu) {
-        for (i = 0; i < nb_numa_nodes; i++) {
-            if (test_bit(cpu->cpu_index, node_cpumask[i])) {
-                cpu->numa_node = i;
-            }
-        }
-    }
-}
-
 void list_cpus(FILE *f, fprintf_function cpu_fprintf, const char *optarg)
 {
     /* XXX: implement xxx_cpu_list for targets that still miss it */
@@ -1354,6 +1423,9 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 #elif defined(TARGET_MIPS)
         MIPSCPU *mips_cpu = MIPS_CPU(cpu);
         CPUMIPSState *env = &mips_cpu->env;
+#elif defined(TARGET_TRICORE)
+        TriCoreCPU *tricore_cpu = TRICORE_CPU(cpu);
+        CPUTriCoreState *env = &tricore_cpu->env;
 #endif
 
         cpu_synchronize_state(cpu);
@@ -1378,6 +1450,9 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 #elif defined(TARGET_MIPS)
         info->value->has_PC = true;
         info->value->PC = env->active_tc.PC;
+#elif defined(TARGET_TRICORE)
+        info->value->has_PC = true;
+        info->value->PC = env->PC;
 #endif
 
         /* XXX: waiting for the qapi to support GSList */
@@ -1454,7 +1529,7 @@ void qmp_pmemsave(int64_t addr, int64_t size, const char *filename,
         l = sizeof(buf);
         if (l > size)
             l = size;
-        cpu_physical_memory_rw(addr, buf, l, 0);
+        cpu_physical_memory_read(addr, buf, l);
         if (fwrite(buf, 1, l, f) != l) {
             error_set(errp, QERR_IO_ERROR);
             goto exit;
@@ -1481,21 +1556,24 @@ void qmp_inject_nmi(Error **errp)
             apic_deliver_nmi(cpu->apic_state);
         }
     }
-#elif defined(TARGET_S390X)
-    CPUState *cs;
-    S390CPU *cpu;
-
-    CPU_FOREACH(cs) {
-        cpu = S390_CPU(cs);
-        if (cpu->env.cpu_num == monitor_get_cpu_index()) {
-            if (s390_cpu_restart(S390_CPU(cs)) == -1) {
-                error_set(errp, QERR_UNSUPPORTED);
-                return;
-            }
-            break;
-        }
-    }
 #else
-    error_set(errp, QERR_UNSUPPORTED);
+    nmi_monitor_handle(monitor_get_cpu_index(), errp);
 #endif
+}
+
+void dump_drift_info(FILE *f, fprintf_function cpu_fprintf)
+{
+    if (!use_icount) {
+        return;
+    }
+
+    cpu_fprintf(f, "Host - Guest clock  %"PRIi64" ms\n",
+                (cpu_get_clock() - cpu_get_icount())/SCALE_MS);
+    if (icount_align_option) {
+        cpu_fprintf(f, "Max guest delay     %"PRIi64" ms\n", -max_delay/SCALE_MS);
+        cpu_fprintf(f, "Max guest advance   %"PRIi64" ms\n", max_advance/SCALE_MS);
+    } else {
+        cpu_fprintf(f, "Max guest delay     NA\n");
+        cpu_fprintf(f, "Max guest advance   NA\n");
+    }
 }

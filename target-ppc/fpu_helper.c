@@ -17,7 +17,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 #include "cpu.h"
-#include "helper.h"
+#include "exec/helper-proto.h"
 
 /*****************************************************************************/
 /* Floating point operations helpers */
@@ -649,14 +649,10 @@ FPU_FCTI(fctiw, int32, 0x80000000U)
 FPU_FCTI(fctiwz, int32_round_to_zero, 0x80000000U)
 FPU_FCTI(fctiwu, uint32, 0x00000000U)
 FPU_FCTI(fctiwuz, uint32_round_to_zero, 0x00000000U)
-#if defined(TARGET_PPC64)
 FPU_FCTI(fctid, int64, 0x8000000000000000ULL)
 FPU_FCTI(fctidz, int64_round_to_zero, 0x8000000000000000ULL)
 FPU_FCTI(fctidu, uint64, 0x0000000000000000ULL)
 FPU_FCTI(fctiduz, uint64_round_to_zero, 0x0000000000000000ULL)
-#endif
-
-#if defined(TARGET_PPC64)
 
 #define FPU_FCFI(op, cvtr, is_single)                      \
 uint64_t helper_##op(CPUPPCState *env, uint64_t arg)       \
@@ -677,8 +673,6 @@ FPU_FCFI(fcfid, int64_to_float64, 0)
 FPU_FCFI(fcfids, int64_to_float32, 1)
 FPU_FCFI(fcfidu, uint64_to_float64, 0)
 FPU_FCFI(fcfidus, uint64_to_float32, 1)
-
-#endif
 
 static inline uint64_t do_fri(CPUPPCState *env, uint64_t arg,
                               int rounding_mode)
@@ -977,7 +971,6 @@ uint64_t helper_fres(CPUPPCState *env, uint64_t arg)
 uint64_t helper_frsqrte(CPUPPCState *env, uint64_t arg)
 {
     CPU_DoubleU farg;
-    float32 f32;
 
     farg.ll = arg;
 
@@ -991,8 +984,6 @@ uint64_t helper_frsqrte(CPUPPCState *env, uint64_t arg)
         }
         farg.d = float64_sqrt(farg.d, &env->fp_status);
         farg.d = float64_div(float64_one, farg.d, &env->fp_status);
-        f32 = float64_to_float32(farg.d, &env->fp_status);
-        farg.d = float32_to_float64(f32, &env->fp_status);
     }
     return farg.ll;
 }
