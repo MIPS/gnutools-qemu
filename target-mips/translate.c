@@ -20051,6 +20051,8 @@ void cpu_state_reset(CPUMIPSState *env)
     }
 
     compute_hflags(env);
+    restore_rounding_mode(env);
+    restore_flush_mode(env);
     cs->exception_index = EXCP_NONE;
 
 #ifndef CONFIG_USER_ONLY
