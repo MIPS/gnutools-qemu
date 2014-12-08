@@ -1334,15 +1334,20 @@ void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Context = (env->CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
 }
 
-void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *pagemask)
 {
     uint64_t mask = arg1 >> (TARGET_PAGE_BITS + 1);
     if (!(env->insn_flags & ISA_MIPS32R6) || (arg1 == ~0) ||
         (mask == 0x0000 || mask == 0x0003 || mask == 0x000F ||
          mask == 0x003F || mask == 0x00FF || mask == 0x03FF ||
          mask == 0x0FFF || mask == 0x3FFF || mask == 0xFFFF)) {
-        env->CP0_PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
+        *pagemask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
     }
+}
+
+void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+{
+    update_pagemask(env, arg1, &env->CP0_PageMask);
 }
 
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
@@ -1369,7 +1374,35 @@ void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
 #ifdef TARGET_MIPS64
         env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
 #else
-        env->CP0_PWField = arg1 & 0x3FFFFFFF;
+        {
+            uint32_t mask = 0x3FFFFFFF;
+            uint32_t old_ptei = (env->CP0_PWField >> CP0PF_PTEI) & 0x3F;
+            uint32_t new_ptei = (arg1 >> CP0PF_PTEI) & 0x3F;
+
+            if ((env->insn_flags & ISA_MIPS32R6)) {
+                if (((arg1 >> CP0PF_GDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_GDI);
+                }
+                if (((arg1 >> CP0PF_UDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_UDI);
+                }
+                if (((arg1 >> CP0PF_MDI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_MDI);
+                }
+                if (((arg1 >> CP0PF_PTI) & 0x3F) < 12) {
+                    mask &= ~(0x3F << CP0PF_PTI);
+                }
+            }
+            env->CP0_PWField = arg1 & mask;
+
+            if ((new_ptei >= 32) ||
+                    ((env->insn_flags & ISA_MIPS32R6) &&
+                            (new_ptei == 0 || new_ptei == 1))) {
+                env->CP0_PWField = (env->CP0_PWField & ~0x3F) |
+                        (old_ptei << CP0PF_PTEI);
+            }
+
+        }
 #endif
     }
 }
@@ -1424,11 +1457,11 @@ void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pwctl(CPUMIPSState *env, target_ulong arg1)
 {
     if (env->CP0_Config3 & (1 << CP0C3_PW)) {
-        /* PWEn = 0. Hardware page table walking is not implemented. */
 #ifdef TARGET_MIPS64
+        /* PWEn = 0. Hardware page table walking is not implemented. */
         env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
 #else
-        env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x0000003F);
+        env->CP0_PWCtl = (arg1 & 0x800000FF);
 #endif
     }
 }
