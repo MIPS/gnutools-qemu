@@ -4835,6 +4835,23 @@ static void gen_bshfl (DisasContext *ctx, uint32_t op2, int rt, int rd)
 
 #ifndef CONFIG_USER_ONLY
 /* CP0 (MMU and control) */
+static inline void gen_mthc0_entrylo(TCGv arg, target_ulong off)
+{
+    TCGv_i64 t0 = tcg_temp_new_i64();
+    TCGv_i64 t1 = tcg_temp_new_i64();
+
+    tcg_gen_ext_tl_i64(t0, arg);
+    tcg_gen_ld_i64(t1, cpu_env, off);
+#if defined(TARGET_MIPS64)
+    tcg_gen_deposit_i64(t1, t1, t0, 30, 32);
+#else
+    tcg_gen_concat32_i64(t1, t1, t0);
+#endif
+    tcg_gen_st_i64(t1, cpu_env, off);
+    tcg_temp_free_i64(t1);
+    tcg_temp_free_i64(t0);
+}
+
 static inline void gen_mthc0_store64(TCGv arg, target_ulong off)
 {
     TCGv_i64 t0 = tcg_temp_new_i64();
@@ -4845,6 +4862,21 @@ static inline void gen_mthc0_store64(TCGv arg, target_ulong off)
     tcg_gen_concat32_i64(t1, t1, t0);
     tcg_gen_st_i64(t1, cpu_env, off);
     tcg_temp_free_i64(t1);
+    tcg_temp_free_i64(t0);
+}
+
+static inline void gen_mfhc0_entrylo(TCGv arg, target_ulong off)
+{
+    TCGv_i64 t0 = tcg_temp_new_i64();
+
+    tcg_gen_ld_i64(t0, cpu_env, off);
+#if defined(TARGET_MIPS64)
+    tcg_gen_andi_tl(t0, t0, ~(3ull << CP0EnLo_XI));
+    tcg_gen_shri_i64(t0, t0, 30);
+#else
+    tcg_gen_shri_i64(t0, t0, 32);
+#endif
+    tcg_gen_trunc_i64_tl(arg, t0);
     tcg_temp_free_i64(t0);
 }
 
@@ -4900,7 +4932,7 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 2:
         switch (sel) {
         case 0:
-            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
+            gen_mfhc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
             rn = "EntryLo0";
             break;
         default:
@@ -4910,7 +4942,7 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 3:
         switch (sel) {
         case 0:
-            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
+            gen_mfhc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
             rn = "EntryLo1";
             break;
         default:
@@ -4971,7 +5003,7 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 2:
         switch (sel) {
         case 0:
-            gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
+            gen_mthc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
             rn = "EntryLo0";
             break;
         default:
@@ -4981,7 +5013,7 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 3:
         switch (sel) {
         case 0:
-            gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
+            gen_mthc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
             rn = "EntryLo1";
             break;
         default:
@@ -18775,12 +18807,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         case OPC_MTC0:
         case OPC_MFTR:
         case OPC_MTTR:
+        case OPC_MFHC0:
+        case OPC_MTHC0:
 #if defined(TARGET_MIPS64)
         case OPC_DMFC0:
         case OPC_DMTC0:
-#else
-        case OPC_MFHC0: /* TODO: MTHC0/MFHC0 for MIPS64 */
-        case OPC_MTHC0:
 #endif
 #ifndef CONFIG_USER_ONLY
             gen_cp0(env, ctx, op1, rt, rd);
