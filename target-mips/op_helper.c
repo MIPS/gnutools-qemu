@@ -2455,7 +2455,7 @@ void helper_wait(CPUMIPSState *env)
 
 void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                   int access_type, int is_user,
-                                  uintptr_t retaddr)
+                                  uintptr_t retaddr, unsigned size)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
