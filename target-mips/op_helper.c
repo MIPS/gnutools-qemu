@@ -3831,12 +3831,36 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
 /* Element-by-element access macros */
 #define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
 
+#if !defined(CONFIG_USER_ONLY)
+static bool cpu_mips_validate_msa_block_access(CPUMIPSState *env,
+        target_ulong address, int df, int rw)
+{
+    int i;
+    for (i = 0; i < DF_ELEMENTS(df); i++) {
+        if (!cpu_mips_validate_access(env, address + (i << df),
+                address, (1 << df), rw)) {
+            CPUState *cs = CPU(mips_env_get_cpu(env));
+            do_raise_exception_err(env, cs->exception_index,
+                                   env->error_code, GETRA());
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
                      int32_t s10)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
     int i;
+
+#if !defined(CONFIG_USER_ONLY)
+    if (!cpu_mips_validate_msa_block_access(env, addr, df, MMU_DATA_LOAD)) {
+        return;
+    }
+#endif
 
     switch (df) {
     case DF_BYTE:
@@ -3872,6 +3896,12 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
     int i;
+
+#if !defined(CONFIG_USER_ONLY)
+    if (!cpu_mips_validate_msa_block_access(env, addr, df, MMU_DATA_STORE)) {
+        return;
+    }
+#endif
 
     switch (df) {
     case DF_BYTE:
