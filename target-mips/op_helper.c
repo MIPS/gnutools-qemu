@@ -2462,6 +2462,19 @@ void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
     int error_code = 0;
     int excp;
 
+    if (env->insn_flags & ISA_MIPS32R6) {
+        /* Release 6 provides support for misaligned memory access for
+         * all ordinary memory reference instructions
+         * */
+        if (!cpu_mips_validate_access(env, addr, addr, size, access_type)) {
+            CPUState *cs = CPU(mips_env_get_cpu(env));
+            do_raise_exception_err(env, cs->exception_index,
+                                   env->error_code, retaddr);
+            return;
+        }
+        return;
+    }
+
     env->CP0_BadVAddr = addr;
 
     if (access_type == MMU_DATA_STORE) {
