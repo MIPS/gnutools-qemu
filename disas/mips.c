@@ -3514,6 +3514,7 @@ struct mips_cp0sel_name
   const char * const name;
 };
 
+#if 0
 /* The mips16 registers.  */
 static const unsigned int mips16_to_32_reg_map[] =
 {
@@ -3521,7 +3522,7 @@ static const unsigned int mips16_to_32_reg_map[] =
 };
 
 #define mips16_reg_names(rn)	mips_gpr_names[mips16_to_32_reg_map[rn]]
-
+#endif
 
 static const char * const mips_gpr_names_numeric[32] =
 {
