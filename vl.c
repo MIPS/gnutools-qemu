@@ -122,6 +122,11 @@ int main(int argc, char **argv)
 #include "sysemu/replay.h"
 #include "qapi/qmp/qerror.h"
 
+
+#ifdef MIPSSIM_COMPAT
+#include "target-mips/mips-avp.h"
+#endif
+
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
@@ -4065,6 +4070,10 @@ int main(int argc, char **argv, char **envp)
             qemu_print_log_usage(stdout);
             exit(1);
         }
+#if defined(MIPSSIM_COMPAT)
+        //sv_log_init("qemu.svtrace");
+#endif
+
         qemu_set_log(mask);
     } else {
         qemu_set_log(0);

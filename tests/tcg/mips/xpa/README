@@ -1,0 +1,3 @@
+1) Build QEMU with cflag -DPAE_TEST (it registers additional memory regions on malta board)
+2) Set paths in Makefile (XPATEST_TOOLS and XPATEST_QEMUBIN)
+3) Run "make run"
