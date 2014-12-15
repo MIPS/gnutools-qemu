@@ -237,7 +237,7 @@ void target_disas(FILE *out, CPUState *cpu, target_ulong code,
     for (pc = code; size > 0; pc += count, size -= count) {
 	fprintf(out, "0x" TARGET_FMT_lx ":  ", pc);
 	count = s.info.print_insn(pc, &s.info);
-#if 0
+#if 0 || (defined(MIPSSIM_COMPAT) && !defined(CONFIG_USER_ONLY))
         {
             int i;
             uint8_t b;
@@ -261,6 +261,98 @@ void target_disas(FILE *out, CPUState *cpu, target_ulong code,
         }
     }
 }
+
+#ifdef MIPSSIM_COMPAT
+void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
+                   target_ulong size, int flags)
+{
+    target_ulong pc;
+    CPUDebug s;
+    int (*print_insn)(bfd_vma pc, disassemble_info *info) = NULL;
+    char sv_dis_options[] = "gpr-names=numeric,cp0-names=iasim,fpr-names=iasim";
+
+    INIT_DISASSEMBLE_INFO(s.info, out, fprintf);
+
+    s.cpu = ENV_GET_CPU(env);
+    s.info.read_memory_func = target_read_memory;
+    s.info.buffer_vma = code;
+    s.info.buffer_length = size;
+    s.info.print_address_func = generic_print_address;
+
+    s.info.disassembler_options = sv_dis_options;
+
+#ifdef TARGET_WORDS_BIGENDIAN
+    s.info.endian = BFD_ENDIAN_BIG;
+#else
+    s.info.endian = BFD_ENDIAN_LITTLE;
+#endif
+
+#if defined(TARGET_MIPS)
+#ifdef TARGET_WORDS_BIGENDIAN
+    print_insn = print_insn_big_mips;
+#else
+    print_insn = print_insn_little_mips;
+#endif
+#else
+    fprintf(out, "0x" TARGET_FMT_lx
+        ": Asm output not supported on this arch\n", code);
+    return;
+#endif
+
+    pc = code;
+
+    int insn_bytes = 4;
+    uint32_t opcode;
+#ifndef CONFIG_USER_ONLY
+    fprintf(out, "%s : %s(%s%d) - " TARGET_FMT_lx " " TARGET_FMT_lx " %s: ",
+            SVLOG_CPU, SVLOG_ISROOT, SVLOG_KSU, SVLOG_ERL,
+            pc,
+            (target_ulong) cpu_mips_translate_address(env, pc, 0),
+            "#"); /* cacheability - just ignore when comparing */
+#else
+    fprintf(out, "%s : " TARGET_FMT_lx ": ", SVLOG_CPU, pc);
+#endif
+
+
+    if (!(env->hflags & MIPS_HFLAG_M16)) {
+        target_read_memory(pc, (bfd_byte *)&opcode, 4, &s.info);
+        insn_bytes = 4;
+
+        fprintf(out, "%08lx ", (unsigned long) opcode);
+        print_insn(pc, &s.info);
+        fprintf(out, "\n");
+        }
+    else {
+        target_read_memory(pc, (bfd_byte *)&opcode, 2, &s.info);
+        /* In SV we run in singlestep mode, so assuming that current_tb->size
+           contains size of a single instruction */
+/*
+        CPUState *cpu = ENV_GET_CPU(env);
+        if (cpu->current_tb) {
+            insn_bytes = cpu->current_tb->size;
+        }
+*/
+        if (insn_bytes == 4)
+        {
+            uint16_t insn_low;// = lduw_code(pc + 2);
+            target_read_memory(pc+2, (bfd_byte *)&insn_low, 2, &s.info);
+            opcode = (opcode << 16) | insn_low;
+        }
+
+        if (env->insn_flags & ASE_MICROMIPS) {
+            // FIXME micromips disa
+            fprintf(out, "%08lx micromips _disa_here\n", (unsigned long)opcode);
+        }
+        else if (env->insn_flags & ASE_MIPS16) {
+            // FIXME mips16 disa
+            fprintf(out, "%08lx mips16 _disa_here\n", (unsigned long)opcode);
+        }
+        else {
+            fprintf(out, "unknown _disa_here\n");
+        }
+    }
+}
+#endif
 
 /* Disassemble this for me please... (debugging). */
 void disas(FILE *out, void *code, unsigned long size)

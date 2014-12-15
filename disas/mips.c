@@ -3770,6 +3770,146 @@ static const struct mips_cp0sel_name mips_cp0sel_names_mips3264r2[] =
   { 29, 7, "c0_datahi3"		},
 };
 
+#ifdef MIPSSIM_COMPAT
+static const char * const mips_fpr_names_numeric_iasim[32] =
+{
+  "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
+  "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
+  "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+  "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"
+};
+
+static const char * const mips_cp0_names_iasim[32] =
+{
+  "Index",        "Random",       "EntryLo0",     "EntryLo1",
+  "Context",      "PageMask",     "Wired",        "HWREna",
+  "BadVAddr",     "Count",        "EntryHi",      "Compare",
+  "Status",       "Cause",        "EPC",          "PRId",
+  "Config",       "LLAddr",       "WatchLo",      "WatchHi",
+  "XContext",     "$21",          "$22",          "Debug",
+  "DEPC",         "PerfControl0", "ErrCtl",       "CacheErr",
+  "TagLo",        "TagHi",        "ErrorEPC",     "DESAVE",
+};
+
+static const struct mips_cp0sel_name mips_cp0sel_names_iasim[] =
+{
+  {  0, 1, "MVPControl"    },
+  {  0, 2, "MVPConf0"      },
+  {  0, 3, "MVPConf1"      },
+  {  1, 1, "VPEControl"    },
+  {  1, 2, "VPEConf0"      },
+  {  1, 3, "VPEConf1"      },
+  {  1, 4, "YQMask"        },
+  {  1, 5, "VPESchedule"   },
+  {  1, 6, "VPEScheFBack"  },
+  {  1, 7, "VPEOpt"        },
+  {  2, 1, "TCStatus"      },
+  {  2, 2, "TCBind"        },
+  {  2, 3, "TCRestart"     },
+  {  2, 4, "TCHalt"        },
+  {  2, 5, "TCContext"     },
+  {  2, 6, "TCSchedule"    },
+  {  2, 7, "TCScheFBack"   },
+  {  3, 7, "TCOpt"         },
+  {  4, 1, "ContextConfig" },
+  {  4, 2, "UserLocal"     },
+  {  4, 3, "XContextConfig"},
+  {  5, 1, "PageGrain"     },
+  {  5, 2, "SegCtl0"       },
+  {  5, 3, "SegCtl1"       },
+  {  5, 4, "SegCtl2"       },
+  {  5, 5, "PWBase"        },
+  {  5, 6, "PWField"       },
+  {  5, 7, "PWSize"        },
+  {  6, 1, "SRSConf"       },
+  {  6, 2, "SRSConf1"      },
+  {  6, 3, "SRSConf2"      },
+  {  6, 4, "SRSConf3"      },
+  {  6, 5, "SRSConf4"      },
+  {  6, 6, "PWCtl"         },
+  {  8, 1, "BadInstr"      },
+  {  8, 2, "BadInstrP"     },
+  { 10, 4, "GuestCtl1"     },
+  { 10, 5, "GuestCtl2"     },
+  { 10, 6, "GuestCtl3"     },
+  { 11, 4, "GuestCtl0Ext"  },
+  { 12, 1, "INTCtl"       },
+  { 12, 2, "SRSCtl"       },
+  { 12, 3, "SRSMap"       },
+  { 12, 4, "View_IPL"     },
+  { 12, 5, "SRSMap2"      },
+  { 12, 6, "GuestCtl0"    },
+  { 12, 7, "GTOffset"     },
+  { 13, 4, "View_RIPL"    },
+  { 13, 5, "NestedExc"    },
+  { 14, 2, "NestedEPC"    },
+  { 15, 1, "EBase"        },
+  { 15, 2, "CDMMBase"     },
+  { 15, 3, "CMGCRBase"    },
+  { 16, 1, "Config1"      },
+  { 16, 2, "Config2"      },
+  { 16, 3, "Config3"      },
+  { 16, 4, "Config4"      },
+  { 16, 5, "Config5"      },
+  { 16, 6, "Config6"      },
+  { 16, 7, "Config7"      },
+  { 17, 1, "MAAR"         },
+  { 17, 2, "MAARI"        },
+  { 18, 1, "WatchLo1"     },
+  { 18, 2, "WatchLo2"     },
+  { 18, 3, "WatchLo3"     },
+  { 18, 4, "WatchLo4"     },
+  { 18, 5, "WatchLo5"     },
+  { 18, 6, "WatchLo6"     },
+  { 18, 7, "WatchLo7"     },
+  { 19, 1, "WatchHi1"     },
+  { 19, 2, "WatchHi2"     },
+  { 19, 3, "WatchHi3"     },
+  { 19, 4, "WatchHi4"     },
+  { 19, 5, "WatchHi5"     },
+  { 19, 6, "WatchHi6"     },
+  { 19, 7, "WatchHi7"     },
+  { 23, 1, "TraceControl"  },
+  { 23, 2, "TraceControl2" },
+  { 23, 3, "UserTraceData1"},
+  { 23, 4, "TraceIBPC"     },
+  { 23, 5, "TraceDBPC"     },
+  { 23, 6, "Debug2"        },
+  { 24, 2, "TraceControl3" },
+  { 24, 3, "UserTraceData2"},
+  { 25, 1, "PerfCounter0"  },
+  { 25, 2, "PerfControl1"  },
+  { 25, 3, "PerfCounter1"  },
+  { 25, 4, "PerfControl2"  },
+  { 25, 5, "PerfCounter2"  },
+  { 25, 6, "PerfControl3"  },
+  { 25, 7, "PerfCounter3"  },
+  { 27, 1, "c0_cacheerr,1" }, // n/a in iasim
+  { 27, 2, "c0_cacheerr,2" }, // n/a in iasim
+  { 27, 3, "c0_cacheerr,3" }, // n/a in iasim
+  { 28, 1, "DataLo"        },
+  { 28, 2, "DTagLo"        },
+  { 28, 3, "DDataLo"       },
+  { 28, 4, "L23TagLo"      },
+  { 28, 5, "L23DataLo"     },
+  { 28, 6, "c0_taglo3"     }, // n/a in iasim
+  { 28, 7, "c0_datalo3"    }, // n/a in iasim
+  { 29, 1, "DataHi"        },
+  { 29, 2, "DTagHi"        },
+  { 29, 3, "c0_datahi1"    }, // n/a in iasim
+  { 29, 4, "c0_taghi2"     }, // n/a in iasim
+  { 29, 5, "L23DataHi"     },
+  { 29, 6, "c0_taghi3"     }, // n/a in iasim
+  { 29, 7, "c0_datahi3"    }, // n/a in iasim
+  { 31, 2, "KScratch1"     },
+  { 31, 3, "KScratch2"     },
+  { 31, 4, "KScratch3"     },
+  { 31, 5, "KScratch4"     },
+  { 31, 6, "KScratch5"     },
+  { 31, 7, "KScratch6"     },
+};
+#endif
+
 /* SB-1: MIPS64 (mips_cp0_names_mips3264) with minor mods.  */
 static const char * const mips_cp0_names_sb1[32] =
 {
@@ -3845,6 +3985,9 @@ static struct mips_abi_choice mips_abi_choices[] =
   { "32", mips_gpr_names_oldabi, mips_fpr_names_32 },
   { "n32", mips_gpr_names_newabi, mips_fpr_names_n32 },
   { "64", mips_gpr_names_newabi, mips_fpr_names_64 },
+#ifdef MIPSSIM_COMPAT
+  { "iasim", mips_gpr_names_numeric, mips_fpr_names_numeric_iasim },
+#endif
 };
 
 struct mips_arch_choice
@@ -3973,6 +4116,15 @@ static const struct mips_arch_choice mips_arch_choices[] =
     mips_cp0_names_sb1,
     mips_cp0sel_names_sb1, ARRAY_SIZE (mips_cp0sel_names_sb1),
     mips_hwr_names_numeric },
+
+#ifdef MIPSSIM_COMPAT
+  { "iasim", 1, bfd_mach_mipsisa32r2, CPU_MIPS32R2,
+    (ISA_MIPS32R2 | INSN_MIPS16 | INSN_SMARTMIPS | INSN_DSP | INSN_DSPR2
+     | INSN_MIPS3D | INSN_MT /*| INSN_MSA*/),
+    mips_cp0_names_iasim,
+    mips_cp0sel_names_iasim, ARRAY_SIZE (mips_cp0sel_names_iasim),
+    mips_hwr_names_mips3264r2 },
+#endif
 
   /* This entry, mips16, is here only for ISA/processor selection; do
      not print its name.  */
@@ -4255,6 +4407,11 @@ print_insn_args (const char *d,
       switch (*d)
 	{
 	case ',':
+#ifdef MIPSSIM_COMPAT
+	  (*info->fprintf_func) (info->stream, "%c", *d);
+	  (*info->fprintf_func) (info->stream, " ");
+	  break;
+#endif
 	case '(':
 	case ')':
 	case '[':
@@ -4560,8 +4717,13 @@ print_insn_args (const char *d,
 	  break;
 
 	case '7':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_DSPACC) & OP_MASK_DSPACC);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_DSPACC) & OP_MASK_DSPACC);
+#endif
 	  break;
 
 	case '8':
@@ -4570,8 +4732,13 @@ print_insn_args (const char *d,
 	  break;
 
 	case '9':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_DSPACC_S) & OP_MASK_DSPACC_S);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_DSPACC_S) & OP_MASK_DSPACC_S);
+#endif
 	  break;
 
 	case '0': /* dsp 6-bit signed immediate in bit 20 */
@@ -4611,13 +4778,23 @@ print_insn_args (const char *d,
 	  break;
 
 	case '*':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_MTACC_T) & OP_MASK_MTACC_T);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_MTACC_T) & OP_MASK_MTACC_T);
+#endif
 	  break;
 
 	case '&':
+#ifdef MIPSSIM_COMPAT
+      (*info->fprintf_func) (info->stream, "%ld",
+                 (l >> OP_SH_MTACC_D) & OP_MASK_MTACC_D);
+#else
 	  (*info->fprintf_func) (info->stream, "$ac%ld",
 				 (l >> OP_SH_MTACC_D) & OP_MASK_MTACC_D);
+#endif
 	  break;
 
 	case 'g':
@@ -4671,10 +4848,12 @@ print_insn_args (const char *d,
 	case 'a':
 	  info->target = (((pc + 4) & ~(bfd_vma) 0x0fffffff)
 			  | (((l >> OP_SH_TARGET) & OP_MASK_TARGET) << 2));
+#if !defined(MIPSSIM_COMPAT)
 	  /* For gdb disassembler, force odd address on jalx.  */
 	  if (info->flavour == bfd_target_unknown_flavour
 	      && strcmp (opp->name, "jalx") == 0)
 	    info->target |= 1;
+#endif
 	  (*info->print_address_func) (info->target, info);
 	  break;
 
@@ -5014,12 +5193,28 @@ print_insn_mips (bfd_vma memaddr,
 				     | INSN_LOAD_MEMORY_DELAY)) != 0)
 		info->insn_type = dis_dref;
 
+#ifdef MIPSSIM_COMPAT
+	      { // Uppercase OP names
+	          char tmp[20];
+	          int i;
+
+	          memset(tmp, 0, 20);
+	          for (i = 0; i < strlen(op->name) && i < 20; i++) {
+	              tmp[i] = (char) toupper(op->name[i]);
+	          }
+	          (*info->fprintf_func) (info->stream, "%-10s ", tmp);
+	      }
+#else
 	      (*info->fprintf_func) (info->stream, "%s", op->name);
+#endif
 
 	      d = op->args;
 	      if (d != NULL && *d != '\0')
 		{
+#ifdef MIPSSIM_COMPAT
+#else
 		  (*info->fprintf_func) (info->stream, "\t");
+#endif
 		  print_insn_args (d, word, memaddr, info, op);
 		}
 
@@ -5580,10 +5775,12 @@ print_mips16_insn_arg (char type,
 		  }
 	      }
 	    info->target = (baseaddr & ~((1 << shift) - 1)) + immed;
+#if !defined(MIPSSIM_COMPAT)
 	    if (pcrel && branch
 		&& info->flavour == bfd_target_unknown_flavour)
 	      /* For gdb disassembler, maintain odd address.  */
 	      info->target |= 1;
+#endif
 	    (*info->print_address_func) (info->target, info);
 	  }
       }

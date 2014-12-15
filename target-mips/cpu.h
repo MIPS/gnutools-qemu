@@ -860,6 +860,14 @@ void cpu_set_exception_base(int vp_index, target_ulong address);
 /* TODO QOM'ify CPU reset and remove */
 void cpu_state_reset(CPUMIPSState *s);
 
+#ifdef MIPSSIM_COMPAT
+#include "mips-avp.h"
+void mips_cpu_trace_state(CPUMIPSState *cs, FILE *f, fprintf_function cpu_fprintf,
+                          int flags);
+int r4k_map_address_debug(CPUMIPSState *env, hwaddr *physical, int *prot, int *cca,
+                     target_ulong address, int rw, int access_type);
+#endif
+
 /* mips_timer.c */
 uint32_t cpu_mips_get_random (CPUMIPSState *env);
 uint32_t cpu_mips_get_count (CPUMIPSState *env);
