@@ -94,4 +94,22 @@
    Note that we still maintain Count/Compare to match the host clock. */
 //#define MIPS_STRICT_STANDARD 1
 
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
+/* Define to use SLTIU as stop for AVPs
+ *  - also see hw/mips_mipssim for another #define
+ */
+
+/* Trace debug disassembly */
+#ifndef MIPS_DEBUG_DISAS
+#define MIPS_DEBUG_DISAS 1
+#endif
+
+#ifndef MIPS_STRICT_STANDARD
+#define MIPS_STRICT_STANDARD 1
+#endif
+#endif
+
+#endif
+
 #endif /* QEMU_MIPS_DEFS_H */

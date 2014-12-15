@@ -10,6 +10,10 @@
 void disas(FILE *out, void *code, unsigned long size);
 void target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size, int flags);
+#ifdef MIPSSIM_COMPAT
+void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
+                   target_ulong size, int flags);
+#endif
 
 void monitor_disas(Monitor *mon, CPUState *cpu,
                    target_ulong pc, int nb_insn, int is_physical, int flags);
