@@ -124,6 +124,9 @@ int main(int argc, char **argv)
 #include "crypto/init.h"
 #include "sysemu/replay.h"
 #include "qapi/qmp/qerror.h"
+#ifdef MIPSSIM_COMPAT
+#include "target-mips/mips-avp.h"
+#endif
 
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
@@ -4109,6 +4112,9 @@ int main(int argc, char **argv, char **envp)
             exit(1);
         }
         qemu_set_log(mask);
+#if defined(MIPSSIM_COMPAT)
+        sv_log_init("qemu.svtrace");
+#endif
     }
 
     if (!is_daemonized()) {

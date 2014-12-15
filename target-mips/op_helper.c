@@ -23,6 +23,128 @@
 #include "exec/cpu_ldst.h"
 #include "sysemu/kvm.h"
 
+#ifndef CONFIG_USER_ONLY
+#ifdef MIPSSIM_COMPAT
+#include "sysemu/sysemu.h"
+
+void helper_avp_ok(void)
+{
+    puts("ok");
+    qemu_system_shutdown_request();
+}
+
+void helper_avp_fail(void)
+{
+    puts("fail");
+    qemu_system_shutdown_request();
+}
+
+#if defined(TARGET_MIPS64)
+# define SV6432 "64"
+#else
+# define SV6432 "32"
+#endif
+
+static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
+{
+    r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[idx];
+
+    sv_log("Info (MIPS" SV6432 "_TLB) TLBW%s ", is_random ? "R" : "I");
+
+    sv_log("FILL TLB index %d, ", idx);
+    sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
+    sv_log("PFN0 0x%016llx ", (long long int)tlb->PFN[0] << 12);
+    sv_log("PFN1 0x%016llx ", (long long int)tlb->PFN[1] << 12);
+    sv_log("mask 0x%08x ", tlb->PageMask);
+    sv_log("G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID %08x\n", tlb->ASID);
+
+    SVLOG_START_LINE();
+    sv_log("Write TLB Entry[%d] = ", idx);
+    sv_log("%08x ", env->CP0_PageMask);
+    sv_log(TARGET_FMT_lx " ", env->CP0_EntryHi);
+    sv_log("%08x ", (uint32_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
+    sv_log("%08x\n", (uint32_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
+}
+#endif
+#endif
+
+#ifdef MIPSSIM_COMPAT
+static inline void check_inst_limit(void)
+{
+    static uint32_t exec_counter = 0;
+    if (exec_counter++ > (1000 * 1000)) {
+        fprintf(stderr, "qemu: instruction limit reached\n");
+        abort();
+    }
+}
+
+#include "disas/disas.h"
+
+void helper_trace_transl_pre(CPUMIPSState *env, target_ulong trace_pc)
+{
+#ifndef CONFIG_USER_ONLY
+    if (use_icount) {
+        /* If '-icount' is specified then set instruction number limit */
+        check_inst_limit();
+    }
+#endif
+    trace_cpu_state(env, 0);
+    sv_target_disas(env, trace_pc, 4, 0); // TODO: mips16/microMIPS
+}
+
+void helper_trace_transl_post(CPUMIPSState *env)
+{
+    trace_cpu_state(env, 0);
+}
+
+void helper_trace_mem_access(CPUMIPSState *env,
+                             target_ulong val,
+                             target_ulong addr,
+                             uint32_t rw_size)
+{
+    SVLOG_START_LINE();
+#ifndef CONFIG_USER_ONLY
+    sv_log("Memory %s ["TARGET_FMT_lx" "TARGET_FMT_lx" %s] = ",
+            (rw_size >> 16)? "Write":"Read",
+            addr,
+            (target_long) cpu_mips_translate_address(env, addr, rw_size >> 16),
+            "#"); /* cacheability - just ignore when comparing */
+#else
+    sv_log("Memory %s ["TARGET_FMT_lx"] = ",
+            (rw_size >> 16)? "Write":"Read",
+            addr);
+#endif
+
+    switch(rw_size & 0xffff)
+    {
+    case 1:
+        sv_log("%02x\n", (uint8_t) val);
+        break;
+    case 2:
+        sv_log("%04x\n", (uint16_t) val);
+        break;
+    case 4:
+        sv_log("%08x\n", (uint32_t) val);
+        break;
+    case 8:
+        sv_log("%016lx\n", (uint64_t) val);
+        break;
+    default:
+        sv_log("\n");
+        break;
+    }
+}
+void helper_trace_reg_access(CPUMIPSState *env, target_ulong val)
+{
+    sv_log("reg = "TARGET_FMT_lx"\n", val);
+}
+#endif
+
 /*****************************************************************************/
 /* Exceptions processing helpers */
 
@@ -2260,6 +2382,9 @@ void r4k_helper_tlbwi(CPUMIPSState *env)
 
     r4k_invalidate_tlb(env, idx, 0);
     r4k_fill_tlb(env, idx);
+#ifdef MIPSSIM_COMPAT
+    trace_tlb_fill(env, idx, 0);
+#endif
 }
 
 void r4k_helper_tlbwr(CPUMIPSState *env)
@@ -2268,6 +2393,9 @@ void r4k_helper_tlbwr(CPUMIPSState *env)
 
     r4k_invalidate_tlb(env, r, 1);
     r4k_fill_tlb(env, r);
+#ifdef MIPSSIM_COMPAT
+    trace_tlb_fill(env, r, 1);
+#endif
 }
 
 void r4k_helper_tlbp(CPUMIPSState *env)
@@ -2316,6 +2444,12 @@ void r4k_helper_tlbp(CPUMIPSState *env)
 
         env->CP0_Index |= 0x80000000;
     }
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS" SV6432 "_TLB) TLBP ");
+    sv_log("VPN 0x" TARGET_FMT_lx" ", tag);
+    sv_log("P %d ", (env->CP0_Index & 0x80000000) >> 31);
+    sv_log("Index %d\n", env->CP0_Index & 0x7FFFFFFF);
+#endif
 }
 
 static inline uint64_t get_entrylo_pfn_from_tlb(uint64_t tlb_pfn)
@@ -2361,6 +2495,17 @@ void r4k_helper_tlbr(CPUMIPSState *env)
                         ((uint64_t)tlb->XI1 << CP0EnLo_XI) | (tlb->C1 << 3) |
                         get_entrylo_pfn_from_tlb(tlb->PFN[1] >> 12);
     }
+#ifdef MIPSSIM_COMPAT
+    sv_log("Info (MIPS" SV6432 "_TLB) : TLBR ");
+    sv_log("VPN 0x" TARGET_FMT_lx, tlb->VPN >> 11);
+    sv_log(" G %x ", tlb->G);
+    sv_log("V0 %x ", tlb->V0);
+    sv_log("V1 %x ", tlb->V1);
+    sv_log("D0 %x ", tlb->D0);
+    sv_log("D1 %x ", tlb->D1);
+    sv_log("ASID tlb=0x%08x ", tlb->ASID);
+    sv_log("EnHi=0x" TARGET_FMT_lx "\n", env->CP0_EntryHi & 0xff);
+#endif
 }
 
 void helper_tlbwi(CPUMIPSState *env)
@@ -2642,7 +2787,12 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
     if (is_exec) {
         raise_exception(env, EXCP_IBE);
     } else {
+#ifdef PAE_TEST
+        printf("Data Bus Error!: %llx\n", (long long int)addr);
+        exit(1);
+#else
         raise_exception(env, EXCP_DBE);
+#endif
     }
 }
 #endif /* !CONFIG_USER_ONLY */
