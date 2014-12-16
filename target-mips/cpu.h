@@ -35,7 +35,7 @@ struct r4k_tlb_t {
     uint_fast16_t RI0:1;
     uint_fast16_t RI1:1;
     uint_fast16_t EHINV:1;
-    target_ulong PFN[2];
+    uint64_t PFN[2];
 };
 
 #if !defined(CONFIG_USER_ONLY)
@@ -164,6 +164,7 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
 #define MIPS_KSCRATCH_NUM 6
+#define MIPS_MAAR_MAX 16 /* Must be an even number. */
 
 typedef struct TCState TCState;
 struct TCState {
@@ -224,8 +225,14 @@ struct CPUMIPSState {
 
     uint32_t SEGBITS;
     uint32_t PABITS;
+#if defined(TARGET_MIPS64)
+# define DEFAULT_PABITS 36
+#else
+# define DEFAULT_PABITS 32
+#endif
     target_ulong SEGMask;
-    target_ulong PAMask;
+    uint64_t PAMask;
+#define DEFAULT_PAMASK ((1ULL << DEFAULT_PABITS) - 1)
 
     int32_t msair;
 #define MSAIR_ProcID    8
@@ -273,8 +280,8 @@ struct CPUMIPSState {
 #define CP0VPEOpt_DWX2	2
 #define CP0VPEOpt_DWX1	1
 #define CP0VPEOpt_DWX0	0
-    target_ulong CP0_EntryLo0;
-    target_ulong CP0_EntryLo1;
+    uint64_t CP0_EntryLo0;
+    uint64_t CP0_EntryLo1;
 #if defined(TARGET_MIPS64)
 # define CP0EnLo_RI 63
 # define CP0EnLo_XI 62
@@ -287,10 +294,30 @@ struct CPUMIPSState {
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
-#define CP0PG_RIE 31
-#define CP0PG_XIE 30
-#define CP0PG_IEC 27
+#define CP0PG_RIE  31
+#define CP0PG_XIE  30
+#define CP0PG_ELPA 29
+#define CP0PG_IEC  27
+    target_ulong CP0_PWBase;
+    target_ulong CP0_PWField;
+#define CP0PF_GDI   24
+#define CP0PF_UDI   18
+#define CP0PF_MDI   12
+#define CP0PF_PTI   6
+#define CP0PF_PTEI  0
+    target_ulong CP0_PWSize;
+#define CP0PS_PS    30
+#define CP0PS_GDW   24
+#define CP0PS_UDW   18
+#define CP0PS_MDW   12
+#define CP0PS_PTW   6
+#define CP0PS_PTEW  0
     int32_t CP0_Wired;
+    int32_t CP0_PWCtl;
+#define CP0PC_PWEN      31
+#define CP0PC_DPH       7
+#define CP0PC_HUGEPG    6
+#define CP0PC_PSN       0
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
@@ -429,6 +456,7 @@ struct CPUMIPSState {
 #define CP0C3_MSAP  28
 #define CP0C3_BP 27
 #define CP0C3_BI 26
+#define CP0C3_PW 24
 #define CP0C3_IPLW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -464,16 +492,20 @@ struct CPUMIPSState {
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
 #define CP0C5_SBRI       6
+#define CP0C5_MVH        5
+#define CP0C5_MRP        3
 #define CP0C5_UFR        2
 #define CP0C5_NFExists   0
     int32_t CP0_Config6;
     int32_t CP0_Config7;
+    uint64_t CP0_MAAR[MIPS_MAAR_MAX];
+    int32_t CP0_MAARI;
     /* XXX: Maybe make LLAddr per-TC? */
-    target_ulong lladdr;
+    uint64_t lladdr;
     target_ulong llval;
     target_ulong llnewval;
     target_ulong llreg;
-    target_ulong CP0_LLAddr_rw_bitmask;
+    uint64_t CP0_LLAddr_rw_bitmask;
     int CP0_LLAddr_shift;
     target_ulong CP0_WatchLo[8];
     int32_t CP0_WatchHi[8];
@@ -500,7 +532,7 @@ struct CPUMIPSState {
 #define CP0DB_DSS  0
     target_ulong CP0_DEPC;
     int32_t CP0_Performance0;
-    int32_t CP0_TagLo;
+    uint64_t CP0_TagLo;
     int32_t CP0_DataLo;
     int32_t CP0_TagHi;
     int32_t CP0_DataHi;
@@ -515,7 +547,7 @@ struct CPUMIPSState {
 #define EXCP_INST_NOTAVAIL 0x2 /* No valid instruction word for BadInstr */
     uint32_t hflags;    /* CPU State */
     /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0x15807FF
+#define MIPS_HFLAG_TMASK  0x35807FF
 #define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
     /* The KSU flags must be the lowest bits in hflags. The flag order
        must be the same as defined for CP0 Status. This allows to use
@@ -562,6 +594,7 @@ struct CPUMIPSState {
 #define MIPS_HFLAG_SBRI  0x400000 /* R6 SDBBP causes RI excpt. in user mode */
 #define MIPS_HFLAG_FBNSLOT 0x800000 /* Forbidden slot                   */
 #define MIPS_HFLAG_MSA   0x1000000
+#define MIPS_HFLAG_ELPA  0x2000000
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
@@ -776,6 +809,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env);
 /* op_helper.c */
 extern unsigned int ieee_rm[];
 int ieee_ex_to_mips(int xcpt);
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *pagemask);
 
 static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
@@ -824,7 +858,7 @@ static inline void compute_hflags(CPUMIPSState *env)
     env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
                      MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
                      MIPS_HFLAG_AWRAP | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
-                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA);
+                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA | MIPS_HFLAG_ELPA);
     if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
         !(env->CP0_Status & (1 << CP0St_ERL)) &&
         !(env->hflags & MIPS_HFLAG_DM)) {
@@ -900,6 +934,11 @@ static inline void compute_hflags(CPUMIPSState *env)
     if (env->insn_flags & ASE_MSA) {
         if (env->CP0_Config5 & (1 << CP0C5_MSAEn)) {
             env->hflags |= MIPS_HFLAG_MSA;
+        }
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_LPA)) {
+        if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+            env->hflags |= MIPS_HFLAG_ELPA;
         }
     }
 }

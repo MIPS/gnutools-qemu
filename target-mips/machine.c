@@ -80,8 +80,8 @@ void cpu_save(QEMUFile *f, void *opaque)
         asid = env->tlb->mmu.r4k.tlb[i].ASID;
         qemu_put_8s(f, &asid);
         qemu_put_be16s(f, &flags);
-        qemu_put_betls(f, &env->tlb->mmu.r4k.tlb[i].PFN[0]);
-        qemu_put_betls(f, &env->tlb->mmu.r4k.tlb[i].PFN[1]);
+        qemu_put_be64s(f, &env->tlb->mmu.r4k.tlb[i].PFN[0]);
+        qemu_put_be64s(f, &env->tlb->mmu.r4k.tlb[i].PFN[1]);
     }
 
     /* Save CPU metastate */
@@ -103,12 +103,16 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_betls(f, &env->CP0_VPESchedule);
     qemu_put_betls(f, &env->CP0_VPEScheFBack);
     qemu_put_sbe32s(f, &env->CP0_VPEOpt);
-    qemu_put_betls(f, &env->CP0_EntryLo0);
-    qemu_put_betls(f, &env->CP0_EntryLo1);
+    qemu_put_be64s(f, &env->CP0_EntryLo0);
+    qemu_put_be64s(f, &env->CP0_EntryLo1);
     qemu_put_betls(f, &env->CP0_Context);
     qemu_put_sbe32s(f, &env->CP0_PageMask);
     qemu_put_sbe32s(f, &env->CP0_PageGrain);
+    qemu_put_betls(f, &env->CP0_PWBase);
+    qemu_put_betls(f, &env->CP0_PWField);
+    qemu_put_betls(f, &env->CP0_PWSize);
     qemu_put_sbe32s(f, &env->CP0_Wired);
+    qemu_put_sbe32s(f, &env->CP0_PWCtl);
     qemu_put_sbe32s(f, &env->CP0_SRSConf0);
     qemu_put_sbe32s(f, &env->CP0_SRSConf1);
     qemu_put_sbe32s(f, &env->CP0_SRSConf2);
@@ -135,7 +139,11 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_Config3);
     qemu_put_sbe32s(f, &env->CP0_Config6);
     qemu_put_sbe32s(f, &env->CP0_Config7);
-    qemu_put_betls(f, &env->lladdr);
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        qemu_put_be64s(f, &env->CP0_MAAR[i]);
+    }
+    qemu_put_sbe32s(f, &env->CP0_MAARI);
+    qemu_put_be64s(f, &env->lladdr);
     for(i = 0; i < 8; i++)
         qemu_put_betls(f, &env->CP0_WatchLo[i]);
     for(i = 0; i < 8; i++)
@@ -145,7 +153,7 @@ void cpu_save(QEMUFile *f, void *opaque)
     qemu_put_sbe32s(f, &env->CP0_Debug);
     qemu_put_betls(f, &env->CP0_DEPC);
     qemu_put_sbe32s(f, &env->CP0_Performance0);
-    qemu_put_sbe32s(f, &env->CP0_TagLo);
+    qemu_put_be64s(f, &env->CP0_TagLo);
     qemu_put_sbe32s(f, &env->CP0_DataLo);
     qemu_put_sbe32s(f, &env->CP0_TagHi);
     qemu_put_sbe32s(f, &env->CP0_DataHi);
@@ -249,8 +257,8 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
             env->tlb->mmu.r4k.tlb[i].XI1 = (flags >> 12) & 1;
             env->tlb->mmu.r4k.tlb[i].XI0 = (flags >> 11) & 1;
         }
-        qemu_get_betls(f, &env->tlb->mmu.r4k.tlb[i].PFN[0]);
-        qemu_get_betls(f, &env->tlb->mmu.r4k.tlb[i].PFN[1]);
+        qemu_get_be64s(f, &env->tlb->mmu.r4k.tlb[i].PFN[0]);
+        qemu_get_be64s(f, &env->tlb->mmu.r4k.tlb[i].PFN[1]);
     }
 
     /* Load CPU metastate */
@@ -272,12 +280,16 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_betls(f, &env->CP0_VPESchedule);
     qemu_get_betls(f, &env->CP0_VPEScheFBack);
     qemu_get_sbe32s(f, &env->CP0_VPEOpt);
-    qemu_get_betls(f, &env->CP0_EntryLo0);
-    qemu_get_betls(f, &env->CP0_EntryLo1);
+    qemu_get_be64s(f, &env->CP0_EntryLo0);
+    qemu_get_be64s(f, &env->CP0_EntryLo1);
     qemu_get_betls(f, &env->CP0_Context);
     qemu_get_sbe32s(f, &env->CP0_PageMask);
     qemu_get_sbe32s(f, &env->CP0_PageGrain);
+    qemu_get_betls(f, &env->CP0_PWBase);
+    qemu_get_betls(f, &env->CP0_PWField);
+    qemu_get_betls(f, &env->CP0_PWSize);
     qemu_get_sbe32s(f, &env->CP0_Wired);
+    qemu_get_sbe32s(f, &env->CP0_PWCtl);
     qemu_get_sbe32s(f, &env->CP0_SRSConf0);
     qemu_get_sbe32s(f, &env->CP0_SRSConf1);
     qemu_get_sbe32s(f, &env->CP0_SRSConf2);
@@ -302,7 +314,11 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_Config3);
     qemu_get_sbe32s(f, &env->CP0_Config6);
     qemu_get_sbe32s(f, &env->CP0_Config7);
-    qemu_get_betls(f, &env->lladdr);
+    for (i = 0; i < MIPS_MAAR_MAX; i++) {
+        qemu_get_be64s(f, &env->CP0_MAAR[i]);
+    }
+    qemu_get_sbe32s(f, &env->CP0_MAARI);
+    qemu_get_be64s(f, &env->lladdr);
     for(i = 0; i < 8; i++)
         qemu_get_betls(f, &env->CP0_WatchLo[i]);
     for(i = 0; i < 8; i++)
@@ -312,7 +328,7 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     qemu_get_sbe32s(f, &env->CP0_Debug);
     qemu_get_betls(f, &env->CP0_DEPC);
     qemu_get_sbe32s(f, &env->CP0_Performance0);
-    qemu_get_sbe32s(f, &env->CP0_TagLo);
+    qemu_get_be64s(f, &env->CP0_TagLo);
     qemu_get_sbe32s(f, &env->CP0_DataLo);
     qemu_get_sbe32s(f, &env->CP0_TagHi);
     qemu_get_sbe32s(f, &env->CP0_DataHi);

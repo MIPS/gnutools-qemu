@@ -868,8 +868,10 @@ enum {
 enum {
     OPC_MFC0     = (0x00 << 21) | OPC_CP0,
     OPC_DMFC0    = (0x01 << 21) | OPC_CP0,
+    OPC_MFHC0    = (0x02 << 21) | OPC_CP0,
     OPC_MTC0     = (0x04 << 21) | OPC_CP0,
     OPC_DMTC0    = (0x05 << 21) | OPC_CP0,
+    OPC_MTHC0    = (0x06 << 21) | OPC_CP0,
     OPC_MFTR     = (0x08 << 21) | OPC_CP0,
     OPC_RDPGPR   = (0x0A << 21) | OPC_CP0,
     OPC_MFMC0    = (0x0B << 21) | OPC_CP0,
@@ -1423,6 +1425,9 @@ typedef struct DisasContext {
     int ie;
     bool bi;
     bool bp;
+    uint64_t PAMask;
+    bool mvh;
+    bool pw;
 } DisasContext;
 
 enum {
@@ -1763,6 +1768,13 @@ static inline void check_cp1_registers(DisasContext *ctx, int regs)
 /* Verify that the processor is running with DSP instructions enabled.
    This is enabled by CP0 Status register MX(24) bit.
  */
+
+static inline void check_mvh(DisasContext *ctx)
+{
+    if (unlikely(!(ctx->mvh))) {
+        generate_exception(ctx, EXCP_RI);
+    }
+}
 
 static inline void check_dsp(DisasContext *ctx)
 {
@@ -4810,6 +4822,29 @@ static void gen_bshfl (DisasContext *ctx, uint32_t op2, int rt, int rd)
 
 #ifndef CONFIG_USER_ONLY
 /* CP0 (MMU and control) */
+static inline void gen_mthc0_store64(TCGv arg, target_ulong off)
+{
+    TCGv_i64 t0 = tcg_temp_new_i64();
+    TCGv_i64 t1 = tcg_temp_new_i64();
+
+    tcg_gen_ext_tl_i64(t0, arg);
+    tcg_gen_ld_i64(t1, cpu_env, off);
+    tcg_gen_concat32_i64(t1, t1, t0);
+    tcg_gen_st_i64(t1, cpu_env, off);
+    tcg_temp_free_i64(t1);
+    tcg_temp_free_i64(t0);
+}
+
+static inline void gen_mfhc0_load64(TCGv arg, target_ulong off)
+{
+    TCGv_i64 t0 = tcg_temp_new_i64();
+
+    tcg_gen_ld_i64(t0, cpu_env, off);
+    tcg_gen_shri_i64(t0, t0, 32);
+    tcg_gen_trunc_i64_tl(arg, t0);
+    tcg_temp_free_i64(t0);
+}
+
 static inline void gen_mfc0_load32 (TCGv arg, target_ulong off)
 {
     TCGv_i32 t0 = tcg_temp_new_i32();
@@ -4838,6 +4873,142 @@ static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
 {
     tcg_gen_ext32s_tl(arg, arg);
     tcg_gen_st_tl(arg, cpu_env, off);
+}
+
+static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (!(ctx->hflags & MIPS_HFLAG_ELPA)) {
+        goto mfhc0_read0;
+    }
+
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, lladdr));
+            rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mfhc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    case 28:
+        switch (sel) {
+        case 0:
+        case 2:
+        case 4:
+        case 6:
+            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_TagLo));
+            rn = "TagLo";
+            break;
+        default:
+            goto mfhc0_read0;
+        }
+        break;
+    default:
+        goto mfhc0_read0;
+    }
+
+    (void)rn; /* avoid a compiler warning */
+    LOG_DISAS("mfhc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    return;
+
+mfhc0_read0:
+    LOG_DISAS("mfhc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    tcg_gen_movi_tl(arg, 0);
+}
+
+static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
+{
+    const char *rn = "invalid";
+
+    if (!(ctx->hflags & MIPS_HFLAG_ELPA)) {
+        goto mthc0_nop;
+    }
+
+    tcg_gen_andi_tl(arg, arg, ctx->PAMask >> 36);
+
+    switch (reg) {
+    case 2:
+        switch (sel) {
+        case 0:
+            gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
+            rn = "EntryLo0";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 3:
+        switch (sel) {
+        case 0:
+            gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
+            rn = "EntryLo1";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 17:
+        switch (sel) {
+        case 0:
+            gen_mthc0_store64(arg, offsetof(CPUMIPSState, lladdr));
+            rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mthc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    case 28:
+        switch (sel) {
+        case 0:
+        case 2:
+        case 4:
+        case 6:
+            gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_TagLo));
+            rn = "TagLo";
+            break;
+        default:
+            goto mthc0_nop;
+        }
+        break;
+    default:
+        goto mthc0_nop;
+    }
+
+    (void)rn; /* avoid a compiler warning */
+mthc0_nop:
+    LOG_DISAS("mthc0 %s (reg %d sel %d)\n", rn, reg, sel);
 }
 
 static inline void gen_mfc0_unimplemented(DisasContext *ctx, TCGv arg)
@@ -5043,6 +5214,18 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -5077,6 +5260,10 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -5261,6 +5448,14 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -5654,6 +5849,21 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_pagegrain(cpu_env, arg);
             rn = "PageGrain";
+            ctx->bstate = BS_STOP;
+            break;
+        case 5:
+            if (ctx->pw) {
+                gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
             break;
         default:
             goto cp0_unimplemented;
@@ -5689,6 +5899,10 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -5879,6 +6093,14 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -6288,6 +6510,18 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -6322,6 +6556,10 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -6503,6 +6741,14 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_dmfc0_lladdr(arg, cpu_env);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_dmfc0_maar(arg, cpu_env);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -6892,6 +7138,20 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_pagegrain(cpu_env, arg);
             rn = "PageGrain";
             break;
+        case 5:
+            if (ctx->pw) {
+                tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            }
+            rn = "PWBase";
+            break;
+        case 6:
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -6926,6 +7186,10 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -7121,6 +7385,14 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
             rn = "LLAddr";
+            break;
+        case 1:
+            gen_helper_mtc0_maar(cpu_env, arg);
+            rn = "MAAR";
+            break;
+        case 2:
+            gen_helper_mtc0_maari(cpu_env, arg);
+            rn = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
@@ -7828,6 +8100,25 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
         opn = "dmtc0";
         break;
 #endif
+    case OPC_MFHC0:
+        check_mvh(ctx);
+        if (rt == 0) {
+            /* Treat as NOP. */
+            return;
+        }
+        gen_mfhc0(ctx, cpu_gpr[rt], rd, ctx->opcode & 0x7);
+        opn = "mfhc0";
+        break;
+    case OPC_MTHC0:
+        check_mvh(ctx);
+        {
+            TCGv t0 = tcg_temp_new();
+            gen_load_gpr(t0, rt);
+            gen_mthc0(ctx, t0, rd, ctx->opcode & 0x7);
+            tcg_temp_free(t0);
+        }
+        opn = "mthc0";
+        break;
     case OPC_MFTR:
         check_insn(ctx, ASE_MT);
         if (rd == 0) {
@@ -18463,6 +18754,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
         case OPC_DMFC0:
         case OPC_DMTC0:
+#else
+        case OPC_MFHC0: /* TODO: MTHC0/MFHC0 for MIPS64 */
+        case OPC_MTHC0:
 #endif
 #ifndef CONFIG_USER_ONLY
             gen_cp0(env, ctx, op1, rt, rd);
@@ -19009,6 +19303,9 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.ie = (env->CP0_Config4 >> CP0C4_IE) & 3;
     ctx.bi = (env->CP0_Config3 >> CP0C3_BI) & 1;
     ctx.bp = (env->CP0_Config3 >> CP0C3_BP) & 1;
+    ctx.mvh = env->CP0_Config5 & (1 << CP0C5_MVH);
+    ctx.PAMask = env->PAMask;
+    ctx.pw = env->CP0_Config3 & (1 << CP0C3_PW);
     /* Restore delay slot state from the tb context.  */
     ctx.hflags = (uint32_t)tb->flags; /* FIXME: maybe use 64 bits here? */
     ctx.ulri = env->CP0_Config3 & (1 << CP0C3_ULRI);
@@ -19259,7 +19556,7 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
     cpu_fprintf(f, "CP0 Status  0x%08x Cause   0x%08x EPC    0x" TARGET_FMT_lx "\n",
                 env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
-    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
+    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x%016" PRIx64 "\n",
                 env->CP0_Config0, env->CP0_Config1, env->lladdr);
     if (env->hflags & MIPS_HFLAG_FPU)
         fpu_dump_state(env, f, cpu_fprintf, flags);
@@ -19372,6 +19669,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_Config5_rw_bitmask = env->cpu_model->CP0_Config5_rw_bitmask;
     env->CP0_Config6 = env->cpu_model->CP0_Config6;
     env->CP0_Config7 = env->cpu_model->CP0_Config7;
+    env->CP0_PageGrain_rw_bitmask = env->cpu_model->CP0_PageGrain_rw_bitmask;
     env->CP0_LLAddr_rw_bitmask = env->cpu_model->CP0_LLAddr_rw_bitmask
                                  << env->cpu_model->CP0_LLAddr_shift;
     env->CP0_LLAddr_shift = env->cpu_model->CP0_LLAddr_shift;
@@ -19389,7 +19687,7 @@ void cpu_state_reset(CPUMIPSState *env)
     }
 #endif
     env->PABITS = env->cpu_model->PABITS;
-    env->PAMask = (target_ulong)((1ULL << env->cpu_model->PABITS) - 1);
+    env->PAMask = DEFAULT_PAMASK;
     env->CP0_SRSConf0_rw_bitmask = env->cpu_model->CP0_SRSConf0_rw_bitmask;
     env->CP0_SRSConf0 = env->cpu_model->CP0_SRSConf0;
     env->CP0_SRSConf1_rw_bitmask = env->cpu_model->CP0_SRSConf1_rw_bitmask;
@@ -19499,6 +19797,13 @@ void cpu_state_reset(CPUMIPSState *env)
         (env->active_fpu.fcr0 & (1 << FCR0_F64))) {
         /* Status.FR = 0 mode in 64-bit FPU not allowed in R6 */
         env->CP0_Status |= (1 << CP0St_FR);
+    }
+
+    if (env->insn_flags & ISA_MIPS32R6) {
+        env->CP0_PWField = 0x0C30C302;
+        env->CP0_PWSize = 0x40;
+    } else {
+        env->CP0_PWField = 0x02;
     }
 
     /* MSA */
