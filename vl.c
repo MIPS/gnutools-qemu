@@ -172,6 +172,9 @@ const char *watchdog;
 QEMUOptionRom option_rom[MAX_OPTION_ROMS];
 int nb_option_roms;
 int semihosting_enabled = 0;
+const char **semihosting_argv;
+int semihosting_argc;
+const char *semihosting_root;
 int old_param = 0;
 const char *qemu_name;
 int alt_grab = 0;
@@ -3619,6 +3622,25 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_semihosting:
                 semihosting_enabled = 1;
                 break;
+            case QEMU_OPTION_semihosting_arg:
+                if (semihosting_argc == 0) {
+                    /* If arguments are present then the first argument goes to
+                       argv[1] as argv[0] is reserved for the program name */
+                    semihosting_argc = 2;
+                    semihosting_argv =
+                        g_malloc(semihosting_argc * sizeof(void *));
+                    semihosting_argv[1] = optarg;
+                } else {
+                    semihosting_argc++;
+                    semihosting_argv =
+                        g_realloc(semihosting_argv,
+                                  semihosting_argc * sizeof(void *));
+                    semihosting_argv[semihosting_argc - 1] = optarg;
+                }
+                break;
+            case QEMU_OPTION_semihosting_root:
+                semihosting_root = optarg;
+                break;
             case QEMU_OPTION_tdf:
                 fprintf(stderr, "Warning: user space PIT time drift fix "
                                 "is no longer supported.\n");
@@ -4118,6 +4140,16 @@ int main(int argc, char **argv, char **envp)
     if (!kernel_cmdline) {
         kernel_cmdline = "";
         current_machine->kernel_cmdline = (char *)kernel_cmdline;
+    }
+
+    if (semihosting_argc) {
+        if (kernel_filename) {
+            semihosting_argv[0] = kernel_filename;
+        } else if (bios_name) {
+            semihosting_argv[0] = bios_name;
+        } else {
+            semihosting_argv[0] = "";
+        }
     }
 
     linux_boot = (kernel_filename != NULL);
