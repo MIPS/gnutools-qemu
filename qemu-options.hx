@@ -3214,11 +3214,27 @@ Set OpenBIOS nvram @var{variable} to given @var{value} (PPC, SPARC only).
 ETEXI
 DEF("semihosting", 0, QEMU_OPTION_semihosting,
     "-semihosting    semihosting mode\n",
-    QEMU_ARCH_ARM | QEMU_ARCH_M68K | QEMU_ARCH_XTENSA | QEMU_ARCH_LM32)
+    QEMU_ARCH_ARM | QEMU_ARCH_M68K | QEMU_ARCH_XTENSA | QEMU_ARCH_LM32 | QEMU_ARCH_MIPS)
 STEXI
 @item -semihosting
 @findex -semihosting
-Semihosting mode (ARM, M68K, Xtensa only).
+Semihosting mode (ARM, M68K, Xtensa, MIPS only).
+ETEXI
+DEF("semihosting-arg", HAS_ARG, QEMU_OPTION_semihosting_arg,
+    "-semihosting-arg    arguments passed to the guest program\n",
+    QEMU_ARCH_MIPS)
+STEXI
+@item -semihosting-arg
+@findex -semihosting-arg
+Arguments passed to the guest program (MIPS only).
+ETEXI
+DEF("semihosting-root", HAS_ARG, QEMU_OPTION_semihosting_root,
+    "-semihosting-root    path used as a root for the guest\n",
+     QEMU_ARCH_MIPS)
+STEXI
+@item -semihosting-root
+@findex -semihosting-root
+Path used as a root for the guest using semihosting (MIPS only).
 ETEXI
 DEF("old-param", 0, QEMU_OPTION_old_param,
     "-old-param      old param mode\n", QEMU_ARCH_ARM)

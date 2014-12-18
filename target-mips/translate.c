@@ -25,6 +25,7 @@
 #include "disas/disas.h"
 #include "tcg-op.h"
 #include "exec/cpu_ldst.h"
+#include "sysemu/sysemu.h"
 
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
@@ -11584,6 +11585,15 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     return 4;
 }
 
+static inline bool is_uhi(int sdbbp_code)
+{
+#ifdef CONFIG_USER_ONLY
+    return false;
+#else
+    return semihosting_enabled && sdbbp_code == 1;
+#endif
+}
+
 static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int rx, ry;
@@ -11871,14 +11881,18 @@ static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
             }
             break;
         case RR_SDBBP:
-            /* XXX: not clear which exception should be raised
-             *      when in debug mode...
-             */
-            check_insn(ctx, ISA_MIPS32);
-            if (!(ctx->hflags & MIPS_HFLAG_DM)) {
-                generate_exception(ctx, EXCP_DBp);
+            if (is_uhi((ctx->opcode >> 5) & 0x3F)) {
+                gen_helper_do_semihosting(cpu_env);
             } else {
-                generate_exception(ctx, EXCP_DBp);
+                /* XXX: not clear which exception should be raised
+                 *      when in debug mode...
+                 */
+                check_insn(ctx, ISA_MIPS32);
+                if (!(ctx->hflags & MIPS_HFLAG_DM)) {
+                    generate_exception(ctx, EXCP_DBp);
+                } else {
+                    generate_exception(ctx, EXCP_DBp);
+                }
             }
             break;
         case RR_SLT:
@@ -12714,14 +12728,18 @@ static void gen_pool16c_insn(DisasContext *ctx)
         generate_exception(ctx, EXCP_BREAK);
         break;
     case SDBBP16:
-        /* XXX: not clear which exception should be raised
-         *      when in debug mode...
-         */
-        check_insn(ctx, ISA_MIPS32);
-        if (!(ctx->hflags & MIPS_HFLAG_DM)) {
-            generate_exception(ctx, EXCP_DBp);
+        if (is_uhi(ctx->opcode & 0xF)) {
+            gen_helper_do_semihosting(cpu_env);
         } else {
-            generate_exception(ctx, EXCP_DBp);
+            /* XXX: not clear which exception should be raised
+             *      when in debug mode...
+             */
+            check_insn(ctx, ISA_MIPS32);
+            if (!(ctx->hflags & MIPS_HFLAG_DM)) {
+                generate_exception(ctx, EXCP_DBp);
+            } else {
+                generate_exception(ctx, EXCP_DBp);
+            }
         }
         break;
     case JRADDIUSP + 0:
@@ -16459,10 +16477,14 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_SDBBP:
-        if (ctx->hflags & MIPS_HFLAG_SBRI) {
-            generate_exception(ctx, EXCP_RI);
+        if (is_uhi((ctx->opcode >> 6) & 0x1FFFFF)) {
+            gen_helper_do_semihosting(cpu_env);
         } else {
-            generate_exception(ctx, EXCP_DBp);
+            if (ctx->hflags & MIPS_HFLAG_SBRI) {
+                generate_exception(ctx, EXCP_RI);
+            } else {
+                generate_exception(ctx, EXCP_DBp);
+            }
         }
         break;
 #if defined(TARGET_MIPS64)
@@ -16830,16 +16852,19 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
         gen_cl(ctx, op1, rd, rs);
         break;
     case OPC_SDBBP:
-        /* XXX: not clear which exception should be raised
-         *      when in debug mode...
-         */
-        check_insn(ctx, ISA_MIPS32);
-        if (!(ctx->hflags & MIPS_HFLAG_DM)) {
-            generate_exception(ctx, EXCP_DBp);
+        if (is_uhi((ctx->opcode >> 6) & 0x1FFFFF)) {
+            gen_helper_do_semihosting(cpu_env);
         } else {
-            generate_exception(ctx, EXCP_DBp);
+            /* XXX: not clear which exception should be raised
+             *      when in debug mode...
+             */
+            check_insn(ctx, ISA_MIPS32);
+            if (!(ctx->hflags & MIPS_HFLAG_DM)) {
+                generate_exception(ctx, EXCP_DBp);
+            } else {
+                generate_exception(ctx, EXCP_DBp);
+            }
         }
-        /* Treat as NOP. */
         break;
 #if defined(TARGET_MIPS64)
     case OPC_DCLO:
@@ -19877,6 +19902,12 @@ void cpu_state_reset(CPUMIPSState *env)
 
     compute_hflags(env);
     cs->exception_index = EXCP_NONE;
+
+#ifndef CONFIG_USER_ONLY
+    if (semihosting_enabled) {
+        env->active_tc.gpr[4] = -1;
+    }
+#endif
 }
 
 void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb, int pc_pos)
