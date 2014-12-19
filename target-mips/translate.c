@@ -1630,18 +1630,35 @@ static inline void generate_exception_end(DisasContext *ctx, int excp)
 /* Floating point register moves. */
 static void gen_load_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
+#ifdef CONFIG_USER_ONLY
+    if (ctx->hflags & MIPS_HFLAG_FRE && (reg & 1)) {
+        tcg_gen_extrh_i64_i32(t, fpu_f64[reg & ~1]);
+        return;
+    }
+#else
     if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
     }
+#endif
     tcg_gen_extrl_i64_i32(t, fpu_f64[reg]);
 }
 
 static void gen_store_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
     TCGv_i64 t64;
+#ifdef CONFIG_USER_ONLY
+    if ((ctx->hflags & MIPS_HFLAG_FRE) && (reg & 1)) {
+        t64 = tcg_temp_new_i64();
+        tcg_gen_extu_i32_i64(t64, t);
+        tcg_gen_deposit_i64(fpu_f64[reg & ~1], fpu_f64[reg & ~1], t64, 32, 32);
+        tcg_temp_free_i64(t64);
+        return;
+    }
+#else
     if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
     }
+#endif
     t64 = tcg_temp_new_i64();
     tcg_gen_extu_i32_i64(t64, t);
     tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 0, 32);
