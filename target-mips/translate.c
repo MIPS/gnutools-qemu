@@ -20338,6 +20338,10 @@ void cpu_state_reset(CPUMIPSState *env)
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         msa_reset(env);
+#ifdef CONFIG_USER_ONLY
+        /* MSA access enabled */
+        env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+#endif
     }
 
     compute_hflags(env);
