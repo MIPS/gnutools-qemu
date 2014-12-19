@@ -32,10 +32,15 @@
 #include "sysemu/kvm.h"
 
 #include "trace-tcg.h"
-
-
 #define MIPS_DEBUG_DISAS 0
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
+#define MIPS_R6R5_HYBRID_USER
+
+#ifdef CONFIG_USER_ONLY
+# ifdef MIPS_R6R5_HYBRID_USER
+#  define MIPS_R6R5_HYBRID
+# endif
+#endif
 
 /* MIPS major opcodes */
 #define MASK_OP_MAJOR(op)  (op & (0x3F << 26))
@@ -1842,9 +1847,14 @@ static inline void check_insn(DisasContext *ctx, int flags)
    has been removed. */
 static inline void check_insn_opc_removed(DisasContext *ctx, int flags)
 {
+#ifdef MIPS_R6R5_HYBRID
+    /* In hybrid mode removed pre-R6 instruction do not raise RI exception */
+    MIPS_DEBUG("Removed R6 instruction: 0x%08x", ctx->opcode);
+#else
     if (unlikely(ctx->insn_flags & flags)) {
         generate_exception(ctx, EXCP_RI);
     }
+#endif
 }
 
 #ifdef TARGET_MIPS64
@@ -16437,8 +16447,14 @@ out:
     tcg_temp_free(t1);
 }
 
-static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
+#ifdef MIPS_R6R5_HYBRID
+static int decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
 {
+    int invalid_instr = 0;
+#else
+static void decode_opc_special_r6 (CPUMIPSState *env, DisasContext *ctx)
+{
+#endif
     int rs, rt, rd, sa;
     uint32_t op1, op2;
 
@@ -16478,7 +16494,11 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
             break;
         default:
             MIPS_INVAL("special_r6 muldiv");
+#ifdef MIPS_R6R5_HYBRID
+            invalid_instr = 1;
+#else
             generate_exception(ctx, EXCP_RI);
+#endif
             break;
         }
         break;
@@ -16493,7 +16513,11 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
                We need additionally to check other fields */
             gen_cl(ctx, op1, rd, rs);
         } else {
+#ifdef MIPS_R6R5_HYBRID
+            invalid_instr = 1;
+#else
             generate_exception(ctx, EXCP_RI);
+#endif
         }
         break;
     case R6_OPC_SDBBP:
@@ -16530,7 +16554,11 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
             check_mips_64(ctx);
             gen_cl(ctx, op1, rd, rs);
         } else {
+#ifdef MIPS_R6R5_HYBRID
+            invalid_instr = 1;
+#else
             generate_exception(ctx, EXCP_RI);
+#endif
         }
         break;
     case OPC_DMULT ... OPC_DDIVU:
@@ -16549,16 +16577,28 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
             break;
         default:
             MIPS_INVAL("special_r6 muldiv");
+#ifdef MIPS_R6R5_HYBRID
+            invalid_instr = 1;
+#else
             generate_exception(ctx, EXCP_RI);
+#endif
             break;
         }
         break;
 #endif
     default:            /* Invalid */
         MIPS_INVAL("special_r6");
+#ifdef MIPS_R6R5_HYBRID
+        invalid_instr = 1;
+#else
         generate_exception(ctx, EXCP_RI);
+#endif
         break;
     }
+
+#ifdef MIPS_R6R5_HYBRID
+    return invalid_instr;
+#endif
 }
 
 static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
@@ -16829,7 +16869,15 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
 #endif
     default:
         if (ctx->insn_flags & ISA_MIPS32R6) {
+#ifdef MIPS_R6R5_HYBRID
+            if (decode_opc_special_r6(env, ctx)) {
+                /* Try pre-R6 if invalid R6 instruction */
+                MIPS_DEBUG("Invalid Special R6 instruction 0x%08x", ctx->opcode);
+                decode_opc_special_legacy(env, ctx);
+            }
+#else
             decode_opc_special_r6(env, ctx);
+#endif
         } else {
             decode_opc_special_legacy(env, ctx);
         }
@@ -16910,8 +16958,14 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
+#ifdef MIPS_R6R5_HYBRID
+static int decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
 {
+    int invalid_instr = 0;
+#else
+static void decode_opc_special3_r6 (CPUMIPSState *env, DisasContext *ctx)
+{
+#endif
     int rs, rt, rd, sa;
     uint32_t op1, op2;
     int16_t imm;
@@ -17019,9 +17073,17 @@ static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
 #endif
     default:            /* Invalid */
         MIPS_INVAL("special3_r6");
+#ifdef MIPS_R6R5_HYBRID
+        invalid_instr = 1;
+#else
         generate_exception(ctx, EXCP_RI);
+#endif
         break;
     }
+
+#ifdef MIPS_R6R5_HYBRID
+    return invalid_instr;
+#endif
 }
 
 static void decode_opc_special3_legacy(CPUMIPSState *env, DisasContext *ctx)
@@ -17631,7 +17693,15 @@ static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
         break;
     default:
         if (ctx->insn_flags & ISA_MIPS32R6) {
+#ifdef MIPS_R6R5_HYBRID
+            if (decode_opc_special3_r6(env, ctx)) {
+                /* Try pre-R6 if invalid R6 instruction */
+                MIPS_DEBUG("Invalid Special3 R6 instruction 0x%08x", ctx->opcode);
+                decode_opc_special3_legacy(env, ctx);
+            }
+#else
             decode_opc_special3_r6(env, ctx);
+#endif
         } else {
             decode_opc_special3_legacy(env, ctx);
         }
@@ -18799,6 +18869,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_BLTZAL:
         case OPC_BGEZAL:
+#ifndef MIPS_R6R5_HYBRID
             if (ctx->insn_flags & ISA_MIPS32R6) {
                 if (rs == 0) {
                     /* OPC_NAL, OPC_BAL */
@@ -18807,6 +18878,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
                     generate_exception(ctx, EXCP_RI);
                 }
             } else {
+#else
+	    {
+#endif
                 gen_compute_branch(ctx, op1, 4, rs, -1, imm << 2, 4);
             }
             break;
