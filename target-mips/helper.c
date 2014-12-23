@@ -754,7 +754,7 @@ bool cpu_mips_validate_access(CPUMIPSState *env, target_ulong address,
     int ret;
     target_ulong addr;
 
-    addr = address & ~(data_size - 1);
+    addr = address & ~((target_ulong) data_size - 1);
     ret = get_physical_address(env, &physical, &prot,
             addr, rw, access_type);
     if (ret != TLBRET_MATCH) {
