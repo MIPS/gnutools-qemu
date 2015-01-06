@@ -75,8 +75,8 @@ union wr_t {
 
 #if defined(CONFIG_USER_ONLY)
 /* Custom prctl interface.  */
-#define PR_SET_FP_MODE 43
-#define PR_GET_FP_MODE 44
+#define PR_SET_FP_MODE 45
+#define PR_GET_FP_MODE 46
 #define PR_FP_MODE_FR  (1 << 0)
 #define PR_FP_MODE_FRE (1 << 1)
 #endif
