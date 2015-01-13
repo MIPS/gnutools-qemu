@@ -378,8 +378,9 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x3C4AFF1F,
         .CP0_PageGrain_rw_bitmask = (1 << CP0PG_RIE) | (1 << CP0PG_XIE) |
                     (1 << CP0PG_ELPA) | (1 << CP0PG_IEC),
-        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_F64) | (1 << FCR0_L) |
-                    (1 << FCR0_W) | (1 << FCR0_D) | (1 << FCR0_S) |
+        .CP1_fcr0 = (1 << FCR0_FREP) | (1 << FCR0_UFRP) | (1 << FCR0_F64) |
+		    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
+		    (1 << FCR0_S) |
                     (0x03 << FCR0_PRID) | (0x20 << FCR0_REV),
         .MSAIR = 0x03 << MSAIR_ProcID | 0x20 << MSAIR_Rev,
         .SEGBITS = 32,
