@@ -634,7 +634,13 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
 
     /* Second part of the bootloader */
     p = (uint32_t *) (base + 0x580);
-    stl_p(p++, 0x24040002);                                      /* addiu a0, zero, 2 */
+
+    if (semihosting_enabled) {
+        /* Preserve a0 content when semihosting is enabled. */
+        stl_p(p++, 0x00000000);                         /* nop */
+    } else {
+        stl_p(p++, 0x24040002);                         /* addiu a0, zero, 2 */
+    }
     stl_p(p++, 0x3c1d0000 | (((ENVP_ADDR - 64) >> 16) & 0xffff)); /* lui sp, high(ENVP_ADDR) */
     stl_p(p++, 0x37bd0000 | ((ENVP_ADDR - 64) & 0xffff));        /* ori sp, sp, low(ENVP_ADDR) */
     stl_p(p++, 0x3c050000 | ((ENVP_ADDR >> 16) & 0xffff));       /* lui a1, high(ENVP_ADDR) */
