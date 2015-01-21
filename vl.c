@@ -119,6 +119,10 @@ int main(int argc, char **argv)
 #include "qom/object_interfaces.h"
 #include "qapi-event.h"
 
+#ifdef MIPSSIM_COMPAT
+#include "target-mips/mips-avp.h"
+#endif
+
 #define DEFAULT_RAM_SIZE 128
 
 #define MAX_VIRTIO_CONSOLES 1
@@ -3901,6 +3905,10 @@ int main(int argc, char **argv, char **envp)
             exit(1);
         }
         qemu_set_log(mask);
+
+#if defined(MIPSSIM_COMPAT)
+        sv_log_init("qemu.svtrace");
+#endif
     }
 
     if (!is_daemonized()) {

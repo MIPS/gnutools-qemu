@@ -23,6 +23,9 @@
 #include "qemu-common.h"
 #include "sysemu/kvm.h"
 
+#ifdef MIPSSIM_COMPAT
+FILE *svtracefile;
+#endif
 
 static void mips_cpu_set_pc(CPUState *cs, vaddr value)
 {
