@@ -426,7 +426,7 @@ static const mips_def_t mips_defs[] =
         .MSAIR = 0x03 << MSAIR_ProcID | 0x20 << MSAIR_Rev,
         .SEGBITS = 32,
         .PABITS = 40,
-        .insn_flags = CPU_MIPS32R5 | ASE_MSA,
+        .insn_flags = CPU_MIPS32R5 | ASE_MSA | ASE_MICROMIPS,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
@@ -651,7 +651,7 @@ static const mips_def_t mips_defs[] =
         /* FIXME: Support IEEE 754-2008 FP and Virtual Core
          */
         .name = "I6400",
-        .CP0_PRid = 0x0001A904,
+        .CP0_PRid = 0x00010000,
         .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AR) | (0x2 << CP0C0_AT) |
                        (MMU_TYPE_R4000 << CP0C0_MT),
         .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (0x1F << CP0C1_MMU) |
@@ -886,3 +886,18 @@ static void msa_reset(CPUMIPSState *env)
     /* clear float_status nan mode */
     set_default_nan_mode(0, &env->active_tc.msa_fp_status);
 }
+
+#ifdef MIPSSIM_COMPAT
+void sv_log_init(const char * filename)
+{
+    if (svtracefile){
+        fclose(svtracefile);
+        svtracefile = NULL;
+    }
+    svtracefile = fopen(filename, "w");
+    if (!svtracefile){
+        perror(filename);
+        _exit(1);
+    }
+}
+#endif

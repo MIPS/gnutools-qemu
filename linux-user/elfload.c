@@ -1251,7 +1251,7 @@ struct exec
 #define TARGET_ELF_PAGESTART(_v) ((_v) & ~(unsigned long)(TARGET_ELF_EXEC_PAGESIZE-1))
 #define TARGET_ELF_PAGEOFFSET(_v) ((_v) & (TARGET_ELF_EXEC_PAGESIZE-1))
 
-#define DLINFO_ITEMS 14
+#define DLINFO_ITEMS 15
 
 static inline void memcpy_fromfs(void * to, const void * from, unsigned long n)
 {
@@ -1637,6 +1637,8 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
 
     if (k_platform)
         NEW_AUX_ENT(AT_PLATFORM, u_platform);
+
+    NEW_AUX_ENT(AT_SECURE, 0);
 #ifdef ARCH_DLINFO
     /*
      * ARCH_DLINFO must come last so platform specific code can enforce

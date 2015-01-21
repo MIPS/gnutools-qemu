@@ -1,5 +1,15 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
+#ifdef MIPSSIM_COMPAT
+#ifndef CONFIG_USER_ONLY
+DEF_HELPER_0(avp_ok, void)
+DEF_HELPER_0(avp_fail, void)
+#endif
+DEF_HELPER_3(trace_transl_pre, void, env, tl, tl)
+DEF_HELPER_2(trace_transl_post, void, env, tl)
+DEF_HELPER_4(trace_mem_access, void, env, tl, tl, i32)
+DEF_HELPER_2(trace_reg_access, void, env, tl)
+#endif
 
 DEF_HELPER_1(do_semihosting, void, env)
 
