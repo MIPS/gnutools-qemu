@@ -1,3 +1,22 @@
+/*
+ * Unified Hosting Interface syscalls.
+ *
+ * Copyright (c) 2014 Imagination Technologies
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <sys/stat.h>
 #include "cpu.h"
 #include "exec/helper-proto.h"
@@ -126,8 +145,13 @@ static void copy_stat_to_target(CPUMIPSState *env, const struct stat *src,
         dst->uhi_st_atime = tswap64(src->st_atime);
         dst->uhi_st_mtime = tswap64(src->st_mtime);
         dst->uhi_st_ctime = tswap64(src->st_ctime);
+#ifdef _WIN32
+        dst->uhi_st_blksize = 0;
+        dst->uhi_st_blocks = 0;
+#else
         dst->uhi_st_blksize = tswap64(src->st_blksize);
         dst->uhi_st_blocks = tswap64(src->st_blocks);
+#endif
 
         unlock_user(dst, vaddr, len);
     }
@@ -161,8 +185,16 @@ static int write_to_file(CPUMIPSState *env, target_ulong fd, target_ulong vaddr,
     if (!dst) {
         return 0;
     } else {
-        int num_of_bytes = offset ? pwrite(fd, dst, len, offset)
-                                  : write(fd, dst, len);
+        int num_of_bytes;
+        if (offset) {
+#ifdef _WIN32
+            num_of_bytes = 0;
+#else
+            num_of_bytes = pwrite(fd, dst, len, offset);
+#endif
+        } else {
+            num_of_bytes = write(fd, dst, len);
+        }
         unlock_user(dst, vaddr, 0);
         return num_of_bytes;
     }
@@ -177,8 +209,16 @@ static int read_from_file(CPUMIPSState *env, target_ulong fd,
     if (!dst) {
         return 0;
     } else {
-        int num_of_bytes = offset ? pread(fd, dst, len, offset)
-                                  : read(fd, dst, len);
+        int num_of_bytes;
+        if (offset) {
+#ifdef _WIN32
+            num_of_bytes = 0;
+#else
+            num_of_bytes = pread(fd, dst, len, offset);
+#endif
+        } else {
+            num_of_bytes = read(fd, dst, len);
+        }
         unlock_user(dst, vaddr, len);
         return num_of_bytes;
     }
@@ -355,6 +395,7 @@ void helper_do_semihosting(CPUMIPSState *env)
         gpr[2] = write_to_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
         gpr[3] = errno;
         break;
+#ifndef _WIN32
     case UHI_yield:
         /* gpr4 not used */
         gpr[2] = sched_yield();
@@ -376,6 +417,7 @@ void helper_do_semihosting(CPUMIPSState *env)
             unlock_user(p, gpr[4], 0);
         }
         break;
+#endif
     default:
         gpr[2] = -1;
         gpr[3] = 0;
