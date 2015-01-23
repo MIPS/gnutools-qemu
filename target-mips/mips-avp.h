@@ -10,6 +10,7 @@
                    (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM) ? "Supv" : "User") : "Kern")
 #define SVLOG_ERL ((env->CP0_Status >> CP0St_ERL) & 1)
 #define SVLOG_CPU (*(char **)env->cpu_model)
+#define SVLOG_SMP ("%d", (env->CP0_EBase & 0x1ff))
 #define SVLOG_ISROOT ("Root")
 #ifdef CONFIG_USER_ONLY
 #define SVLOG_START_LINE() do {                                         \

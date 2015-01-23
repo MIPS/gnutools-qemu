@@ -21070,6 +21070,7 @@ void cpu_state_reset(CPUMIPSState *env)
     PRINT_CFG_VAL("C0SRSMAP", env->CP0_SRSMap);
     PRINT_CFG_VAL("C1FIR", env->active_fpu.fcr0);
     PRINT_CFG_VAL("PABITS", env->PABITS);
+    PRINT_CFG_VAL("CMP_NUM_CORES", 1);
     qemu_log("\n");
 #endif
 }
