@@ -8279,19 +8279,21 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
             (ctx->hflags & MIPS_HFLAG_BMASK)) {
             MIPS_DEBUG("CTI in delay / forbidden slot");
             goto die;
-        }
-        if (ctx->opcode & (1 << 6)) {
-            /* OPC_ERETNC */
-            opn = "eretnc";
-            check_insn(ctx, ISA_MIPS32R5);
-            gen_helper_eretnc(cpu_env);
         } else {
-            /* OPC_ERET */
-            opn = "eret";
-            check_insn(ctx, ISA_MIPS2);
-            gen_helper_eret(cpu_env);
+            int bit_offset = (ctx->insn_flags & ASE_MICROMIPS) ? 16 : 6;
+            if (ctx->opcode & (1 << bit_offset)) {
+                /* OPC_ERETNC */
+                opn = "eretnc";
+                check_insn(ctx, ISA_MIPS32R5);
+                gen_helper_eretnc(cpu_env);
+            } else {
+                /* OPC_ERET */
+                opn = "eret";
+                check_insn(ctx, ISA_MIPS2);
+                gen_helper_eret(cpu_env);
+            }
+            ctx->bstate = BS_EXCP;
         }
-        ctx->bstate = BS_EXCP;
         break;
     case OPC_DERET:
         opn = "deret";
