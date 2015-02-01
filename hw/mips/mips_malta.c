@@ -870,6 +870,25 @@ static int64_t load_kernel (void)
     return kernel_entry;
 }
 
+static void load_app(void)
+{
+    long app_size;
+
+    app_size = 0;
+    if (loaderparams.initrd_filename) {
+        app_size = get_image_size (loaderparams.initrd_filename);
+        if (app_size > 0) {
+            app_size = load_image_targphys(loaderparams.initrd_filename,
+                                           0x80200000, ram_size - 0x80200000);
+        }
+        if (app_size == (target_ulong) -1) {
+            fprintf(stderr, "qemu: could not load application '%s'\n",
+                    loaderparams.initrd_filename);
+            exit(1);
+        }
+    }
+}
+
 static void malta_mips_config(MIPSCPU *cpu)
 {
     CPUMIPSState *env = &cpu->env;
@@ -1117,6 +1136,8 @@ void mips_malta_init(MachineState *machine)
             }
         }
 #endif
+        loaderparams.initrd_filename = initrd_filename;
+        load_app();
     }
 
     /*

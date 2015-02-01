@@ -4167,10 +4167,12 @@ int main(int argc, char **argv, char **envp)
         exit(1);
     }
 
+#if 0
     if (!linux_boot && initrd_filename != NULL) {
         fprintf(stderr, "-initrd only allowed with -kernel option\n");
         exit(1);
     }
+#endif
 
     if (!linux_boot && qemu_opt_get(machine_opts, "dtb")) {
         fprintf(stderr, "-dtb only allowed with -kernel option\n");

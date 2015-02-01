@@ -98,6 +98,7 @@ void helper_trace_transl_pre(CPUMIPSState *env, target_ulong trace_pc, target_ul
 		       || (opc & 0xfc000000) == 0xd4000000 || (opc & 0xfc000000) == 0xf4000000);
   //  trace_enabled = (((trace_pc &1) ==0) && trace_pc >= 0x12002e518ULL && trace_pc <= 0x12002fabcULL);
   //  trace_enabled = ((trace_pc & 0x120000000) == 0x120000000);
+      trace_enabled = true;
     if (trace_enabled)
     {
     sv_target_disas(env, trace_pc, 4, 0); // TODO: mips16/microMIPS
@@ -2635,7 +2636,7 @@ void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
     int error_code = 0;
     int excp;
 
-    if (env->insn_flags & ISA_MIPS32R6) {
+    if (false && env->insn_flags & ISA_MIPS32R6) {
         /* Release 6 provides support for misaligned memory access for
          * all ordinary memory reference instructions
          * */

@@ -347,6 +347,26 @@ static const mips_def_t mips_defs[] =
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
         .mmu_type = MMU_TYPE_R4000,
     },
+     {
+         .name = "M14K",
+         .CP0_PRid = 0x00019b00,
+         /* Config1 implemented, fixed mapping MMU,
+            no virtual icache, uncached coherency. */
+         .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_KU) | (0x2 << CP0C0_K23) |
+                        (0x1 << CP0C0_AR) | (MMU_TYPE_FMT << CP0C0_MT),
+         .CP0_Config1 = MIPS_CONFIG1,
+         .CP0_Config2 = MIPS_CONFIG2,
+         .CP0_Config3 = MIPS_CONFIG3 | (0x2 << CP0C3_ISA) | (1 << CP0C3_VInt),
+         .CP0_LLAddr_rw_bitmask = 0,
+         .CP0_LLAddr_shift = 4,
+         .SYNCI_Step = 32,
+         .CCRes = 2,
+         .CP0_Status_rw_bitmask = 0x1258FF17,
+         .SEGBITS = 32,
+         .PABITS = 32,
+         .insn_flags = CPU_MIPS32R2 | ASE_MICROMIPS,
+         .mmu_type = MMU_TYPE_FMT,
+     },
     {
         .name = "M14K",
         .CP0_PRid = 0x00019b00,
@@ -694,7 +714,7 @@ static const mips_def_t mips_defs[] =
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
         .PABITS = 36,
-        .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D,
+        .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D | ASE_MICROMIPS,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
