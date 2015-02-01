@@ -356,6 +356,11 @@ void helper_do_semihosting(CPUMIPSState *env)
         FREE_TARGET_STRING(p, gpr[4]);
         abort();
         break;
+    case UHI_exception:
+        opname = "exception";
+	printf("QEMU: Unhandled guest exception\n");
+	abort();
+        break;
     case UHI_pread:
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
         gpr[3] = errno;
