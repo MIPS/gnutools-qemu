@@ -121,34 +121,35 @@ static int apply_root(char *buf)
     }
 }
 
-static void copy_stat_to_target(CPUMIPSState *env, const struct stat *src,
+static int copy_stat_to_target(CPUMIPSState *env, const struct stat *src,
                                 target_ulong vaddr)
 {
     hwaddr len = sizeof(struct UHI_stat);
     UHI_stat *dst = lock_user(VERIFY_WRITE, vaddr, len, 0);
-
-    if (dst) {
-        dst->uhi_st_dev = tswap16(src->st_dev);
-        dst->uhi_st_ino = tswap16(src->st_ino);
-        dst->uhi_st_mode = tswap32(src->st_mode);
-        dst->uhi_st_nlink = tswap16(src->st_nlink);
-        dst->uhi_st_uid = tswap16(src->st_uid);
-        dst->uhi_st_gid = tswap16(src->st_gid);
-        dst->uhi_st_rdev = tswap16(src->st_rdev);
-        dst->uhi_st_size = tswap64(src->st_size);
-        dst->uhi_st_atime = tswap64(src->st_atime);
-        dst->uhi_st_mtime = tswap64(src->st_mtime);
-        dst->uhi_st_ctime = tswap64(src->st_ctime);
-#ifdef _WIN32
-        dst->uhi_st_blksize = 0;
-        dst->uhi_st_blocks = 0;
-#else
-        dst->uhi_st_blksize = tswap64(src->st_blksize);
-        dst->uhi_st_blocks = tswap64(src->st_blocks);
-#endif
-
-        unlock_user(dst, vaddr, len);
+    if (!dst) {
+        return -1;
     }
+
+    dst->uhi_st_dev = tswap16(src->st_dev);
+    dst->uhi_st_ino = tswap16(src->st_ino);
+    dst->uhi_st_mode = tswap32(src->st_mode);
+    dst->uhi_st_nlink = tswap16(src->st_nlink);
+    dst->uhi_st_uid = tswap16(src->st_uid);
+    dst->uhi_st_gid = tswap16(src->st_gid);
+    dst->uhi_st_rdev = tswap16(src->st_rdev);
+    dst->uhi_st_size = tswap64(src->st_size);
+    dst->uhi_st_atime = tswap64(src->st_atime);
+    dst->uhi_st_mtime = tswap64(src->st_mtime);
+    dst->uhi_st_ctime = tswap64(src->st_ctime);
+#ifdef _WIN32
+    dst->uhi_st_blksize = 0;
+    dst->uhi_st_blocks = 0;
+#else
+    dst->uhi_st_blksize = tswap64(src->st_blksize);
+    dst->uhi_st_blocks = tswap64(src->st_blocks);
+#endif
+    unlock_user(dst, vaddr, len);
+    return 0;
 }
 
 static int get_open_flags(target_ulong target_flags)
@@ -174,67 +175,79 @@ static int get_open_flags(target_ulong target_flags)
 static int write_to_file(CPUMIPSState *env, target_ulong fd, target_ulong vaddr,
                          target_ulong len, target_ulong offset)
 {
+    int num_of_bytes;
     void *dst = lock_user(VERIFY_READ, vaddr, len, 1);
-
     if (!dst) {
         return 0;
-    } else {
-        int num_of_bytes;
-        if (offset) {
-#ifdef _WIN32
-            num_of_bytes = 0;
-#else
-            num_of_bytes = pwrite(fd, dst, len, offset);
-#endif
-        } else {
-            num_of_bytes = write(fd, dst, len);
-        }
-        unlock_user(dst, vaddr, 0);
-        return num_of_bytes;
     }
+
+    if (offset) {
+#ifdef _WIN32
+        num_of_bytes = 0;
+#else
+        num_of_bytes = pwrite(fd, dst, len, offset);
+#endif
+    } else {
+        num_of_bytes = write(fd, dst, len);
+    }
+
+    unlock_user(dst, vaddr, 0);
+    return num_of_bytes;
 }
 
 static int read_from_file(CPUMIPSState *env, target_ulong fd,
                           target_ulong vaddr, target_ulong len,
                           target_ulong offset)
 {
+    int num_of_bytes;
     void *dst = lock_user(VERIFY_WRITE, vaddr, len, 0);
-
     if (!dst) {
         return 0;
-    } else {
-        int num_of_bytes;
-        if (offset) {
-#ifdef _WIN32
-            num_of_bytes = 0;
-#else
-            num_of_bytes = pread(fd, dst, len, offset);
-#endif
-        } else {
-            num_of_bytes = read(fd, dst, len);
-        }
-        unlock_user(dst, vaddr, len);
-        return num_of_bytes;
     }
+
+    if (offset) {
+#ifdef _WIN32
+        num_of_bytes = 0;
+#else
+        num_of_bytes = pread(fd, dst, len, offset);
+#endif
+    } else {
+        num_of_bytes = read(fd, dst, len);
+    }
+
+    unlock_user(dst, vaddr, len);
+    return num_of_bytes;
 }
 
 static int copy_argn_to_target(CPUMIPSState *env, int arg_num,
                                target_ulong vaddr)
 {
-    int strsize;
-    char *dst;
-
-    strsize = strlen(semihosting_argv[arg_num]) + 1;
-    dst = lock_user(VERIFY_WRITE, vaddr, strsize, 0);
-
+    int strsize = strlen(semihosting_argv[arg_num]) + 1;
+    char *dst = lock_user(VERIFY_WRITE, vaddr, strsize, 0);
     if (!dst) {
         return -1;
-    } else {
-        strcpy(dst, semihosting_argv[arg_num]);
-        unlock_user(dst, vaddr, strsize);
-        return 0;
     }
+
+    strcpy(dst, semihosting_argv[arg_num]);
+
+    unlock_user(dst, vaddr, strsize);
+    return 0;
 }
+
+#define GET_TARGET_STRING(p, addr)              \
+    do {                                        \
+        p = lock_user_string(addr);             \
+        if (!p) {                               \
+            gpr[2] = -1;                        \
+            gpr[3] = ENAMETOOLONG;              \
+            goto uhi_done;                      \
+        }                                       \
+    } while (0)
+
+#define FREE_TARGET_STRING(p, gpr)              \
+    do {                                        \
+        unlock_user(p, gpr, 0);                 \
+    } while (0)
 
 void helper_do_semihosting(CPUMIPSState *env)
 {
@@ -250,34 +263,30 @@ void helper_do_semihosting(CPUMIPSState *env)
     case UHI_exit:
         qemu_log("UHI(%d): exit(%d)\n", op, (int)gpr[4]);
         exit(gpr[4]);
-        break;
     case UHI_open:
-        p = lock_user_string(gpr[4]);
-        if (!p) {
-            gpr[2] = -1;
-            gpr[3] = ENAMETOOLONG;
+        opname = "open";
+        GET_TARGET_STRING(p, gpr[4]);
+        if (!strcmp("/dev/stdin", p)) {
+            gpr[2] = 0;
+        } else if (!strcmp("/dev/stdout", p)) {
+            gpr[2] = 1;
+        } else if (!strcmp("/dev/stderr", p)) {
+            gpr[2] = 2;
         } else {
-            if (!strcmp("/dev/stdin", p)) {
-                gpr[2] = 0;
-            } else if (!strcmp("/dev/stdout", p)) {
-                gpr[2] = 1;
-            } else if (!strcmp("/dev/stderr", p)) {
-                gpr[2] = 2;
-            } else {
-                apply_root(p);
-                gpr[2] = open(p, get_open_flags(gpr[5]), gpr[6]);
-                gpr[3] = errno;
-            }
-            unlock_user(p, gpr[4], 0);
+            apply_root(p);
+            gpr[2] = open(p, get_open_flags(gpr[5]), gpr[6]);
+            gpr[3] = errno;
         }
+        FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_close:
         opname = "close";
-        if (gpr[4] >= 3) {
-            gpr[2] = close(gpr[4]);
-        } else {
-            gpr[2] = 0; /* ignore closing stdin/stdout/stderr */
+        if (gpr[4] < 3) {
+            /* ignore closing stdin/stdout/stderr */
+            gpr[2] = 0;
+            goto uhi_done;
         }
+        gpr[2] = close(gpr[4]);
         gpr[3] = errno;
         break;
     case UHI_read:
@@ -297,16 +306,11 @@ void helper_do_semihosting(CPUMIPSState *env)
         break;
     case UHI_unlink:
         opname = "unlink";
-        p = lock_user_string(gpr[4]);
-        if (!p) {
-            gpr[2] = -1;
-            gpr[3] = ENAMETOOLONG;
-        } else {
-            apply_root(p);
-            gpr[2] = remove(p);
-            gpr[3] = errno;
-            unlock_user(p, gpr[4], 0);
-        }
+        GET_TARGET_STRING(p, gpr[4]);
+        apply_root(p);
+        gpr[2] = remove(p);
+        gpr[3] = errno;
+        FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_fstat:
         opname = "fstat";
@@ -315,7 +319,10 @@ void helper_do_semihosting(CPUMIPSState *env)
             memset(&sbuf, 0, sizeof(sbuf));
             gpr[2] = fstat(gpr[4], &sbuf);
             gpr[3] = errno;
-            copy_stat_to_target(env, &sbuf, gpr[5]);
+            if (gpr[2]) {
+                goto uhi_done;
+            }
+            gpr[2] = copy_stat_to_target(env, &sbuf, gpr[5]);
         }
         break;
     case UHI_argc:
@@ -324,55 +331,45 @@ void helper_do_semihosting(CPUMIPSState *env)
         break;
     case UHI_argnlen:
         opname = "argnlen";
-        if (gpr[4] < semihosting_argc) {
-            gpr[2] = strlen(semihosting_argv[gpr[4]]);
-        } else {
+        if (gpr[4] >= semihosting_argc) {
             gpr[2] = -1;
+            goto uhi_done;
         }
+        gpr[2] = strlen(semihosting_argv[gpr[4]]);
         break;
     case UHI_argn:
         opname = "argn";
-        if (gpr[4] < semihosting_argc) {
-            gpr[2] = copy_argn_to_target(env, gpr[4], gpr[5]);
-        } else {
+        if (gpr[4] >= semihosting_argc) {
             gpr[2] = -1;
+            goto uhi_done;
         }
+        gpr[2] = copy_argn_to_target(env, gpr[4], gpr[5]);
         break;
     case UHI_plog:
         opname = "plog";
-        p = lock_user_string(gpr[4]);
-        if (!p) {
-            gpr[2] = -1;
-            gpr[3] = ENAMETOOLONG;
+        GET_TARGET_STRING(p, gpr[4]);
+        char *percentd_pos = strstr(p, "%d");
+        if (percentd_pos) {
+            int char_num = percentd_pos - p;
+            char *buf = g_malloc(char_num + 1);
+            strncpy(buf, p, char_num);
+            buf[char_num] = '\0';
+            gpr[2] = printf("%s%d%s", buf, (int)gpr[5], percentd_pos + 2);
+            g_free(buf);
         } else {
-            char *percentd_pos = strstr(p, "%d");
-            if (percentd_pos) {
-                int char_num = percentd_pos - p;
-                char *buf = g_malloc(char_num + 1);
-                strncpy(buf, p, char_num);
-                buf[char_num] = '\0';
-                gpr[2] = printf("%s%d%s", buf, (int)gpr[5], percentd_pos + 2);
-                g_free(buf);
-            } else {
-                gpr[2] = printf("%s", p);
-            }
-            unlock_user(p, gpr[4], 0);
+            gpr[2] = printf("%s", p);
         }
+        FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_assert:
         opname = "assert";
-        p = lock_user_string(gpr[4]);
-        p2 = lock_user_string(gpr[5]);
-        if (!p || !p2) {
-            gpr[2] = -1;
-            gpr[3] = ENAMETOOLONG;
-        } else {
-            printf("assertion '");
-            printf("\"%s\"", p);
-            printf("': file \"%s\", line %d\n", p2, (int)gpr[6]);
-            unlock_user(p2, gpr[4], 0);
-            unlock_user(p, gpr[4], 0);
-        }
+        GET_TARGET_STRING(p, gpr[4]);
+        GET_TARGET_STRING(p2, gpr[5]);
+        printf("assertion '");
+        printf("\"%s\"", p);
+        printf("': file \"%s\", line %d\n", p2, (int)gpr[6]);
+        FREE_TARGET_STRING(p2, gpr[5]);
+        FREE_TARGET_STRING(p, gpr[4]);
         abort();
         break;
     case UHI_pread:
@@ -388,26 +385,21 @@ void helper_do_semihosting(CPUMIPSState *env)
 #ifndef _WIN32
     case UHI_link:
         opname = "link";
-        p = lock_user_string(gpr[4]);
-        p2 = lock_user_string(gpr[5]);
-        if (!p || !p2) {
-            gpr[2] = -1;
-            gpr[3] = ENAMETOOLONG;
-        } else {
-            apply_root(p);
-            apply_root(p2);
-            gpr[2] = link(p, p2);
-            gpr[3] = errno;
-            unlock_user(p2, gpr[5], 0);
-            unlock_user(p, gpr[4], 0);
-        }
+        GET_TARGET_STRING(p, gpr[4]);
+        GET_TARGET_STRING(p2, gpr[5]);
+        apply_root(p);
+        apply_root(p2);
+        gpr[2] = link(p, p2);
+        gpr[3] = errno;
+        FREE_TARGET_STRING(p2, gpr[5]);
+        FREE_TARGET_STRING(p, gpr[4]);
         break;
 #endif
     default:
         fprintf(stderr, "Unknown UHI operation %d\n", op);
         abort();
     }
-
+uhi_done:
     qemu_log("UHI(%s): gpr2:(0x%x), gpr3(0x%x)\n",
              opname, (int)gpr[2], (int)gpr[3]);
 }
