@@ -34,16 +34,10 @@ typedef enum UHI_Op {
     UHI_argc = 9,
     UHI_argnlen = 10,
     UHI_argn = 11,
-    UHI_heapinfo = 12,
     UHI_plog = 13,
     UHI_assert = 14,
-    UHI_exception = 15,
-    UHI_findfirst = 16,
-    UHI_findnext = 17,
-    UHI_findclose = 18,
     UHI_pread = 19,
     UHI_pwrite = 20,
-    UHI_yield = 21,
     UHI_link = 22
 } UHI_Op;
 
@@ -381,10 +375,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         }
         abort();
         break;
-    case UHI_exception:
-        opname = "exception";
-        /* TODO */
-        break;
     case UHI_pread:
         opname = "pread";
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
@@ -396,11 +386,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         gpr[3] = errno;
         break;
 #ifndef _WIN32
-    case UHI_yield:
-        /* gpr4 not used */
-        gpr[2] = sched_yield();
-        gpr[3] = errno;
-        break;
     case UHI_link:
         opname = "link";
         p = lock_user_string(gpr[4]);
@@ -419,9 +404,8 @@ void helper_do_semihosting(CPUMIPSState *env)
         break;
 #endif
     default:
-        gpr[2] = -1;
-        gpr[3] = 0;
-        break;
+        fprintf(stderr, "Unknown UHI operation %d\n", op);
+        abort();
     }
 
     qemu_log("UHI(%s): gpr2:(0x%x), gpr3(0x%x)\n",
