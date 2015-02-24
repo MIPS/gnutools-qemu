@@ -1430,6 +1430,7 @@ typedef struct DisasContext {
     bool mvh;
     bool pw;
     bool llb;
+    bool ps;
 } DisasContext;
 
 enum {
@@ -1847,6 +1848,16 @@ static inline void check_insn_opc_removed(DisasContext *ctx, int flags)
     }
 }
 
+/* This code generates a "reserved instruction" exception if the
+   CPU does not support 64-bit paired-single (PS) floating point data type */
+static inline void check_ps(DisasContext *ctx)
+{
+    if (unlikely(!ctx->ps)) {
+        generate_exception(ctx, EXCP_RI);
+    }
+    check_cp1_64bitmode(ctx);
+}
+
 #ifdef TARGET_MIPS64
 /* This code generates a "reserved instruction" exception if 64-bit
    instructions are not enabled. */
@@ -1871,7 +1882,7 @@ static inline void gen_cmp ## type ## _ ## fmt(DisasContext *ctx, int n,      \
     TCGv_i##bits fp1 = tcg_temp_new_i##bits ();                               \
     switch (ifmt) {                                                           \
     case FMT_PS:                                                              \
-        check_cp1_64bitmode(ctx);                                             \
+        check_ps(ctx);                                                        \
         break;                                                                \
     case FMT_D:                                                               \
         if (abs) {                                                            \
@@ -9031,7 +9042,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
     };
     enum { BINOP, CMPOP, OTHEROP } optype = OTHEROP;
     uint32_t func = ctx->opcode & 0x3f;
-
     switch (op1) {
     case OPC_ADD_S:
         {
@@ -9524,8 +9534,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "cvt.l.s";
         break;
     case OPC_CVT_PS_S:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp64 = tcg_temp_new_i64();
             TCGv_i32 fp32_0 = tcg_temp_new_i32();
@@ -10142,8 +10151,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "cvt.d.l";
         break;
     case OPC_CVT_PS_PW:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10155,7 +10163,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "cvt.ps.pw";
         break;
     case OPC_ADD_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10170,7 +10178,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "add.ps";
         break;
     case OPC_SUB_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10185,7 +10193,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "sub.ps";
         break;
     case OPC_MUL_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10200,7 +10208,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "mul.ps";
         break;
     case OPC_ABS_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10212,7 +10220,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "abs.ps";
         break;
     case OPC_MOV_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10223,7 +10231,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "mov.ps";
         break;
     case OPC_NEG_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10235,12 +10243,12 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "neg.ps";
         break;
     case OPC_MOVCF_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         gen_movcf_ps(ctx, fs, fd, (ft >> 2) & 0x7, ft & 0x1);
         opn = "movcf.ps";
         break;
     case OPC_MOVZ_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             int l1 = gen_new_label();
             TCGv_i64 fp0;
@@ -10256,7 +10264,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "movz.ps";
         break;
     case OPC_MOVN_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             int l1 = gen_new_label();
             TCGv_i64 fp0;
@@ -10273,7 +10281,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "movn.ps";
         break;
     case OPC_ADDR_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10288,7 +10296,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "addr.ps";
         break;
     case OPC_MULR_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10303,7 +10311,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "mulr.ps";
         break;
     case OPC_RECIP2_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10318,7 +10326,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "recip2.ps";
         break;
     case OPC_RECIP1_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10330,7 +10338,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "recip1.ps";
         break;
     case OPC_RSQRT1_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10342,7 +10350,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "rsqrt1.ps";
         break;
     case OPC_RSQRT2_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10369,7 +10377,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "cvt.s.pu";
         break;
     case OPC_CVT_PW_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10393,7 +10401,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "cvt.s.pl";
         break;
     case OPC_PLL_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
@@ -10408,7 +10416,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "pll.ps";
         break;
     case OPC_PLU_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
@@ -10423,7 +10431,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "plu.ps";
         break;
     case OPC_PUL_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
@@ -10438,7 +10446,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "pul.ps";
         break;
     case OPC_PUU_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             TCGv_i32 fp1 = tcg_temp_new_i32();
@@ -10597,7 +10605,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
 
     switch (opc) {
     case OPC_ALNV_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv t0 = tcg_temp_local_new();
             TCGv_i32 fp = tcg_temp_new_i32();
@@ -10672,7 +10680,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
         opn = "madd.d";
         break;
     case OPC_MADD_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10727,7 +10735,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
         opn = "msub.d";
         break;
     case OPC_MSUB_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10782,7 +10790,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
         opn = "nmadd.d";
         break;
     case OPC_NMADD_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -10837,7 +10845,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
         opn = "nmsub.d";
         break;
     case OPC_NMSUB_PS:
-        check_cp1_64bitmode(ctx);
+        check_ps(ctx);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             TCGv_i64 fp1 = tcg_temp_new_i64();
@@ -13915,6 +13923,7 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
                         gen_movcf_d(ctx, rs, rt, cc, 0);
                         break;
                     case FMT_SDPS_PS:
+                        check_ps(ctx);
                         gen_movcf_ps(ctx, rs, rt, cc, 0);
                         break;
                     default:
@@ -13930,6 +13939,7 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
                         gen_movcf_d(ctx, rs, rt, cc, 1);
                         break;
                     case FMT_SDPS_PS:
+                        check_ps(ctx);
                         gen_movcf_ps(ctx, rs, rt, cc, 1);
                         break;
                     default:
@@ -13951,6 +13961,7 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
                     mips32_op = OPC_##prfx##_D;         \
                     goto do_fpop;                       \
                 case FMT_SDPS_PS:                       \
+                    check_ps(ctx);                      \
                     mips32_op = OPC_##prfx##_PS;        \
                     goto do_fpop;                       \
                 default:                                \
@@ -19243,8 +19254,8 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
                                 (rt >> 2) & 0x7, imm << 2);
             break;
         case OPC_PS_FMT:
-            check_cp1_enabled(ctx);
-            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            check_ps(ctx);
+            /* fall through */
         case OPC_S_FMT:
         case OPC_D_FMT:
             check_cp1_enabled(ctx);
@@ -19551,6 +19562,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     /* Restore delay slot state from the tb context.  */
     ctx.hflags = (uint32_t)tb->flags; /* FIXME: maybe use 64 bits here? */
     ctx.ulri = (env->CP0_Config3 >> CP0C3_ULRI) & 1;
+    ctx.ps = (env->active_fpu.fcr0 >> FCR0_PS) & 1;
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
