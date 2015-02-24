@@ -327,7 +327,7 @@ void helper_do_semihosting(CPUMIPSState *env)
         if (gpr[4] < semihosting_argc) {
             gpr[2] = strlen(semihosting_argv[gpr[4]]);
         } else {
-            gpr[2] = 0;
+            gpr[2] = -1;
         }
         break;
     case UHI_argn:
