@@ -251,20 +251,15 @@ static int copy_argn_to_target(CPUMIPSState *env, int arg_num,
 
 void helper_do_semihosting(CPUMIPSState *env)
 {
-    const char *opname = "invalid";
     target_ulong *gpr = env->active_tc.gpr;
     const UHI_Op op = gpr[25];
     char *p, *p2;
-
-    qemu_log("UHI(%d): gpr4:(0x%x), gpr5(0x%x), gpr6(0x%x)\n",
-             op, (int)gpr[4], (int)gpr[5], (int)gpr[6]);
 
     switch (op) {
     case UHI_exit:
         qemu_log("UHI(%d): exit(%d)\n", op, (int)gpr[4]);
         exit(gpr[4]);
     case UHI_open:
-        opname = "open";
         GET_TARGET_STRING(p, gpr[4]);
         if (!strcmp("/dev/stdin", p)) {
             gpr[2] = 0;
@@ -280,7 +275,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_close:
-        opname = "close";
         if (gpr[4] < 3) {
             /* ignore closing stdin/stdout/stderr */
             gpr[2] = 0;
@@ -290,22 +284,18 @@ void helper_do_semihosting(CPUMIPSState *env)
         gpr[3] = errno;
         break;
     case UHI_read:
-        opname = "read";
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], 0);
         gpr[3] = errno;
         break;
     case UHI_write:
-        opname = "write";
         gpr[2] = write_to_file(env, gpr[4], gpr[5], gpr[6], 0);
         gpr[3] = errno;
         break;
     case UHI_lseek:
-        opname = "lseek";
         gpr[2] = lseek(gpr[4], gpr[5], gpr[6]);
         gpr[3] = errno;
         break;
     case UHI_unlink:
-        opname = "unlink";
         GET_TARGET_STRING(p, gpr[4]);
         apply_root(p);
         gpr[2] = remove(p);
@@ -313,7 +303,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_fstat:
-        opname = "fstat";
         {
             struct stat sbuf;
             memset(&sbuf, 0, sizeof(sbuf));
@@ -326,11 +315,9 @@ void helper_do_semihosting(CPUMIPSState *env)
         }
         break;
     case UHI_argc:
-        opname = "argc";
         gpr[2] = semihosting_argc;
         break;
     case UHI_argnlen:
-        opname = "argnlen";
         if (gpr[4] >= semihosting_argc) {
             gpr[2] = -1;
             goto uhi_done;
@@ -338,7 +325,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         gpr[2] = strlen(semihosting_argv[gpr[4]]);
         break;
     case UHI_argn:
-        opname = "argn";
         if (gpr[4] >= semihosting_argc) {
             gpr[2] = -1;
             goto uhi_done;
@@ -346,7 +332,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         gpr[2] = copy_argn_to_target(env, gpr[4], gpr[5]);
         break;
     case UHI_plog:
-        opname = "plog";
         GET_TARGET_STRING(p, gpr[4]);
         char *percentd_pos = strstr(p, "%d");
         if (percentd_pos) {
@@ -362,7 +347,6 @@ void helper_do_semihosting(CPUMIPSState *env)
         FREE_TARGET_STRING(p, gpr[4]);
         break;
     case UHI_assert:
-        opname = "assert";
         GET_TARGET_STRING(p, gpr[4]);
         GET_TARGET_STRING(p2, gpr[5]);
         printf("assertion '");
@@ -373,18 +357,15 @@ void helper_do_semihosting(CPUMIPSState *env)
         abort();
         break;
     case UHI_pread:
-        opname = "pread";
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
         gpr[3] = errno;
         break;
     case UHI_pwrite:
-        opname = "pwrite";
         gpr[2] = write_to_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
         gpr[3] = errno;
         break;
 #ifndef _WIN32
     case UHI_link:
-        opname = "link";
         GET_TARGET_STRING(p, gpr[4]);
         GET_TARGET_STRING(p2, gpr[5]);
         apply_root(p);
@@ -400,6 +381,5 @@ void helper_do_semihosting(CPUMIPSState *env)
         abort();
     }
 uhi_done:
-    qemu_log("UHI(%s): gpr2:(0x%x), gpr3(0x%x)\n",
-             opname, (int)gpr[2], (int)gpr[3]);
+    return;
 }
