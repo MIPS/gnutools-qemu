@@ -42,23 +42,23 @@ typedef enum UHI_Op {
 } UHI_Op;
 
 typedef struct UHI_stat {
-    short uhi_st_dev;
-    unsigned short uhi_st_ino;
-    unsigned int uhi_st_mode;
-    unsigned short uhi_st_nlink;
-    unsigned short uhi_st_uid;
-    unsigned short uhi_st_gid;
-    short uhi_st_rdev;
-    unsigned long long uhi_st_size;
-    unsigned long long uhi_st_atime;
-    unsigned long long uhi_st_spare1;
-    unsigned long long uhi_st_mtime;
-    unsigned long long uhi_st_spare2;
-    unsigned long long uhi_st_ctime;
-    unsigned long long uhi_st_spare3;
-    unsigned long long uhi_st_blksize;
-    unsigned long long uhi_st_blocks;
-    unsigned long long uhi_st_spare4[2];
+    int16_t uhi_st_dev;
+    uint16_t uhi_st_ino;
+    uint32_t uhi_st_mode;
+    uint16_t uhi_st_nlink;
+    uint16_t uhi_st_uid;
+    uint16_t uhi_st_gid;
+    int16_t uhi_st_rdev;
+    uint64_t uhi_st_size;
+    uint64_t uhi_st_atime;
+    uint64_t uhi_st_spare1;
+    uint64_t uhi_st_mtime;
+    uint64_t uhi_st_spare2;
+    uint64_t uhi_st_ctime;
+    uint64_t uhi_st_spare3;
+    uint64_t uhi_st_blksize;
+    uint64_t uhi_st_blocks;
+    uint64_t uhi_st_spare4[2];
 } UHI_stat;
 
 enum UHIOpen_flags {
