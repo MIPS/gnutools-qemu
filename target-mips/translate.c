@@ -11976,7 +11976,7 @@ static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
             }
             break;
         case RR_SDBBP:
-            if (is_uhi((ctx->opcode >> 5) & 0x3F)) {
+            if (is_uhi(extract32(ctx->opcode, 5, 6))) {
                 gen_helper_do_semihosting(cpu_env);
             } else {
                 /* XXX: not clear which exception should be raised
@@ -12835,7 +12835,7 @@ static void gen_pool16c_insn(DisasContext *ctx)
         generate_exception(ctx, EXCP_BREAK);
         break;
     case SDBBP16:
-        if (is_uhi(ctx->opcode & 0xF)) {
+        if (is_uhi(extract32(ctx->opcode, 0, 4))) {
             gen_helper_do_semihosting(cpu_env);
         } else {
             /* XXX: not clear which exception should be raised
@@ -16608,7 +16608,7 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_SDBBP:
-        if (is_uhi((ctx->opcode >> 6) & 0x1FFFFF)) {
+        if (is_uhi(extract32(ctx->opcode, 6, 20))) {
             gen_helper_do_semihosting(cpu_env);
         } else {
             if (ctx->hflags & MIPS_HFLAG_SBRI) {
@@ -16985,7 +16985,7 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
         gen_cl(ctx, op1, rd, rs);
         break;
     case OPC_SDBBP:
-        if (is_uhi((ctx->opcode >> 6) & 0x1FFFFF)) {
+        if (is_uhi(extract32(ctx->opcode, 6, 20))) {
             gen_helper_do_semihosting(cpu_env);
         } else {
             /* XXX: not clear which exception should be raised
