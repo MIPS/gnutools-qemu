@@ -249,6 +249,8 @@ struct CPUMIPSState {
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
+    int32_t CP0_VPControl;
+#define CP0VPCtl_DIS    0
     int32_t CP0_Random;
     int32_t CP0_VPEControl;
 #define CP0VPECo_YSI	21
@@ -298,6 +300,8 @@ struct CPUMIPSState {
 # define CP0EnLo_RI 31
 # define CP0EnLo_XI 30
 #endif
+    int32_t CP0_GlobalNumer;
+#define CP0GN_VPId 0
     target_ulong CP0_Context;
     target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];
     int32_t CP0_PageMask;
@@ -502,6 +506,7 @@ struct CPUMIPSState {
 #define CP0C5_MSAEn      27
 #define CP0C5_UFE        9
 #define CP0C5_FRE        8
+#define CP0C5_VP         7
 #define CP0C5_SBRI       6
 #define CP0C5_MVH        5
 #define CP0C5_LLB        4
@@ -877,6 +882,20 @@ static inline int mips_vpe_active(CPUMIPSState *env)
     }
 
     return active;
+}
+
+static inline int mips_vp_active(CPUMIPSState *env)
+{
+    CPUState *other_cs = first_cpu;
+
+    CPU_FOREACH(other_cs) {
+        MIPSCPU *other_cpu = MIPS_CPU(other_cs);
+        if ((&other_cpu->env != env) &&
+            ((other_cpu->env.CP0_VPControl >> CP0VPCtl_DIS) &1)) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 #include "exec/exec-all.h"
