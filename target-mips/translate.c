@@ -12561,6 +12561,8 @@ enum {
     LBU16 = 0x02,
     MOVE16 = 0x03,
     ADDI32 = 0x04,
+    R6_LUI = 0x04,     /* microMIPS R6 */
+    AUI = 0x04,        /* microMIPS R6 */
     LBU32 = 0x05,
     SB32 = 0x06,
     LB32 = 0x07,
@@ -12583,51 +12585,74 @@ enum {
     POOL32S = 0x16,  /* MIPS64 */
     DADDIU32 = 0x17, /* MIPS64 */
 
-    /* 0x1f is reserved */
     POOL32C = 0x18,
     LWGP16 = 0x19,
     LW16 = 0x1a,
     POOL16E = 0x1b,
     XORI32 = 0x1c,
     JALS32 = 0x1d,
+    BOVC = 0x1d,    /* microMIPS R6 */
+    BEQC = 0x1d,    /* microMIPS R6 */
+    BEQZALC = 0x1d, /* microMIPS R6 */
     ADDIUPC = 0x1e,
+    AUIPC = 0x1e,   /* microMIPS R6 */
+    ALUIPC = 0x1e,  /* microMIPS R6 */
+    LWPC = 0x1e,    /* microMIPS R6 */
+    LWUPC = 0x1e,   /* microMIPS R6 */
+    LDPC = 0x1e,    /* microMIPS R6 */
+    BNVC = 0x1f,    /* microMIPS R6 */
+    BNEC = 0x1f,    /* microMIPS R6 */
+    BNEZALC = 0x1f, /* microMIPS R6 */
 
     /* 0x20 is reserved */
     RES_20 = 0x20,
     POOL16F = 0x21,
     SB16 = 0x22,
     BEQZ16 = 0x23,
+    BEQZC16 = 0x23, /* microMIPS R6 */
     SLTI32 = 0x24,
     BEQ32 = 0x25,
+    BC = 0x25,      /* microMIPS R6 */
     SWC132 = 0x26,
     LWC132 = 0x27,
 
-    /* 0x28 and 0x29 are reserved */
-    RES_28 = 0x28,
-    RES_29 = 0x29,
+    R6_BEQZC = 0x28,    /* microMIPS R6 */
+    JIC = 0x28,         /* microMIPS R6 */
+    R6_BNEZC = 0x29,    /* microMIPS R6 */
+    JIALC = 0x29,       /* microMIPS R6 */
     SH16 = 0x2a,
     BNEZ16 = 0x2b,
+    BNEZC16 = 0x2b,     /* microMIPS R6 */
     SLTIU32 = 0x2c,
     BNE32 = 0x2d,
+    BALC = 0x2d,        /* microMIPS R6 */
     SDC132 = 0x2e,
     LDC132 = 0x2f,
 
-    /* 0x30 and 0x31 are reserved */
-    RES_30 = 0x30,
-    RES_31 = 0x31,
+    BLEZALC = 0x30, /* microMIPS R6 */
+    BGEZALC = 0x30, /* microMIPS R6 */
+    BGEUC = 0x30,   /* microMIPS R6 */
+    BGTZC = 0x31,   /* microMIPS R6 */
+    BLTZC = 0x31,   /* microMIPS R6 */
+    BLTC = 0x31,    /* microMIPS R6 */
     SWSP16 = 0x32,
     B16 = 0x33,
+    BC16 = 0x33,    /* microMIPS R6 */
     ANDI32 = 0x34,
     J32 = 0x35,
     SD32 = 0x36, /* MIPS64 */
     LD32 = 0x37, /* MIPS64 */
 
-    /* 0x38 and 0x39 are reserved */
-    RES_38 = 0x38,
-    RES_39 = 0x39,
+    BGTZALC = 0x38, /* microMIPS R6 */
+    BLTZALC = 0x38, /* microMIPS R6 */
+    BLTUC = 0x38,   /* microMIPS R6 */
+    BLEZC = 0x39,   /* microMIPS R6 */
+    BGEZC = 0x39,   /* microMIPS R6 */
+    BGEC = 0x39,    /* microMIPS R6 */
     SW16 = 0x3a,
     LI16 = 0x3b,
     JALX32 = 0x3c,
+    DAUI = 0x3c,    /* microMIPS R6 */
     JAL32 = 0x3d,
     SW32 = 0x3e,
     LW32 = 0x3f
@@ -12642,6 +12667,9 @@ enum {
     SRL32 = 0x1,
     SRA = 0x2,
     ROTR = 0x3,
+    R6_LWXS = 0x4,  /* microMIPS R6 */
+    SELEQZ = 0x5,   /* microMIPS R6 */
+    SELNEZ = 0x6,   /* microMIPS R6 */
 
     SLLV = 0x0,
     SRLV = 0x1,
@@ -12660,11 +12688,21 @@ enum {
     SLTU = 0xe,
 
     MOVN = 0x0,
+    R6_MUL  = 0x0,  /* microMIPS R6 */
     MOVZ = 0x1,
+    MUH  = 0x1,     /* microMIPS R6 */
+    MULU = 0x2,     /* microMIPS R6 */
+    MUHU = 0x3,     /* microMIPS R6 */
     LWXS = 0x4,
+    R6_DIV  = 0x4,  /* microMIPS R6 */
+    MOD  = 0x5,     /* microMIPS R6 */
+    R6_DIVU = 0x6,  /* microMIPS R6 */
+    MODU = 0x7,     /* microMIPS R6 */
 
     /* The following can be distinguished by their lower 6 bits. */
     INS = 0x0c,
+    LSA = 0x0f,     /* microMIPS R6 */
+    ALIGN = 0x1f,   /* microMIPS R6 */
     EXT = 0x2c,
     POOL32AXF = 0x3c
 };
@@ -12717,6 +12755,7 @@ enum {
     /* end of microMIPS32 DSP */
 
     /* bits 15..12 for 0x2c */
+    BITSWAP = 0x0,  /* microMIPS R6 */
     SEB = 0x2,
     SEH = 0x3,
     CLO = 0x4,
@@ -12743,7 +12782,10 @@ enum {
     /* bits 15..12 for 0x3c */
     JALR = 0x0,
     JR = 0x0,                   /* alias */
+    JALRC = 0x0,    /* microMIPS R6 */
+    JRC = 0x0,      /* microMIPS R6 */
     JALR_HB = 0x1,
+    JALRC_HB = 0x1, /* microMIPS R6 */
     JALRS = 0x4,
     JALRS_HB = 0x5,
 
@@ -12827,32 +12869,40 @@ enum {
 enum {
     /* These are the bit 7..6 values */
     ADD_FMT = 0x0,
-    MOVN_FMT = 0x0,
 
     SUB_FMT = 0x1,
-    MOVZ_FMT = 0x1,
+
 
     MUL_FMT = 0x2,
 
     DIV_FMT = 0x3,
 
     /* These are the bit 8..6 values */
+    MOVN_FMT = 0x0,
     RSQRT2_FMT = 0x0,
     MOVF_FMT = 0x0,
+    RINT_FMT = 0x0,     /* microMIPS R6 */
+    SELNEZ_FMT = 0x0,   /* microMIPS R6 */
 
+    MOVZ_FMT = 0x1,
     LWXC1 = 0x1,
     MOVT_FMT = 0x1,
+    CLASS_FMT = 0x1,    /* microMIPS R6 */
+    SELEQZ_FMT = 0x1,   /* microMIPS R6 */
 
     PLL_PS = 0x2,
     SWXC1 = 0x2,
+    SEL_FMT = 0x2,      /* microMIPS R6 */
 
     PLU_PS = 0x3,
     LDXC1 = 0x3,
 
+    MOVN_FMT_04 = 0x4,
     PUL_PS = 0x4,
     SDXC1 = 0x4,
     RECIP2_FMT = 0x4,
 
+    MOVZ_FMT_05 = 0x05,
     PUU_PS = 0x5,
     LUXC1 = 0x5,
 
@@ -12860,8 +12910,10 @@ enum {
     SUXC1 = 0x6,
     ADDR_PS = 0x6,
     PREFX = 0x6,
+    MADDF_FMT = 0x6,    /* microMIPS R6 */
 
     MULR_PS = 0x7,
+    MSUBF_FMT = 0x7,    /* microMIPS R6 */
 
     MADD_S = 0x01,
     MADD_D = 0x09,
@@ -12878,10 +12930,17 @@ enum {
     NMSUB_D = 0x2a,
     NMSUB_PS = 0x32,
 
+    MIN_FMT = 0x3,      /* microMIPS R6 */
+    MAX_FMT = 0xb,      /* microMIPS R6 */
+    MINA_FMT = 0x23,    /* microMIPS R6 */
+    MAXA_FMT = 0x2b,    /* microMIPS R6 */
     POOL32FXF = 0x3b,
 
     CABS_COND_FMT = 0x1c,              /* MIPS3D */
-    C_COND_FMT = 0x3c
+    C_COND_FMT = 0x3c,
+
+    CMP_CONDN_S = 0x5,  /* microMIPS R6 */
+    CMP_CONDN_D = 0x15  /* microMIPS R6 */
 };
 
 /* POOL32Fxf encoding of minor opcode extension field */
@@ -12934,14 +12993,21 @@ enum {
     BGTZ = 0x06,
     BEQZC = 0x07,
     TLTI = 0x08,
+    BC1EQZC = 0x08,     /* microMIPS R6 */
     TGEI = 0x09,
+    BC1NEZC = 0x09,     /* microMIPS R6 */
     TLTIU = 0x0a,
+    BC2EQZC = 0x0a,     /* microMIPS R6 */
     TGEIU = 0x0b,
+    BC2NEZC = 0x0a,     /* microMIPS R6 */
     TNEI = 0x0c,
+    R6_SYNCI = 0x0c,    /* microMIPS R6 */
     LUI = 0x0d,
     TEQI = 0x0e,
     SYNCI = 0x10,
+    DATI = 0x10,        /* microMIPS R6 */
     BLTZALS = 0x11,
+    DAHI = 0x10,        /* microMIPS R6 */
     BGEZALS = 0x13,
     BC2F = 0x14,
     BC2T = 0x15,
@@ -12988,6 +13054,26 @@ enum {
     BREAK16 = 0x28,
     SDBBP16 = 0x2c,
     JRADDIUSP = 0x30
+};
+
+/* R6 POOL16C encoding of minor opcode field (bits 0..5) */
+
+enum {
+    R6_NOT16    = 0x00,
+    R6_AND16    = 0x01,
+    R6_LWM16    = 0x02,
+    R6_JRC16    = 0x03,
+    MOVEP       = 0x04,
+    MOVEP_07    = 0x07,
+    R6_XOR16    = 0x08,
+    R6_OR16     = 0x09,
+    R6_SWM16    = 0x0a,
+    JALRC16     = 0x0b,
+    MOVEP_0C    = 0x0c,
+    MOVEP_0F    = 0x0f,
+    JRCADDIUSP  = 0x13,
+    R6_BREAK16  = 0x1b,
+    R6_SDBBP16  = 0x3b
 };
 
 /* POOL16D encoding of minor opcode field */
@@ -15041,12 +15127,6 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case RES_20:
-    case RES_28:
-    case RES_29:
-    case RES_30:
-    case RES_31:
-    case RES_38:
-    case RES_39:
         generate_exception(ctx, EXCP_RI);
         break;
     default:
