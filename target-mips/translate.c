@@ -11095,6 +11095,7 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
         /* Branches completion */
         clear_branch_hflags(ctx);
         ctx->bstate = BS_BRANCH;
+
         /* FIXME: Need to clear can_do_io.  */
         switch (proc_hflags & MIPS_HFLAG_BMASK_BASE) {
         case MIPS_HFLAG_FBNSLOT:
@@ -11186,7 +11187,8 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         ctx->btarget = addr_add(ctx, ctx->pc + 4, offset);
         if (rs <= rt && rs == 0) {
             /* OPC_BEQZALC, OPC_BNEZALC */
-            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4 +
+                    !!(ctx->hflags & MIPS_HFLAG_M16));
         }
         break;
     case OPC_BLEZC: /* OPC_BGEZC, OPC_BGEC */
@@ -11201,7 +11203,8 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         if (rs == 0 || rs == rt) {
             /* OPC_BLEZALC, OPC_BGEZALC */
             /* OPC_BGTZALC, OPC_BLTZALC */
-            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4 +
+                    !!(ctx->hflags & MIPS_HFLAG_M16));
         }
         gen_load_gpr(t0, rs);
         gen_load_gpr(t1, rt);
@@ -11241,13 +11244,15 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
         /* Uncoditional compact branch */
         switch (opc) {
         case OPC_JIALC:
-            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4 +
+                    !!(ctx->hflags & MIPS_HFLAG_M16));
             /* Fallthrough */
         case OPC_JIC:
             ctx->hflags |= MIPS_HFLAG_BR;
             break;
         case OPC_BALC:
-            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[31], ctx->pc + 4 +
+                    !!(ctx->hflags & MIPS_HFLAG_M16));
             /* Fallthrough */
         case OPC_BC:
             ctx->hflags |= MIPS_HFLAG_B;
@@ -13597,8 +13602,13 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
         switch (minor) {
         case JALR:
         case JALR_HB:
-            gen_compute_branch(ctx, OPC_JALR, 4, rs, rt, 0, 4);
-            ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+            /* JALRC microMIPS R6 */
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_compute_branch(ctx, OPC_JALR, 4, rs, rt, 0, 0);
+            } else {
+                gen_compute_branch(ctx, OPC_JALR, 4, rs, rt, 0, 4);
+                ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+            }
             break;
         case JALRS:
         case JALRS_HB:
@@ -14579,11 +14589,27 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
 
             /* Traps */
         case TLTI:
-            mips32_op = OPC_TLTI;
-            goto do_trapi;
+            /* BC1EQZC microMIPS R6 */
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                check_cp1_enabled(ctx);
+                gen_compute_branch1_r6(ctx, OPC_BC1EQZ, rs, imm << 1);
+                ctx->hflags &= ~MIPS_HFLAG_BDS32; /* Compact Branching */
+            } else {
+                mips32_op = OPC_TLTI;
+                goto do_trapi;
+            }
+            break;
         case TGEI:
-            mips32_op = OPC_TGEI;
-            goto do_trapi;
+            /* BC1NEZC microMIPS R6 */
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                check_cp1_enabled(ctx);
+                gen_compute_branch1_r6(ctx, OPC_BC1NEZ, rs, imm << 1);
+                ctx->hflags &= ~MIPS_HFLAG_BDS32; /* Compact Branching */
+            } else {
+                mips32_op = OPC_TGEI;
+                goto do_trapi;
+            }
+            break;
         case TLTIU:
             check_insn_opc_removed(ctx, ISA_MIPS32R6);
             mips32_op = OPC_TLTIU;
@@ -14786,15 +14812,42 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
         break;
     case JALS32:
-        offset = (int32_t)(ctx->opcode & 0x3FFFFFF) << 1;
-        gen_compute_branch(ctx, OPC_JAL, 4, rt, rs, offset, 2);
-        ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+        /* BOVC, BEQC, BEQZALC microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rs >= rt) {
+                /* BOVC */
+                mips32_op = OPC_BOVC;
+            } else if (rs < rt && rs == 0) {
+                /* BEQZALC */
+                mips32_op = OPC_BEQZALC;
+            } else {
+                /* BEQC */
+                mips32_op = OPC_BEQC;
+            }
+            gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        } else {
+            offset = (int32_t)(ctx->opcode & 0x3FFFFFF) << 1;
+            gen_compute_branch(ctx, OPC_JAL, 4, rt, rs, offset, 2);
+            ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+        }
         break;
     case BEQ32:
-        gen_compute_branch(ctx, OPC_BEQ, 4, rt, rs, imm << 1, 4);
+        /* BC microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            gen_compute_compact_branch(ctx, OPC_BC, 0, 0,
+                                       sextract32(ctx->opcode << 1, 0, 27));
+        } else {
+            gen_compute_branch(ctx, OPC_BEQ, 4, rt, rs, imm << 1, 4);
+        }
         break;
     case BNE32:
-        gen_compute_branch(ctx, OPC_BNE, 4, rt, rs, imm << 1, 4);
+        /* BALC microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            gen_compute_compact_branch(ctx, OPC_BALC, 0, 0,
+                                       sextract32(ctx->opcode << 1, 0, 27));
+        } else {
+            gen_compute_branch(ctx, OPC_BNE, 4, rt, rs, imm << 1, 4);
+        }
         break;
     case J32:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
@@ -14829,6 +14882,89 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
 
             gen_addiupc(ctx, reg, offset, 0, 0);
         }
+        break;
+    case BNVC:
+        /* BNEC, BNEZALC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rs >= rt) {
+            /* BNVC */
+            mips32_op = OPC_BNVC;
+        } else if (rs < rt && rs == 0) {
+            /* BNEZALC */
+            mips32_op = OPC_BNEZALC;
+        } else {
+            /* BNEC */
+            mips32_op = OPC_BNEC;
+        }
+        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        break;
+    case R6_BEQZC:
+        /* JIC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rt != 0) {
+            gen_compute_compact_branch(ctx, OPC_BEQZC, rt, 0,
+                                       sextract32(ctx->opcode << 1, 0, 22));
+        } else {
+            gen_compute_compact_branch(ctx, OPC_JIC, 0, rs, imm);
+        }
+        break;
+    case R6_BNEZC:
+        /* JIALC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rt != 0) {
+            gen_compute_compact_branch(ctx, OPC_BNEZC, rt, 0,
+                                       sextract32(ctx->opcode << 1, 0, 22));
+        } else {
+            gen_compute_compact_branch(ctx, OPC_JIALC, 0, rs, imm);
+        }
+        break;
+    case BLEZALC:
+        /* BGEZALC, BGEUC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rs == 0 && rt != 0) {
+            mips32_op = OPC_BLEZALC;
+        } else if (rs != 0 && rt != 0 && rs == rt) {
+            mips32_op = OPC_BGEZALC;
+        } else {
+            mips32_op = OPC_BGEUC;
+        }
+        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        break;
+    case BGTZC:
+        /* BLTZC, BLTC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rs == 0 && rt != 0) {
+            mips32_op = OPC_BGTZC;
+        } else if (rs != 0 && rt != 0 && rs == rt) {
+            mips32_op = OPC_BLTZC;
+        } else {
+            mips32_op = OPC_BLTC;
+        }
+        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        break;
+    case BGTZALC:
+        /* BLTZALC, BLTUC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rs == 0 && rt != 0) {
+            mips32_op = OPC_BGTZALC;
+        } else if (rs != 0 && rt != 0 && rs == rt) {
+            mips32_op = OPC_BLTZALC;
+        } else {
+            mips32_op = OPC_BLTUC;
+        }
+        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        break;
+    case BLEZC:
+        /* BGEZC, BGEC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rs == 0 && rt != 0) {
+            mips32_op = OPC_BLEZC;
+        } else if (rs != 0 && rt != 0 && rs == rt) {
+            mips32_op = OPC_BGEZC;
+        } else {
+            mips32_op = OPC_BGEC;
+        }
+        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
         break;
         /* Loads and stores */
     case LB32:
@@ -15108,14 +15244,20 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case B16:
+        /* BC16 microMIPS R6 */
         gen_compute_branch(ctx, OPC_BEQ, 2, 0, 0,
-                           SIMM(ctx->opcode, 0, 10) << 1, 4);
+                           SIMM(ctx->opcode, 0, 10) << 1,
+                           (ctx->insn_flags & ISA_MIPS32R6) ? 0 : 4);
         break;
     case BNEZ16:
+        /* BNEZC16 microMIPS R6 */
     case BEQZ16:
+        /* BEQZC16 microMIPS R6 */
         gen_compute_branch(ctx, op == BNEZ16 ? OPC_BNE : OPC_BEQ, 2,
                            mmreg(uMIPS_RD(ctx->opcode)),
-                           0, SIMM(ctx->opcode, 0, 7) << 1, 4);
+                           0, SIMM(ctx->opcode, 0, 7) << 1,
+                           (ctx->insn_flags & ISA_MIPS32R6) ? 0 : 4);
+
         break;
     case LI16:
         {
@@ -19898,6 +20040,15 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
                                 MIPS_HFLAG_FBNSLOT))) {
                 /* force to generate branch as there is neither delay nor
                    forbidden slot */
+                is_slot = 1;
+            }
+            if ((ctx.hflags & MIPS_HFLAG_M16) &&
+                (ctx.insn_flags & ISA_MIPS32R6) &&
+                (ctx.hflags & MIPS_HFLAG_FBNSLOT)) {
+                /* Force to generate branch as microMIPS R6 doesn't restrict
+                   branches in the forbidden slot.
+                   This will prevent detecting PAUSE/WAIT in the forbidden slot
+                   therefore no RI will be raised. */
                 is_slot = 1;
             }
         }
