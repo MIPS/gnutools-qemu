@@ -5210,10 +5210,10 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
 #if defined(TARGET_MIPS64)
             if (ctx->rxi) {
+                /* Move RI/XI fields to bits 31:30 */
                 TCGv tmp = tcg_temp_new();
-                tcg_gen_andi_tl(tmp, arg, (3ull << CP0EnLo_XI));
-                tcg_gen_shri_tl(tmp, tmp, 32);
-                tcg_gen_or_tl(arg, arg, tmp);
+                tcg_gen_shri_tl(tmp, arg, CP0EnLo_XI);
+                tcg_gen_deposit_tl(arg, arg, tmp, 30, 2);
                 tcg_temp_free(tmp);
             }
 #endif
@@ -5265,10 +5265,10 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
 #if defined(TARGET_MIPS64)
             if (ctx->rxi) {
+                /* Move RI/XI fields to bits 31:30 */
                 TCGv tmp = tcg_temp_new();
-                tcg_gen_andi_tl(tmp, arg, (3ull << CP0EnLo_XI));
-                tcg_gen_shri_tl(tmp, tmp, 32);
-                tcg_gen_or_tl(arg, arg, tmp);
+                tcg_gen_shri_tl(tmp, arg, CP0EnLo_XI);
+                tcg_gen_deposit_tl(arg, arg, tmp, 30, 2);
                 tcg_temp_free(tmp);
             }
 #endif
@@ -18882,12 +18882,14 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
             case OPC_LD_H:
             case OPC_LD_W:
             case OPC_LD_D:
+                save_cpu_state(ctx, 1);
                 gen_helper_msa_ld_df(cpu_env, tdf, twd, trs, ts10);
                 break;
             case OPC_ST_B:
             case OPC_ST_H:
             case OPC_ST_W:
             case OPC_ST_D:
+                save_cpu_state(ctx, 1);
                 gen_helper_msa_st_df(cpu_env, tdf, twd, trs, ts10);
                 break;
             }
