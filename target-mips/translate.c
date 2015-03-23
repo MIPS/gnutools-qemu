@@ -13262,11 +13262,15 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
             ctx->bstate = BS_STOP;
             break;
         case SDBBP:
-            check_insn(ctx, ISA_MIPS32);
-            if (!(ctx->hflags & MIPS_HFLAG_DM)) {
-                generate_exception(ctx, EXCP_DBp);
+            if (is_uhi(extract32(ctx->opcode, 16, 10))) {
+                gen_helper_do_semihosting(cpu_env);
             } else {
-                generate_exception(ctx, EXCP_DBp);
+                check_insn(ctx, ISA_MIPS32);
+                if (!(ctx->hflags & MIPS_HFLAG_DM)) {
+                    generate_exception(ctx, EXCP_DBp);
+                } else {
+                    generate_exception(ctx, EXCP_DBp);
+                }
             }
             break;
         default:
