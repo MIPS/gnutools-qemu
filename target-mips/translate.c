@@ -13349,6 +13349,111 @@ static void gen_pool16c_insn(DisasContext *ctx)
     }
 }
 
+static void gen_pool16c_r6_insn(DisasContext *ctx)
+{
+    int rt = mmreg((ctx->opcode >> 7) & 0x7);
+    int rs = mmreg((ctx->opcode >> 4) & 0x7);
+
+    switch (ctx->opcode & 0xf) {
+    case R6_NOT16:
+        gen_logic(ctx, OPC_NOR, rt, rs, 0);
+        break;
+    case R6_AND16:
+        gen_logic(ctx, OPC_AND, rt, rt, rs);
+        break;
+    case R6_LWM16:
+        {
+            static const int lwm_convert[] = { 0x11, 0x12, 0x13, 0x14 };
+            int offset = ZIMM(ctx->opcode, 4, 4);
+
+            gen_ldst_multiple(ctx, LWM32, lwm_convert[(ctx->opcode >> 8) & 0x3],
+                              29, offset << 2);
+        }
+        break;
+    case R6_JRC16:
+        switch (ctx->opcode >> 4 & 1) {
+        case 0:
+            /* JRC16 */
+            {
+                int reg = (ctx->opcode >> 5) & 0x1f;
+                gen_compute_branch(ctx, OPC_JR, 2, reg, 0, 0, 0);
+            }
+            break;
+        case 1:
+            /* JRCADDIUSP */
+            {
+                int imm = ZIMM(ctx->opcode, 5, 5);
+                gen_compute_branch(ctx, OPC_JR, 2, 31, 0, 0, 0);
+                gen_arith_imm(ctx, OPC_ADDIU, 29, 29, imm << 2);
+            }
+            break;
+        }
+        break;
+    case MOVEP ... MOVEP_07:
+    case MOVEP_0C ... MOVEP_0F:
+        {
+            int enc_dest = uMIPS_RD(ctx->opcode);
+            int enc_rt = uMIPS_RS2(ctx->opcode);
+            int enc_rs = (ctx->opcode & 3) | ((ctx->opcode >> 1) & 4);
+            int rd, rs, re, rt;
+            static const int rd_enc[] = { 5, 5, 6, 4, 4, 4, 4, 4 };
+            static const int re_enc[] = { 6, 7, 7, 21, 22, 5, 6, 7 };
+            static const int rs_rt_enc[] = { 0, 17, 2, 3, 16, 18, 19, 20 };
+
+            rd = rd_enc[enc_dest];
+            re = re_enc[enc_dest];
+            rs = rs_rt_enc[enc_rs];
+            rt = rs_rt_enc[enc_rt];
+
+            gen_arith(ctx, OPC_ADDU, rd, rs, 0);
+            gen_arith(ctx, OPC_ADDU, re, rt, 0);
+        }
+        break;
+    case R6_XOR16:
+        gen_logic(ctx, OPC_XOR, rt, rt, rs);
+        break;
+    case R6_OR16:
+        gen_logic(ctx, OPC_OR, rt, rt, rs);
+        break;
+    case R6_SWM16:
+        {
+            static const int swm_convert[] = { 0x11, 0x12, 0x13, 0x14 };
+            int offset = ZIMM(ctx->opcode, 4, 4);
+
+            gen_ldst_multiple(ctx, SWM32, swm_convert[(ctx->opcode >> 8) & 0x3],
+                              29, offset << 2);
+        }
+        break;
+    case JALRC16:
+        switch (ctx->opcode >> 4 & 3) {
+        case 0:
+        case 2:
+            /* JALRC16 */
+            gen_compute_branch(ctx, OPC_JALR, 2,
+                    (ctx->opcode >> 5) & 0x1f, 31, 0, 0);
+
+            break;
+        case 1:
+            /* BREAK16 */
+            generate_exception(ctx, EXCP_BREAK);
+            break;
+        case 3:
+            /* SDBBP16 */
+            if (is_uhi((ctx->opcode >> 6) & 0xF)) {
+                gen_helper_do_semihosting(cpu_env);
+            } else {
+                check_insn(ctx, ISA_MIPS32);
+                generate_exception(ctx, EXCP_DBp);
+            }
+            break;
+        }
+        break;
+    default:
+        generate_exception(ctx, EXCP_RI);
+        break;
+    }
+}
+
 static void gen_ldxs (DisasContext *ctx, int base, int index, int rd)
 {
     TCGv t0 = tcg_temp_new();
@@ -15366,7 +15471,11 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
             int rs1 = mmreg(uMIPS_RS1(ctx->opcode));
             int rs2 = mmreg(uMIPS_RS2(ctx->opcode));
             uint32_t opc = 0;
-
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                rd = mmreg(uMIPS_RS1(ctx->opcode));
+                rs1 = mmreg(uMIPS_RD(ctx->opcode));
+                rs2 = mmreg(uMIPS_RS2(ctx->opcode));
+            }
             switch (ctx->opcode & 0x1) {
             case ADDU16:
                 opc = OPC_ADDU;
@@ -15400,7 +15509,11 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case POOL16C:
-        gen_pool16c_insn(ctx);
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            gen_pool16c_r6_insn(ctx);
+        } else {
+            gen_pool16c_insn(ctx);
+        }
         break;
     case LWGP16:
         {
