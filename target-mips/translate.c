@@ -15015,8 +15015,21 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         }
         break;
     case ADDI32:
-        mips32_op = OPC_ADDI;
-        goto do_addi;
+        /* AUI, LUI microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rs != 0) {
+                /* AUI */
+                tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rs], imm << 16);
+                tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            } else {
+                /* LUI */
+                tcg_gen_movi_tl(cpu_gpr[rt], imm << 16);
+            }
+        } else {
+            mips32_op = OPC_ADDI;
+            goto do_addi;
+        }
+        break;
     case ADDIU32:
         mips32_op = OPC_ADDIU;
     do_addi:
@@ -15116,7 +15129,49 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         gen_cop1_ldst(ctx, mips32_op, rt, rs, imm);
         break;
     case ADDIUPC:
-        {
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            int reg = ZIMM(ctx->opcode, 21, 5);
+            target_long offset;
+            target_long addr;
+            switch ((ctx->opcode >> 16) & 0x1f) {
+            case 0x0 ... 0x7:
+            /* ADDIUPC */
+                if (reg != 0) {
+                    offset = sextract32(ctx->opcode << 2, 0, 21);
+                    addr = addr_add(ctx, ctx->pc & ~0x3, offset);
+                    tcg_gen_movi_tl(cpu_gpr[reg], addr);
+                }
+                break;
+            case 0x1e:
+            /* AUIPC */
+                if (reg != 0) {
+                    offset = imm << 16;
+                    addr = addr_add(ctx, ctx->pc & ~0x3, offset);
+                    tcg_gen_movi_tl(cpu_gpr[reg], addr);
+                }
+                break;
+            case 0x1f:
+            /* ALUIPC */
+                if (reg != 0) {
+                    offset = imm << 16;
+                    addr = ~0xFFFF & addr_add(ctx, ctx->pc, offset);
+                    tcg_gen_movi_tl(cpu_gpr[reg], addr);
+                }
+                break;
+            case 0x08 ... 0xf:
+            /* LWPC */
+                if (reg != 0) {
+                    target_long addr;
+                    offset = sextract32(ctx->opcode << 2, 0, 21);
+                    addr = addr_add(ctx, ctx->pc & ~0x3, offset);
+                    gen_r6_ld(addr, reg, ctx->mem_idx, MO_TESL);
+                }
+                break;
+            default:
+                generate_exception(ctx, EXCP_RI);
+                break;
+            }
+        } else {
             int reg = mmreg(ZIMM(ctx->opcode, 23, 3));
             int offset = SIMM(ctx->opcode, 0, 23) << 2;
 
