@@ -14847,8 +14847,16 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
             mips32_op = OPC_TGEIU;
             goto do_trapi;
         case TNEI:
-            mips32_op = OPC_TNEI;
-            goto do_trapi;
+            /* SYNCI microMIPS R6 */
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                /* Break the TB to be able to sync copied instructions
+                   immediately */
+                ctx->bstate = BS_STOP;
+            } else {
+                mips32_op = OPC_TNEI;
+                goto do_trapi;
+            }
+            break;
         case TEQI:
             check_insn_opc_removed(ctx, ISA_MIPS32R6);
             mips32_op = OPC_TEQI;
@@ -14995,6 +15003,10 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
 #endif
         case PREF:
             /* Treat as no-op */
+            if ((ctx->insn_flags & ISA_MIPS32R6) && (rt >= 24)) {
+                /* hint codes 24-31 are reserved and signal RI */
+                generate_exception(ctx, EXCP_RI);
+            }
             break;
         default:
             MIPS_INVAL("pool32c");
