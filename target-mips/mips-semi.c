@@ -34,8 +34,10 @@ typedef enum UHI_Op {
     UHI_argc = 9,
     UHI_argnlen = 10,
     UHI_argn = 11,
+    UHI_raminfo = 12,
     UHI_plog = 13,
     UHI_assert = 14,
+    UHI_exception = 15,
     UHI_pread = 19,
     UHI_pwrite = 20,
     UHI_link = 22
@@ -361,6 +363,11 @@ void helper_do_semihosting(CPUMIPSState *env)
 	printf("QEMU: Unhandled guest exception\n");
 	abort();
         break;
+    case UHI_raminfo:
+	opname = "raminfo";
+	gpr[2] = 0x80000000;
+	gpr[3] = 0x80000000 + ram_size;
+	break;
     case UHI_pread:
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);
         gpr[3] = errno;
