@@ -14296,7 +14296,9 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
                     gen_r6_muldiv(ctx, R6_OPC_MUH, rd, rs, rt);
                 } else {
                     mips32_op = OPC_MOVZ;
+                    goto do_cmov;
                 }
+                break;
             do_cmov:
                 gen_cond_move(ctx, mips32_op, rd, rs, rt);
                 break;
