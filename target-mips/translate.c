@@ -12609,8 +12609,8 @@ enum {
     BNEC = 0x1f,    /* microMIPS R6 */
     BNEZALC = 0x1f, /* microMIPS R6 */
 
-    /* 0x20 is reserved */
-    RES_20 = 0x20,
+    R6_BNEZC = 0x20,/* microMIPS R6 */
+    JIALC = 0x20,   /* microMIPS R6 */
     POOL16F = 0x21,
     SB16 = 0x22,
     BEQZ16 = 0x23,
@@ -12621,10 +12621,10 @@ enum {
     SWC132 = 0x26,
     LWC132 = 0x27,
 
+    /* 0x29 is reserved */
+    RES_29 = 0x29,
     R6_BEQZC = 0x28,    /* microMIPS R6 */
     JIC = 0x28,         /* microMIPS R6 */
-    R6_BNEZC = 0x29,    /* microMIPS R6 */
-    JIALC = 0x29,       /* microMIPS R6 */
     SH16 = 0x2a,
     BNEZ16 = 0x2b,
     BNEZC16 = 0x2b,     /* microMIPS R6 */
@@ -12634,31 +12634,35 @@ enum {
     SDC132 = 0x2e,
     LDC132 = 0x2f,
 
+    /* 0x31 is reserved */
+    RES_31 = 0x31,
     BLEZALC = 0x30, /* microMIPS R6 */
     BGEZALC = 0x30, /* microMIPS R6 */
     BGEUC = 0x30,   /* microMIPS R6 */
-    BGTZC = 0x31,   /* microMIPS R6 */
-    BLTZC = 0x31,   /* microMIPS R6 */
-    BLTC = 0x31,    /* microMIPS R6 */
     SWSP16 = 0x32,
     B16 = 0x33,
     BC16 = 0x33,    /* microMIPS R6 */
     ANDI32 = 0x34,
     J32 = 0x35,
+    BGTZC = 0x35,   /* microMIPS R6 */
+    BLTZC = 0x35,   /* microMIPS R6 */
+    BLTC = 0x35,    /* microMIPS R6 */
     SD32 = 0x36, /* MIPS64 */
     LD32 = 0x37, /* MIPS64 */
 
+    /* 0x39 is reserved */
+    RES_39 = 0x39,
     BGTZALC = 0x38, /* microMIPS R6 */
     BLTZALC = 0x38, /* microMIPS R6 */
     BLTUC = 0x38,   /* microMIPS R6 */
-    BLEZC = 0x39,   /* microMIPS R6 */
-    BGEZC = 0x39,   /* microMIPS R6 */
-    BGEC = 0x39,    /* microMIPS R6 */
     SW16 = 0x3a,
     LI16 = 0x3b,
     JALX32 = 0x3c,
     DAUI = 0x3c,    /* microMIPS R6 */
     JAL32 = 0x3d,
+    BLEZC = 0x3d,   /* microMIPS R6 */
+    BGEZC = 0x3d,   /* microMIPS R6 */
+    BGEC = 0x3d,    /* microMIPS R6 */
     SW32 = 0x3e,
     LW32 = 0x3f
 };
@@ -15210,16 +15214,39 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         }
         break;
     case J32:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        gen_compute_branch(ctx, OPC_J, 4, rt, rs,
-                           (int32_t)(ctx->opcode & 0x3FFFFFF) << 1, 4);
+        /* BGTZC, BLTZC, BLTC microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rs == 0 && rt != 0) {
+                mips32_op = OPC_BGTZC;
+            } else if (rs != 0 && rt != 0 && rs == rt) {
+                mips32_op = OPC_BLTZC;
+            } else {
+                mips32_op = OPC_BLTC;
+            }
+            gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        } else {
+            gen_compute_branch(ctx, OPC_J, 4, rt, rs,
+                               (int32_t)(ctx->opcode & 0x3FFFFFF) << 1, 4);
+        }
         break;
     case JAL32:
-        check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        gen_compute_branch(ctx, OPC_JAL, 4, rt, rs,
-                           (int32_t)(ctx->opcode & 0x3FFFFFF) << 1, 4);
-        ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+        /* BLEZC, BGEZC, BGEC microMIPS R6 */
+        if (ctx->insn_flags & ISA_MIPS32R6) {
+            if (rs == 0 && rt != 0) {
+                mips32_op = OPC_BLEZC;
+            } else if (rs != 0 && rt != 0 && rs == rt) {
+                mips32_op = OPC_BGEZC;
+            } else {
+                mips32_op = OPC_BGEC;
+            }
+            gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
+        } else {
+            gen_compute_branch(ctx, OPC_JAL, 4, rt, rs,
+                               (int32_t)(ctx->opcode & 0x3FFFFFF) << 1, 4);
+            ctx->hflags |= MIPS_HFLAG_BDS_STRICT;
+        }
         break;
+
         /* Floating point (COP1) */
     case LWC132:
         mips32_op = OPC_LWC1;
@@ -15300,16 +15327,6 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         }
         gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
         break;
-    case R6_BEQZC:
-        /* JIC */
-        check_insn(ctx, ISA_MIPS32R6);
-        if (rt != 0) {
-            gen_compute_compact_branch(ctx, OPC_BEQZC, rt, 0,
-                                       sextract32(ctx->opcode << 1, 0, 22));
-        } else {
-            gen_compute_compact_branch(ctx, OPC_JIC, 0, rs, imm);
-        }
-        break;
     case R6_BNEZC:
         /* JIALC */
         check_insn(ctx, ISA_MIPS32R6);
@@ -15318,6 +15335,16 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
                                        sextract32(ctx->opcode << 1, 0, 22));
         } else {
             gen_compute_compact_branch(ctx, OPC_JIALC, 0, rs, imm);
+        }
+        break;
+    case R6_BEQZC:
+        /* JIC */
+        check_insn(ctx, ISA_MIPS32R6);
+        if (rt != 0) {
+            gen_compute_compact_branch(ctx, OPC_BEQZC, rt, 0,
+                                       sextract32(ctx->opcode << 1, 0, 22));
+        } else {
+            gen_compute_compact_branch(ctx, OPC_JIC, 0, rs, imm);
         }
         break;
     case BLEZALC:
@@ -15332,18 +15359,6 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
         }
         gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
         break;
-    case BGTZC:
-        /* BLTZC, BLTC */
-        check_insn(ctx, ISA_MIPS32R6);
-        if (rs == 0 && rt != 0) {
-            mips32_op = OPC_BGTZC;
-        } else if (rs != 0 && rt != 0 && rs == rt) {
-            mips32_op = OPC_BLTZC;
-        } else {
-            mips32_op = OPC_BLTC;
-        }
-        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
-        break;
     case BGTZALC:
         /* BLTZALC, BLTUC */
         check_insn(ctx, ISA_MIPS32R6);
@@ -15353,18 +15368,6 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
             mips32_op = OPC_BLTZALC;
         } else {
             mips32_op = OPC_BLTUC;
-        }
-        gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
-        break;
-    case BLEZC:
-        /* BGEZC, BGEC */
-        check_insn(ctx, ISA_MIPS32R6);
-        if (rs == 0 && rt != 0) {
-            mips32_op = OPC_BLEZC;
-        } else if (rs != 0 && rt != 0 && rs == rt) {
-            mips32_op = OPC_BGEZC;
-        } else {
-            mips32_op = OPC_BGEC;
         }
         gen_compute_compact_branch(ctx, mips32_op, rs, rt, imm << 1);
         break;
@@ -15678,7 +15681,9 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
             tcg_gen_movi_tl(cpu_gpr[reg], imm);
         }
         break;
-    case RES_20:
+    case RES_29:
+    case RES_31:
+    case RES_39:
         generate_exception(ctx, EXCP_RI);
         break;
     default:
