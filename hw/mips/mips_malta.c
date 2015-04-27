@@ -1121,21 +1121,6 @@ void mips_malta_init(MachineState *machine)
                 exit(1);
             }
         }
-        /* In little endian mode the 32bit words in the bios are swapped,
-           a neat trick which allows bi-endian firmware. */
-#ifndef TARGET_WORDS_BIGENDIAN
-        {
-            uint32_t *end, *addr = rom_ptr(FLASH_ADDRESS);
-            if (!addr) {
-                addr = memory_region_get_ram_ptr(bios);
-            }
-            end = (void *)addr + MIN(bios_size, 0x3e0000);
-            while (addr < end) {
-                bswap32s(addr);
-                addr++;
-            }
-        }
-#endif
         loaderparams.initrd_filename = initrd_filename;
         load_app();
     }

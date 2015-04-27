@@ -359,12 +359,10 @@ void helper_do_semihosting(CPUMIPSState *env)
         abort();
         break;
     case UHI_exception:
-        opname = "exception";
 	printf("QEMU: Unhandled guest exception\n");
-	abort();
+	exit(2);
         break;
     case UHI_raminfo:
-	opname = "raminfo";
 	gpr[2] = 0x80000000;
 	gpr[3] = 0x80000000 + ram_size;
 	break;
