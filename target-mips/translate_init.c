@@ -679,7 +679,7 @@ static const mips_def_t mips_defs[] =
                     (1 << FCR0_W) | (1 << FCR0_D) | (1 << FCR0_S) |
                     (0x03 << FCR0_PRID) | (0x20 << FCR0_REV),
         .MSAIR = 0x03 << MSAIR_ProcID | 0x20 << MSAIR_Rev,
-        .SEGBITS = 42,
+        .SEGBITS = 48,
         .PABITS = 48,
         .insn_flags = CPU_MIPS64R6 | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
