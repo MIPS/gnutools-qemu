@@ -15280,7 +15280,7 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
             /* AUIPC */
                 if (reg != 0) {
                     offset = imm << 16;
-                    addr = addr_add(ctx, ctx->pc & ~0x3, offset);
+                    addr = addr_add(ctx, ctx->pc, offset);
                     tcg_gen_movi_tl(cpu_gpr[reg], addr);
                 }
                 break;
