@@ -364,7 +364,7 @@ void helper_do_semihosting(CPUMIPSState *env)
         break;
     case UHI_raminfo:
 	gpr[2] = 0x80000000;
-	gpr[3] = 0x80000000 + ram_size;
+	gpr[3] = 0x80000000;
 	break;
     case UHI_pread:
         gpr[2] = read_from_file(env, gpr[4], gpr[5], gpr[6], gpr[7]);

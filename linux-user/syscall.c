@@ -7971,6 +7971,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             if (env->CP0_Config5 & (1 << CP0C5_FRE)) {
                 ret |= PR_FP_MODE_FRE;
             }
+	    fprintf(stdout, "QEMU: reporting FP mode %x\n", ret);
             break;
         }
         case PR_SET_FP_MODE:
@@ -7981,9 +7982,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             bool new_fr = arg2 & PR_FP_MODE_FR;
             bool new_fre = arg2 & PR_FP_MODE_FRE;
 
+	    fprintf(stdout, "QEMU: requested FP mode %x\n", arg2);
             if (new_fr && !(env->active_fpu.fcr0 & (1 << FCR0_F64))) {
                 /* FR1 is not supported */
                 ret = -TARGET_EOPNOTSUPP;
+	    fprintf(stdout, "QEMU: FR1 not supp\n");
                 goto fail;
             }
 
@@ -7991,12 +7994,14 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                 && !(env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {
                 /* cannot set FR=0 */
                 ret = -TARGET_EOPNOTSUPP;
+	    fprintf(stdout, "QEMU: FR0 not supp\n");
                 goto fail;
             }
 
             if (new_fre && !(env->active_fpu.fcr0 & (1 << FCR0_FREP))) {
                 /* Cannot set FRE=1 */
                 ret = -TARGET_EOPNOTSUPP;
+	    fprintf(stdout, "QEMU: FRE not supp\n");
                 goto fail;
             }
 
