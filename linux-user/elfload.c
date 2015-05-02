@@ -1599,6 +1599,7 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
 #ifdef ELF_HWCAP2
     size += 2;
 #endif
+    size += 2;
     size += envc + argc + 2;
     size += 1;  /* argc itself */
     size *= n;
@@ -1635,6 +1636,7 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
 #ifdef ELF_HWCAP2
     NEW_AUX_ENT(AT_HWCAP2, (abi_ulong) ELF_HWCAP2);
 #endif
+    NEW_AUX_ENT(AT_SECURE, (abi_ulong) 0);
 
     if (k_platform)
         NEW_AUX_ENT(AT_PLATFORM, u_platform);
