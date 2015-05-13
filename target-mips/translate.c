@@ -20905,8 +20905,9 @@ void cpu_state_reset(CPUMIPSState *env)
         }
     }
 #endif
-    if ((env->insn_flags & ISA_MIPS32R6) &&
-        (env->active_fpu.fcr0 & (1 << FCR0_F64))) {
+    bool forcefr1 = !strcmp (env->cpu_model->name, "P5600-FR1");
+    if (forcefr1 || ((env->insn_flags & ISA_MIPS32R6) &&
+	(env->active_fpu.fcr0 & (1 << FCR0_F64)))) {
         /* Status.FR = 0 mode in 64-bit FPU not allowed in R6 */
         env->CP0_Status |= (1 << CP0St_FR);
     }
