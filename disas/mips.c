@@ -5053,7 +5053,10 @@ _print_insn_mips (bfd_vma memaddr,
 #endif
 #endif
 
-  status = (*info->read_memory_func) (memaddr, buffer, INSNLEN, info);
+  status = (*info->read_memory_func) (memaddr, buffer,
+                                     ((info->buffer_length < INSNLEN) ?
+                                      info->buffer_length : INSNLEN),
+                                      info);
   if (status == 0)
     {
       unsigned long insn;
