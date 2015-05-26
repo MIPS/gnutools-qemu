@@ -874,6 +874,29 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUPPCState *en
 
 #define elf_check_arch(x) ( (x) == EM_MIPS )
 
+#define ELF_HWCAP get_elf_hwcap()
+
+enum {
+  HWCAP_MIPS_MSA = 0x00000001,
+  HWCAP_MIPS_R6  = 0x00000002
+};
+
+static uint32_t get_elf_hwcap(void)
+{
+    MIPSCPU *cpu = MIPS_CPU(thread_cpu);
+    uint32_t hwcaps = 0;
+
+    /* probe for the extra features */
+#define GET_FEATURE(flag, feature)                                      \
+    do { if (cpu->env.insn_flags & flag) { hwcaps |= feature; } } while (0)
+    GET_FEATURE(ASE_MSA, HWCAP_MIPS_MSA);
+    GET_FEATURE(ISA_MIPS32R6, HWCAP_MIPS_R6);
+    GET_FEATURE(ISA_MIPS64R6, HWCAP_MIPS_R6);
+#undef GET_FEATURE
+
+    return hwcaps;
+}
+
 #ifdef TARGET_MIPS64
 #define ELF_CLASS   ELFCLASS64
 #else
