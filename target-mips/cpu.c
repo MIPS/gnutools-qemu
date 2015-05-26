@@ -111,9 +111,41 @@ static void mips_cpu_reset(CPUState *s)
 static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
+    MIPSCPU *cpu = MIPS_CPU(cs);
     MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(dev);
+    CPUMIPSState *env = &cpu->env;
 
     cpu_reset(cs);
+      fprintf(stderr, "real\n");
+    if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
+      fprintf(stderr, "msa\n");
+        gdb_register_coprocessor(cs, mips_msa_get_reg, mips_msa_set_reg,
+                                 2, "mips-msa.xml", 0);
+        gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
+                                 34, "mips-fpu128.xml", 0);
+    }
+#if !TARGET_MIPS64
+    else {
+      fprintf(stderr, "fp64\n");
+        gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
+                                 34, "mips-fpu64.xml", 0);
+    }
+#else
+    else if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
+        gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
+                                 34, "mips-fpu64.xml", 0);
+    } else {
+        gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
+                                 34, "mips-fpu.xml", 0);
+    }
+#endif
+    gdb_register_coprocessor(cs, mips_cp0_get_reg, mips_cp0_set_reg,
+                             4, "mips-cp0.xml");
+//    if (env->CP0_Config3 & (1 << CP0C3_DSPP)) {
+//        gdb_register_coprocessor(cs, mips_dsp_get_reg, mips_dsp_set_reg,
+//                                 7, "mips-dsp.xml");
+//    }
+
     qemu_init_vcpu(cs);
 
     mcc->parent_realize(dev, errp);
@@ -161,7 +193,13 @@ static void mips_cpu_class_init(ObjectClass *c, void *data)
     cc->get_phys_page_debug = mips_cpu_get_phys_page_debug;
 #endif
 
-    cc->gdb_num_core_regs = 73;
+    cc->gdb_num_core_regs = 35;
+#if TARGET_MIPS64
+    cc->gdb_core_xml_file = "mips64-cpu.xml";
+#else
+    cc->gdb_core_xml_file = "mips-cpu.xml";
+#endif
+
     cc->gdb_stop_before_watchpoint = true;
 }
 

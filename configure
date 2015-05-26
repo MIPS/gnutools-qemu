@@ -5047,17 +5047,20 @@ case "$target_name" in
   mips|mipsel)
     TARGET_ARCH=mips
     echo "TARGET_ABI_MIPSO32=y" >> $config_target_mak
+    gdb_xml_files="mips-cpu.xml mips-cp0.xml mips-fpu.xml mips-fpu64.xml mips-fpu128.xml mips-dsp.xml mips-msa.xml"
   ;;
   mipsn32|mipsn32el)
     TARGET_ARCH=mips64
     TARGET_BASE_ARCH=mips
     echo "TARGET_ABI_MIPSN32=y" >> $config_target_mak
     echo "TARGET_ABI32=y" >> $config_target_mak
+    gdb_xml_files="mips64-cpu.xml mips64-cp0.xml mips-fpu64.xml mips-fpu128.xml mips-dsp.xml mips-msa.xml"
   ;;
   mips64|mips64el)
     TARGET_ARCH=mips64
     TARGET_BASE_ARCH=mips
     echo "TARGET_ABI_MIPSN64=y" >> $config_target_mak
+    gdb_xml_files="mips64-cpu.xml mips-fpu64.xml mips-fpu128.xml mips-dsp.xml mips-msa.xml"
   ;;
   tricore)
   ;;
