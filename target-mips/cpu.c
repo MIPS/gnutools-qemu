@@ -139,8 +139,13 @@ static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
                                  34, "mips-fpu.xml", 0);
     }
 #endif
+#if !TARGET_MIPS64
     gdb_register_coprocessor(cs, mips_cp0_get_reg, mips_cp0_set_reg,
                              4, "mips-cp0.xml");
+#else
+    gdb_register_coprocessor(cs, mips_cp0_get_reg, mips_cp0_set_reg,
+                             4, "mips64-cp0.xml");
+#endif
 //    if (env->CP0_Config3 & (1 << CP0C3_DSPP)) {
 //        gdb_register_coprocessor(cs, mips_dsp_get_reg, mips_dsp_set_reg,
 //                                 7, "mips-dsp.xml");
