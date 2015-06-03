@@ -12609,8 +12609,8 @@ enum {
     BNEC = 0x1f,    /* microMIPS R6 */
     BNEZALC = 0x1f, /* microMIPS R6 */
 
-    R6_BNEZC = 0x20,/* microMIPS R6 */
-    JIALC = 0x20,   /* microMIPS R6 */
+    R6_BEQZC = 0x20,/* microMIPS R6 */
+    JIC = 0x20,     /* microMIPS R6 */
     POOL16F = 0x21,
     SB16 = 0x22,
     BEQZ16 = 0x23,
@@ -12623,8 +12623,8 @@ enum {
 
     /* 0x29 is reserved */
     RES_29 = 0x29,
-    R6_BEQZC = 0x28,    /* microMIPS R6 */
-    JIC = 0x28,         /* microMIPS R6 */
+    R6_BNEZC = 0x28,    /* microMIPS R6 */
+    JIALC = 0x28,       /* microMIPS R6 */
     SH16 = 0x2a,
     BNEZ16 = 0x2b,
     BNEZC16 = 0x2b,     /* microMIPS R6 */
@@ -15091,10 +15091,18 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
             check_insn(ctx, ISA_MIPS3);
             check_mips_64(ctx);
             mips32_op = OPC_LLD;
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_ld(ctx, mips32_op, rt, rs, SIMM(ctx->opcode, 0, 9));
+                break;
+            }
             goto do_ld_lr;
 #endif
         case LL:
             mips32_op = OPC_LL;
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_ld(ctx, mips32_op, rt, rs, SIMM(ctx->opcode, 0, 9));
+                break;
+            }
             goto do_ld_lr;
         do_ld_lr:
             gen_ld(ctx, mips32_op, rt, rs, SIMM(ctx->opcode, 0, 12));
@@ -15103,13 +15111,21 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
             gen_st(ctx, mips32_op, rt, rs, SIMM(ctx->opcode, 0, 12));
             break;
         case SC:
-            gen_st_cond(ctx, OPC_SC, rt, rs, SIMM(ctx->opcode, 0, 12));
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_st_cond(ctx, OPC_SC, rt, rs, SIMM(ctx->opcode, 0, 9));
+            } else {
+                gen_st_cond(ctx, OPC_SC, rt, rs, SIMM(ctx->opcode, 0, 12));
+            }
             break;
 #if defined(TARGET_MIPS64)
         case SCD:
             check_insn(ctx, ISA_MIPS3);
             check_mips_64(ctx);
-            gen_st_cond(ctx, OPC_SCD, rt, rs, SIMM(ctx->opcode, 0, 12));
+            if (ctx->insn_flags & ISA_MIPS32R6) {
+                gen_st_cond(ctx, OPC_SCD, rt, rs, SIMM(ctx->opcode, 0, 9));
+            } else {
+                gen_st_cond(ctx, OPC_SCD, rt, rs, SIMM(ctx->opcode, 0, 12));
+            }
             break;
 #endif
         case PREF:
