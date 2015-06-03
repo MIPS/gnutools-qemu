@@ -95,7 +95,16 @@ int mips_cp0_get_reg(CPUMIPSState *env, uint8_t *mem_buf, int n)
     case 1:
         return gdb_get_regl(mem_buf, env->CP0_BadVAddr);
     case 2:
+#ifndef CONFIG_USER_ONLY
         return gdb_get_reg32(mem_buf, (int32_t)env->CP0_Cause);
+#else
+	{
+            int32_t cause = (int32_t)env->CP0_Cause;
+            if (env->hflags & MIPS_HFLAG_BMASK)
+                cause |= 0x80000000;
+            return gdb_get_reg32(mem_buf, cause);
+        }
+#endif
     case 3:
         return gdb_get_reg32(mem_buf, (int32_t)env->CP0_Config5);
     }
@@ -139,8 +148,12 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     case 33:
         return gdb_get_regl(mem_buf, env->active_tc.HI[0]);
     case 34:
+#ifndef CONFIG_USER_ONLY
         return gdb_get_regl(mem_buf, env->active_tc.PC |
                                      !!(env->hflags & MIPS_HFLAG_M16));
+#else
+	return gdb_get_regl(mem_buf, exception_resume_pc(env));
+#endif
     default:
         return 0;
     }
@@ -174,6 +187,7 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         } else {
             env->hflags &= ~(MIPS_HFLAG_M16);
         }
+	env->hflags &= ~(MIPS_HFLAG_BMASK);
         break;
     default:
         return 0;
