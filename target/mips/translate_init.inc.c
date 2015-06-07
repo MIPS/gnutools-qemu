@@ -407,7 +407,7 @@ const mips_def_t mips_defs[] =
         .CP1_fcr31_rw_bitmask = 0xFF83FFFF,
         .SEGBITS = 32,
         .PABITS = 40,
-        .insn_flags = CPU_MIPS32R5 | ASE_MSA,
+        .insn_flags = CPU_MIPS32R5 | ASE_MICROMIPS | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
