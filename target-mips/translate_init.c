@@ -429,7 +429,7 @@ static const mips_def_t mips_defs[] =
         .MSAIR = 0x03 << MSAIR_ProcID,
         .SEGBITS = 32,
         .PABITS = 40,
-        .insn_flags = CPU_MIPS32R5 | ASE_MSA,
+        .insn_flags = CPU_MIPS32R5 | ASE_MICROMIPS | ASE_MSA,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
