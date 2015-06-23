@@ -65,8 +65,36 @@
         }                                                         \
     } while (0)
 
+/* We need a solution for stuffing 64 bit pointers in 32 bit ones if
+ * we care about this combination */
+QEMU_BUILD_BUG_ON(sizeof(target_ulong) > sizeof(void *));
+
 /* statistics */
 int tlb_flush_count;
+
+static void tlb_flush_nocheck(CPUState *cpu, int flush_global)
+{
+    CPUArchState *env = cpu->env_ptr;
+
+    assert_cpu_is_self(cpu);
+    tlb_debug("(%d)\n", flush_global);
+
+    memset(env->tlb_table, -1, sizeof(env->tlb_table));
+    memset(env->tlb_v_table, -1, sizeof(env->tlb_v_table));
+    memset(cpu->tb_jmp_cache, 0, sizeof(cpu->tb_jmp_cache));
+
+    env->vtlb_index = 0;
+    env->tlb_flush_addr = -1;
+    env->tlb_flush_mask = 0;
+    tlb_flush_count++;
+
+    atomic_mb_set(&cpu->pending_tlb_flush, false);
+}
+
+static void tlb_flush_global_async_work(CPUState *cpu, void *opaque)
+{
+    tlb_flush_nocheck(cpu, GPOINTER_TO_INT(opaque));
+}
 
 /* NOTE:
  * If flush_global is true (the usual case), flush all tlb entries.
@@ -82,19 +110,14 @@ int tlb_flush_count;
  */
 void tlb_flush(CPUState *cpu, int flush_global)
 {
-    CPUArchState *env = cpu->env_ptr;
-
-    assert_cpu_is_self(cpu);
-    tlb_debug("(%d)\n", flush_global);
-
-    memset(env->tlb_table, -1, sizeof(env->tlb_table));
-    memset(env->tlb_v_table, -1, sizeof(env->tlb_v_table));
-    memset(cpu->tb_jmp_cache, 0, sizeof(cpu->tb_jmp_cache));
-
-    env->vtlb_index = 0;
-    env->tlb_flush_addr = -1;
-    env->tlb_flush_mask = 0;
-    tlb_flush_count++;
+    if (cpu->created && !qemu_cpu_is_self(cpu)) {
+        if (atomic_bool_cmpxchg(&cpu->pending_tlb_flush, false, true)) {
+            async_run_on_cpu(cpu, tlb_flush_global_async_work,
+                             GINT_TO_POINTER(flush_global));
+        }
+    } else {
+        tlb_flush_nocheck(cpu, flush_global);
+    }
 }
 
 static inline void v_tlb_flush_by_mmuidx(CPUState *cpu, va_list argp)
@@ -220,6 +243,21 @@ void tlb_flush_page_by_mmuidx(CPUState *cpu, target_ulong addr, ...)
     va_end(argp);
 
     tb_flush_jmp_cache(cpu, addr);
+}
+
+static void tlb_flush_page_async_work(CPUState *cpu, void *opaque)
+{
+    tlb_flush_page(cpu, GPOINTER_TO_UINT(opaque));
+}
+
+void tlb_flush_page_all(target_ulong addr)
+{
+    CPUState *cpu;
+
+    CPU_FOREACH(cpu) {
+        async_run_on_cpu(cpu, tlb_flush_page_async_work,
+                         GUINT_TO_POINTER(addr));
+    }
 }
 
 /* update the TLBs so that writes to code in the virtual page 'addr'
