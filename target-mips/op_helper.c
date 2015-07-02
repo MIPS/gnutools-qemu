@@ -86,12 +86,13 @@ static inline void check_inst_limit(void)
 
 void helper_trace_transl_pre(CPUMIPSState *env, target_ulong trace_pc)
 {
+    CPUState *cs = CPU(mips_env_get_cpu(env));
     if (use_icount) {
         /* If '-icount' is specified then set instruction number limit */
         check_inst_limit();
     }
     trace_cpu_state(env, 0);
-    sv_target_disas(env, trace_pc, 4, 0); // TODO: mips16/microMIPS
+    sv_target_disas(cs, trace_pc, 4, 0); // TODO: mips16/microMIPS
 }
 
 void helper_trace_transl_post(CPUMIPSState *env)

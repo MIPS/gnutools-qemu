@@ -300,17 +300,19 @@ void target_disas(FILE *out, CPUState *cpu, target_ulong code,
 }
 
 #ifdef MIPSSIM_COMPAT
-void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
+void mips_sv_disas(FILE *out, CPUState *cpu, target_ulong code,
                    target_ulong size, int flags)
 {
     target_ulong pc;
     CPUDebug s;
     int (*print_insn)(bfd_vma pc, disassemble_info *info) = NULL;
     char sv_dis_options[] = "gpr-names=numeric,cp0-names=iasim,fpr-names=iasim";
+    MIPSCPU *mips_cpu = MIPS_CPU(cpu);
+    CPUArchState *env = &mips_cpu->env;
 
     INIT_DISASSEMBLE_INFO(s.info, out, fprintf);
 
-    s.env = env;
+    s.cpu = cpu;
     s.info.read_memory_func = target_read_memory;
     s.info.buffer_vma = code;
     s.info.buffer_length = size;

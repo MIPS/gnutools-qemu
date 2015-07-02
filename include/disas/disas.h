@@ -9,7 +9,7 @@ void disas(FILE *out, void *code, unsigned long size);
 void target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size, int flags);
 #ifdef MIPSSIM_COMPAT
-void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
+void mips_sv_disas(FILE *out, CPUState *env, target_ulong code,
                    target_ulong size, int flags);
 #endif
 
