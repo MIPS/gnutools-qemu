@@ -395,7 +395,7 @@ static const mips_def_t mips_defs[] =
          * Config5: EVA, MRP
          * FIR(FCR0): Has2008
          * */
-        .name = "P5600",
+        .name = "mips32r5-generic",
         .CP0_PRid = 0x0001A800,
         .CP0_Config0 = MIPS_CONFIG0 | (1 << CP0C0_MM) | (1 << CP0C0_AR) |
                     (MMU_TYPE_R4000 << CP0C0_MT),
