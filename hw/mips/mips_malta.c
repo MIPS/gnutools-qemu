@@ -637,6 +637,12 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     /* Second part of the bootloader */
     p = (uint32_t *) (base + 0x580);
 
+    /* handle SMP */
+    stl_p(p++, 0x40017801);     /* mfc0    at,c0_ebase */
+    stl_p(p++, 0x7c214800);     /* ext     at,at,0x0,0xa */
+    stl_p(p++, 0x1020ffff);     /* beqz    at,0x8 */
+    stl_p(p++, 0x00000000);     /*  nop */
+
     if (semihosting_get_argc()) {
         /* Preserve a0 content as arguments have been passed */
         stl_p(p++, 0x00000000);                         /* nop */
@@ -1167,7 +1173,7 @@ void mips_malta_init(MachineState *machine)
     cpu_mips_clock_init(env);
 
     /* GCR/GIC */
-    if (/*kvm_enabled() &&*/ smp_cpus > 1) {
+    if (1 || /*kvm_enabled() &&*/ smp_cpus > 1) {
         gic_init(smp_cpus, first_cpu, system_memory);
     }
 

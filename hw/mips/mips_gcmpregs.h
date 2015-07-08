@@ -73,11 +73,15 @@
 #define GCMP_GCB_GCMEO_OFS		0x0058	/* Global CM Error Multiple */
 #define  GCMP_GCB_GMEO_ERROR_2ND_SHF	0
 #define  GCMP_GCB_GMEO_ERROR_2ND_MSK	GCMPGCBMSK(GMEO_ERROR_2ND, 5)
-#define GCMP_GCB_GICBA_OFS		0x0080	/* Global Interrupt Controller Base Address */
+#define GCMP_GCB_GICBA_OFS		0x0080	/* GIC Base Address */
 #define  GCMP_GCB_GICBA_BASE_SHF	17
 #define  GCMP_GCB_GICBA_BASE_MSK	GCMPGCBMSK(GICBA_BASE, 15)
 #define  GCMP_GCB_GICBA_EN_SHF		0
 #define  GCMP_GCB_GICBA_EN_MSK		GCMPGCBMSK(GICBA_EN, 1)
+#define GCMP_GCB_GICST_OFS		0x00d0	/* GIC Status */
+#define  GCMP_GCB_GICST_EX_SHF		0
+#define  GCMP_GCB_GICST_EX_MSK		GCMPGCBMSK(GICST_EX, 1)
+
 
 /* GCB Regions */
 #define GCMP_GCB_CMxBASE_OFS(n)		(0x0090+16*(n))		/* Global Region[0-3] Base Address */

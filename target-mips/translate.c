@@ -1433,6 +1433,7 @@ typedef struct DisasContext {
     bool mvh;
     int CP0_LLAddr_shift;
     bool ps;
+    bool cmgcr;
 } DisasContext;
 
 enum {
@@ -5669,6 +5670,15 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
             break;
+        case 3:
+            /* FIXME R2? */
+            check_insn(ctx, ISA_MIPS32R2);
+            /* Check config3 bit */
+            CP0_CHECK(ctx->cmgcr);
+            /* FIXME MIPS64 */
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            rn = "CMGCRBase";
+            break;
         default:
             goto cp0_unimplemented;
        }
@@ -6920,6 +6930,15 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
+            break;
+        case 3:
+            /* FIXME R2? */
+            check_insn(ctx, ISA_MIPS32R2);
+            /* Check config3 bit */
+            CP0_CHECK(ctx->cmgcr);
+            /* FIXME MIPS64 */
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            rn = "CMGCRBase";
             break;
         default:
             goto cp0_unimplemented;
@@ -20293,6 +20312,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.ulri = (env->CP0_Config3 >> CP0C3_ULRI) & 1;
     ctx.ps = ((env->active_fpu.fcr0 >> FCR0_PS) & 1) ||
              (env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F));
+    ctx.cmgcr = env->CP0_Config3 & (1 << CP0C3_CMGCR);
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
@@ -20985,6 +21005,9 @@ void cpu_state_reset(CPUMIPSState *env)
         env->CP0_EBase |= 0x40000000;
     } else {
         env->CP0_EBase |= 0x80000000;
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
+        env->CP0_CMGCRBase = 0x1fbf8000 >> 4;
     }
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
     /* vectored interrupts not implemented, timer on int 7,

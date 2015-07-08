@@ -20,7 +20,7 @@
 #include "hw/mips/mips_gic.h"
 #include "hw/mips/mips_gcmpregs.h"
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define DPRINTF(fmt, ...) fprintf(stderr, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
@@ -286,6 +286,10 @@ gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCMP_GCB_GICBA_OFS:
         return gic->gcr_gic_base_reg;
         break;
+
+    case GCMP_GCB_GICST_OFS:
+        /* FIXME indicates a connection between GIC and CM */
+        return GCMP_GCB_GICST_EX_MSK;
 
     default:
         DPRINTF("Unsupported Reg Read @ offset %#" PRIx64 "\n", addr);
