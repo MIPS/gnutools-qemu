@@ -54,8 +54,8 @@ static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
 
     sv_log("FILL TLB index %d, ", idx);
     sv_log("VPN 0x" TARGET_FMT_lx ", ", tlb->VPN);
-    sv_log("PFN0 0x" TARGET_FMT_lx " ", tlb->PFN[0] << 12);
-    sv_log("PFN1 0x" TARGET_FMT_lx " ", tlb->PFN[1] << 12);
+    sv_log("PFN0 0x%016lx ", tlb->PFN[0] << 12);
+    sv_log("PFN1 0x%016lx ", tlb->PFN[1] << 12);
     sv_log("mask 0x%08x ", tlb->PageMask);
     sv_log("G %x ", tlb->G);
     sv_log("V0 %x ", tlb->V0);
@@ -68,8 +68,8 @@ static void trace_tlb_fill(CPUMIPSState *env, int idx, bool is_random)
     sv_log("Write TLB Entry[%d] = ", idx);
     sv_log("%08x ", env->CP0_PageMask);
     sv_log(TARGET_FMT_lx " ", env->CP0_EntryHi);
-    sv_log("%08x ", (uint32_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
-    sv_log("%08x\n", (uint32_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
+    sv_log("%016lx ", (uint64_t)(env->CP0_EntryLo1 & ~1ULL) | tlb->G);
+    sv_log("%016lx\n", (uint64_t)(env->CP0_EntryLo0 & ~1ULL) | tlb->G);
 }
 #endif
 #endif
