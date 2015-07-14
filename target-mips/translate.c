@@ -8941,6 +8941,12 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
         }
         gen_store_gpr(t0, rt);
         opn = "mfc1";
+#if defined(CONFIG_USER_ONLY)
+        /* FIXME
+           Workaround: end translation to avoid TCG optimization with next
+           instruction. */
+        ctx->bstate = BS_STOP;
+#endif
         break;
     case OPC_MTC1:
         gen_load_gpr(t0, rt);
