@@ -75,6 +75,14 @@ union wr_t {
     int64_t d[MSA_WRLEN/64];
 };
 
+#if defined(CONFIG_USER_ONLY)
+/* Custom prctl interface.  */
+#define PR_SET_FP_MODE 45
+#define PR_GET_FP_MODE 46
+#define PR_FP_MODE_FR  (1 << 0)
+#define PR_FP_MODE_FRE (1 << 1)
+#endif
+
 typedef union fpr_t fpr_t;
 union fpr_t {
     float64  fd;   /* ieee double precision */
@@ -164,6 +172,7 @@ typedef struct mips_def_t mips_def_t;
 #define MIPS_FPU_MAX 1
 #define MIPS_DSP_ACC 4
 #define MIPS_KSCRATCH_NUM 6
+#define MIPS_MAAR_MAX 16 /* Must be an even number. */
 
 typedef struct TCState TCState;
 struct TCState {
@@ -239,6 +248,8 @@ struct CPUMIPSState {
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
+    int32_t CP0_VPControl;
+#define CP0VPCtl_DIS    0
     int32_t CP0_Random;
     int32_t CP0_VPEControl;
 #define CP0VPECo_YSI	21
@@ -288,6 +299,8 @@ struct CPUMIPSState {
 # define CP0EnLo_RI 31
 # define CP0EnLo_XI 30
 #endif
+    int32_t CP0_GlobalNumer;
+#define CP0GN_VPId 0
     target_ulong CP0_Context;
     target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];
     int32_t CP0_PageMask;
@@ -297,7 +310,26 @@ struct CPUMIPSState {
 #define CP0PG_XIE 30
 #define CP0PG_ELPA 29
 #define CP0PG_IEC 27
+    target_ulong CP0_PWBase;
+    target_ulong CP0_PWField;
+#define CP0PF_GDI   24
+#define CP0PF_UDI   18
+#define CP0PF_MDI   12
+#define CP0PF_PTI   6
+#define CP0PF_PTEI  0
+    target_ulong CP0_PWSize;
+#define CP0PS_PS    30
+#define CP0PS_GDW   24
+#define CP0PS_UDW   18
+#define CP0PS_MDW   12
+#define CP0PS_PTW   6
+#define CP0PS_PTEW  0
     int32_t CP0_Wired;
+    int32_t CP0_PWCtl;
+#define CP0PC_PWEN      31
+#define CP0PC_DPH       7
+#define CP0PC_HUGEPG    6
+#define CP0PC_PSN       0
     int32_t CP0_SRSConf0_rw_bitmask;
     int32_t CP0_SRSConf0;
 #define CP0SRSC0_M	31
@@ -395,7 +427,7 @@ struct CPUMIPSState {
 #define CP0C0_K23  28
 #define CP0C0_KU   25
 #define CP0C0_MDU  20
-#define CP0C0_MM   17
+#define CP0C0_MM   18
 #define CP0C0_BM   16
 #define CP0C0_BE   15
 #define CP0C0_AT   13
@@ -436,6 +468,7 @@ struct CPUMIPSState {
 #define CP0C3_MSAP  28
 #define CP0C3_BP 27
 #define CP0C3_BI 26
+#define CP0C3_PW   24
 #define CP0C3_IPLW 21
 #define CP0C3_MMAR 18
 #define CP0C3_MCU  17
@@ -472,13 +505,17 @@ struct CPUMIPSState {
 #define CP0C5_MSAEn      27
 #define CP0C5_UFE        9
 #define CP0C5_FRE        8
+#define CP0C5_VP         7
 #define CP0C5_SBRI       6
 #define CP0C5_MVH        5
 #define CP0C5_LLB        4
+#define CP0C5_MRP        3
 #define CP0C5_UFR        2
 #define CP0C5_NFExists   0
     int32_t CP0_Config6;
     int32_t CP0_Config7;
+    uint64_t CP0_MAAR[MIPS_MAAR_MAX];
+    int32_t CP0_MAARI;
     /* XXX: Maybe make LLAddr per-TC? */
     uint64_t lladdr;
     target_ulong llval;
@@ -780,6 +817,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env);
 /* op_helper.c */
 extern unsigned int ieee_rm[];
 int ieee_ex_to_mips(int xcpt);
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *pagemask);
 
 static inline void restore_rounding_mode(CPUMIPSState *env)
 {
@@ -857,6 +895,26 @@ static inline int mips_vpe_active(CPUMIPSState *env)
     }
 
     return active;
+}
+
+static inline int mips_vp_active(CPUMIPSState *env)
+{
+    CPUState *other_cs = first_cpu;
+
+    /* Check if the VP disabled other VPs (which means the VP is enabled) */
+    if ((env->CP0_VPControl >> CP0VPCtl_DIS) &1) {
+        return 1;
+    }
+
+    /* Check if the virtual processor is disabled due to a DVP */
+    CPU_FOREACH(other_cs) {
+        MIPSCPU *other_cpu = MIPS_CPU(other_cs);
+        if ((&other_cpu->env != env) &&
+            ((other_cpu->env.CP0_VPControl >> CP0VPCtl_DIS) &1)) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 #include "exec/exec-all.h"
