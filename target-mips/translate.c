@@ -11076,7 +11076,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
                fregnames[fs], fregnames[ft]);
 }
 
-static void gen_rdhwr(DisasContext *ctx, int rt, int rd)
+static void gen_rdhwr(DisasContext *ctx, int rt, int rd, int sel)
 {
     TCGv t0;
 
@@ -11106,6 +11106,24 @@ static void gen_rdhwr(DisasContext *ctx, int rt, int rd)
     case 3:
         save_cpu_state(ctx, 1);
         gen_helper_rdhwr_ccres(t0, cpu_env);
+        gen_store_gpr(t0, rt);
+        break;
+    case 4:
+        check_insn(ctx, ISA_MIPS32R6);
+        if (sel != 0) {
+            /* Performance counter registers are not implemented other than
+             * control register 0.
+             */
+            generate_exception(ctx, EXCP_RI);
+        }
+        save_cpu_state(ctx, 1);
+        gen_helper_rdhwr_performance(t0, cpu_env);
+        gen_store_gpr(t0, rt);
+        break;
+    case 5:
+        check_insn(ctx, ISA_MIPS32R6);
+        save_cpu_state(ctx, 1);
+        gen_helper_rdhwr_xnp(t0, cpu_env);
         gen_store_gpr(t0, rt);
         break;
     case 29:
@@ -12732,6 +12750,7 @@ enum {
     ROTR = 0x3,
     SELEQZ = 0x5,
     SELNEZ = 0x6,
+    R6_RDHWR = 0x7,
 
     SLLV = 0x0,
     SRLV = 0x1,
@@ -13700,7 +13719,8 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
             gen_cl(ctx, mips32_op, rt, rs);
             break;
         case RDHWR:
-            gen_rdhwr(ctx, rt, rs);
+            check_insn_opc_removed(ctx, ISA_MIPS32R6);
+            gen_rdhwr(ctx, rt, rs, 0);
             break;
         case WSBH:
             gen_bshfl(ctx, OPC_WSBH, rs, rt);
@@ -14255,6 +14275,10 @@ static void decode_micromips32_opc(CPUMIPSState *env, DisasContext *ctx)
             case SELNEZ:
                 check_insn(ctx, ISA_MIPS32R6);
                 gen_cond_move(ctx, OPC_SELNEZ, rd, rs, rt);
+                break;
+            case R6_RDHWR:
+                check_insn(ctx, ISA_MIPS32R6);
+                gen_rdhwr(ctx, rt, rs, extract32(ctx->opcode, 11, 3));
                 break;
             default:
                 goto pool32a_invalid;
@@ -18557,7 +18581,7 @@ static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
         break;
 #endif
     case OPC_RDHWR:
-        gen_rdhwr(ctx, rt, rd);
+        gen_rdhwr(ctx, rt, rd, extract32(ctx->opcode, 6, 3));
         break;
     case OPC_FORK:
         check_insn(ctx, ASE_MT);
