@@ -859,11 +859,6 @@ static void memory_region_destructor_ram(MemoryRegion *mr)
     qemu_ram_free(mr->ram_addr);
 }
 
-static void memory_region_destructor_alias(MemoryRegion *mr)
-{
-    memory_region_unref(mr->alias);
-}
-
 static void memory_region_destructor_ram_from_ptr(MemoryRegion *mr)
 {
     qemu_ram_free_from_ptr(mr->ram_addr);
@@ -1272,8 +1267,6 @@ void memory_region_init_alias(MemoryRegion *mr,
                               uint64_t size)
 {
     memory_region_init(mr, owner, name, size);
-    memory_region_ref(orig);
-    mr->destructor = memory_region_destructor_alias;
     mr->alias = orig;
     mr->alias_offset = offset;
 }
@@ -1433,8 +1426,15 @@ void memory_region_notify_iommu(MemoryRegion *mr,
 void memory_region_set_log(MemoryRegion *mr, bool log, unsigned client)
 {
     uint8_t mask = 1 << client;
+    uint8_t old_logging;
 
     assert(client == DIRTY_MEMORY_VGA);
+    old_logging = mr->vga_logging_count;
+    mr->vga_logging_count += log ? 1 : -1;
+    if (!!old_logging == !!mr->vga_logging_count) {
+        return;
+    }
+
     memory_region_transaction_begin();
     mr->dirty_log_mask = (mr->dirty_log_mask & ~mask) | (log * mask);
     memory_region_update_pending |= mr->enabled;

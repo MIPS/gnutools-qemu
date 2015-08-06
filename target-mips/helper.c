@@ -922,14 +922,13 @@ void mips_cpu_do_interrupt(CPUState *cs)
     case EXCP_EXT_INTERRUPT:
         cause = 0;
         if (env->CP0_Cause & (1 << CP0Ca_IV)) {
-            uint32_t spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) &0x1f;
+            uint32_t spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & 0x1f;
 
             if ((env->CP0_Status & (1 << CP0St_BEV)) || spacing == 0) {
                 offset = 0x200;
             } else {
                 uint32_t vector = 0;
-                uint32_t pending = (env->CP0_Cause & CP0Ca_IP_mask)
-                                   >> CP0Ca_IP;
+                uint32_t pending = (env->CP0_Cause & CP0Ca_IP_mask) >> CP0Ca_IP;
 
                 if (env->CP0_Config3 & (1 << CP0C3_VEIC)) {
                     /* For VEIC mode, the external interrupt controller feeds
@@ -938,7 +937,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
                 } else {
                     /* Vectored Interrupts
                      * Mask with Status.IM7-IM0 to get enabled interrupts. */
-                    pending &= (env->CP0_Status >> CP0St_IM) &0xff;
+                    pending &= (env->CP0_Status >> CP0St_IM) & 0xff;
                     /* Find the highest-priority interrupt. */
                     while (pending >>= 1) {
                         vector++;

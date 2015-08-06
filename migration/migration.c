@@ -22,6 +22,7 @@
 #include "block/block.h"
 #include "qapi/qmp/qerror.h"
 #include "qemu/sockets.h"
+#include "qemu/rcu.h"
 #include "migration/block.h"
 #include "qemu/thread.h"
 #include "qmp-commands.h"
@@ -119,6 +120,13 @@ int global_state_store(void)
         return -EINVAL;
     }
     return 0;
+}
+
+void global_state_store_running(void)
+{
+    const char *state = RunState_lookup[RUN_STATE_RUNNING];
+    strncpy((char *)global_state.runstate,
+           state, sizeof(global_state.runstate));
 }
 
 static bool global_state_received(void)
@@ -917,6 +925,8 @@ static void *migration_thread(void *opaque)
     int64_t start_time = initial_time;
     bool old_vm_running = false;
 
+    rcu_register_thread();
+
     qemu_savevm_state_header(s->file);
     qemu_savevm_state_begin(s->file, &s->params);
 
@@ -1016,6 +1026,7 @@ static void *migration_thread(void *opaque)
     qemu_bh_schedule(s->cleanup_bh);
     qemu_mutex_unlock_iothread();
 
+    rcu_unregister_thread();
     return NULL;
 }
 
