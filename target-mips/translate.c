@@ -12761,6 +12761,7 @@ enum {
     MODU = 0x7,
 
     /* The following can be distinguished by their lower 6 bits. */
+    BREAK32 = 0x07,
     INS = 0x0c,
     LSA = 0x0f,
     ALIGN = 0x1f,
@@ -14396,7 +14397,7 @@ static void decode_micromips32_opc(CPUMIPSState *env, DisasContext *ctx)
         case POOL32AXF:
             gen_pool32axf(env, ctx, rt, rs);
             break;
-        case 0x07:
+        case BREAK32:
             generate_exception(ctx, EXCP_BREAK);
             break;
         default:
