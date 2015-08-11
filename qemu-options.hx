@@ -206,7 +206,7 @@ STEXI
 @item -boot [order=@var{drives}][,once=@var{drives}][,menu=on|off][,splash=@var{sp_name}][,splash-time=@var{sp_time}][,reboot-timeout=@var{rb_timeout}][,strict=on|off]
 @findex -boot
 Specify boot order @var{drives} as a string of drive letters. Valid
-drive letters depend on the target achitecture. The x86 PC uses: a, b
+drive letters depend on the target architecture. The x86 PC uses: a, b
 (floppy 1 and 2), c (first hard disk), d (first CD-ROM), n-p (Etherboot
 from network adapter 1-4), hard disk boot is the default. To apply a
 particular boot order only on the first startup, specify it via
@@ -1963,14 +1963,13 @@ The hubport netdev lets you connect a NIC to a QEMU "vlan" instead of a single
 netdev.  @code{-net} and @code{-device} with parameter @option{vlan} create the
 required hub automatically.
 
-@item -netdev vhost-user,chardev=@var{id}[,vhostforce=on|off][,queues=n]
+@item -netdev vhost-user,chardev=@var{id}[,vhostforce=on|off]
 
 Establish a vhost-user netdev, backed by a chardev @var{id}. The chardev should
 be a unix domain socket backed one. The vhost-user uses a specifically defined
 protocol to pass vhost ioctl replacement messages to an application on the other
 end of the socket. On non-MSIX guests, the feature can be forced with
-@var{vhostforce}. Use 'queues=@var{n}' to specify the number of queues to
-be created for multiqueue vhost-user.
+@var{vhostforce}.
 
 Example:
 @example

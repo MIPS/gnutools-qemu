@@ -478,6 +478,7 @@ $(patsubst %, check-%, $(check-unit-y)): check-%: %
 
 $(patsubst %, check-report-qtest-%.xml, $(QTEST_TARGETS)): check-report-qtest-%.xml: $(check-qtest-y)
 	$(call quiet-command,QTEST_QEMU_BINARY=$*-softmmu/qemu-system-$* \
+		QTEST_QEMU_IMG=qemu-img$(EXESUF) \
 	  gtester -q $(GTESTER_OPTIONS) -o $@ -m=$(SPEED) $(check-qtest-$*-y),"GTESTER $@")
 
 check-report-unit.xml: $(check-unit-y)
@@ -486,10 +487,10 @@ check-report-unit.xml: $(check-unit-y)
 # Reports and overall runs
 
 check-report.xml: $(patsubst %,check-report-qtest-%.xml, $(QTEST_TARGETS)) check-report-unit.xml
-	$(call quiet-command,$(SRC_PATH)/scripts/gtester-cat $^ > $@, "  GEN    $@")
+	$(call quiet-command,$(SRC_PATH)/scripts/gtester-cat $^ > $@, "  GEN   $@")
 
 check-report.html: check-report.xml
-	$(call quiet-command,gtester-report $< > $@, "  GEN    $@")
+	$(call quiet-command,gtester-report $< > $@, "  GEN   $@")
 
 
 # Other tests

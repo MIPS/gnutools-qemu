@@ -1420,6 +1420,12 @@ void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
 {
     uint32_t mask = 0x0000000F;
 
+    if (env->CP0_Config1 & (1 << CP0C1_PC)) {
+        mask |= (1 << 4);
+    }
+    if (env->insn_flags & ISA_MIPS32R6) {
+        mask |= (1 << 5);
+    }
     if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
         mask |= (1 << 29);
 
@@ -2322,48 +2328,48 @@ void helper_deret(CPUMIPSState *env)
 }
 #endif /* !CONFIG_USER_ONLY */
 
+static inline void check_hwrena(CPUMIPSState *env, int reg)
+{
+    if ((env->hflags & MIPS_HFLAG_CP0) || (env->CP0_HWREna & (1 << reg))) {
+        return;
+    }
+    helper_raise_exception(env, EXCP_RI);
+}
+
 target_ulong helper_rdhwr_cpunum(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 0)))
-        return env->CP0_EBase & 0x3ff;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 0);
+    return env->CP0_EBase & 0x3ff;
 }
 
 target_ulong helper_rdhwr_synci_step(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 1)))
-        return env->SYNCI_Step;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 1);
+    return env->SYNCI_Step;
 }
 
 target_ulong helper_rdhwr_cc(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 2)))
-        return env->CP0_Count;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 2);
+    return env->CP0_Count;
 }
 
 target_ulong helper_rdhwr_ccres(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 3)))
-        return env->CCRes;
-    else
-        helper_raise_exception(env, EXCP_RI);
+    check_hwrena(env, 3);
+    return env->CCRes;
+}
 
-    return 0;
+target_ulong helper_rdhwr_performance(CPUMIPSState *env)
+{
+    check_hwrena(env, 4);
+    return env->CP0_Performance0;
+}
+
+target_ulong helper_rdhwr_xnp(CPUMIPSState *env)
+{
+    check_hwrena(env, 5);
+    return (env->CP0_Config5 >> CP0C5_XNP) & 1;
 }
 
 void helper_pmon(CPUMIPSState *env, int function)
