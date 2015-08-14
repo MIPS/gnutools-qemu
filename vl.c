@@ -293,6 +293,26 @@ static QemuOptsList qemu_machine_opts = {
     },
 };
 
+static QemuOptsList qemu_accel_opts = {
+    .name = "accel",
+    .implied_opt_name = "accel",
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_accel_opts.head),
+    .merge_lists = true,
+    .desc = {
+        {
+            .name = "accel",
+            .type = QEMU_OPT_STRING,
+            .help = "Select the type of accelerator",
+        },
+        {
+            .name = "thread",
+            .type = QEMU_OPT_STRING,
+            .help = "Enable/disable multi-threaded TCG",
+        },
+        { /* end of list */ }
+    },
+};
+
 static QemuOptsList qemu_boot_opts = {
     .name = "boot-opts",
     .implied_opt_name = "order",
@@ -2936,7 +2956,8 @@ int main(int argc, char **argv, char **envp)
     const char *boot_once = NULL;
     DisplayState *ds;
     int cyls, heads, secs, translation;
-    QemuOpts *hda_opts = NULL, *opts, *machine_opts, *icount_opts = NULL;
+    QemuOpts *opts, *machine_opts;
+    QemuOpts *hda_opts = NULL, *icount_opts = NULL;
     QemuOptsList *olist;
     int optind;
     const char *optarg;
@@ -2986,6 +3007,7 @@ int main(int argc, char **argv, char **envp)
     qemu_add_opts(&qemu_trace_opts);
     qemu_add_opts(&qemu_option_rom_opts);
     qemu_add_opts(&qemu_machine_opts);
+    qemu_add_opts(&qemu_accel_opts);
     qemu_add_opts(&qemu_mem_opts);
     qemu_add_opts(&qemu_smp_opts);
     qemu_add_opts(&qemu_boot_opts);
@@ -3676,6 +3698,27 @@ int main(int argc, char **argv, char **envp)
                 qdev_prop_register_global(&kvm_pit_lost_tick_policy);
                 break;
             }
+            case QEMU_OPTION_accel:
+                opts = qemu_opts_parse_noisily(qemu_find_opts("accel"),
+                                               optarg, true);
+                optarg = qemu_opt_get(opts, "accel");
+
+                olist = qemu_find_opts("machine");
+                if (strcmp("kvm", optarg) == 0) {
+                    qemu_opts_parse_noisily(olist, "accel=kvm", false);
+                } else if (strcmp("xen", optarg) == 0) {
+                    qemu_opts_parse_noisily(olist, "accel=xen", false);
+                } else if (strcmp("tcg", optarg) == 0) {
+                    qemu_opts_parse_noisily(olist, "accel=tcg", false);
+                    qemu_tcg_configure(opts, &error_fatal);
+                } else {
+                    if (!is_help_option(optarg)) {
+                        error_printf("Unknown accelerator: %s", optarg);
+                    }
+                    error_printf("Supported accelerators: kvm, xen, tcg\n");
+                    exit(1);
+                }
+                break;
             case QEMU_OPTION_usb:
                 olist = qemu_find_opts("machine");
                 qemu_opts_parse_noisily(olist, "usb=on", false);
@@ -4339,6 +4382,9 @@ int main(int argc, char **argv, char **envp)
     if (icount_opts) {
         if (kvm_enabled() || xen_enabled()) {
             error_report("-icount is not allowed with kvm or xen");
+            exit(1);
+        } else if (qemu_tcg_mttcg_enabled()) {
+            error_report("-icount does not currently work with MTTCG");
             exit(1);
         }
         configure_icount(icount_opts, &error_abort);
