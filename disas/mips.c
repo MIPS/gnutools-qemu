@@ -1296,12 +1296,12 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"dmod",    "d,s,t",    0x000000de, 0xfc0007ff, WR_d|RD_s|RD_t,       0, I64R6},
 {"ddivu",   "d,s,t",    0x0000009f, 0xfc0007ff, WR_d|RD_s|RD_t,       0, I64R6},
 {"dmodu",   "d,s,t",    0x000000df, 0xfc0007ff, WR_d|RD_s|RD_t,       0, I64R6},
-{"ll",      "t,o(b)",   0x7c000036, 0xfc00007f, LDD|RD_b|WR_t,        0, I32R6},
-{"sc",      "t,o(b)",   0x7c000026, 0xfc00007f, LDD|RD_b|WR_t,        0, I32R6},
-{"lld",     "t,o(b)",   0x7c000037, 0xfc00007f, LDD|RD_b|WR_t,        0, I64R6},
-{"scd",     "t,o(b)",   0x7c000027, 0xfc00007f, LDD|RD_b|WR_t,        0, I64R6},
-{"pref",    "h,o(b)",   0x7c000035, 0xfc00007f, RD_b,                 0, I32R6},
-{"cache",   "k,o(b)",   0x7c000025, 0xfc00007f, RD_b,                 0, I32R6},
+{"ll",      "t,+o(b)",  0x7c000036, 0xfc00007f, LDD|RD_b|WR_t,        0, I32R6},
+{"sc",      "t,+o(b)",  0x7c000026, 0xfc00007f, LDD|RD_b|WR_t,        0, I32R6},
+{"lld",     "t,+o(b)",  0x7c000037, 0xfc00007f, LDD|RD_b|WR_t,        0, I64R6},
+{"scd",     "t,+o(b)",  0x7c000027, 0xfc00007f, LDD|RD_b|WR_t,        0, I64R6},
+{"pref",    "h,+o(b)",  0x7c000035, 0xfc00007f, RD_b,                 0, I32R6},
+{"cache",   "k,+o(b)",  0x7c000025, 0xfc00007f, RD_b,                 0, I32R6},
 {"seleqz",  "d,v,t",    0x00000035, 0xfc0007ff, WR_d|RD_s|RD_t,       0, I32R6},
 {"selnez",  "d,v,t",    0x00000037, 0xfc0007ff, WR_d|RD_s|RD_t,       0, I32R6},
 {"maddf.s", "D,S,T",    0x46000018, 0xffe0003f, WR_D|RD_S|RD_T|FP_S,  0, I32R6},
@@ -2238,6 +2238,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"ceil.l.s", "D,S",	0x4600000a, 0xffff003f, WR_D|RD_S|FP_S|FP_D,	0,		I3|I33	},
 {"ceil.w.d", "D,S",	0x4620000e, 0xffff003f, WR_D|RD_S|FP_S|FP_D,	0,		I2	},
 {"ceil.w.s", "D,S",	0x4600000e, 0xffff003f, WR_D|RD_S|FP_S,		0,		I2	},
+{"mfhc0",   "t,G,H",    0x40400000, 0xffe007f8, LCD|WR_t|RD_C0,       0, I33},
+{"mthc0",   "t,G,H",    0x40c00000, 0xffe007f8, COD|RD_t|WR_C0|WR_CC, 0, I33},
 {"cfc0",    "t,G",	0x40400000, 0xffe007ff,	LCD|WR_t|RD_C0,		0,		I1	},
 {"cfc1",    "t,G",	0x44400000, 0xffe007ff,	LCD|WR_t|RD_C1|FP_S,	0,		I1	},
 {"cfc1",    "t,S",	0x44400000, 0xffe007ff,	LCD|WR_t|RD_C1|FP_S,	0,		I1	},
@@ -2407,6 +2409,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"emt",     "",		0x41600be1, 0xffffffff, TRAP,			0,		MT32	},
 {"emt",     "t",	0x41600be1, 0xffe0ffff, TRAP|WR_t,		0,		MT32	},
 {"eret",    "",         0x42000018, 0xffffffff, 0,      		0,		I3|I32	},
+{"eretnc",  "",         0x42000058, 0xffffffff, 0,                    0, I33},
 {"evpe",    "",		0x41600021, 0xffffffff, TRAP,			0,		MT32	},
 {"evpe",    "t",	0x41600021, 0xffe0ffff, TRAP|WR_t,		0,		MT32	},
 {"ext",     "t,r,+A,+C", 0x7c000000, 0xfc00003f, WR_t|RD_s,    		0,		I33	},
@@ -3511,6 +3514,7 @@ struct mips_cp0sel_name
   const char * const name;
 };
 
+#if 0
 /* The mips16 registers.  */
 static const unsigned int mips16_to_32_reg_map[] =
 {
@@ -3518,7 +3522,7 @@ static const unsigned int mips16_to_32_reg_map[] =
 };
 
 #define mips16_reg_names(rn)	mips_gpr_names[mips16_to_32_reg_map[rn]]
-
+#endif
 
 static const char * const mips_gpr_names_numeric[32] =
 {
@@ -3796,13 +3800,6 @@ static const char * const mips_hwr_names_mips3264r2[32] =
 {
   "hwr_cpunum",   "hwr_synci_step", "hwr_cc",     "hwr_ccres",
   "$4",          "$5",            "$6",           "$7",
-  "$8",   "$9",   "$10",  "$11",  "$12",  "$13",  "$14",  "$15",
-  "$16",  "$17",  "$18",  "$19",  "$20",  "$21",  "$22",  "$23",
-  "$24",  "$25",  "$26",  "$27",  "$28",  "$29",  "$30",  "$31"
-};
-
-static const char * const mips_msa_control_names_numeric[32] = {
-  "$0",   "$1",   "$2",   "$3",   "$4",   "$5",   "$6",   "$7",
   "$8",   "$9",   "$10",  "$11",  "$12",  "$13",  "$14",  "$15",
   "$16",  "$17",  "$18",  "$19",  "$20",  "$21",  "$22",  "$23",
   "$24",  "$25",  "$26",  "$27",  "$28",  "$29",  "$30",  "$31"

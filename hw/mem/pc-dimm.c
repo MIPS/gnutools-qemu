@@ -22,6 +22,128 @@
 #include "qemu/config-file.h"
 #include "qapi/visitor.h"
 #include "qemu/range.h"
+#include "sysemu/numa.h"
+#include "sysemu/kvm.h"
+#include "trace.h"
+
+typedef struct pc_dimms_capacity {
+     uint64_t size;
+     Error    **errp;
+} pc_dimms_capacity;
+
+void pc_dimm_memory_plug(DeviceState *dev, MemoryHotplugState *hpms,
+                         MemoryRegion *mr, uint64_t align, Error **errp)
+{
+    int slot;
+    MachineState *machine = MACHINE(qdev_get_machine());
+    PCDIMMDevice *dimm = PC_DIMM(dev);
+    Error *local_err = NULL;
+    uint64_t existing_dimms_capacity = 0;
+    uint64_t addr;
+
+    addr = object_property_get_int(OBJECT(dimm), PC_DIMM_ADDR_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    addr = pc_dimm_get_free_addr(hpms->base,
+                                 memory_region_size(&hpms->mr),
+                                 !addr ? NULL : &addr, align,
+                                 memory_region_size(mr), &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    existing_dimms_capacity = pc_existing_dimms_capacity(&local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    if (existing_dimms_capacity + memory_region_size(mr) >
+        machine->maxram_size - machine->ram_size) {
+        error_setg(&local_err, "not enough space, currently 0x%" PRIx64
+                   " in use of total hot pluggable 0x" RAM_ADDR_FMT,
+                   existing_dimms_capacity,
+                   machine->maxram_size - machine->ram_size);
+        goto out;
+    }
+
+    object_property_set_int(OBJECT(dev), addr, PC_DIMM_ADDR_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    trace_mhp_pc_dimm_assigned_address(addr);
+
+    slot = object_property_get_int(OBJECT(dev), PC_DIMM_SLOT_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+
+    slot = pc_dimm_get_free_slot(slot == PC_DIMM_UNASSIGNED_SLOT ? NULL : &slot,
+                                 machine->ram_slots, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    object_property_set_int(OBJECT(dev), slot, PC_DIMM_SLOT_PROP, &local_err);
+    if (local_err) {
+        goto out;
+    }
+    trace_mhp_pc_dimm_assigned_slot(slot);
+
+    if (kvm_enabled() && !kvm_has_free_slot(machine)) {
+        error_setg(&local_err, "hypervisor has no free memory slots left");
+        goto out;
+    }
+
+    memory_region_add_subregion(&hpms->mr, addr - hpms->base, mr);
+    vmstate_register_ram(mr, dev);
+    numa_set_mem_node_id(addr, memory_region_size(mr), dimm->node);
+
+out:
+    error_propagate(errp, local_err);
+}
+
+void pc_dimm_memory_unplug(DeviceState *dev, MemoryHotplugState *hpms,
+                           MemoryRegion *mr)
+{
+    PCDIMMDevice *dimm = PC_DIMM(dev);
+
+    numa_unset_mem_node_id(dimm->addr, memory_region_size(mr), dimm->node);
+    memory_region_del_subregion(&hpms->mr, mr);
+    vmstate_unregister_ram(mr, dev);
+}
+
+static int pc_existing_dimms_capacity_internal(Object *obj, void *opaque)
+{
+    pc_dimms_capacity *cap = opaque;
+    uint64_t *size = &cap->size;
+
+    if (object_dynamic_cast(obj, TYPE_PC_DIMM)) {
+        DeviceState *dev = DEVICE(obj);
+
+        if (dev->realized) {
+            (*size) += object_property_get_int(obj, PC_DIMM_SIZE_PROP,
+                cap->errp);
+        }
+
+        if (cap->errp && *cap->errp) {
+            return 1;
+        }
+    }
+    object_child_foreach(obj, pc_existing_dimms_capacity_internal, opaque);
+    return 0;
+}
+
+uint64_t pc_existing_dimms_capacity(Error **errp)
+{
+    pc_dimms_capacity cap;
+
+    cap.size = 0;
+    cap.errp = errp;
+
+    pc_existing_dimms_capacity_internal(qdev_get_machine(), &cap);
+    return cap.size;
+}
 
 int qmp_pc_dimm_device_list(Object *obj, void *opaque)
 {
@@ -60,6 +182,32 @@ int qmp_pc_dimm_device_list(Object *obj, void *opaque)
 
     object_child_foreach(obj, qmp_pc_dimm_device_list, opaque);
     return 0;
+}
+
+ram_addr_t get_current_ram_size(void)
+{
+    MemoryDeviceInfoList *info_list = NULL;
+    MemoryDeviceInfoList **prev = &info_list;
+    MemoryDeviceInfoList *info;
+    ram_addr_t size = ram_size;
+
+    qmp_pc_dimm_device_list(qdev_get_machine(), &prev);
+    for (info = info_list; info; info = info->next) {
+        MemoryDeviceInfo *value = info->value;
+
+        if (value) {
+            switch (value->kind) {
+            case MEMORY_DEVICE_INFO_KIND_DIMM:
+                size += value->dimm->size;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    qapi_free_MemoryDeviceInfoList(info_list);
+
+    return size;
 }
 
 static int pc_dimm_slot2bitmap(Object *obj, void *opaque)
@@ -147,7 +295,6 @@ uint64_t pc_dimm_get_free_addr(uint64_t address_space_start,
     uint64_t address_space_end = address_space_start + address_space_size;
 
     g_assert(QEMU_ALIGN_UP(address_space_start, align) == address_space_start);
-    g_assert(QEMU_ALIGN_UP(address_space_size, align) == address_space_size);
 
     if (!address_space_size) {
         error_setg(errp, "memory hotplug is not enabled, "
@@ -287,6 +434,7 @@ static void pc_dimm_class_init(ObjectClass *oc, void *data)
 
     dc->realize = pc_dimm_realize;
     dc->props = pc_dimm_properties;
+    dc->desc = "DIMM memory module";
 
     ddc->get_memory_region = pc_dimm_get_memory_region;
 }

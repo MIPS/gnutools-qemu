@@ -187,11 +187,6 @@ static void eth_rx_desc_get(uint32_t addr, mv88w8618_rx_desc *desc)
     le32_to_cpus(&desc->next);
 }
 
-static int eth_can_receive(NetClientState *nc)
-{
-    return 1;
-}
-
 static ssize_t eth_receive(NetClientState *nc, const uint8_t *buf, size_t size)
 {
     mv88w8618_eth_state *s = qemu_get_nic_opaque(nc);
@@ -381,7 +376,6 @@ static void eth_cleanup(NetClientState *nc)
 static NetClientInfo net_mv88w8618_info = {
     .type = NET_CLIENT_OPTIONS_KIND_NIC,
     .size = sizeof(NICState),
-    .can_receive = eth_can_receive,
     .receive = eth_receive,
     .cleanup = eth_cleanup,
 };
@@ -1600,9 +1594,8 @@ static void musicpal_init(MachineState *machine)
     }
 
     /* For now we use a fixed - the original - RAM size */
-    memory_region_init_ram(ram, NULL, "musicpal.ram", MP_RAM_DEFAULT_SIZE,
-                           &error_abort);
-    vmstate_register_ram_global(ram);
+    memory_region_allocate_system_memory(ram, NULL, "musicpal.ram",
+                                         MP_RAM_DEFAULT_SIZE);
     memory_region_add_subregion(address_space_mem, 0, ram);
 
     memory_region_init_ram(sram, NULL, "musicpal.sram", MP_SRAM_SIZE,

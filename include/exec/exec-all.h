@@ -88,14 +88,12 @@ void QEMU_NORETURN cpu_io_recompile(CPUState *cpu, uintptr_t retaddr);
 TranslationBlock *tb_gen_code(CPUState *cpu,
                               target_ulong pc, target_ulong cs_base, int flags,
                               int cflags);
-void cpu_exec_init(CPUArchState *env);
+void cpu_exec_init(CPUState *cpu, Error **errp);
 void QEMU_NORETURN cpu_loop_exit(CPUState *cpu);
-int page_unprotect(target_ulong address, uintptr_t pc, void *puc);
-void tb_invalidate_phys_page_range(tb_page_addr_t start, tb_page_addr_t end,
-                                   int is_cpu_write_access);
-void tb_invalidate_phys_range(tb_page_addr_t start, tb_page_addr_t end,
-                              int is_cpu_write_access);
+
 #if !defined(CONFIG_USER_ONLY)
+bool qemu_in_vcpu_thread(void);
+void cpu_reload_memory_map(CPUState *cpu);
 void tcg_cpu_address_space_init(CPUState *cpu, AddressSpace *as);
 /* cputlb.c */
 void tlb_flush_page(CPUState *cpu, target_ulong addr);
@@ -103,7 +101,12 @@ void tlb_flush(CPUState *cpu, int flush_global);
 void tlb_set_page(CPUState *cpu, target_ulong vaddr,
                   hwaddr paddr, int prot,
                   int mmu_idx, target_ulong size);
+void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
+                             hwaddr paddr, MemTxAttrs attrs,
+                             int prot, int mmu_idx, target_ulong size);
 void tb_invalidate_phys_addr(AddressSpace *as, hwaddr addr);
+void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
+                 uintptr_t retaddr);
 #else
 static inline void tlb_flush_page(CPUState *cpu, target_ulong addr)
 {
@@ -142,9 +145,12 @@ struct TranslationBlock {
     uint64_t flags; /* flags defining in which context the code was generated */
     uint16_t size;      /* size of target code for this block (1 <=
                            size <= TARGET_PAGE_SIZE) */
-    uint16_t cflags;    /* compile flags */
+    uint16_t icount;
+    uint32_t cflags;    /* compile flags */
 #define CF_COUNT_MASK  0x7fff
 #define CF_LAST_IO     0x8000 /* Last insn may be an IO access.  */
+#define CF_NOCACHE     0x10000 /* To be freed after execution */
+#define CF_USE_ICOUNT  0x20000
 
     void *tc_ptr;    /* pointer to the translated code */
     /* next matching tb for physical address. */
@@ -168,7 +174,6 @@ struct TranslationBlock {
        jmp_first */
     struct TranslationBlock *jmp_next[2];
     struct TranslationBlock *jmp_first;
-    uint32_t icount;
 };
 
 #include "exec/spinlock.h"
@@ -190,28 +195,8 @@ struct TBContext {
     int tb_invalidated_flag;
 };
 
-static inline unsigned int tb_jmp_cache_hash_page(target_ulong pc)
-{
-    target_ulong tmp;
-    tmp = pc ^ (pc >> (TARGET_PAGE_BITS - TB_JMP_PAGE_BITS));
-    return (tmp >> (TARGET_PAGE_BITS - TB_JMP_PAGE_BITS)) & TB_JMP_PAGE_MASK;
-}
-
-static inline unsigned int tb_jmp_cache_hash_func(target_ulong pc)
-{
-    target_ulong tmp;
-    tmp = pc ^ (pc >> (TARGET_PAGE_BITS - TB_JMP_PAGE_BITS));
-    return (((tmp >> (TARGET_PAGE_BITS - TB_JMP_PAGE_BITS)) & TB_JMP_PAGE_MASK)
-	    | (tmp & TB_JMP_ADDR_MASK));
-}
-
-static inline unsigned int tb_phys_hash_func(tb_page_addr_t pc)
-{
-    return (pc >> 2) & (CODE_GEN_PHYS_HASH_SIZE - 1);
-}
-
 void tb_free(TranslationBlock *tb);
-void tb_flush(CPUArchState *env);
+void tb_flush(CPUState *cpu);
 void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr);
 
 #if defined(USE_DIRECT_JUMP)
@@ -335,11 +320,8 @@ extern uintptr_t tci_tb_ptr;
 
 void phys_mem_set_alloc(void *(*alloc)(size_t, uint64_t *align));
 
-struct MemoryRegion *iotlb_to_region(AddressSpace *as, hwaddr index);
-bool io_mem_read(struct MemoryRegion *mr, hwaddr addr,
-                 uint64_t *pvalue, unsigned size);
-bool io_mem_write(struct MemoryRegion *mr, hwaddr addr,
-                  uint64_t value, unsigned size);
+struct MemoryRegion *iotlb_to_region(CPUState *cpu,
+                                     hwaddr index);
 
 void tlb_fill(CPUState *cpu, target_ulong addr, int is_write, int mmu_idx,
               uintptr_t retaddr);
@@ -383,4 +365,7 @@ static inline bool cpu_can_do_io(CPUState *cpu)
     return cpu->can_do_io != 0;
 }
 
+#if !defined(CONFIG_USER_ONLY)
+void migration_bitmap_extend(ram_addr_t old, ram_addr_t new);
+#endif
 #endif

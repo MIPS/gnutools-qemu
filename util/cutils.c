@@ -207,13 +207,13 @@ size_t buffer_find_nonzero_offset(const void *buf, size_t len)
     for (i = BUFFER_FIND_NONZERO_OFFSET_UNROLL_FACTOR;
          i < len / sizeof(VECTYPE);
          i += BUFFER_FIND_NONZERO_OFFSET_UNROLL_FACTOR) {
-        VECTYPE tmp0 = p[i + 0] | p[i + 1];
-        VECTYPE tmp1 = p[i + 2] | p[i + 3];
-        VECTYPE tmp2 = p[i + 4] | p[i + 5];
-        VECTYPE tmp3 = p[i + 6] | p[i + 7];
-        VECTYPE tmp01 = tmp0 | tmp1;
-        VECTYPE tmp23 = tmp2 | tmp3;
-        if (!ALL_EQ(tmp01 | tmp23, zero)) {
+        VECTYPE tmp0 = VEC_OR(p[i + 0], p[i + 1]);
+        VECTYPE tmp1 = VEC_OR(p[i + 2], p[i + 3]);
+        VECTYPE tmp2 = VEC_OR(p[i + 4], p[i + 5]);
+        VECTYPE tmp3 = VEC_OR(p[i + 6], p[i + 7]);
+        VECTYPE tmp01 = VEC_OR(tmp0, tmp1);
+        VECTYPE tmp23 = VEC_OR(tmp2, tmp3);
+        if (!ALL_EQ(VEC_OR(tmp01, tmp23), zero)) {
             break;
         }
     }
@@ -483,6 +483,20 @@ int64_t pow2floor(int64_t value)
     return value;
 }
 
+/* round up to the nearest power of 2 (0 if overflow) */
+uint64_t pow2ceil(uint64_t value)
+{
+    uint8_t nlz = clz64(value);
+
+    if (is_power_of_2(value)) {
+        return value;
+    }
+    if (!nlz) {
+        return 0;
+    }
+    return 1ULL << (64 - nlz);
+}
+
 /*
  * Implementation of  ULEB128 (http://en.wikipedia.org/wiki/LEB128)
  * Input is limited to 14-bit numbers
@@ -523,16 +537,17 @@ int parse_debug_env(const char *name, int max, int initial)
 {
     char *debug_env = getenv(name);
     char *inv = NULL;
-    int debug;
+    long debug;
 
     if (!debug_env) {
         return initial;
     }
+    errno = 0;
     debug = strtol(debug_env, &inv, 10);
     if (inv == debug_env) {
         return initial;
     }
-    if (debug < 0 || debug > max) {
+    if (debug < 0 || debug > max || errno != 0) {
         fprintf(stderr, "warning: %s not in [0, %d]", name, max);
         return initial;
     }

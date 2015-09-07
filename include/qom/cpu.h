@@ -23,7 +23,9 @@
 #include <signal.h>
 #include <setjmp.h>
 #include "hw/qdev-core.h"
+#include "disas/bfd.h"
 #include "exec/hwaddr.h"
+#include "exec/memattrs.h"
 #include "qemu/queue.h"
 #include "qemu/thread.h"
 #include "qemu/tls.h"
@@ -82,6 +84,10 @@ struct TranslationBlock;
  * @do_unassigned_access: Callback for unassigned access handling.
  * @do_unaligned_access: Callback for unaligned access handling, if
  * the target defines #ALIGNED_ONLY.
+ * @virtio_is_big_endian: Callback to return %true if a CPU which supports
+ * runtime configurable endianness is currently big-endian. Non-configurable
+ * CPUs can use the default implementation of this method. This method should
+ * not be used by any callers other than the pre-1.0 virtio devices.
  * @memory_rw_debug: Callback for GDB memory access.
  * @dump_state: Callback for dumping state.
  * @dump_statistics: Callback for dumping statistics.
@@ -96,6 +102,14 @@ struct TranslationBlock;
  * @gdb_read_register: Callback for letting GDB read a register.
  * @gdb_write_register: Callback for letting GDB write a register.
  * @debug_excp_handler: Callback for handling debug exceptions.
+ * @write_elf64_note: Callback for writing a CPU-specific ELF note to a
+ * 64-bit VM coredump.
+ * @write_elf32_qemunote: Callback for writing a CPU- and QEMU-specific ELF
+ * note to a 32-bit VM coredump.
+ * @write_elf32_note: Callback for writing a CPU-specific ELF note to a
+ * 32-bit VM coredump.
+ * @write_elf32_qemunote: Callback for writing a CPU- and QEMU-specific ELF
+ * note to a 32-bit VM coredump.
  * @vmsd: State description for migration.
  * @gdb_num_core_regs: Number of core registers accessible to GDB.
  * @gdb_core_xml_file: File name for core registers GDB XML description.
@@ -104,6 +118,7 @@ struct TranslationBlock;
  * @cpu_exec_enter: Callback for cpu_exec preparation.
  * @cpu_exec_exit: Callback for cpu_exec cleanup.
  * @cpu_exec_interrupt: Callback for processing interrupts in cpu_exec.
+ * @disas_set_info: Setup architecture specific components of disassembly info
  *
  * Represents a CPU family or model.
  */
@@ -159,6 +174,8 @@ typedef struct CPUClass {
     void (*cpu_exec_enter)(CPUState *cpu);
     void (*cpu_exec_exit)(CPUState *cpu);
     bool (*cpu_exec_interrupt)(CPUState *cpu, int interrupt_request);
+
+    void (*disas_set_info)(CPUState *cpu, disassemble_info *info);
 } CPUClass;
 
 #ifdef HOST_WORDS_BIGENDIAN
@@ -183,6 +200,7 @@ typedef struct CPUWatchpoint {
     vaddr vaddr;
     vaddr len;
     vaddr hitaddr;
+    MemTxAttrs hitattrs;
     int flags; /* BP_* */
     QTAILQ_ENTRY(CPUWatchpoint) entry;
 } CPUWatchpoint;
@@ -256,6 +274,7 @@ struct CPUState {
     sigjmp_buf jmp_env;
 
     AddressSpace *as;
+    struct AddressSpaceDispatch *memory_dispatch;
     MemoryListener *tcg_as_listener;
 
     void *env_ptr; /* CPUArchState */
@@ -308,6 +327,8 @@ extern struct CPUTailQ cpus;
 #define CPU_FOREACH(cpu) QTAILQ_FOREACH(cpu, &cpus, node)
 #define CPU_FOREACH_SAFE(cpu, next_cpu) \
     QTAILQ_FOREACH_SAFE(cpu, &cpus, node, next_cpu)
+#define CPU_FOREACH_REVERSE(cpu) \
+    QTAILQ_FOREACH_REVERSE(cpu, &cpus, CPUTailQ, node)
 #define first_cpu QTAILQ_FIRST(&cpus)
 
 DECLARE_TLS(CPUState *, current_cpu);
@@ -580,9 +601,23 @@ static inline void cpu_unaligned_access(CPUState *cpu, vaddr addr,
 {
     CPUClass *cc = CPU_GET_CLASS(cpu);
 
-    return cc->do_unaligned_access(cpu, addr, is_write, is_user, retaddr);
+    cc->do_unaligned_access(cpu, addr, is_write, is_user, retaddr);
 }
 #endif
+
+/**
+ * cpu_set_pc:
+ * @cpu: The CPU to set the program counter for.
+ * @addr: Program counter value.
+ *
+ * Sets the program counter for a CPU.
+ */
+static inline void cpu_set_pc(CPUState *cpu, vaddr addr)
+{
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+
+    cc->set_pc(cpu, addr);
+}
 
 /**
  * cpu_reset_interrupt:
@@ -657,6 +692,7 @@ void cpu_watchpoint_remove_all(CPUState *cpu, int mask);
 
 void QEMU_NORETURN cpu_abort(CPUState *cpu, const char *fmt, ...)
     GCC_FMT_ATTR(2, 3);
+void cpu_exec_exit(CPUState *cpu);
 
 #ifdef CONFIG_SOFTMMU
 extern const struct VMStateDescription vmstate_cpu_common;

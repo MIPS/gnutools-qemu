@@ -74,7 +74,7 @@ void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
 static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
                              int mem_idx)                               \
 {                                                                       \
-    return (type) insn##_raw(addr);                                     \
+    return (type) cpu_##insn##_data(env, addr);                         \
 }
 #else
 #define HELPER_LD(name, insn, type)                                     \
@@ -90,10 +90,10 @@ static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
     }                                                                   \
 }
 #endif
-HELPER_LD(lbu, ldub, uint8_t)
-HELPER_LD(lhu, lduw, uint16_t)
 HELPER_LD(lw, ldl, int32_t)
+#if defined(TARGET_MIPS64)
 HELPER_LD(ld, ldq, int64_t)
+#endif
 #undef HELPER_LD
 
 #if defined(CONFIG_USER_ONLY)
@@ -101,7 +101,7 @@ HELPER_LD(ld, ldq, int64_t)
 static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
                              type val, int mem_idx)                     \
 {                                                                       \
-    insn##_raw(addr, val);                                              \
+    cpu_##insn##_data(env, addr, val);                                  \
 }
 #else
 #define HELPER_ST(name, insn, type)                                     \
@@ -118,9 +118,10 @@ static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
 }
 #endif
 HELPER_ST(sb, stb, uint8_t)
-HELPER_ST(sh, stw, uint16_t)
 HELPER_ST(sw, stl, uint32_t)
+#if defined(TARGET_MIPS64)
 HELPER_ST(sd, stq, uint64_t)
+#endif
 #undef HELPER_ST
 
 target_ulong helper_clo (target_ulong arg1)
@@ -304,16 +305,20 @@ static inline hwaddr do_translate_address(CPUMIPSState *env,
     }
 }
 
-#define HELPER_LD_ATOMIC(name, insn)                                          \
+#define HELPER_LD_ATOMIC(name, insn, almask)                                  \
 target_ulong helper_##name(CPUMIPSState *env, target_ulong arg, int mem_idx)  \
 {                                                                             \
+    if (arg & almask) {                                                       \
+        env->CP0_BadVAddr = arg;                                              \
+        helper_raise_exception(env, EXCP_AdEL);                               \
+    }                                                                         \
     env->lladdr = do_translate_address(env, arg, 0);                          \
     env->llval = do_##insn(env, arg, mem_idx);                                \
     return env->llval;                                                        \
 }
-HELPER_LD_ATOMIC(ll, lw)
+HELPER_LD_ATOMIC(ll, lw, 0x3)
 #ifdef TARGET_MIPS64
-HELPER_LD_ATOMIC(lld, ld)
+HELPER_LD_ATOMIC(lld, ld, 0x7)
 #endif
 #undef HELPER_LD_ATOMIC
 
@@ -625,40 +630,9 @@ static CPUMIPSState *mips_cpu_map_tc(CPUMIPSState *env, int *tc)
 
    These helper call synchronizes the regs for a given cpu.  */
 
-/* Called for updates to CP0_Status.  */
-static void sync_c0_status(CPUMIPSState *env, CPUMIPSState *cpu, int tc)
-{
-    int32_t tcstatus, *tcst;
-    uint32_t v = cpu->CP0_Status;
-    uint32_t cu, mx, asid, ksu;
-    uint32_t mask = ((1 << CP0TCSt_TCU3)
-                       | (1 << CP0TCSt_TCU2)
-                       | (1 << CP0TCSt_TCU1)
-                       | (1 << CP0TCSt_TCU0)
-                       | (1 << CP0TCSt_TMX)
-                       | (3 << CP0TCSt_TKSU)
-                       | (0xff << CP0TCSt_TASID));
-
-    cu = (v >> CP0St_CU0) & 0xf;
-    mx = (v >> CP0St_MX) & 0x1;
-    ksu = (v >> CP0St_KSU) & 0x3;
-    asid = env->CP0_EntryHi & 0xff;
-
-    tcstatus = cu << CP0TCSt_TCU0;
-    tcstatus |= mx << CP0TCSt_TMX;
-    tcstatus |= ksu << CP0TCSt_TKSU;
-    tcstatus |= asid;
-
-    if (tc == cpu->current_tc) {
-        tcst = &cpu->active_tc.CP0_TCStatus;
-    } else {
-        tcst = &cpu->tcs[tc].CP0_TCStatus;
-    }
-
-    *tcst &= ~mask;
-    *tcst |= tcstatus;
-    compute_hflags(cpu);
-}
+/* Called for updates to CP0_Status.  Defined in "cpu.h" for gdbstub.c.  */
+/* static inline void sync_c0_status(CPUMIPSState *env, CPUMIPSState *cpu,
+                                     int tc);  */
 
 /* Called for updates to CP0_TCStatus.  */
 static void sync_c0_tcstatus(CPUMIPSState *cpu, int tc,
@@ -687,7 +661,7 @@ static void sync_c0_tcstatus(CPUMIPSState *cpu, int tc,
 
     /* Sync the TASID with EntryHi.  */
     cpu->CP0_EntryHi &= ~0xff;
-    cpu->CP0_EntryHi = tasid;
+    cpu->CP0_EntryHi |= tasid;
 
     compute_hflags(cpu);
 }
@@ -1094,19 +1068,23 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
+#define MTC0_ENTRYLO_MASK(env) ((env->PAMask >> 6) & 0x3FFFFFFF)
+
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | (rxi << (CP0EnLo_XI - 30));
+    env->CP0_EntryLo0 = (arg1 & MTC0_ENTRYLO_MASK(env))
+                        | (rxi << (CP0EnLo_XI - 30));
 }
 
 #if defined(TARGET_MIPS64)
+#define DMTC0_ENTRYLO_MASK(env) (env->PAMask >> 6)
+
 void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo0 = (arg1 & 0x3FFFFFFF) | rxi;
+    env->CP0_EntryLo0 = (arg1 & DMTC0_ENTRYLO_MASK(env)) | rxi;
 }
 #endif
 
@@ -1272,17 +1250,17 @@ void helper_mttc0_tcschefback(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | (rxi << (CP0EnLo_XI - 30));
+    env->CP0_EntryLo1 = (arg1 & MTC0_ENTRYLO_MASK(env))
+                        | (rxi << (CP0EnLo_XI - 30));
 }
 
 #if defined(TARGET_MIPS64)
 void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo1 = (arg1 & 0x3FFFFFFF) | rxi;
+    env->CP0_EntryLo1 = (arg1 & DMTC0_ENTRYLO_MASK(env)) | rxi;
 }
 #endif
 
@@ -1305,10 +1283,11 @@ void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
 {
     /* SmartMIPS not implemented */
-    /* Large physaddr (PABITS) not implemented */
     /* 1k pages not implemented */
     env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
                          (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
+    compute_hflags(env);
+    restore_pamask(env);
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
@@ -1420,23 +1399,10 @@ void helper_mtc0_status(CPUMIPSState *env, target_ulong arg1)
 {
     MIPSCPU *cpu = mips_env_get_cpu(env);
     uint32_t val, old;
-    uint32_t mask = env->CP0_Status_rw_bitmask;
 
-    if (env->insn_flags & ISA_MIPS32R6) {
-        if (extract32(env->CP0_Status, CP0St_KSU, 2) == 0x3) {
-            mask &= ~(3 << CP0St_KSU);
-        }
-        mask &= ~(0x00180000 & arg1);
-    }
-
-    val = arg1 & mask;
     old = env->CP0_Status;
-    env->CP0_Status = (env->CP0_Status & ~mask) | val;
-    if (env->CP0_Config3 & (1 << CP0C3_MT)) {
-        sync_c0_status(env, env, env->current_tc);
-    } else {
-        compute_hflags(env);
-    }
+    cpu_mips_store_status(env, arg1);
+    val = env->CP0_Status;
 
     if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
         qemu_log("Status %08x (%08x) => %08x (%08x) Cause %08x",
@@ -1457,15 +1423,15 @@ void helper_mtc0_status(CPUMIPSState *env, target_ulong arg1)
 void helper_mttc0_status(CPUMIPSState *env, target_ulong arg1)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
+    uint32_t mask = env->CP0_Status_rw_bitmask & ~0xf1000018;
     CPUMIPSState *other = mips_cpu_map_tc(env, &other_tc);
 
-    other->CP0_Status = arg1 & ~0xf1000018;
+    other->CP0_Status = (other->CP0_Status & ~mask) | (arg1 & mask);
     sync_c0_status(env, other, other_tc);
 }
 
 void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 {
-    /* vectored interrupts not implemented, no performance counters. */
     env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | (arg1 & 0x000003e0);
 }
 
@@ -1475,40 +1441,9 @@ void helper_mtc0_srsctl(CPUMIPSState *env, target_ulong arg1)
     env->CP0_SRSCtl = (env->CP0_SRSCtl & ~mask) | (arg1 & mask);
 }
 
-static void mtc0_cause(CPUMIPSState *cpu, target_ulong arg1)
-{
-    uint32_t mask = 0x00C00300;
-    uint32_t old = cpu->CP0_Cause;
-    int i;
-
-    if (cpu->insn_flags & ISA_MIPS32R2) {
-        mask |= 1 << CP0Ca_DC;
-    }
-    if (cpu->insn_flags & ISA_MIPS32R6) {
-        mask &= ~((1 << CP0Ca_WP) & arg1);
-    }
-
-    cpu->CP0_Cause = (cpu->CP0_Cause & ~mask) | (arg1 & mask);
-
-    if ((old ^ cpu->CP0_Cause) & (1 << CP0Ca_DC)) {
-        if (cpu->CP0_Cause & (1 << CP0Ca_DC)) {
-            cpu_mips_stop_count(cpu);
-        } else {
-            cpu_mips_start_count(cpu);
-        }
-    }
-
-    /* Set/reset software interrupts */
-    for (i = 0 ; i < 2 ; i++) {
-        if ((old ^ cpu->CP0_Cause) & (1 << (CP0Ca_IP + i))) {
-            cpu_mips_soft_irq(cpu, i, cpu->CP0_Cause & (1 << (CP0Ca_IP + i)));
-        }
-    }
-}
-
 void helper_mtc0_cause(CPUMIPSState *env, target_ulong arg1)
 {
-    mtc0_cause(env, arg1);
+    cpu_mips_store_cause(env, arg1);
 }
 
 void helper_mttc0_cause(CPUMIPSState *env, target_ulong arg1)
@@ -1516,7 +1451,7 @@ void helper_mttc0_cause(CPUMIPSState *env, target_ulong arg1)
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
     CPUMIPSState *other = mips_cpu_map_tc(env, &other_tc);
 
-    mtc0_cause(other, arg1);
+    cpu_mips_store_cause(other, arg1);
 }
 
 target_ulong helper_mftc0_epc(CPUMIPSState *env)
@@ -1537,7 +1472,6 @@ target_ulong helper_mftc0_ebase(CPUMIPSState *env)
 
 void helper_mtc0_ebase(CPUMIPSState *env, target_ulong arg1)
 {
-    /* vectored interrupts not implemented */
     env->CP0_EBase = (env->CP0_EBase & ~0x3FFFF000) | (arg1 & 0x3FFFF000);
 }
 
@@ -1576,6 +1510,14 @@ void helper_mtc0_config2(CPUMIPSState *env, target_ulong arg1)
 {
     /* tertiary/secondary caches not implemented */
     env->CP0_Config2 = (env->CP0_Config2 & 0x8FFF0FFF);
+}
+
+void helper_mtc0_config3(CPUMIPSState *env, target_ulong arg1)
+{
+    if (env->insn_flags & ASE_MICROMIPS) {
+        env->CP0_Config3 = (env->CP0_Config3 & ~(1 << CP0C3_ISA_ON_EXC)) |
+                           (arg1 & (1 << CP0C3_ISA_ON_EXC));
+    }
 }
 
 void helper_mtc0_config4(CPUMIPSState *env, target_ulong arg1)
@@ -1887,6 +1829,16 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
     }
 }
 
+static inline uint64_t get_tlb_pfn_from_entrylo(uint64_t entrylo)
+{
+#if defined(TARGET_MIPS64)
+    return extract64(entrylo, 6, 54);
+#else
+    return extract64(entrylo, 6, 24) | /* PFN */
+           (extract64(entrylo, 32, 32) << 24); /* PFNX */
+#endif
+}
+
 static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
@@ -1910,13 +1862,13 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
     tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
     tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
-    tlb->PFN[0] = (env->CP0_EntryLo0 >> 6) << 12;
+    tlb->PFN[0] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo0) << 12;
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
-    tlb->PFN[1] = (env->CP0_EntryLo1 >> 6) << 12;
+    tlb->PFN[1] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo1) << 12;
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
@@ -2033,6 +1985,16 @@ void r4k_helper_tlbp(CPUMIPSState *env)
     }
 }
 
+static inline uint64_t get_entrylo_pfn_from_tlb(uint64_t tlb_pfn)
+{
+#if defined(TARGET_MIPS64)
+    return tlb_pfn << 6;
+#else
+    return (extract64(tlb_pfn, 0, 24) << 6) | /* PFN */
+           (extract64(tlb_pfn, 24, 32) << 32); /* PFNX */
+#endif
+}
+
 void r4k_helper_tlbr(CPUMIPSState *env)
 {
     r4k_tlb_t *tlb;
@@ -2058,13 +2020,13 @@ void r4k_helper_tlbr(CPUMIPSState *env)
         env->CP0_EntryHi = tlb->VPN | tlb->ASID;
         env->CP0_PageMask = tlb->PageMask;
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        ((target_ulong)tlb->RI0 << CP0EnLo_RI) |
-                        ((target_ulong)tlb->XI0 << CP0EnLo_XI) |
-                        (tlb->C0 << 3) | (tlb->PFN[0] >> 6);
+                        ((uint64_t)tlb->RI0 << CP0EnLo_RI) |
+                        ((uint64_t)tlb->XI0 << CP0EnLo_XI) | (tlb->C0 << 3) |
+                        get_entrylo_pfn_from_tlb(tlb->PFN[0] >> 12);
         env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
-                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
-                        (tlb->C1 << 3) | (tlb->PFN[1] >> 6);
+                        ((uint64_t)tlb->RI1 << CP0EnLo_RI) |
+                        ((uint64_t)tlb->XI1 << CP0EnLo_XI) | (tlb->C1 << 3) |
+                        get_entrylo_pfn_from_tlb(tlb->PFN[1] >> 12);
     }
 }
 
@@ -2160,7 +2122,7 @@ static void set_pc(CPUMIPSState *env, target_ulong error_pc)
     }
 }
 
-void helper_eret(CPUMIPSState *env)
+static inline void exception_return(CPUMIPSState *env)
 {
     debug_pre_eret(env);
     if (env->CP0_Status & (1 << CP0St_ERL)) {
@@ -2172,7 +2134,17 @@ void helper_eret(CPUMIPSState *env)
     }
     compute_hflags(env);
     debug_post_eret(env);
+}
+
+void helper_eret(CPUMIPSState *env)
+{
+    exception_return(env);
     env->lladdr = 1;
+}
+
+void helper_eretnc(CPUMIPSState *env)
+{
+    exception_return(env);
 }
 
 void helper_deret(CPUMIPSState *env)
@@ -2180,10 +2152,9 @@ void helper_deret(CPUMIPSState *env)
     debug_pre_eret(env);
     set_pc(env, env->CP0_DEPC);
 
-    env->hflags &= MIPS_HFLAG_DM;
+    env->hflags &= ~MIPS_HFLAG_DM;
     compute_hflags(env);
     debug_post_eret(env);
-    env->lladdr = 1;
 }
 #endif /* !CONFIG_USER_ONLY */
 
@@ -2346,18 +2317,6 @@ unsigned int ieee_rm[] = {
     float_round_down
 };
 
-static inline void restore_rounding_mode(CPUMIPSState *env)
-{
-    set_float_rounding_mode(ieee_rm[env->active_fpu.fcr31 & 3],
-                            &env->active_fpu.fp_status);
-}
-
-static inline void restore_flush_mode(CPUMIPSState *env)
-{
-    set_flush_to_zero((env->active_fpu.fcr31 & (1 << 24)) != 0,
-                      &env->active_fpu.fp_status);
-}
-
 target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
 {
     target_ulong arg1 = 0;
@@ -2372,6 +2331,16 @@ target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
             if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
                 arg1 = (int32_t)
                        ((env->CP0_Status & (1  << CP0St_FR)) >> CP0St_FR);
+            } else {
+                helper_raise_exception(env, EXCP_RI);
+            }
+        }
+        break;
+    case 5:
+        /* FRE Support - read Config5.FRE bit */
+        if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
+            if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+                arg1 = (env->CP0_Config5 >> CP0C5_FRE) & 1;
             } else {
                 helper_raise_exception(env, EXCP_RI);
             }
@@ -2416,6 +2385,30 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         }
         if (env->CP0_Config5 & (1 << CP0C5_UFR)) {
             env->CP0_Status |= (1 << CP0St_FR);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(env, EXCP_RI);
+        }
+        break;
+    case 5:
+        /* FRE Support - clear Config5.FRE bit */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_FREP)) && (rt == 0))) {
+            return;
+        }
+        if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+            env->CP0_Config5 &= ~(1 << CP0C5_FRE);
+            compute_hflags(env);
+        } else {
+            helper_raise_exception(env, EXCP_RI);
+        }
+        break;
+    case 6:
+        /* FRE Support - set Config5.FRE bit */
+        if (!((env->active_fpu.fcr0 & (1 << FCR0_FREP)) && (rt == 0))) {
+            return;
+        }
+        if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
+            env->CP0_Config5 |= (1 << CP0C5_FRE);
             compute_hflags(env);
         } else {
             helper_raise_exception(env, EXCP_RI);
@@ -2659,11 +2652,11 @@ uint32_t helper_float_cvtw_s(CPUMIPSState *env, uint32_t fst0)
     uint32_t wt2;
 
     wt2 = float32_to_int32(fst0, &env->active_fpu.fp_status);
-    update_fcr31(env, GETPC());
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
         wt2 = FP_TO_INT32_OVERFLOW;
     }
+    update_fcr31(env, GETPC());
     return wt2;
 }
 
@@ -2935,110 +2928,6 @@ FLOAT_UNOP(abs)
 FLOAT_UNOP(chs)
 #undef FLOAT_UNOP
 
-#define FLOAT_FMADDSUB(name, bits, muladd_arg)                          \
-uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
-                                          uint ## bits ## _t fs,        \
-                                          uint ## bits ## _t ft,        \
-                                          uint ## bits ## _t fd)        \
-{                                                                       \
-    uint ## bits ## _t fdret;                                           \
-                                                                        \
-    fdret = float ## bits ## _muladd(fs, ft, fd, muladd_arg,            \
-                                     &env->active_fpu.fp_status);       \
-    update_fcr31(env, GETPC());                                         \
-    return fdret;                                                       \
-}
-
-FLOAT_FMADDSUB(maddf_s, 32, 0)
-FLOAT_FMADDSUB(maddf_d, 64, 0)
-FLOAT_FMADDSUB(msubf_s, 32, float_muladd_negate_product)
-FLOAT_FMADDSUB(msubf_d, 64, float_muladd_negate_product)
-#undef FLOAT_FMADDSUB
-
-#define FLOAT_MINMAX(name, bits, minmaxfunc)                            \
-uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
-                                          uint ## bits ## _t fs,        \
-                                          uint ## bits ## _t ft)        \
-{                                                                       \
-    uint ## bits ## _t fdret;                                           \
-                                                                        \
-    fdret = float ## bits ## _ ## minmaxfunc(fs, ft,                    \
-                                           &env->active_fpu.fp_status); \
-    update_fcr31(env, GETPC());                                         \
-    return fdret;                                                       \
-}
-
-FLOAT_MINMAX(max_s, 32, maxnum)
-FLOAT_MINMAX(max_d, 64, maxnum)
-FLOAT_MINMAX(maxa_s, 32, maxnummag)
-FLOAT_MINMAX(maxa_d, 64, maxnummag)
-
-FLOAT_MINMAX(min_s, 32, minnum)
-FLOAT_MINMAX(min_d, 64, minnum)
-FLOAT_MINMAX(mina_s, 32, minnummag)
-FLOAT_MINMAX(mina_d, 64, minnummag)
-#undef FLOAT_MINMAX
-
-#define FLOAT_RINT(name, bits)                                              \
-uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,                \
-                                          uint ## bits ## _t fs)            \
-{                                                                           \
-    uint ## bits ## _t fdret;                                               \
-                                                                            \
-    fdret = float ## bits ## _round_to_int(fs, &env->active_fpu.fp_status); \
-    update_fcr31(env, GETPC());                                             \
-    return fdret;                                                           \
-}
-
-FLOAT_RINT(rint_s, 32)
-FLOAT_RINT(rint_d, 64)
-#undef FLOAT_RINT
-
-#define FLOAT_CLASS_SIGNALING_NAN      0x001
-#define FLOAT_CLASS_QUIET_NAN          0x002
-#define FLOAT_CLASS_NEGATIVE_INFINITY  0x004
-#define FLOAT_CLASS_NEGATIVE_NORMAL    0x008
-#define FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
-#define FLOAT_CLASS_NEGATIVE_ZERO      0x020
-#define FLOAT_CLASS_POSITIVE_INFINITY  0x040
-#define FLOAT_CLASS_POSITIVE_NORMAL    0x080
-#define FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
-#define FLOAT_CLASS_POSITIVE_ZERO      0x200
-
-#define FLOAT_CLASS(name, bits)                                      \
-uint ## bits ## _t helper_float_ ## name (uint ## bits ## _t arg)    \
-{                                                                    \
-    if (float ## bits ## _is_signaling_nan(arg)) {                   \
-        return FLOAT_CLASS_SIGNALING_NAN;                            \
-    } else if (float ## bits ## _is_quiet_nan(arg)) {                \
-        return FLOAT_CLASS_QUIET_NAN;                                \
-    } else if (float ## bits ## _is_neg(arg)) {                      \
-        if (float ## bits ## _is_infinity(arg)) {                    \
-            return FLOAT_CLASS_NEGATIVE_INFINITY;                    \
-        } else if (float ## bits ## _is_zero(arg)) {                 \
-            return FLOAT_CLASS_NEGATIVE_ZERO;                        \
-        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
-            return FLOAT_CLASS_NEGATIVE_SUBNORMAL;                   \
-        } else {                                                     \
-            return FLOAT_CLASS_NEGATIVE_NORMAL;                      \
-        }                                                            \
-    } else {                                                         \
-        if (float ## bits ## _is_infinity(arg)) {                    \
-            return FLOAT_CLASS_POSITIVE_INFINITY;                    \
-        } else if (float ## bits ## _is_zero(arg)) {                 \
-            return FLOAT_CLASS_POSITIVE_ZERO;                        \
-        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
-            return FLOAT_CLASS_POSITIVE_SUBNORMAL;                   \
-        } else {                                                     \
-            return FLOAT_CLASS_POSITIVE_NORMAL;                      \
-        }                                                            \
-    }                                                                \
-}
-
-FLOAT_CLASS(class_s, 32)
-FLOAT_CLASS(class_d, 64)
-#undef FLOAT_CLASS
-
 /* MIPS specific unary operations */
 uint64_t helper_float_recip_d(CPUMIPSState *env, uint64_t fdt0)
 {
@@ -3140,7 +3029,65 @@ uint64_t helper_float_rsqrt1_ps(CPUMIPSState *env, uint64_t fdt0)
     return ((uint64_t)fsth2 << 32) | fst2;
 }
 
-#define FLOAT_OP(name, p) void helper_float_##name##_##p(CPUMIPSState *env)
+#define FLOAT_RINT(name, bits)                                              \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,                \
+                                          uint ## bits ## _t fs)            \
+{                                                                           \
+    uint ## bits ## _t fdret;                                               \
+                                                                            \
+    fdret = float ## bits ## _round_to_int(fs, &env->active_fpu.fp_status); \
+    update_fcr31(env, GETPC());                                             \
+    return fdret;                                                           \
+}
+
+FLOAT_RINT(rint_s, 32)
+FLOAT_RINT(rint_d, 64)
+#undef FLOAT_RINT
+
+#define FLOAT_CLASS_SIGNALING_NAN      0x001
+#define FLOAT_CLASS_QUIET_NAN          0x002
+#define FLOAT_CLASS_NEGATIVE_INFINITY  0x004
+#define FLOAT_CLASS_NEGATIVE_NORMAL    0x008
+#define FLOAT_CLASS_NEGATIVE_SUBNORMAL 0x010
+#define FLOAT_CLASS_NEGATIVE_ZERO      0x020
+#define FLOAT_CLASS_POSITIVE_INFINITY  0x040
+#define FLOAT_CLASS_POSITIVE_NORMAL    0x080
+#define FLOAT_CLASS_POSITIVE_SUBNORMAL 0x100
+#define FLOAT_CLASS_POSITIVE_ZERO      0x200
+
+#define FLOAT_CLASS(name, bits)                                      \
+uint ## bits ## _t helper_float_ ## name (uint ## bits ## _t arg)    \
+{                                                                    \
+    if (float ## bits ## _is_signaling_nan(arg)) {                   \
+        return FLOAT_CLASS_SIGNALING_NAN;                            \
+    } else if (float ## bits ## _is_quiet_nan(arg)) {                \
+        return FLOAT_CLASS_QUIET_NAN;                                \
+    } else if (float ## bits ## _is_neg(arg)) {                      \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return FLOAT_CLASS_NEGATIVE_INFINITY;                    \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return FLOAT_CLASS_NEGATIVE_ZERO;                        \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return FLOAT_CLASS_NEGATIVE_SUBNORMAL;                   \
+        } else {                                                     \
+            return FLOAT_CLASS_NEGATIVE_NORMAL;                      \
+        }                                                            \
+    } else {                                                         \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return FLOAT_CLASS_POSITIVE_INFINITY;                    \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return FLOAT_CLASS_POSITIVE_ZERO;                        \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return FLOAT_CLASS_POSITIVE_SUBNORMAL;                   \
+        } else {                                                     \
+            return FLOAT_CLASS_POSITIVE_NORMAL;                      \
+        }                                                            \
+    }                                                                \
+}
+
+FLOAT_CLASS(class_s, 32)
+FLOAT_CLASS(class_d, 64)
+#undef FLOAT_CLASS
 
 /* binary operations */
 #define FLOAT_BINOP(name)                                          \
@@ -3186,61 +3133,6 @@ FLOAT_BINOP(sub)
 FLOAT_BINOP(mul)
 FLOAT_BINOP(div)
 #undef FLOAT_BINOP
-
-#define UNFUSED_FMA(prefix, a, b, c, flags)                          \
-{                                                                    \
-    a = prefix##_mul(a, b, &env->active_fpu.fp_status);              \
-    if ((flags) & float_muladd_negate_c) {                           \
-        a = prefix##_sub(a, c, &env->active_fpu.fp_status);          \
-    } else {                                                         \
-        a = prefix##_add(a, c, &env->active_fpu.fp_status);          \
-    }                                                                \
-    if ((flags) & float_muladd_negate_result) {                      \
-        a = prefix##_chs(a);                                         \
-    }                                                                \
-}
-
-/* FMA based operations */
-#define FLOAT_FMA(name, type)                                        \
-uint64_t helper_float_ ## name ## _d(CPUMIPSState *env,              \
-                                     uint64_t fdt0, uint64_t fdt1,   \
-                                     uint64_t fdt2)                  \
-{                                                                    \
-    UNFUSED_FMA(float64, fdt0, fdt1, fdt2, type);                    \
-    update_fcr31(env, GETPC());                                      \
-    return fdt0;                                                     \
-}                                                                    \
-                                                                     \
-uint32_t helper_float_ ## name ## _s(CPUMIPSState *env,              \
-                                     uint32_t fst0, uint32_t fst1,   \
-                                     uint32_t fst2)                  \
-{                                                                    \
-    UNFUSED_FMA(float32, fst0, fst1, fst2, type);                    \
-    update_fcr31(env, GETPC());                                      \
-    return fst0;                                                     \
-}                                                                    \
-                                                                     \
-uint64_t helper_float_ ## name ## _ps(CPUMIPSState *env,             \
-                                      uint64_t fdt0, uint64_t fdt1,  \
-                                      uint64_t fdt2)                 \
-{                                                                    \
-    uint32_t fst0 = fdt0 & 0XFFFFFFFF;                               \
-    uint32_t fsth0 = fdt0 >> 32;                                     \
-    uint32_t fst1 = fdt1 & 0XFFFFFFFF;                               \
-    uint32_t fsth1 = fdt1 >> 32;                                     \
-    uint32_t fst2 = fdt2 & 0XFFFFFFFF;                               \
-    uint32_t fsth2 = fdt2 >> 32;                                     \
-                                                                     \
-    UNFUSED_FMA(float32, fst0, fst1, fst2, type);                    \
-    UNFUSED_FMA(float32, fsth0, fsth1, fsth2, type);                 \
-    update_fcr31(env, GETPC());                                      \
-    return ((uint64_t)fsth0 << 32) | fst0;                           \
-}
-FLOAT_FMA(madd, 0)
-FLOAT_FMA(msub, float_muladd_negate_c)
-FLOAT_FMA(nmadd, float_muladd_negate_result)
-FLOAT_FMA(nmsub, float_muladd_negate_result | float_muladd_negate_c)
-#undef FLOAT_FMA
 
 /* MIPS specific binary operations */
 uint64_t helper_float_recip2_d(CPUMIPSState *env, uint64_t fdt0, uint64_t fdt2)
@@ -3338,6 +3230,106 @@ uint64_t helper_float_mulr_ps(CPUMIPSState *env, uint64_t fdt0, uint64_t fdt1)
     update_fcr31(env, GETPC());
     return ((uint64_t)fsth2 << 32) | fst2;
 }
+
+#define FLOAT_MINMAX(name, bits, minmaxfunc)                            \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
+                                          uint ## bits ## _t fs,        \
+                                          uint ## bits ## _t ft)        \
+{                                                                       \
+    uint ## bits ## _t fdret;                                           \
+                                                                        \
+    fdret = float ## bits ## _ ## minmaxfunc(fs, ft,                    \
+                                           &env->active_fpu.fp_status); \
+    update_fcr31(env, GETPC());                                         \
+    return fdret;                                                       \
+}
+
+FLOAT_MINMAX(max_s, 32, maxnum)
+FLOAT_MINMAX(max_d, 64, maxnum)
+FLOAT_MINMAX(maxa_s, 32, maxnummag)
+FLOAT_MINMAX(maxa_d, 64, maxnummag)
+
+FLOAT_MINMAX(min_s, 32, minnum)
+FLOAT_MINMAX(min_d, 64, minnum)
+FLOAT_MINMAX(mina_s, 32, minnummag)
+FLOAT_MINMAX(mina_d, 64, minnummag)
+#undef FLOAT_MINMAX
+
+/* ternary operations */
+#define UNFUSED_FMA(prefix, a, b, c, flags)                          \
+{                                                                    \
+    a = prefix##_mul(a, b, &env->active_fpu.fp_status);              \
+    if ((flags) & float_muladd_negate_c) {                           \
+        a = prefix##_sub(a, c, &env->active_fpu.fp_status);          \
+    } else {                                                         \
+        a = prefix##_add(a, c, &env->active_fpu.fp_status);          \
+    }                                                                \
+    if ((flags) & float_muladd_negate_result) {                      \
+        a = prefix##_chs(a);                                         \
+    }                                                                \
+}
+
+/* FMA based operations */
+#define FLOAT_FMA(name, type)                                        \
+uint64_t helper_float_ ## name ## _d(CPUMIPSState *env,              \
+                                     uint64_t fdt0, uint64_t fdt1,   \
+                                     uint64_t fdt2)                  \
+{                                                                    \
+    UNFUSED_FMA(float64, fdt0, fdt1, fdt2, type);                    \
+    update_fcr31(env, GETPC());                                      \
+    return fdt0;                                                     \
+}                                                                    \
+                                                                     \
+uint32_t helper_float_ ## name ## _s(CPUMIPSState *env,              \
+                                     uint32_t fst0, uint32_t fst1,   \
+                                     uint32_t fst2)                  \
+{                                                                    \
+    UNFUSED_FMA(float32, fst0, fst1, fst2, type);                    \
+    update_fcr31(env, GETPC());                                      \
+    return fst0;                                                     \
+}                                                                    \
+                                                                     \
+uint64_t helper_float_ ## name ## _ps(CPUMIPSState *env,             \
+                                      uint64_t fdt0, uint64_t fdt1,  \
+                                      uint64_t fdt2)                 \
+{                                                                    \
+    uint32_t fst0 = fdt0 & 0XFFFFFFFF;                               \
+    uint32_t fsth0 = fdt0 >> 32;                                     \
+    uint32_t fst1 = fdt1 & 0XFFFFFFFF;                               \
+    uint32_t fsth1 = fdt1 >> 32;                                     \
+    uint32_t fst2 = fdt2 & 0XFFFFFFFF;                               \
+    uint32_t fsth2 = fdt2 >> 32;                                     \
+                                                                     \
+    UNFUSED_FMA(float32, fst0, fst1, fst2, type);                    \
+    UNFUSED_FMA(float32, fsth0, fsth1, fsth2, type);                 \
+    update_fcr31(env, GETPC());                                      \
+    return ((uint64_t)fsth0 << 32) | fst0;                           \
+}
+FLOAT_FMA(madd, 0)
+FLOAT_FMA(msub, float_muladd_negate_c)
+FLOAT_FMA(nmadd, float_muladd_negate_result)
+FLOAT_FMA(nmsub, float_muladd_negate_result | float_muladd_negate_c)
+#undef FLOAT_FMA
+
+#define FLOAT_FMADDSUB(name, bits, muladd_arg)                          \
+uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,            \
+                                          uint ## bits ## _t fs,        \
+                                          uint ## bits ## _t ft,        \
+                                          uint ## bits ## _t fd)        \
+{                                                                       \
+    uint ## bits ## _t fdret;                                           \
+                                                                        \
+    fdret = float ## bits ## _muladd(fs, ft, fd, muladd_arg,            \
+                                     &env->active_fpu.fp_status);       \
+    update_fcr31(env, GETPC());                                         \
+    return fdret;                                                       \
+}
+
+FLOAT_FMADDSUB(maddf_s, 32, 0)
+FLOAT_FMADDSUB(maddf_d, 64, 0)
+FLOAT_FMADDSUB(msubf_s, 32, float_muladd_negate_product)
+FLOAT_FMADDSUB(msubf_d, 64, float_muladd_negate_product)
+#undef FLOAT_FMADDSUB
 
 /* compare operations */
 #define FOP_COND_D(op, cond)                                   \
@@ -3633,72 +3625,82 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
 /* Element-by-element access macros */
 #define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
 
-void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int32_t s10)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
-    int i;
+#if !defined(CONFIG_USER_ONLY)
+#define MEMOP_IDX(DF)                                           \
+        TCGMemOpIdx oi = make_memop_idx(MO_TE | DF | MO_UNALN,  \
+                                        cpu_mmu_index(env));
+#else
+#define MEMOP_IDX(DF)
+#endif
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            pwd->b[i] = do_lbu(env, addr + (i << DF_BYTE),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwd->h[i] = do_lhu(env, addr + (i << DF_HALF),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwd->w[i] = do_lw(env, addr + (i << DF_WORD),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwd->d[i] = do_ld(env, addr + (i << DF_DOUBLE),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    }
+#define MSA_LD_DF(DF, TYPE, LD_INSN, ...)                               \
+void helper_msa_ld_ ## TYPE(CPUMIPSState *env, uint32_t wd,             \
+                            target_ulong addr)                          \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    wr_t wx;                                                            \
+    int i;                                                              \
+    MEMOP_IDX(DF)                                                       \
+    for (i = 0; i < DF_ELEMENTS(DF); i++) {                             \
+        wx.TYPE[i] = LD_INSN(env, addr + (i << DF), ##__VA_ARGS__);     \
+    }                                                                   \
+    memcpy(pwd, &wx, sizeof(wr_t));                                     \
 }
 
-void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int32_t s10)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
-    int i;
+#if !defined(CONFIG_USER_ONLY)
+MSA_LD_DF(DF_BYTE,   b, helper_ret_ldub_mmu, oi, GETRA())
+MSA_LD_DF(DF_HALF,   h, helper_ret_lduw_mmu, oi, GETRA())
+MSA_LD_DF(DF_WORD,   w, helper_ret_ldul_mmu, oi, GETRA())
+MSA_LD_DF(DF_DOUBLE, d, helper_ret_ldq_mmu,  oi, GETRA())
+#else
+MSA_LD_DF(DF_BYTE,   b, cpu_ldub_data)
+MSA_LD_DF(DF_HALF,   h, cpu_lduw_data)
+MSA_LD_DF(DF_WORD,   w, cpu_ldl_data)
+MSA_LD_DF(DF_DOUBLE, d, cpu_ldq_data)
+#endif
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            do_sb(env, addr + (i << DF_BYTE), pwd->b[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            do_sh(env, addr + (i << DF_HALF), pwd->h[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            do_sw(env, addr + (i << DF_WORD), pwd->w[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            do_sd(env, addr + (i << DF_DOUBLE), pwd->d[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
+#define MSA_PAGESPAN(x) \
+        ((((x) & ~TARGET_PAGE_MASK) + MSA_WRLEN/8 - 1) >= TARGET_PAGE_SIZE)
+
+static inline void ensure_writable_pages(CPUMIPSState *env,
+                                         target_ulong addr,
+                                         int mmu_idx,
+                                         uintptr_t retaddr)
+{
+#if !defined(CONFIG_USER_ONLY)
+    target_ulong page_addr;
+    if (unlikely(MSA_PAGESPAN(addr))) {
+        /* first page */
+        probe_write(env, addr, mmu_idx, retaddr);
+        /* second page */
+        page_addr = (addr & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
+        probe_write(env, page_addr, mmu_idx, retaddr);
     }
+#endif
 }
+
+#define MSA_ST_DF(DF, TYPE, ST_INSN, ...)                               \
+void helper_msa_st_ ## TYPE(CPUMIPSState *env, uint32_t wd,             \
+                            target_ulong addr)                          \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    int mmu_idx = cpu_mmu_index(env);                                   \
+    int i;                                                              \
+    MEMOP_IDX(DF)                                                       \
+    ensure_writable_pages(env, addr, mmu_idx, GETRA());                 \
+    for (i = 0; i < DF_ELEMENTS(DF); i++) {                             \
+        ST_INSN(env, addr + (i << DF), pwd->TYPE[i], ##__VA_ARGS__);    \
+    }                                                                   \
+}
+
+#if !defined(CONFIG_USER_ONLY)
+MSA_ST_DF(DF_BYTE,   b, helper_ret_stb_mmu, oi, GETRA())
+MSA_ST_DF(DF_HALF,   h, helper_ret_stw_mmu, oi, GETRA())
+MSA_ST_DF(DF_WORD,   w, helper_ret_stl_mmu, oi, GETRA())
+MSA_ST_DF(DF_DOUBLE, d, helper_ret_stq_mmu, oi, GETRA())
+#else
+MSA_ST_DF(DF_BYTE,   b, cpu_stb_data)
+MSA_ST_DF(DF_HALF,   h, cpu_stw_data)
+MSA_ST_DF(DF_WORD,   w, cpu_stl_data)
+MSA_ST_DF(DF_DOUBLE, d, cpu_stq_data)
+#endif

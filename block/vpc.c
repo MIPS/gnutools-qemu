@@ -46,6 +46,7 @@ enum vhd_type {
 #define VHD_TIMESTAMP_BASE 946684800
 
 #define VHD_MAX_SECTORS       (65535LL * 255 * 255)
+#define VHD_MAX_GEOMETRY      (65535LL *  16 * 255)
 
 // always big-endian
 typedef struct vhd_footer {
@@ -65,7 +66,7 @@ typedef struct vhd_footer {
     char        creator_os[4]; // "Wi2k"
 
     uint64_t    orig_size;
-    uint64_t    size;
+    uint64_t    current_size;
 
     uint16_t    cyls;
     uint8_t     heads;
@@ -167,6 +168,7 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
     uint8_t buf[HEADER_SIZE];
     uint32_t checksum;
     uint64_t computed_size;
+    uint64_t pagetable_size;
     int disk_type = VHD_DYNAMIC;
     int ret;
 
@@ -215,13 +217,12 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
     bs->total_sectors = (int64_t)
         be16_to_cpu(footer->cyls) * footer->heads * footer->secs_per_cyl;
 
-    /* images created with disk2vhd report a far higher virtual size
-     * than expected with the cyls * heads * sectors_per_cyl formula.
-     * use the footer->size instead if the image was created with
-     * disk2vhd.
-     */
-    if (!strncmp(footer->creator_app, "d2v", 4)) {
-        bs->total_sectors = be64_to_cpu(footer->size) / BDRV_SECTOR_SIZE;
+    /* Images that have exactly the maximum geometry are probably bigger and
+     * would be truncated if we adhered to the geometry for them. Rely on
+     * footer->current_size for them. */
+    if (bs->total_sectors == VHD_MAX_GEOMETRY) {
+        bs->total_sectors = be64_to_cpu(footer->current_size) /
+                            BDRV_SECTOR_SIZE;
     }
 
     /* Allow a maximum disk size of approximately 2 TB */
@@ -269,7 +270,17 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
             goto fail;
         }
 
-        s->pagetable = qemu_try_blockalign(bs->file, s->max_table_entries * 4);
+        if (s->max_table_entries > SIZE_MAX / 4 ||
+            s->max_table_entries > (int) INT_MAX / 4) {
+            error_setg(errp, "Max Table Entries too large (%" PRId32 ")",
+                        s->max_table_entries);
+            ret = -EINVAL;
+            goto fail;
+        }
+
+        pagetable_size = (uint64_t) s->max_table_entries * 4;
+
+        s->pagetable = qemu_try_blockalign(bs->file, pagetable_size);
         if (s->pagetable == NULL) {
             ret = -ENOMEM;
             goto fail;
@@ -277,14 +288,13 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
 
         s->bat_offset = be64_to_cpu(dyndisk_header->table_offset);
 
-        ret = bdrv_pread(bs->file, s->bat_offset, s->pagetable,
-                         s->max_table_entries * 4);
+        ret = bdrv_pread(bs->file, s->bat_offset, s->pagetable, pagetable_size);
         if (ret < 0) {
             goto fail;
         }
 
         s->free_data_block_offset =
-            (s->bat_offset + (s->max_table_entries * 4) + 511) & ~511;
+            ROUND_UP(s->bat_offset + pagetable_size, 512);
 
         for (i = 0; i < s->max_table_entries; i++) {
             be32_to_cpus(&s->pagetable[i]);
@@ -318,9 +328,9 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
     qemu_co_mutex_init(&s->lock);
 
     /* Disable migration when VHD images are used */
-    error_set(&s->migration_blocker,
-              QERR_BLOCK_FORMAT_FEATURE_NOT_SUPPORTED,
-              "vpc", bdrv_get_device_name(bs), "live migration");
+    error_setg(&s->migration_blocker, "The vpc format used by node '%s' "
+               "does not support live migration",
+               bdrv_get_device_or_node_name(bs));
     migrate_add_blocker(s->migration_blocker);
 
     return 0;
@@ -375,38 +385,6 @@ static inline int64_t get_sector_offset(BlockDriverState *bs,
         memset(bitmap, 0xff, s->bitmap_size);
         bdrv_pwrite_sync(bs->file, bitmap_offset, bitmap, s->bitmap_size);
     }
-
-//    printf("sector: %" PRIx64 ", index: %x, offset: %x, bioff: %" PRIx64 ", bloff: %" PRIx64 "\n",
-//	sector_num, pagetable_index, pageentry_index,
-//	bitmap_offset, block_offset);
-
-// disabled by reason
-#if 0
-#ifdef CACHE
-    if (bitmap_offset != s->last_bitmap)
-    {
-	lseek(s->fd, bitmap_offset, SEEK_SET);
-
-	s->last_bitmap = bitmap_offset;
-
-	// Scary! Bitmap is stored as big endian 32bit entries,
-	// while we used to look it up byte by byte
-	read(s->fd, s->pageentry_u8, 512);
-	for (i = 0; i < 128; i++)
-	    be32_to_cpus(&s->pageentry_u32[i]);
-    }
-
-    if ((s->pageentry_u8[pageentry_index / 8] >> (pageentry_index % 8)) & 1)
-	return -1;
-#else
-    lseek(s->fd, bitmap_offset + (pageentry_index / 8), SEEK_SET);
-
-    read(s->fd, &bitmap_entry, 1);
-
-    if ((bitmap_entry >> (pageentry_index % 8)) & 1)
-	return -1; // not allocated
-#endif
-#endif
 
     return block_offset;
 }
@@ -597,6 +575,49 @@ static coroutine_fn int vpc_co_write(BlockDriverState *bs, int64_t sector_num,
     return ret;
 }
 
+static int64_t coroutine_fn vpc_co_get_block_status(BlockDriverState *bs,
+        int64_t sector_num, int nb_sectors, int *pnum)
+{
+    BDRVVPCState *s = bs->opaque;
+    VHDFooter *footer = (VHDFooter*) s->footer_buf;
+    int64_t start, offset;
+    bool allocated;
+    int n;
+
+    if (be32_to_cpu(footer->type) == VHD_FIXED) {
+        *pnum = nb_sectors;
+        return BDRV_BLOCK_RAW | BDRV_BLOCK_OFFSET_VALID | BDRV_BLOCK_DATA |
+               (sector_num << BDRV_SECTOR_BITS);
+    }
+
+    offset = get_sector_offset(bs, sector_num, 0);
+    start = offset;
+    allocated = (offset != -1);
+    *pnum = 0;
+
+    do {
+        /* All sectors in a block are contiguous (without using the bitmap) */
+        n = ROUND_UP(sector_num + 1, s->block_size / BDRV_SECTOR_SIZE)
+          - sector_num;
+        n = MIN(n, nb_sectors);
+
+        *pnum += n;
+        sector_num += n;
+        nb_sectors -= n;
+        /* *pnum can't be greater than one block for allocated
+         * sectors since there is always a bitmap in between. */
+        if (allocated) {
+            return BDRV_BLOCK_DATA | BDRV_BLOCK_OFFSET_VALID | start;
+        }
+        if (nb_sectors == 0) {
+            break;
+        }
+        offset = get_sector_offset(bs, sector_num, 0);
+    } while (offset == -1);
+
+    return 0;
+}
+
 /*
  * Calculates the number of cylinders, heads and sectors per cylinder
  * based on a given number of sectors. This is the algorithm described
@@ -614,26 +635,20 @@ static int calculate_geometry(int64_t total_sectors, uint16_t* cyls,
 {
     uint32_t cyls_times_heads;
 
-    /* Allow a maximum disk size of approximately 2 TB */
-    if (total_sectors > 65535LL * 255 * 255) {
-        return -EFBIG;
-    }
+    total_sectors = MIN(total_sectors, VHD_MAX_GEOMETRY);
 
-    if (total_sectors > 65535 * 16 * 63) {
+    if (total_sectors >= 65535LL * 16 * 63) {
         *secs_per_cyl = 255;
-        if (total_sectors > 65535 * 16 * 255) {
-            *heads = 255;
-        } else {
-            *heads = 16;
-        }
+        *heads = 16;
         cyls_times_heads = total_sectors / *secs_per_cyl;
     } else {
         *secs_per_cyl = 17;
         cyls_times_heads = total_sectors / *secs_per_cyl;
         *heads = (cyls_times_heads + 1023) / 1024;
 
-        if (*heads < 4)
+        if (*heads < 4) {
             *heads = 4;
+        }
 
         if (cyls_times_heads >= (*heads * 1024) || *heads > 16) {
             *secs_per_cyl = 31;
@@ -789,18 +804,27 @@ static int vpc_create(const char *filename, QemuOpts *opts, Error **errp)
      * Calculate matching total_size and geometry. Increase the number of
      * sectors requested until we get enough (or fail). This ensures that
      * qemu-img convert doesn't truncate images, but rather rounds up.
+     *
+     * If the image size can't be represented by a spec conform CHS geometry,
+     * we set the geometry to 65535 x 16 x 255 (CxHxS) sectors and use
+     * the image size from the VHD footer to calculate total_sectors.
      */
-    total_sectors = total_size / BDRV_SECTOR_SIZE;
+    total_sectors = MIN(VHD_MAX_GEOMETRY, total_size / BDRV_SECTOR_SIZE);
     for (i = 0; total_sectors > (int64_t)cyls * heads * secs_per_cyl; i++) {
-        if (calculate_geometry(total_sectors + i, &cyls, &heads,
-                               &secs_per_cyl))
-        {
+        calculate_geometry(total_sectors + i, &cyls, &heads, &secs_per_cyl);
+    }
+
+    if ((int64_t)cyls * heads * secs_per_cyl == VHD_MAX_GEOMETRY) {
+        total_sectors = total_size / BDRV_SECTOR_SIZE;
+        /* Allow a maximum disk size of approximately 2 TB */
+        if (total_sectors > VHD_MAX_SECTORS) {
             ret = -EFBIG;
             goto out;
         }
+    } else {
+        total_sectors = (int64_t)cyls * heads * secs_per_cyl;
+        total_size = total_sectors * BDRV_SECTOR_SIZE;
     }
-
-    total_sectors = (int64_t) cyls * heads * secs_per_cyl;
 
     /* Prepare the Hard Disk Footer */
     memset(buf, 0, 1024);
@@ -822,13 +846,8 @@ static int vpc_create(const char *filename, QemuOpts *opts, Error **errp)
     /* Version of Virtual PC 2007 */
     footer->major = cpu_to_be16(0x0005);
     footer->minor = cpu_to_be16(0x0003);
-    if (disk_type == VHD_DYNAMIC) {
-        footer->orig_size = cpu_to_be64(total_sectors * 512);
-        footer->size = cpu_to_be64(total_sectors * 512);
-    } else {
-        footer->orig_size = cpu_to_be64(total_size);
-        footer->size = cpu_to_be64(total_size);
-    }
+    footer->orig_size = cpu_to_be64(total_size);
+    footer->current_size = cpu_to_be64(total_size);
     footer->cyls = cpu_to_be16(cyls);
     footer->heads = heads;
     footer->secs_per_cyl = secs_per_cyl;
@@ -893,11 +912,6 @@ static QemuOptsList vpc_create_opts = {
                 "Type of virtual hard disk format. Supported formats are "
                 "{dynamic (default) | fixed} "
         },
-        {
-            .name = BLOCK_OPT_NOCOW,
-            .type = QEMU_OPT_BOOL,
-            .help = "Turn off copy-on-write (valid only on btrfs)"
-        },
         { /* end of list */ }
     }
 };
@@ -912,8 +926,9 @@ static BlockDriver bdrv_vpc = {
     .bdrv_reopen_prepare    = vpc_reopen_prepare,
     .bdrv_create            = vpc_create,
 
-    .bdrv_read              = vpc_co_read,
-    .bdrv_write             = vpc_co_write,
+    .bdrv_read                  = vpc_co_read,
+    .bdrv_write                 = vpc_co_write,
+    .bdrv_co_get_block_status   = vpc_co_get_block_status,
 
     .bdrv_get_info          = vpc_get_info,
 

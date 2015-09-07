@@ -21,8 +21,6 @@
 #ifndef __QEMU_UI_VNC_WS_H
 #define __QEMU_UI_VNC_WS_H
 
-#include <gnutls/gnutls.h>
-
 #define B64LEN(__x) (((__x + 2) / 3) * 12 / 3)
 #define SHA1_DIGEST_LEN 20
 
@@ -75,7 +73,7 @@ enum {
 };
 
 #ifdef CONFIG_VNC_TLS
-void vncws_tls_handshake_peek(void *opaque);
+void vncws_tls_handshake_io(void *opaque);
 #endif /* CONFIG_VNC_TLS */
 void vncws_handshake_read(void *opaque);
 long vnc_client_write_ws(VncState *vs);
@@ -83,7 +81,12 @@ long vnc_client_read_ws(VncState *vs);
 void vncws_process_handshake(VncState *vs, uint8_t *line, size_t size);
 void vncws_encode_frame(Buffer *output, const void *payload,
             const size_t payload_size);
-int vncws_decode_frame(Buffer *input, uint8_t **payload,
-                               size_t *payload_size, size_t *frame_size);
+int vncws_decode_frame_header(Buffer *input,
+                              size_t *header_size,
+                              size_t *payload_remain,
+                              WsMask *payload_mask);
+int vncws_decode_frame_payload(Buffer *input,
+                               size_t *payload_remain, WsMask *payload_mask,
+                               uint8_t **payload, size_t *payload_size);
 
 #endif /* __QEMU_UI_VNC_WS_H */

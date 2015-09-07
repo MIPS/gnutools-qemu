@@ -63,16 +63,20 @@ typedef ssize_t (QEMUFileWritevBufferFunc)(void *opaque, struct iovec *iov,
 /*
  * This function provides hooks around different
  * stages of RAM migration.
+ * 'opaque' is the backend specific data in QEMUFile
+ * 'data' is call specific data associated with the 'flags' value
  */
-typedef int (QEMURamHookFunc)(QEMUFile *f, void *opaque, uint64_t flags);
+typedef int (QEMURamHookFunc)(QEMUFile *f, void *opaque, uint64_t flags,
+                              void *data);
 
 /*
  * Constants used by ram_control_* hooks
  */
-#define RAM_CONTROL_SETUP    0
-#define RAM_CONTROL_ROUND    1
-#define RAM_CONTROL_HOOK     2
-#define RAM_CONTROL_FINISH   3
+#define RAM_CONTROL_SETUP     0
+#define RAM_CONTROL_ROUND     1
+#define RAM_CONTROL_HOOK      2
+#define RAM_CONTROL_FINISH    3
+#define RAM_CONTROL_BLOCK_REG 4
 
 /*
  * This function allows override of where the RAM page
@@ -82,7 +86,15 @@ typedef size_t (QEMURamSaveFunc)(QEMUFile *f, void *opaque,
                                ram_addr_t block_offset,
                                ram_addr_t offset,
                                size_t size,
-                               int *bytes_sent);
+                               uint64_t *bytes_sent);
+
+/*
+ * Stop any read or write (depending on flags) on the underlying
+ * transport on the QEMUFile.
+ * Existing blocking reads/writes must be woken
+ * Returns 0 on success, -err on error
+ */
+typedef int (QEMUFileShutdownFunc)(void *opaque, bool rd, bool wr);
 
 typedef struct QEMUFileOps {
     QEMUFilePutBufferFunc *put_buffer;
@@ -94,6 +106,7 @@ typedef struct QEMUFileOps {
     QEMURamHookFunc *after_ram_iterate;
     QEMURamHookFunc *hook_ram_load;
     QEMURamSaveFunc *save_page;
+    QEMUFileShutdownFunc *shut_down;
 } QEMUFileOps;
 
 struct QEMUSizedBuffer {
@@ -112,6 +125,7 @@ QEMUFile *qemu_bufopen(const char *mode, QEMUSizedBuffer *input);
 int qemu_get_fd(QEMUFile *f);
 int qemu_fclose(QEMUFile *f);
 int64_t qemu_ftell(QEMUFile *f);
+int64_t qemu_ftell_fast(QEMUFile *f);
 void qemu_put_buffer(QEMUFile *f, const uint8_t *buf, int size);
 void qemu_put_byte(QEMUFile *f, int v);
 /*
@@ -123,7 +137,6 @@ bool qemu_file_mode_is_not_valid(const char *mode);
 bool qemu_file_is_writable(QEMUFile *f);
 
 QEMUSizedBuffer *qsb_create(const uint8_t *buffer, size_t len);
-QEMUSizedBuffer *qsb_clone(const QEMUSizedBuffer *);
 void qsb_free(QEMUSizedBuffer *);
 size_t qsb_set_length(QEMUSizedBuffer *qsb, size_t length);
 size_t qsb_get_length(const QEMUSizedBuffer *qsb);
@@ -148,8 +161,11 @@ static inline void qemu_put_ubyte(QEMUFile *f, unsigned int v)
 void qemu_put_be16(QEMUFile *f, unsigned int v);
 void qemu_put_be32(QEMUFile *f, unsigned int v);
 void qemu_put_be64(QEMUFile *f, uint64_t v);
-int qemu_peek_buffer(QEMUFile *f, uint8_t *buf, int size, size_t offset);
+int qemu_peek_buffer(QEMUFile *f, uint8_t **buf, int size, size_t offset);
 int qemu_get_buffer(QEMUFile *f, uint8_t *buf, int size);
+ssize_t qemu_put_compression_data(QEMUFile *f, const uint8_t *p, size_t size,
+                                  int level);
+int qemu_put_qemu_file(QEMUFile *f_des, QEMUFile *f_src);
 /*
  * Note that you can only peek continuous bytes from where the current pointer
  * is; you aren't guaranteed to be able to peak to +n bytes unless you've
@@ -177,6 +193,7 @@ void qemu_file_set_rate_limit(QEMUFile *f, int64_t new_rate);
 int64_t qemu_file_get_rate_limit(QEMUFile *f);
 int qemu_file_get_error(QEMUFile *f);
 void qemu_file_set_error(QEMUFile *f, int ret);
+int qemu_file_shutdown(QEMUFile *f);
 void qemu_fflush(QEMUFile *f);
 
 static inline void qemu_put_be64s(QEMUFile *f, const uint64_t *pv)
@@ -299,4 +316,7 @@ static inline void qemu_get_sbe64s(QEMUFile *f, int64_t *pv)
 {
     qemu_get_be64s(f, (uint64_t *)pv);
 }
+
+size_t qemu_get_counted_string(QEMUFile *f, char buf[256]);
+
 #endif

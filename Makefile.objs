@@ -2,6 +2,7 @@
 # Common libraries for tools and emulators
 stub-obj-y = stubs/
 util-obj-y = util/ qobject/ qapi/ qapi-types.o qapi-visit.o qapi-event.o
+util-obj-y += crypto/
 
 #######################################################################
 # block-obj-y is code used by both qemu system emulation and qemu-img
@@ -48,15 +49,10 @@ common-obj-$(CONFIG_POSIX) += os-posix.o
 
 common-obj-$(CONFIG_LINUX) += fsdev/
 
-common-obj-y += migration.o migration-tcp.o
-common-obj-y += vmstate.o
-common-obj-y += qemu-file.o qemu-file-unix.o qemu-file-stdio.o
-common-obj-$(CONFIG_RDMA) += migration-rdma.o
+common-obj-y += migration/
 common-obj-y += qemu-char.o #aio.o
-common-obj-y += block-migration.o
-common-obj-y += page_cache.o xbzrle.o
-
-common-obj-$(CONFIG_POSIX) += migration-exec.o migration-unix.o migration-fd.o
+common-obj-y += page_cache.o
+common-obj-y += qjson.o
 
 common-obj-$(CONFIG_SPICE) += spice-qemu-char.o
 
@@ -80,6 +76,8 @@ common-obj-y += backends/
 common-obj-$(CONFIG_SECCOMP) += qemu-seccomp.o
 
 common-obj-$(CONFIG_SMARTCARD_NSS) += $(libcacard-y)
+
+common-obj-$(CONFIG_FDT) += device_tree.o
 
 ######################################################################
 # qapi

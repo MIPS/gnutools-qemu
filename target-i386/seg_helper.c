@@ -34,7 +34,21 @@
 # define LOG_PCALL_STATE(cpu) do { } while (0)
 #endif
 
-#ifndef CONFIG_USER_ONLY
+#ifdef CONFIG_USER_ONLY
+#define MEMSUFFIX _kernel
+#define DATA_SIZE 1
+#include "exec/cpu_ldst_useronly_template.h"
+
+#define DATA_SIZE 2
+#include "exec/cpu_ldst_useronly_template.h"
+
+#define DATA_SIZE 4
+#include "exec/cpu_ldst_useronly_template.h"
+
+#define DATA_SIZE 8
+#include "exec/cpu_ldst_useronly_template.h"
+#undef MEMSUFFIX
+#else
 #define CPU_MMU_INDEX (cpu_mmu_index_kernel(env))
 #define MEMSUFFIX _kernel
 #define DATA_SIZE 1
@@ -1029,7 +1043,7 @@ void helper_sysret(CPUX86State *env, int dflag)
                                    DESC_CS_MASK | DESC_R_MASK | DESC_A_MASK);
             env->eip = (uint32_t)env->regs[R_ECX];
         }
-        cpu_x86_load_seg_cache(env, R_SS, selector + 8,
+        cpu_x86_load_seg_cache(env, R_SS, (selector + 8) | 3,
                                0, 0xffffffff,
                                DESC_G_MASK | DESC_B_MASK | DESC_P_MASK |
                                DESC_S_MASK | (3 << DESC_DPL_SHIFT) |
@@ -1042,7 +1056,7 @@ void helper_sysret(CPUX86State *env, int dflag)
                                DESC_S_MASK | (3 << DESC_DPL_SHIFT) |
                                DESC_CS_MASK | DESC_R_MASK | DESC_A_MASK);
         env->eip = (uint32_t)env->regs[R_ECX];
-        cpu_x86_load_seg_cache(env, R_SS, selector + 8,
+        cpu_x86_load_seg_cache(env, R_SS, (selector + 8) | 3,
                                0, 0xffffffff,
                                DESC_G_MASK | DESC_B_MASK | DESC_P_MASK |
                                DESC_S_MASK | (3 << DESC_DPL_SHIFT) |
@@ -1130,7 +1144,7 @@ static void handle_even_inj(CPUX86State *env, int intno, int is_int,
                             int error_code, int is_hw, int rm)
 {
     CPUState *cs = CPU(x86_env_get_cpu(env));
-    uint32_t event_inj = ldl_phys(cs->as, env->vm_vmcb + offsetof(struct vmcb,
+    uint32_t event_inj = x86_ldl_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                                           control.event_inj));
 
     if (!(event_inj & SVM_EVTINJ_VALID)) {
@@ -1144,11 +1158,11 @@ static void handle_even_inj(CPUX86State *env, int intno, int is_int,
         event_inj = intno | type | SVM_EVTINJ_VALID;
         if (!rm && exception_has_error_code(intno)) {
             event_inj |= SVM_EVTINJ_VALID_ERR;
-            stl_phys(cs->as, env->vm_vmcb + offsetof(struct vmcb,
+            x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                              control.event_inj_err),
                      error_code);
         }
-        stl_phys(cs->as,
+        x86_stl_phys(cs,
                  env->vm_vmcb + offsetof(struct vmcb, control.event_inj),
                  event_inj);
     }
@@ -1226,11 +1240,11 @@ static void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
 #if !defined(CONFIG_USER_ONLY)
     if (env->hflags & HF_SVMI_MASK) {
         CPUState *cs = CPU(cpu);
-        uint32_t event_inj = ldl_phys(cs->as, env->vm_vmcb +
+        uint32_t event_inj = x86_ldl_phys(cs, env->vm_vmcb +
                                       offsetof(struct vmcb,
                                                control.event_inj));
 
-        stl_phys(cs->as,
+        x86_stl_phys(cs,
                  env->vm_vmcb + offsetof(struct vmcb, control.event_inj),
                  event_inj & ~SVM_EVTINJ_VALID);
     }
@@ -1325,7 +1339,7 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
             int intno;
             /* FIXME: this should respect TPR */
             cpu_svm_check_intercept_param(env, SVM_EXIT_VINTR, 0);
-            intno = ldl_phys(cs->as, env->vm_vmcb
+            intno = x86_ldl_phys(cs, env->vm_vmcb
                              + offsetof(struct vmcb, control.int_vector));
             qemu_log_mask(CPU_LOG_TB_IN_ASM,
                           "Servicing virtual hardware INT=0x%02x\n", intno);

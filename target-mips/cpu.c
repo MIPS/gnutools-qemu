@@ -115,7 +115,7 @@ static void mips_cpu_initfn(Object *obj)
     CPUMIPSState *env = &cpu->env;
 
     cs->env_ptr = env;
-    cpu_exec_init(env);
+    cpu_exec_init(cs, &error_abort);
 
     if (tcg_enabled()) {
         mips_tcg_init();
@@ -148,6 +148,7 @@ static void mips_cpu_class_init(ObjectClass *c, void *data)
     cc->do_unassigned_access = mips_cpu_unassigned_access;
     cc->do_unaligned_access = mips_cpu_do_unaligned_access;
     cc->get_phys_page_debug = mips_cpu_get_phys_page_debug;
+    cc->vmsd = &vmstate_mips_cpu;
 #endif
 
     cc->gdb_num_core_regs = 73;

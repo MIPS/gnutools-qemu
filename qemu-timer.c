@@ -22,13 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include "sysemu/sysemu.h"
-#include "monitor/monitor.h"
-#include "ui/console.h"
-
-#include "hw/hw.h"
-
+#include "qemu/main-loop.h"
 #include "qemu/timer.h"
+
 #ifdef CONFIG_POSIX
 #include <pthread.h>
 #endif
@@ -103,7 +99,7 @@ QEMUTimerList *timerlist_new(QEMUClockType type,
     QEMUClock *clock = qemu_clock_ptr(type);
 
     timer_list = g_malloc0(sizeof(QEMUTimerList));
-    qemu_event_init(&timer_list->timers_done_ev, false);
+    qemu_event_init(&timer_list->timers_done_ev, true);
     timer_list->clock = clock;
     timer_list->notify_cb = cb;
     timer_list->notify_opaque = opaque;
@@ -331,15 +327,21 @@ int qemu_poll_ns(GPollFD *fds, guint nfds, int64_t timeout)
 }
 
 
-void timer_init(QEMUTimer *ts,
-                QEMUTimerList *timer_list, int scale,
-                QEMUTimerCB *cb, void *opaque)
+void timer_init_tl(QEMUTimer *ts,
+                   QEMUTimerList *timer_list, int scale,
+                   QEMUTimerCB *cb, void *opaque)
 {
     ts->timer_list = timer_list;
     ts->cb = cb;
     ts->opaque = opaque;
     ts->scale = scale;
     ts->expire_time = -1;
+}
+
+void timer_deinit(QEMUTimer *ts)
+{
+    assert(ts->expire_time == -1);
+    ts->timer_list = NULL;
 }
 
 void timer_free(QEMUTimer *ts)
@@ -398,9 +400,11 @@ void timer_del(QEMUTimer *ts)
 {
     QEMUTimerList *timer_list = ts->timer_list;
 
-    qemu_mutex_lock(&timer_list->active_timers_lock);
-    timer_del_locked(timer_list, ts);
-    qemu_mutex_unlock(&timer_list->active_timers_lock);
+    if (timer_list) {
+        qemu_mutex_lock(&timer_list->active_timers_lock);
+        timer_del_locked(timer_list, ts);
+        qemu_mutex_unlock(&timer_list->active_timers_lock);
+    }
 }
 
 /* modify the current timer so that it will be fired when current_time
@@ -569,10 +573,12 @@ int64_t qemu_clock_get_ns(QEMUClockType type)
         now = get_clock_realtime();
         last = clock->last;
         clock->last = now;
-        if (now < last) {
+        if (now < last || now > (last + get_max_clock_jump())) {
             notifier_list_notify(&clock->reset_notifiers, &now);
         }
         return now;
+    case QEMU_CLOCK_VIRTUAL_RT:
+        return cpu_get_clock();
     }
 }
 
