@@ -39,6 +39,8 @@
 #include "sysemu/watchdog.h"
 #include "trace.h"
 #include "exec/gdbstub.h"
+#include "exec/memattrs.h"
+#include "sysemu/hostmem.h"
 
 //#define DEBUG_KVM
 
@@ -95,7 +97,7 @@ static void kvm_kick_cpu(void *opaque)
 
 static int kvm_ppc_register_host_cpu_type(void);
 
-int kvm_arch_init(KVMState *s)
+int kvm_arch_init(MachineState *ms, KVMState *s)
 {
     cap_interrupt_unset = kvm_check_extension(s, KVM_CAP_PPC_UNSET_IRQ);
     cap_interrupt_level = kvm_check_extension(s, KVM_CAP_PPC_IRQ_LEVEL);
@@ -302,15 +304,10 @@ static void kvm_get_smmu_info(PowerPCCPU *cpu, struct kvm_ppc_smmu_info *info)
     kvm_get_fallback_smmu_info(cpu, info);
 }
 
-static long getrampagesize(void)
+static long gethugepagesize(const char *mem_path)
 {
     struct statfs fs;
     int ret;
-
-    if (!mem_path) {
-        /* guest RAM is backed by normal anonymous pages */
-        return getpagesize();
-    }
 
     do {
         ret = statfs(mem_path, &fs);
@@ -331,6 +328,55 @@ static long getrampagesize(void)
 
     /* It's hugepage, return the huge page size */
     return fs.f_bsize;
+}
+
+static int find_max_supported_pagesize(Object *obj, void *opaque)
+{
+    char *mem_path;
+    long *hpsize_min = opaque;
+
+    if (object_dynamic_cast(obj, TYPE_MEMORY_BACKEND)) {
+        mem_path = object_property_get_str(obj, "mem-path", NULL);
+        if (mem_path) {
+            long hpsize = gethugepagesize(mem_path);
+            if (hpsize < *hpsize_min) {
+                *hpsize_min = hpsize;
+            }
+        } else {
+            *hpsize_min = getpagesize();
+        }
+    }
+
+    return 0;
+}
+
+static long getrampagesize(void)
+{
+    long hpsize = LONG_MAX;
+    Object *memdev_root;
+
+    if (mem_path) {
+        return gethugepagesize(mem_path);
+    }
+
+    /* it's possible we have memory-backend objects with
+     * hugepage-backed RAM. these may get mapped into system
+     * address space via -numa parameters or memory hotplug
+     * hooks. we want to take these into account, but we
+     * also want to make sure these supported hugepage
+     * sizes are applicable across the entire range of memory
+     * we may boot from, so we take the min across all
+     * backends, and assume normal pages in cases where a
+     * backend isn't backed by hugepages.
+     */
+    memdev_root = object_resolve_path("/objects", NULL);
+    if (!memdev_root) {
+        return getpagesize();
+    }
+
+    object_child_foreach(memdev_root, find_max_supported_pagesize, &hpsize);
+
+    return (hpsize == LONG_MAX) ? getpagesize() : hpsize;
 }
 
 static bool kvm_valid_page_size(uint32_t flags, long rampgsize, uint32_t shift)
@@ -1241,6 +1287,8 @@ void kvm_arch_pre_run(CPUState *cs, struct kvm_run *run)
     int r;
     unsigned irq;
 
+    qemu_mutex_lock_iothread();
+
     /* PowerPC QEMU tracks the various core input pins (interrupt, critical
      * interrupt, reset, etc) in PPC-specific env->irq_input_state. */
     if (!cap_interrupt_level &&
@@ -1268,10 +1316,13 @@ void kvm_arch_pre_run(CPUState *cs, struct kvm_run *run)
     /* We don't know if there are more interrupts pending after this. However,
      * the guest will return to userspace in the course of handling this one
      * anyways, so we will get a chance to deliver the rest. */
+
+    qemu_mutex_unlock_iothread();
 }
 
-void kvm_arch_post_run(CPUState *cpu, struct kvm_run *run)
+MemTxAttrs kvm_arch_post_run(CPUState *cs, struct kvm_run *run)
 {
+    return MEMTXATTRS_UNSPECIFIED;
 }
 
 int kvm_arch_process_async_events(CPUState *cs)
@@ -1568,6 +1619,8 @@ int kvm_arch_handle_exit(CPUState *cs, struct kvm_run *run)
     CPUPPCState *env = &cpu->env;
     int ret;
 
+    qemu_mutex_lock_iothread();
+
     switch (run->exit_reason) {
     case KVM_EXIT_DCR:
         if (run->dcr.is_write) {
@@ -1618,6 +1671,7 @@ int kvm_arch_handle_exit(CPUState *cs, struct kvm_run *run)
         break;
     }
 
+    qemu_mutex_unlock_iothread();
     return ret;
 }
 
@@ -1880,6 +1934,23 @@ int kvmppc_get_hypercall(CPUPPCState *env, uint8_t *buf, int buf_len)
     hc[3] = cpu_to_be32(bswap32(0x3860ffff));
 
     return 0;
+}
+
+static inline int kvmppc_enable_hcall(KVMState *s, target_ulong hcall)
+{
+    return kvm_vm_enable_cap(s, KVM_CAP_PPC_ENABLE_HCALL, 0, hcall, 1);
+}
+
+void kvmppc_enable_logical_ci_hcalls(void)
+{
+    /*
+     * FIXME: it would be nice if we could detect the cases where
+     * we're using a device which requires the in kernel
+     * implementation of these hcalls, but the kernel lacks them and
+     * produce a warning.
+     */
+    kvmppc_enable_hcall(kvm_state, H_LOGICAL_CI_LOAD);
+    kvmppc_enable_hcall(kvm_state, H_LOGICAL_CI_STORE);
 }
 
 void kvmppc_set_papr(PowerPCCPU *cpu)
@@ -2246,8 +2317,23 @@ int kvmppc_save_htab(QEMUFile *f, int fd, size_t bufsize, int64_t max_ns)
                     strerror(errno));
             return rc;
         } else if (rc) {
-            /* Kernel already retuns data in BE format for the file */
-            qemu_put_buffer(f, buf, rc);
+            uint8_t *buffer = buf;
+            ssize_t n = rc;
+            while (n) {
+                struct kvm_get_htab_header *head =
+                    (struct kvm_get_htab_header *) buffer;
+                size_t chunksize = sizeof(*head) +
+                     HASH_PTE_SIZE_64 * head->n_valid;
+
+                qemu_put_be32(f, head->index);
+                qemu_put_be16(f, head->n_valid);
+                qemu_put_be16(f, head->n_invalid);
+                qemu_put_buffer(f, (void *)(head + 1),
+                                HASH_PTE_SIZE_64 * head->n_valid);
+
+                buffer += chunksize;
+                n -= chunksize;
+            }
         }
     } while ((rc != 0)
              && ((max_ns < 0)
@@ -2264,7 +2350,6 @@ int kvmppc_load_htab_chunk(QEMUFile *f, int fd, uint32_t index,
     ssize_t rc;
 
     buf = alloca(chunksize);
-    /* This is KVM on ppc, so this is all big-endian */
     buf->index = index;
     buf->n_valid = n_valid;
     buf->n_invalid = n_invalid;
@@ -2387,4 +2472,15 @@ out_close:
 
 error_out:
     return;
+}
+
+int kvm_arch_fixup_msi_route(struct kvm_irq_routing_entry *route,
+                             uint64_t address, uint32_t data)
+{
+    return 0;
+}
+
+int kvm_arch_msi_data_to_gsi(uint32_t data)
+{
+    return data & 0xffff;
 }

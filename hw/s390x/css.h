@@ -81,6 +81,7 @@ struct SubchDev {
     uint8_t ccw_no_data_cnt;
     /* transport-provided data: */
     int (*ccw_cb) (SubchDev *, CCW1);
+    void (*disable_cb)(SubchDev *);
     SenseId id;
     void *driver_data;
 };
@@ -101,6 +102,7 @@ void css_queue_crw(uint8_t rsc, uint8_t erc, int chain, uint16_t rsid);
 void css_generate_sch_crws(uint8_t cssid, uint8_t ssid, uint16_t schid,
                            int hotplugged, int add);
 void css_generate_chp_crws(uint8_t cssid, uint8_t chpid);
+void css_generate_css_crws(uint8_t cssid);
 void css_adapter_interrupt(uint8_t isc);
 
 #define CSS_IO_ADAPTER_VIRTIO 1

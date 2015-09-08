@@ -187,19 +187,11 @@ static ssize_t spapr_vlan_receive(NetClientState *nc, const uint8_t *buf,
     return size;
 }
 
-static void spapr_vlan_cleanup(NetClientState *nc)
-{
-    VIOsPAPRVLANDevice *dev = qemu_get_nic_opaque(nc);
-
-    dev->nic = NULL;
-}
-
 static NetClientInfo net_spapr_vlan_info = {
     .type = NET_CLIENT_OPTIONS_KIND_NIC,
     .size = sizeof(NICState),
     .can_receive = spapr_vlan_can_receive,
     .receive = spapr_vlan_receive,
-    .cleanup = spapr_vlan_cleanup,
 };
 
 static void spapr_vlan_reset(VIOsPAPRDevice *sdev)
@@ -211,7 +203,7 @@ static void spapr_vlan_reset(VIOsPAPRDevice *sdev)
     dev->isopen = 0;
 }
 
-static int spapr_vlan_init(VIOsPAPRDevice *sdev)
+static void spapr_vlan_realize(VIOsPAPRDevice *sdev, Error **errp)
 {
     VIOsPAPRVLANDevice *dev = VIO_SPAPR_VLAN_DEVICE(sdev);
 
@@ -220,8 +212,6 @@ static int spapr_vlan_init(VIOsPAPRDevice *sdev)
     dev->nic = qemu_new_nic(&net_spapr_vlan_info, &dev->nicconf,
                             object_get_typename(OBJECT(sdev)), sdev->qdev.id, dev);
     qemu_format_nic_info_str(qemu_get_queue(dev->nic), dev->nicconf.macaddr.a);
-
-    return 0;
 }
 
 static void spapr_vlan_instance_init(Object *obj)
@@ -294,7 +284,7 @@ static int check_bd(VIOsPAPRVLANDevice *dev, vlan_bd_t bd,
 }
 
 static target_ulong h_register_logical_lan(PowerPCCPU *cpu,
-                                           sPAPREnvironment *spapr,
+                                           sPAPRMachineState *spapr,
                                            target_ulong opcode,
                                            target_ulong *args)
 {
@@ -359,7 +349,8 @@ static target_ulong h_register_logical_lan(PowerPCCPU *cpu,
 }
 
 
-static target_ulong h_free_logical_lan(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+static target_ulong h_free_logical_lan(PowerPCCPU *cpu,
+                                       sPAPRMachineState *spapr,
                                        target_ulong opcode, target_ulong *args)
 {
     target_ulong reg = args[0];
@@ -381,7 +372,7 @@ static target_ulong h_free_logical_lan(PowerPCCPU *cpu, sPAPREnvironment *spapr,
 }
 
 static target_ulong h_add_logical_lan_buffer(PowerPCCPU *cpu,
-                                             sPAPREnvironment *spapr,
+                                             sPAPRMachineState *spapr,
                                              target_ulong opcode,
                                              target_ulong *args)
 {
@@ -431,7 +422,8 @@ static target_ulong h_add_logical_lan_buffer(PowerPCCPU *cpu,
     return H_SUCCESS;
 }
 
-static target_ulong h_send_logical_lan(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+static target_ulong h_send_logical_lan(PowerPCCPU *cpu,
+                                       sPAPRMachineState *spapr,
                                        target_ulong opcode, target_ulong *args)
 {
     target_ulong reg = args[0];
@@ -500,7 +492,7 @@ static target_ulong h_send_logical_lan(PowerPCCPU *cpu, sPAPREnvironment *spapr,
     return H_SUCCESS;
 }
 
-static target_ulong h_multicast_ctrl(PowerPCCPU *cpu, sPAPREnvironment *spapr,
+static target_ulong h_multicast_ctrl(PowerPCCPU *cpu, sPAPRMachineState *spapr,
                                      target_ulong opcode, target_ulong *args)
 {
     target_ulong reg = args[0];
@@ -542,7 +534,7 @@ static void spapr_vlan_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     VIOsPAPRDeviceClass *k = VIO_SPAPR_DEVICE_CLASS(klass);
 
-    k->init = spapr_vlan_init;
+    k->realize = spapr_vlan_realize;
     k->reset = spapr_vlan_reset;
     k->devnode = spapr_vlan_devnode;
     k->dt_name = "l-lan";

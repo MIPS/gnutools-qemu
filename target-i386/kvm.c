@@ -22,7 +22,7 @@
 
 #include "qemu-common.h"
 #include "sysemu/sysemu.h"
-#include "sysemu/kvm.h"
+#include "sysemu/kvm_int.h"
 #include "kvm_i386.h"
 #include "cpu.h"
 #include "exec/gdbstub.h"
@@ -36,7 +36,7 @@
 #include <asm/hyperv.h>
 #include "hw/pci/pci.h"
 #include "migration/migration.h"
-#include "qapi/qmp/qerror.h"
+#include "exec/memattrs.h"
 
 //#define DEBUG_KVM
 
@@ -73,6 +73,7 @@ static bool has_msr_feature_control;
 static bool has_msr_async_pf_en;
 static bool has_msr_pv_eoi_en;
 static bool has_msr_misc_enable;
+static bool has_msr_smbase;
 static bool has_msr_bndcfgs;
 static bool has_msr_kvm_steal_time;
 static int lm_capable_kernel;
@@ -80,9 +81,15 @@ static bool has_msr_hv_hypercall;
 static bool has_msr_hv_vapic;
 static bool has_msr_hv_tsc;
 static bool has_msr_mtrr;
+static bool has_msr_xss;
 
 static bool has_msr_architectural_pmu;
 static uint32_t num_architectural_pmu_counters;
+
+bool kvm_has_smm(void)
+{
+    return kvm_check_extension(kvm_state, KVM_CAP_X86_SMM);
+}
 
 bool kvm_allows_irq0_override(void)
 {
@@ -95,7 +102,7 @@ static struct kvm_cpuid2 *try_get_cpuid(KVMState *s, int max)
     int r, size;
 
     size = sizeof(*cpuid) + max * sizeof(*cpuid->entries);
-    cpuid = (struct kvm_cpuid2 *)g_malloc0(size);
+    cpuid = g_malloc0(size);
     cpuid->nent = max;
     r = kvm_ioctl(s, KVM_GET_SUPPORTED_CPUID, cpuid);
     if (r == 0 && cpuid->nent >= max) {
@@ -231,6 +238,8 @@ uint32_t kvm_arch_get_supported_cpuid(KVMState *s, uint32_t function,
         if (!kvm_irqchip_in_kernel()) {
             ret &= ~CPUID_EXT_X2APIC;
         }
+    } else if (function == 6 && reg == R_EAX) {
+        ret |= CPUID_6_EAX_ARAT; /* safe to allow because of emulated APIC */
     } else if (function == 0x80000001 && reg == R_EDX) {
         /* On Intel, kvm returns cpuid according to the Intel spec,
          * so add missing bits according to the AMD spec:
@@ -277,7 +286,7 @@ static void kvm_hwpoison_page_add(ram_addr_t ram_addr)
             return;
         }
     }
-    page = g_malloc(sizeof(HWPoisonPage));
+    page = g_new(HWPoisonPage, 1);
     page->ram_addr = ram_addr;
     QLIST_INSERT_HEAD(&hwpoison_page_list, page, list);
 }
@@ -429,7 +438,7 @@ static void cpu_update_state(void *opaque, int running, RunState state)
 unsigned long kvm_arch_vcpu_id(CPUState *cs)
 {
     X86CPU *cpu = X86_CPU(cs);
-    return cpu->env.cpuid_apic_id;
+    return cpu->apic_id;
 }
 
 #ifndef KVM_CPUID_SIGNATURE_NEXT
@@ -818,12 +827,20 @@ static int kvm_get_supported_msrs(KVMState *s)
                     has_msr_tsc_deadline = true;
                     continue;
                 }
+                if (kvm_msr_list->indices[i] == MSR_IA32_SMBASE) {
+                    has_msr_smbase = true;
+                    continue;
+                }
                 if (kvm_msr_list->indices[i] == MSR_IA32_MISC_ENABLE) {
                     has_msr_misc_enable = true;
                     continue;
                 }
                 if (kvm_msr_list->indices[i] == MSR_IA32_BNDCFGS) {
                     has_msr_bndcfgs = true;
+                    continue;
+                }
+                if (kvm_msr_list->indices[i] == MSR_IA32_XSS) {
+                    has_msr_xss = true;
                     continue;
                 }
             }
@@ -835,7 +852,41 @@ static int kvm_get_supported_msrs(KVMState *s)
     return ret;
 }
 
-int kvm_arch_init(KVMState *s)
+static Notifier smram_machine_done;
+static KVMMemoryListener smram_listener;
+static AddressSpace smram_address_space;
+static MemoryRegion smram_as_root;
+static MemoryRegion smram_as_mem;
+
+static void register_smram_listener(Notifier *n, void *unused)
+{
+    MemoryRegion *smram =
+        (MemoryRegion *) object_resolve_path("/machine/smram", NULL);
+
+    /* Outer container... */
+    memory_region_init(&smram_as_root, OBJECT(kvm_state), "mem-container-smram", ~0ull);
+    memory_region_set_enabled(&smram_as_root, true);
+
+    /* ... with two regions inside: normal system memory with low
+     * priority, and...
+     */
+    memory_region_init_alias(&smram_as_mem, OBJECT(kvm_state), "mem-smram",
+                             get_system_memory(), 0, ~0ull);
+    memory_region_add_subregion_overlap(&smram_as_root, 0, &smram_as_mem, 0);
+    memory_region_set_enabled(&smram_as_mem, true);
+
+    if (smram) {
+        /* ... SMRAM with higher priority */
+        memory_region_add_subregion_overlap(&smram_as_root, 0, smram, 10);
+        memory_region_set_enabled(smram, true);
+    }
+
+    address_space_init(&smram_address_space, &smram_as_root, "KVM-SMRAM");
+    kvm_memory_listener_register(kvm_state, &smram_listener,
+                                 &smram_address_space, 1);
+}
+
+int kvm_arch_init(MachineState *ms, KVMState *s)
 {
     uint64_t identity_base = 0xfffbc000;
     uint64_t shadow_mem;
@@ -885,14 +936,18 @@ int kvm_arch_init(KVMState *s)
     }
     qemu_register_reset(kvm_unpoison_all, NULL);
 
-    shadow_mem = qemu_opt_get_size(qemu_get_machine_opts(),
-                                   "kvm_shadow_mem", -1);
+    shadow_mem = machine_kvm_shadow_mem(ms);
     if (shadow_mem != -1) {
         shadow_mem /= 4096;
         ret = kvm_vm_ioctl(s, KVM_SET_NR_MMU_PAGES, shadow_mem);
         if (ret < 0) {
             return ret;
         }
+    }
+
+    if (kvm_check_extension(s, KVM_CAP_X86_SMM)) {
+        smram_machine_done.notify = register_smram_listener;
+        qemu_add_machine_init_done_notifier(&smram_machine_done);
     }
     return 0;
 }
@@ -1014,7 +1069,10 @@ static int kvm_put_fpu(X86CPU *cpu)
         fpu.ftwx |= (!env->fptags[i]) << i;
     }
     memcpy(fpu.fpr, env->fpregs, sizeof env->fpregs);
-    memcpy(fpu.xmm, env->xmm_regs, sizeof env->xmm_regs);
+    for (i = 0; i < CPU_NB_REGS; i++) {
+        stq_p(&fpu.xmm[i][0], env->xmm_regs[i].XMM_Q(0));
+        stq_p(&fpu.xmm[i][8], env->xmm_regs[i].XMM_Q(1));
+    }
     fpu.mxcsr = env->mxcsr;
 
     return kvm_vcpu_ioctl(CPU(cpu), KVM_SET_FPU, &fpu);
@@ -1040,6 +1098,7 @@ static int kvm_put_xsave(X86CPU *cpu)
     CPUX86State *env = &cpu->env;
     struct kvm_xsave* xsave = env->kvm_xsave_buf;
     uint16_t cwd, swd, twd;
+    uint8_t *xmm, *ymmh, *zmmh;
     int i, r;
 
     if (!kvm_has_xsave()) {
@@ -1060,23 +1119,32 @@ static int kvm_put_xsave(X86CPU *cpu)
     memcpy(&xsave->region[XSAVE_CWD_RDP], &env->fpdp, sizeof(env->fpdp));
     memcpy(&xsave->region[XSAVE_ST_SPACE], env->fpregs,
             sizeof env->fpregs);
-    memcpy(&xsave->region[XSAVE_XMM_SPACE], env->xmm_regs,
-            sizeof env->xmm_regs);
     xsave->region[XSAVE_MXCSR] = env->mxcsr;
     *(uint64_t *)&xsave->region[XSAVE_XSTATE_BV] = env->xstate_bv;
-    memcpy(&xsave->region[XSAVE_YMMH_SPACE], env->ymmh_regs,
-            sizeof env->ymmh_regs);
     memcpy(&xsave->region[XSAVE_BNDREGS], env->bnd_regs,
             sizeof env->bnd_regs);
     memcpy(&xsave->region[XSAVE_BNDCSR], &env->bndcs_regs,
             sizeof(env->bndcs_regs));
     memcpy(&xsave->region[XSAVE_OPMASK], env->opmask_regs,
             sizeof env->opmask_regs);
-    memcpy(&xsave->region[XSAVE_ZMM_Hi256], env->zmmh_regs,
-            sizeof env->zmmh_regs);
+
+    xmm = (uint8_t *)&xsave->region[XSAVE_XMM_SPACE];
+    ymmh = (uint8_t *)&xsave->region[XSAVE_YMMH_SPACE];
+    zmmh = (uint8_t *)&xsave->region[XSAVE_ZMM_Hi256];
+    for (i = 0; i < CPU_NB_REGS; i++, xmm += 16, ymmh += 16, zmmh += 32) {
+        stq_p(xmm,     env->xmm_regs[i].XMM_Q(0));
+        stq_p(xmm+8,   env->xmm_regs[i].XMM_Q(1));
+        stq_p(ymmh,    env->xmm_regs[i].XMM_Q(2));
+        stq_p(ymmh+8,  env->xmm_regs[i].XMM_Q(3));
+        stq_p(zmmh,    env->xmm_regs[i].XMM_Q(4));
+        stq_p(zmmh+8,  env->xmm_regs[i].XMM_Q(5));
+        stq_p(zmmh+16, env->xmm_regs[i].XMM_Q(6));
+        stq_p(zmmh+24, env->xmm_regs[i].XMM_Q(7));
+    }
+
 #ifdef TARGET_X86_64
-    memcpy(&xsave->region[XSAVE_Hi16_ZMM], env->hi16_zmm_regs,
-            sizeof env->hi16_zmm_regs);
+    memcpy(&xsave->region[XSAVE_Hi16_ZMM], &env->xmm_regs[16],
+            16 * sizeof env->xmm_regs[16]);
 #endif
     r = kvm_vcpu_ioctl(CPU(cpu), KVM_SET_XSAVE, xsave);
     return r;
@@ -1085,7 +1153,7 @@ static int kvm_put_xsave(X86CPU *cpu)
 static int kvm_put_xcrs(X86CPU *cpu)
 {
     CPUX86State *env = &cpu->env;
-    struct kvm_xcrs xcrs;
+    struct kvm_xcrs xcrs = {};
 
     if (!kvm_has_xcrs()) {
         return 0;
@@ -1152,6 +1220,7 @@ static void kvm_msr_entry_set(struct kvm_msr_entry *entry,
                               uint32_t index, uint64_t value)
 {
     entry->index = index;
+    entry->reserved = 0;
     entry->data = value;
 }
 
@@ -1170,7 +1239,9 @@ static int kvm_put_tscdeadline_msr(X86CPU *cpu)
 
     kvm_msr_entry_set(&msrs[0], MSR_IA32_TSCDEADLINE, env->tsc_deadline);
 
-    msr_data.info.nmsrs = 1;
+    msr_data.info = (struct kvm_msrs) {
+        .nmsrs = 1,
+    };
 
     return kvm_vcpu_ioctl(CPU(cpu), KVM_SET_MSRS, &msr_data);
 }
@@ -1190,7 +1261,11 @@ static int kvm_put_msr_feature_control(X86CPU *cpu)
 
     kvm_msr_entry_set(&msr_data.entry, MSR_IA32_FEATURE_CONTROL,
                       cpu->env.msr_ia32_feature_control);
-    msr_data.info.nmsrs = 1;
+
+    msr_data.info = (struct kvm_msrs) {
+        .nmsrs = 1,
+    };
+
     return kvm_vcpu_ioctl(CPU(cpu), KVM_SET_MSRS, &msr_data);
 }
 
@@ -1221,8 +1296,14 @@ static int kvm_put_msrs(X86CPU *cpu, int level)
         kvm_msr_entry_set(&msrs[n++], MSR_IA32_MISC_ENABLE,
                           env->msr_ia32_misc_enable);
     }
+    if (has_msr_smbase) {
+        kvm_msr_entry_set(&msrs[n++], MSR_IA32_SMBASE, env->smbase);
+    }
     if (has_msr_bndcfgs) {
         kvm_msr_entry_set(&msrs[n++], MSR_IA32_BNDCFGS, env->msr_bndcfgs);
+    }
+    if (has_msr_xss) {
+        kvm_msr_entry_set(&msrs[n++], MSR_IA32_XSS, env->xss);
     }
 #ifdef TARGET_X86_64
     if (lm_capable_kernel) {
@@ -1339,7 +1420,9 @@ static int kvm_put_msrs(X86CPU *cpu, int level)
         }
     }
 
-    msr_data.info.nmsrs = n;
+    msr_data.info = (struct kvm_msrs) {
+        .nmsrs = n,
+    };
 
     return kvm_vcpu_ioctl(CPU(cpu), KVM_SET_MSRS, &msr_data);
 
@@ -1367,7 +1450,10 @@ static int kvm_get_fpu(X86CPU *cpu)
         env->fptags[i] = !((fpu.ftwx >> i) & 1);
     }
     memcpy(env->fpregs, fpu.fpr, sizeof env->fpregs);
-    memcpy(env->xmm_regs, fpu.xmm, sizeof env->xmm_regs);
+    for (i = 0; i < CPU_NB_REGS; i++) {
+        env->xmm_regs[i].XMM_Q(0) = ldq_p(&fpu.xmm[i][0]);
+        env->xmm_regs[i].XMM_Q(1) = ldq_p(&fpu.xmm[i][8]);
+    }
     env->mxcsr = fpu.mxcsr;
 
     return 0;
@@ -1378,6 +1464,7 @@ static int kvm_get_xsave(X86CPU *cpu)
     CPUX86State *env = &cpu->env;
     struct kvm_xsave* xsave = env->kvm_xsave_buf;
     int ret, i;
+    const uint8_t *xmm, *ymmh, *zmmh;
     uint16_t cwd, swd, twd;
 
     if (!kvm_has_xsave()) {
@@ -1404,22 +1491,31 @@ static int kvm_get_xsave(X86CPU *cpu)
     env->mxcsr = xsave->region[XSAVE_MXCSR];
     memcpy(env->fpregs, &xsave->region[XSAVE_ST_SPACE],
             sizeof env->fpregs);
-    memcpy(env->xmm_regs, &xsave->region[XSAVE_XMM_SPACE],
-            sizeof env->xmm_regs);
     env->xstate_bv = *(uint64_t *)&xsave->region[XSAVE_XSTATE_BV];
-    memcpy(env->ymmh_regs, &xsave->region[XSAVE_YMMH_SPACE],
-            sizeof env->ymmh_regs);
     memcpy(env->bnd_regs, &xsave->region[XSAVE_BNDREGS],
             sizeof env->bnd_regs);
     memcpy(&env->bndcs_regs, &xsave->region[XSAVE_BNDCSR],
             sizeof(env->bndcs_regs));
     memcpy(env->opmask_regs, &xsave->region[XSAVE_OPMASK],
             sizeof env->opmask_regs);
-    memcpy(env->zmmh_regs, &xsave->region[XSAVE_ZMM_Hi256],
-            sizeof env->zmmh_regs);
+
+    xmm = (const uint8_t *)&xsave->region[XSAVE_XMM_SPACE];
+    ymmh = (const uint8_t *)&xsave->region[XSAVE_YMMH_SPACE];
+    zmmh = (const uint8_t *)&xsave->region[XSAVE_ZMM_Hi256];
+    for (i = 0; i < CPU_NB_REGS; i++, xmm += 16, ymmh += 16, zmmh += 32) {
+        env->xmm_regs[i].XMM_Q(0) = ldq_p(xmm);
+        env->xmm_regs[i].XMM_Q(1) = ldq_p(xmm+8);
+        env->xmm_regs[i].XMM_Q(2) = ldq_p(ymmh);
+        env->xmm_regs[i].XMM_Q(3) = ldq_p(ymmh+8);
+        env->xmm_regs[i].XMM_Q(4) = ldq_p(zmmh);
+        env->xmm_regs[i].XMM_Q(5) = ldq_p(zmmh+8);
+        env->xmm_regs[i].XMM_Q(6) = ldq_p(zmmh+16);
+        env->xmm_regs[i].XMM_Q(7) = ldq_p(zmmh+24);
+    }
+
 #ifdef TARGET_X86_64
-    memcpy(env->hi16_zmm_regs, &xsave->region[XSAVE_Hi16_ZMM],
-            sizeof env->hi16_zmm_regs);
+    memcpy(&env->xmm_regs[16], &xsave->region[XSAVE_Hi16_ZMM],
+           16 * sizeof env->xmm_regs[16]);
 #endif
     return 0;
 }
@@ -1564,12 +1660,19 @@ static int kvm_get_msrs(X86CPU *cpu)
     if (has_msr_misc_enable) {
         msrs[n++].index = MSR_IA32_MISC_ENABLE;
     }
+    if (has_msr_smbase) {
+        msrs[n++].index = MSR_IA32_SMBASE;
+    }
     if (has_msr_feature_control) {
         msrs[n++].index = MSR_IA32_FEATURE_CONTROL;
     }
     if (has_msr_bndcfgs) {
         msrs[n++].index = MSR_IA32_BNDCFGS;
     }
+    if (has_msr_xss) {
+        msrs[n++].index = MSR_IA32_XSS;
+    }
+
 
     if (!env->tsc_valid) {
         msrs[n++].index = MSR_IA32_TSC;
@@ -1646,7 +1749,10 @@ static int kvm_get_msrs(X86CPU *cpu)
         }
     }
 
-    msr_data.info.nmsrs = n;
+    msr_data.info = (struct kvm_msrs) {
+        .nmsrs = n,
+    };
+
     ret = kvm_vcpu_ioctl(CPU(cpu), KVM_GET_MSRS, &msr_data);
     if (ret < 0) {
         return ret;
@@ -1711,11 +1817,17 @@ static int kvm_get_msrs(X86CPU *cpu)
         case MSR_IA32_MISC_ENABLE:
             env->msr_ia32_misc_enable = msrs[i].data;
             break;
+        case MSR_IA32_SMBASE:
+            env->smbase = msrs[i].data;
+            break;
         case MSR_IA32_FEATURE_CONTROL:
             env->msr_ia32_feature_control = msrs[i].data;
             break;
         case MSR_IA32_BNDCFGS:
             env->msr_bndcfgs = msrs[i].data;
+            break;
+        case MSR_IA32_XSS:
+            env->xss = msrs[i].data;
             break;
         default:
             if (msrs[i].index >= MSR_MC0_CTL &&
@@ -1871,8 +1983,9 @@ static int kvm_put_apic(X86CPU *cpu)
 
 static int kvm_put_vcpu_events(X86CPU *cpu, int level)
 {
+    CPUState *cs = CPU(cpu);
     CPUX86State *env = &cpu->env;
-    struct kvm_vcpu_events events;
+    struct kvm_vcpu_events events = {};
 
     if (!kvm_has_vcpu_events()) {
         return 0;
@@ -1895,6 +2008,24 @@ static int kvm_put_vcpu_events(X86CPU *cpu, int level)
 
     events.sipi_vector = env->sipi_vector;
 
+    if (has_msr_smbase) {
+        events.smi.smm = !!(env->hflags & HF_SMM_MASK);
+        events.smi.smm_inside_nmi = !!(env->hflags2 & HF2_SMM_INSIDE_NMI_MASK);
+        if (kvm_irqchip_in_kernel()) {
+            /* As soon as these are moved to the kernel, remove them
+             * from cs->interrupt_request.
+             */
+            events.smi.pending = cs->interrupt_request & CPU_INTERRUPT_SMI;
+            events.smi.latched_init = cs->interrupt_request & CPU_INTERRUPT_INIT;
+            cs->interrupt_request &= ~(CPU_INTERRUPT_INIT | CPU_INTERRUPT_SMI);
+        } else {
+            /* Keep these in cs->interrupt_request.  */
+            events.smi.pending = 0;
+            events.smi.latched_init = 0;
+        }
+        events.flags |= KVM_VCPUEVENT_VALID_SMM;
+    }
+
     events.flags = 0;
     if (level >= KVM_PUT_RESET_STATE) {
         events.flags |=
@@ -1914,6 +2045,7 @@ static int kvm_get_vcpu_events(X86CPU *cpu)
         return 0;
     }
 
+    memset(&events, 0, sizeof(events));
     ret = kvm_vcpu_ioctl(CPU(cpu), KVM_GET_VCPU_EVENTS, &events);
     if (ret < 0) {
        return ret;
@@ -1933,6 +2065,29 @@ static int kvm_get_vcpu_events(X86CPU *cpu)
         env->hflags2 |= HF2_NMI_MASK;
     } else {
         env->hflags2 &= ~HF2_NMI_MASK;
+    }
+
+    if (events.flags & KVM_VCPUEVENT_VALID_SMM) {
+        if (events.smi.smm) {
+            env->hflags |= HF_SMM_MASK;
+        } else {
+            env->hflags &= ~HF_SMM_MASK;
+        }
+        if (events.smi.pending) {
+            cpu_interrupt(CPU(cpu), CPU_INTERRUPT_SMI);
+        } else {
+            cpu_reset_interrupt(CPU(cpu), CPU_INTERRUPT_SMI);
+        }
+        if (events.smi.smm_inside_nmi) {
+            env->hflags2 |= HF2_SMM_INSIDE_NMI_MASK;
+        } else {
+            env->hflags2 &= ~HF2_SMM_INSIDE_NMI_MASK;
+        }
+        if (events.smi.latched_init) {
+            cpu_interrupt(CPU(cpu), CPU_INTERRUPT_INIT);
+        } else {
+            cpu_reset_interrupt(CPU(cpu), CPU_INTERRUPT_INIT);
+        }
     }
 
     env->sipi_vector = events.sipi_vector;
@@ -2138,14 +2293,33 @@ void kvm_arch_pre_run(CPUState *cpu, struct kvm_run *run)
     int ret;
 
     /* Inject NMI */
-    if (cpu->interrupt_request & CPU_INTERRUPT_NMI) {
-        cpu->interrupt_request &= ~CPU_INTERRUPT_NMI;
-        DPRINTF("injected NMI\n");
-        ret = kvm_vcpu_ioctl(cpu, KVM_NMI);
-        if (ret < 0) {
-            fprintf(stderr, "KVM: injection failed, NMI lost (%s)\n",
-                    strerror(-ret));
+    if (cpu->interrupt_request & (CPU_INTERRUPT_NMI | CPU_INTERRUPT_SMI)) {
+        if (cpu->interrupt_request & CPU_INTERRUPT_NMI) {
+            qemu_mutex_lock_iothread();
+            cpu->interrupt_request &= ~CPU_INTERRUPT_NMI;
+            qemu_mutex_unlock_iothread();
+            DPRINTF("injected NMI\n");
+            ret = kvm_vcpu_ioctl(cpu, KVM_NMI);
+            if (ret < 0) {
+                fprintf(stderr, "KVM: injection failed, NMI lost (%s)\n",
+                        strerror(-ret));
+            }
         }
+        if (cpu->interrupt_request & CPU_INTERRUPT_SMI) {
+            qemu_mutex_lock_iothread();
+            cpu->interrupt_request &= ~CPU_INTERRUPT_SMI;
+            qemu_mutex_unlock_iothread();
+            DPRINTF("injected SMI\n");
+            ret = kvm_vcpu_ioctl(cpu, KVM_SMI);
+            if (ret < 0) {
+                fprintf(stderr, "KVM: injection failed, SMI lost (%s)\n",
+                        strerror(-ret));
+            }
+        }
+    }
+
+    if (!kvm_irqchip_in_kernel()) {
+        qemu_mutex_lock_iothread();
     }
 
     /* Force the VCPU out of its inner loop to process any INIT requests
@@ -2153,7 +2327,13 @@ void kvm_arch_pre_run(CPUState *cpu, struct kvm_run *run)
      * pending TPR access reports.
      */
     if (cpu->interrupt_request & (CPU_INTERRUPT_INIT | CPU_INTERRUPT_TPR)) {
-        cpu->exit_request = 1;
+        if ((cpu->interrupt_request & CPU_INTERRUPT_INIT) &&
+            !(env->hflags & HF_SMM_MASK)) {
+            cpu->exit_request = 1;
+        }
+        if (cpu->interrupt_request & CPU_INTERRUPT_TPR) {
+            cpu->exit_request = 1;
+        }
     }
 
     if (!kvm_irqchip_in_kernel()) {
@@ -2191,21 +2371,38 @@ void kvm_arch_pre_run(CPUState *cpu, struct kvm_run *run)
 
         DPRINTF("setting tpr\n");
         run->cr8 = cpu_get_apic_tpr(x86_cpu->apic_state);
+
+        qemu_mutex_unlock_iothread();
     }
 }
 
-void kvm_arch_post_run(CPUState *cpu, struct kvm_run *run)
+MemTxAttrs kvm_arch_post_run(CPUState *cpu, struct kvm_run *run)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
 
+    if (run->flags & KVM_RUN_X86_SMM) {
+        env->hflags |= HF_SMM_MASK;
+    } else {
+        env->hflags &= HF_SMM_MASK;
+    }
     if (run->if_flag) {
         env->eflags |= IF_MASK;
     } else {
         env->eflags &= ~IF_MASK;
     }
+
+    /* We need to protect the apic state against concurrent accesses from
+     * different threads in case the userspace irqchip is used. */
+    if (!kvm_irqchip_in_kernel()) {
+        qemu_mutex_lock_iothread();
+    }
     cpu_set_apic_tpr(x86_cpu->apic_state, run->cr8);
     cpu_set_apic_base(x86_cpu->apic_state, run->apic_base);
+    if (!kvm_irqchip_in_kernel()) {
+        qemu_mutex_unlock_iothread();
+    }
+    return cpu_get_mem_attrs(env);
 }
 
 int kvm_arch_process_async_events(CPUState *cs)
@@ -2236,7 +2433,8 @@ int kvm_arch_process_async_events(CPUState *cs)
         }
     }
 
-    if (cs->interrupt_request & CPU_INTERRUPT_INIT) {
+    if ((cs->interrupt_request & CPU_INTERRUPT_INIT) &&
+        !(env->hflags & HF_SMM_MASK)) {
         kvm_cpu_synchronize_state(cs);
         do_cpu_init(cpu);
     }
@@ -2497,13 +2695,17 @@ int kvm_arch_handle_exit(CPUState *cs, struct kvm_run *run)
     switch (run->exit_reason) {
     case KVM_EXIT_HLT:
         DPRINTF("handle_hlt\n");
+        qemu_mutex_lock_iothread();
         ret = kvm_handle_halt(cpu);
+        qemu_mutex_unlock_iothread();
         break;
     case KVM_EXIT_SET_TPR:
         ret = 0;
         break;
     case KVM_EXIT_TPR_ACCESS:
+        qemu_mutex_lock_iothread();
         ret = kvm_handle_tpr_access(cpu);
+        qemu_mutex_unlock_iothread();
         break;
     case KVM_EXIT_FAIL_ENTRY:
         code = run->fail_entry.hardware_entry_failure_reason;
@@ -2529,7 +2731,9 @@ int kvm_arch_handle_exit(CPUState *cs, struct kvm_run *run)
         break;
     case KVM_EXIT_DEBUG:
         DPRINTF("kvm_exit_debug\n");
+        qemu_mutex_lock_iothread();
         ret = kvm_handle_debug(cpu, &run->debug.arch);
+        qemu_mutex_unlock_iothread();
         break;
     default:
         fprintf(stderr, "KVM: unknown exit reason %d\n", run->exit_reason);
@@ -2563,7 +2767,6 @@ void kvm_arch_init_irq_routing(KVMState *s)
      * irqchip, so we can use irqfds, and on x86 we know
      * we can use msi via irqfd and GSI routing.
      */
-    kvm_irqfds_allowed = true;
     kvm_msi_via_irqfd_allowed = true;
     kvm_gsi_routing_allowed = true;
 }
@@ -2706,4 +2909,15 @@ int kvm_device_msix_deassign(KVMState *s, uint32_t dev_id)
 {
     return kvm_deassign_irq_internal(s, dev_id, KVM_DEV_IRQ_GUEST_MSIX |
                                                 KVM_DEV_IRQ_HOST_MSIX);
+}
+
+int kvm_arch_fixup_msi_route(struct kvm_irq_routing_entry *route,
+                             uint64_t address, uint32_t data)
+{
+    return 0;
+}
+
+int kvm_arch_msi_data_to_gsi(uint32_t data)
+{
+    abort();
 }

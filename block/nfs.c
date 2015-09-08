@@ -35,6 +35,8 @@
 #include "sysemu/sysemu.h"
 #include <nfsc/libnfs.h>
 
+#define QEMU_NFS_MAX_READAHEAD_SIZE 1048576
+
 typedef struct NFSClient {
     struct nfs_context *context;
     struct nfsfh *fh;
@@ -327,6 +329,11 @@ static int64_t nfs_client_open(NFSClient *client, const char *filename,
             nfs_set_tcp_syncnt(client->context, val);
 #ifdef LIBNFS_FEATURE_READAHEAD
         } else if (!strcmp(qp->p[i].name, "readahead")) {
+            if (val > QEMU_NFS_MAX_READAHEAD_SIZE) {
+                error_report("NFS Warning: Truncating NFS readahead"
+                             " size to %d", QEMU_NFS_MAX_READAHEAD_SIZE);
+                val = QEMU_NFS_MAX_READAHEAD_SIZE;
+            }
             nfs_set_readahead(client->context, val);
 #endif
         } else {
@@ -409,6 +416,19 @@ out:
     return ret;
 }
 
+static QemuOptsList nfs_create_opts = {
+    .name = "nfs-create-opts",
+    .head = QTAILQ_HEAD_INITIALIZER(nfs_create_opts.head),
+    .desc = {
+        {
+            .name = BLOCK_OPT_SIZE,
+            .type = QEMU_OPT_SIZE,
+            .help = "Virtual disk size"
+        },
+        { /* end of list */ }
+    }
+};
+
 static int nfs_file_create(const char *url, QemuOpts *opts, Error **errp)
 {
     int ret = 0;
@@ -470,6 +490,8 @@ static BlockDriver bdrv_nfs = {
 
     .instance_size                  = sizeof(NFSClient),
     .bdrv_needs_filename            = true,
+    .create_opts                    = &nfs_create_opts,
+
     .bdrv_has_zero_init             = nfs_has_zero_init,
     .bdrv_get_allocated_file_size   = nfs_get_allocated_file_size,
     .bdrv_truncate                  = nfs_file_truncate,

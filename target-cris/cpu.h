@@ -29,8 +29,6 @@
 
 #include "exec/cpu-defs.h"
 
-#define TARGET_HAS_ICE 1
-
 #define ELF_MACHINE	EM_CRIS
 
 #define EXCP_NMI        1
@@ -178,7 +176,7 @@ typedef struct CPUCRISState {
 #include "cpu-qom.h"
 
 CRISCPU *cpu_cris_init(const char *cpu_model);
-int cpu_cris_exec(CPUCRISState *s);
+int cpu_cris_exec(CPUState *cpu);
 /* you can call this signal handler from your SIGBUS and SIGSEGV
    signal handlers to inform the virtual CPU of exceptions. non zero
    is returned if the signal was handled by the virtual CPU.  */
@@ -223,14 +221,7 @@ enum {
 #define TARGET_PHYS_ADDR_SPACE_BITS 32
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
 
-static inline CPUCRISState *cpu_init(const char *cpu_model)
-{
-    CRISCPU *cpu = cpu_cris_init(cpu_model);
-    if (cpu == NULL) {
-        return NULL;
-    }
-    return &cpu->env;
-}
+#define cpu_init(cpu_model) CPU(cpu_cris_init(cpu_model))
 
 #define cpu_exec cpu_cris_exec
 #define cpu_gen_code cpu_cris_gen_code

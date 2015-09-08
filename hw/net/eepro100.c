@@ -1617,16 +1617,6 @@ static const MemoryRegionOps eepro100_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-static int nic_can_receive(NetClientState *nc)
-{
-    EEPRO100State *s = qemu_get_nic_opaque(nc);
-    TRACE(RXTX, logout("%p\n", s));
-    return get_ru_state(s) == ru_ready;
-#if 0
-    return !eepro100_buffer_full(s);
-#endif
-}
-
 static ssize_t nic_receive(NetClientState *nc, const uint8_t * buf, size_t size)
 {
     /* TODO:
@@ -1832,13 +1822,6 @@ static const VMStateDescription vmstate_eepro100 = {
     }
 };
 
-static void nic_cleanup(NetClientState *nc)
-{
-    EEPRO100State *s = qemu_get_nic_opaque(nc);
-
-    s->nic = NULL;
-}
-
 static void pci_nic_uninit(PCIDevice *pci_dev)
 {
     EEPRO100State *s = DO_UPCAST(EEPRO100State, dev, pci_dev);
@@ -1851,12 +1834,10 @@ static void pci_nic_uninit(PCIDevice *pci_dev)
 static NetClientInfo net_eepro100_info = {
     .type = NET_CLIENT_OPTIONS_KIND_NIC,
     .size = sizeof(NICState),
-    .can_receive = nic_can_receive,
     .receive = nic_receive,
-    .cleanup = nic_cleanup,
 };
 
-static int e100_nic_init(PCIDevice *pci_dev)
+static void e100_nic_realize(PCIDevice *pci_dev, Error **errp)
 {
     EEPRO100State *s = DO_UPCAST(EEPRO100State, dev, pci_dev);
     E100PCIDeviceInfo *info = eepro100_get_class(s);
@@ -1900,8 +1881,6 @@ static int e100_nic_init(PCIDevice *pci_dev)
     memcpy(s->vmstate, &vmstate_eepro100, sizeof(vmstate_eepro100));
     s->vmstate->name = qemu_get_queue(s->nic)->model;
     vmstate_register(&pci_dev->qdev, -1, s->vmstate, s);
-
-    return 0;
 }
 
 static void eepro100_instance_init(Object *obj)
@@ -2091,7 +2070,7 @@ static void eepro100_class_init(ObjectClass *klass, void *data)
     k->vendor_id = PCI_VENDOR_ID_INTEL;
     k->class_id = PCI_CLASS_NETWORK_ETHERNET;
     k->romfile = "pxe-eepro100.rom";
-    k->init = e100_nic_init;
+    k->realize = e100_nic_realize;
     k->exit = pci_nic_uninit;
     k->device_id = info->device_id;
     k->revision = info->revision;
