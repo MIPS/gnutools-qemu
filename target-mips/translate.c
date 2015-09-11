@@ -5061,12 +5061,6 @@ static inline void gen_mfc0_load32 (TCGv arg, target_ulong off)
     tcg_temp_free_i32(t0);
 }
 
-static inline void gen_mfc0_load64 (TCGv arg, target_ulong off)
-{
-    tcg_gen_ld_tl(arg, cpu_env, off);
-    tcg_gen_ext32s_tl(arg, arg);
-}
-
 static inline void gen_mtc0_store32 (TCGv arg, target_ulong off)
 {
     TCGv_i32 t0 = tcg_temp_new_i32();
@@ -5074,12 +5068,6 @@ static inline void gen_mtc0_store32 (TCGv arg, target_ulong off)
     tcg_gen_trunc_tl_i32(t0, arg);
     tcg_gen_st_i32(t0, cpu_env, off);
     tcg_temp_free_i32(t0);
-}
-
-static inline void gen_mtc0_store64 (TCGv arg, target_ulong off)
-{
-    tcg_gen_ext32s_tl(arg, arg);
-    tcg_gen_st_tl(arg, cpu_env, off);
 }
 
 static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
@@ -5308,17 +5296,19 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
-            gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_YQMask));
+            tcg_gen_ld32s_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_YQMask));
             rn = "YQMask";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
-            gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
-            gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
@@ -5419,8 +5409,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 4:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
             rn = "Context";
             break;
         case 1:
@@ -5522,8 +5511,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 8:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_BadVAddr));
             rn = "BadVAddr";
             break;
         case 1:
@@ -5564,8 +5553,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 10:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
             rn = "EntryHi";
             break;
         default:
@@ -5621,8 +5609,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 14:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
             rn = "EPC";
             break;
         default:
@@ -5728,8 +5715,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 0:
 #if defined(TARGET_MIPS64)
             check_insn(ctx, ISA_MIPS3);
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_XContext));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_XContext));
             rn = "XContext";
             break;
 #endif
@@ -5783,8 +5770,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         switch (sel) {
         case 0:
             /* EJTAG support */
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
             rn = "DEPC";
             break;
         default:
@@ -5891,8 +5877,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 30:
         switch (sel) {
         case 0:
-            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_ErrorEPC));
             rn = "ErrorEPC";
             break;
         default:
@@ -5908,9 +5894,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         case 2 ... 7:
             CP0_CHECK(ctx->kscrexist & (1 << sel));
-            tcg_gen_ld_tl(arg, cpu_env,
-                          offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-            tcg_gen_ext32s_tl(arg, arg);
+            tcg_gen_ld32s_tl(arg, cpu_env,
+                             offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
             rn = "KScratch";
             break;
         default:
@@ -5999,12 +5984,14 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
-            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_VPESchedule));
             rn = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
-            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
+            tcg_gen_st_tl(arg, cpu_env,
+                          offsetof(CPUMIPSState, CP0_VPEScheFBack));
             rn = "VPEScheFBack";
             break;
         case 7:
@@ -6279,7 +6266,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 14:
         switch (sel) {
         case 0:
-            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_EPC));
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
             rn = "EPC";
             break;
         default:
@@ -6462,7 +6449,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         switch (sel) {
         case 0:
             /* EJTAG support */
-            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_DEPC));
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
             rn = "DEPC";
             break;
         default:
@@ -6565,7 +6552,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     case 30:
         switch (sel) {
         case 0:
-            gen_mtc0_store64(arg, offsetof(CPUMIPSState, CP0_ErrorEPC));
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
             rn = "ErrorEPC";
             break;
         default:
@@ -9502,7 +9489,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "movn.s";
         break;
     case OPC_RECIP_S:
-        check_cop1x(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
 
@@ -9514,7 +9500,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "recip.s";
         break;
     case OPC_RSQRT_S:
-        check_cop1x(ctx);
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
 
@@ -10047,7 +10032,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "movn.d";
         break;
     case OPC_RECIP_D:
-        check_cp1_64bitmode(ctx);
+        check_cp1_registers(ctx, fs | fd);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -10059,7 +10044,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         opn = "recip.d";
         break;
     case OPC_RSQRT_D:
-        check_cp1_64bitmode(ctx);
+        check_cp1_registers(ctx, fs | fd);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
@@ -20374,7 +20359,9 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
             /* OPC_DAUI */
             check_mips_64(ctx);
-            if (rt != 0) {
+            if (rs == 0) {
+                generate_exception(ctx, EXCP_RI);
+            } else if (rt != 0) {
                 TCGv t0 = tcg_temp_new();
                 gen_load_gpr(t0, rs);
                 tcg_gen_addi_tl(cpu_gpr[rt], t0, imm << 16);
