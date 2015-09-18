@@ -78,6 +78,7 @@ static bool mips_cpu_has_work(CPUState *cs)
             has_work = false;
         }
     }
+//    printf("VPE %d (%x) has work %d\n", env->CP0_EBase & 0x3ff, env->active_tc.PC, has_work);
     return has_work;
 }
 

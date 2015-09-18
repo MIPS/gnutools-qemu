@@ -41,20 +41,28 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
         if (kvm_enabled() && irq == 2) {
             kvm_mips_set_interrupt(cpu, irq, level);
         }
-
+//        printf("VPE%d IRQ high %d\n", env->CP0_EBase & 0x3ff, irq);
+        printf("!%d", irq);
     } else {
         env->CP0_Cause &= ~(1 << (irq + CP0Ca_IP));
 
         if (kvm_enabled() && irq == 2) {
             kvm_mips_set_interrupt(cpu, irq, level);
         }
+//        printf("VPE%d IRQ low %d\n", env->CP0_EBase & 0x3ff, irq);
+//        printf("_%d", irq);
     }
 
     if (env->CP0_Cause & CP0Ca_IP_mask) {
+//        printf("VPE%d interrupt\n");
+//        printf("[", irq);
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
+//        printf("VPE%d interrupt reset\n");
+//        printf("]", irq);
         cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
     }
+//    fflush(0);
 }
 
 void cpu_mips_irq_init_cpu(CPUMIPSState *env)

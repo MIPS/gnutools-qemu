@@ -938,6 +938,12 @@ target_ulong helper_mfc0_count(CPUMIPSState *env)
     return (int32_t)cpu_mips_get_count(env);
 }
 
+target_ulong helper_mfc0_gcrbase(CPUMIPSState *env)
+{
+    //printf ("CMGCRBASE 0x%x\n", env->CP0_CMGCRBase);
+    return env->CP0_CMGCRBase;
+}
+
 target_ulong helper_mftc0_entryhi(CPUMIPSState *env)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
@@ -1865,6 +1871,7 @@ target_ulong helper_dvpe(CPUMIPSState *env)
         if (&other_cpu->env != env) {
             other_cpu->env.mvp->CP0_MVPControl &= ~(1 << CP0MVPCo_EVP);
             mips_vpe_sleep(other_cpu);
+            printf("DVPE----- %d (%x)\n", other_cpu->env.CP0_EBase & 0x3FF, other_cpu->env.active_tc.PC);
         }
     }
     return prev;
@@ -1884,6 +1891,7 @@ target_ulong helper_evpe(CPUMIPSState *env)
             /* Enable the VPE.  */
             other_cpu->env.mvp->CP0_MVPControl |= (1 << CP0MVPCo_EVP);
             mips_vpe_wake(other_cpu); /* And wake it up.  */
+            printf("EVPE----- %d (%x)\n", other_cpu->env.CP0_EBase & 0x3FF, other_cpu->env.active_tc.PC);
         }
     }
     return prev;
@@ -2371,6 +2379,7 @@ void helper_wait(CPUMIPSState *env)
 {
     CPUState *cs = CPU(mips_env_get_cpu(env));
 
+//    printf(">>>>> WAIT on VPE%d (%x)\n", env->CP0_EBase & 0x3FF, env->active_tc.PC);
     cs->halted = 1;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
     helper_raise_exception(env, EXCP_HLT);

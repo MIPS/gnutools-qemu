@@ -651,6 +651,10 @@ void mips_cpu_do_interrupt(CPUState *cs)
                 offset = 0x200 + (vector * (spacing << 5));
             }
         }
+//        printf("%016lx external interrupt at offset 0x%x Cause 0x%x\n", env->active_tc.PC, offset, env->CP0_Cause);
+//        abort();
+//        printf(".");
+//        fflush(0);
         goto set_EPC;
     case EXCP_LTLBL:
         cause = 1;

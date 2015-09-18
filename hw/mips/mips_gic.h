@@ -20,6 +20,7 @@
 
 /* XXXKYMA: Malta Specific base address */
 #define GCMP_BASE_ADDR          0x1fbf8000ULL
+//#define GCMP_BASE_ADDR 0x1aa00000
 #define GCMP_ADDRSPACE_SZ       (4  * 1024)
 
 /*
@@ -112,8 +113,8 @@
 #define	GIC_SH_CONFIG_OFS		0x0000
 
 /* Shared Global Counter */
-#define GIC_SH_COUNTER_31_00_OFS	0x0010
-#define GIC_SH_COUNTER_63_32_OFS	0x0014
+#define GIC_SH_COUNTERLO_OFS        0x0010
+#define GIC_SH_COUNTERHI_OFS        0x0014
 #define GIC_SH_REVISIONID_OFS		0x0020
 
 /* Interrupt Polarity */
@@ -245,7 +246,7 @@
 #define GIC_VPE_WD_COUNT0_OFS		0x0094
 #define GIC_VPE_WD_INITIAL0_OFS		0x0098
 #define GIC_VPE_COMPARE_LO_OFS		0x00a0
-#define GIC_VPE_COMPARE_HI		0x00a4
+#define GIC_VPE_COMPARE_HI_OFS		0x00a4
 
 #define GIC_VPE_EIC_SHADOW_SET_BASE	0x0100
 #define GIC_VPE_EIC_SS(intr) \

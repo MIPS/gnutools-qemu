@@ -5676,7 +5676,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* Check config3 bit */
             CP0_CHECK(ctx->cmgcr);
             /* FIXME MIPS64 */
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            //gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            gen_helper_mfc0_gcrbase(arg, cpu_env);
             rn = "CMGCRBase";
             break;
         default:
@@ -6937,7 +6938,8 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* Check config3 bit */
             CP0_CHECK(ctx->cmgcr);
             /* FIXME MIPS64 */
-            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+//            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            gen_helper_mfc0_gcrbase(arg, cpu_env);
             rn = "CMGCRBase";
             break;
         default:

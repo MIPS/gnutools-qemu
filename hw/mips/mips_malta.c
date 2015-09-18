@@ -638,10 +638,10 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     p = (uint32_t *) (base + 0x580);
 
     /* handle SMP */
-    stl_p(p++, 0x40017801);     /* mfc0    at,c0_ebase */
-    stl_p(p++, 0x7c214800);     /* ext     at,at,0x0,0xa */
-    stl_p(p++, 0x1020ffff);     /* beqz    at,0x8 */
-    stl_p(p++, 0x00000000);     /*  nop */
+//    stl_p(p++, 0x40017801);     /* mfc0    at,c0_ebase */
+//    stl_p(p++, 0x7c214800);     /* ext     at,at,0x0,0xa */
+//    stl_p(p++, 0x1020ffff);     /* beqz    at,0x8 */
+//    stl_p(p++, 0x00000000);     /*  nop */
 
     if (semihosting_get_argc()) {
         /* Preserve a0 content as arguments have been passed */
@@ -1173,8 +1173,13 @@ void mips_malta_init(MachineState *machine)
     cpu_mips_clock_init(env);
 
     /* GCR/GIC */
-    if (1 || /*kvm_enabled() &&*/ smp_cpus > 1) {
-        gic_init(smp_cpus, first_cpu, system_memory);
+    //if (1 || /*kvm_enabled() &&*/ smp_cpus > 1) {
+    if (strcmp(cpu_model, "MIPS64R6-generic") == 0 ||
+            strcmp(cpu_model, "mips64r6-generic") == 0) {
+        printf("QEMU: GIC initialising.\n");
+        env->gic_irqs = gic_init(smp_cpus, first_cpu, system_memory);
+    } else {
+        printf("QEMU: skip GIC\n");
     }
 
     /*
@@ -1196,7 +1201,11 @@ void mips_malta_init(MachineState *machine)
 
     /* Interrupt controller */
     /* The 8259 is attached to the MIPS CPU INT0 pin, ie interrupt 2 */
-    s->i8259 = i8259_init(isa_bus, env->irq[2]);
+    if (env->gic_irqs) {
+        s->i8259 = i8259_init(isa_bus, env->gic_irqs[3]);
+    } else {
+        s->i8259 = i8259_init(isa_bus, env->irq[2]);
+    }
 
     isa_bus_irqs(isa_bus, s->i8259);
     pci_piix4_ide_init(pci_bus, hd, piix4_devfn + 1);
