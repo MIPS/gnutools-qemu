@@ -42,7 +42,7 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
             kvm_mips_set_interrupt(cpu, irq, level);
         }
 //        printf("VPE%d IRQ high %d\n", env->CP0_EBase & 0x3ff, irq);
-        printf("!%d", irq);
+//        printf("!%d", irq);
     } else {
         env->CP0_Cause &= ~(1 << (irq + CP0Ca_IP));
 

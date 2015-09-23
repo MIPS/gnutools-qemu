@@ -71,8 +71,8 @@ static void cpu_mips_timer_expire(CPUMIPSState *env)
         env->CP0_Cause |= 1 << CP0Ca_TI;
     }
 //    return;
-    printf("$%d",(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
-    fflush(0);
+//    printf("$%d",(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
+//    fflush(0);
     qemu_irq_raise(env->irq[(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
 }
 
