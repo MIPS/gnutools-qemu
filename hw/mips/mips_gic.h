@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 2000, 07 MIPS Technologies, Inc.
+ * Copyright (C) 2015 Imagination Technologies
  *
  * GIC Register Definitions
  *
@@ -13,12 +14,12 @@
 
 #undef	GICISBYTELITTLEENDIAN
 
-#define NR_CPUS         8
+//#define NR_CPUS         8
 /*
  * GCMP Specific definitions
  */
 
-/* XXXKYMA: Malta Specific base address */
+/* The MIPS default location for the GCR_BASE address */
 #define GCMP_BASE_ADDR          0x1fbf8000ULL
 //#define GCMP_BASE_ADDR 0x1aa00000
 #define GCMP_ADDRSPACE_SZ       (4  * 1024)
@@ -63,7 +64,8 @@
 #define GIC_TRIG_EDGE			1
 #define GIC_TRIG_LEVEL			0
 
-#define GIC_NUM_INTRS			(24 + NR_CPUS * 2)
+//#define GIC_NUM_INTRS                  (24 + NR_CPUS * 2)
+#define GIC_NUM_INTRS			(256)
 
 #define MSK(n) ((1 << (n)) - 1)
 #define REG32(addr)		(*(volatile unsigned int *) (addr))

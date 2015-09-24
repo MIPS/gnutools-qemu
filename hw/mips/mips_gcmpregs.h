@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 2000, 07 MIPS Technologies, Inc.
+ * Copyright (C) 2015 Imagination Technologies
  *
  * Multiprocessor Subsystem Register Definitions
  *

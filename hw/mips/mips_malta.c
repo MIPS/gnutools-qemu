@@ -1173,13 +1173,8 @@ void mips_malta_init(MachineState *machine)
     cpu_mips_clock_init(env);
 
     /* GCR/GIC */
-    //if (1 || /*kvm_enabled() &&*/ smp_cpus > 1) {
-    if (strcmp(cpu_model, "MIPS64R6-generic") == 0 ||
-            strcmp(cpu_model, "mips64r6-generic") == 0) {
-        printf("QEMU: GIC initialising.\n");
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
         env->gic_irqs = gic_init(smp_cpus, first_cpu, system_memory);
-    } else {
-        printf("QEMU: skip GIC\n");
     }
 
     /*

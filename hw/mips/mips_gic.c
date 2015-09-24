@@ -5,6 +5,8 @@
  *
  * Copyright (C) 2012  MIPS Technologies, Inc.  All rights reserved.
  * Authors: Sanjay Lal <sanjayl@kymasys.com>
+ *
+ * Copyright (C) 2015 Imagination Technologies
 */
 
 #include "hw/hw.h"
@@ -45,17 +47,19 @@
 
 /* Support upto 4 VPEs */
 #define NUMVPES     4
+//#define NUMVPES     32
 
 /* XXXKYMA: Spoof a bit of the GCR as well, just enough to get Linux to detect it */
 typedef struct gic_t
 {
-    CPUMIPSState *env[NR_CPUS];
+    CPUMIPSState *env[NUMVPES];
+//    CPUMIPSState *env[NR_CPUS];
     MemoryRegion gcr_mem, gic_mem;
 
     qemu_irq *irqs;
 
     /* GCR Registers */
-    uint32_t gcr_gic_base_reg;
+    target_ulong gcr_gic_base;
 
     /* Shared Section Registers */
     uint32_t gic_gl_config;
@@ -68,6 +72,7 @@ typedef struct gic_t
 
     /* Sparse array, need a better way */
     uint32_t gic_gl_map_vpe[0x7fa];
+//    uint32_t gic_gl_map_vpe[512];
 
     /* VPE Local Section Registers */
     /* VPE Other Section Registers, aliased to local, use the other field to access the correct instance */
@@ -98,6 +103,40 @@ static inline int gic_get_current_cpu(gic_t *g)
 {
     if (g->num_cpu > 1) {
         return current_cpu->cpu_index;
+    }
+    return 0;
+}
+
+static uint64_t gic_read_vpe(gic_t *gic, uint32_t vp_index,
+                                     hwaddr addr, unsigned size)
+{
+    switch (addr){
+    case GIC_VPE_CTL_OFS:
+        DPRINTF("(GIC_VPE_CTL) -> 0x%016x\n", gic->gic_vpe_ctl[vp_index]);
+        return gic->gic_vpe_ctl[vp_index];
+    case GIC_VPE_PEND_OFS:
+        gic_get_count(gic);
+        DPRINTF("(GIC_VPE_PEND) -> 0x%016x\n", gic->gic_vpe_pend[vp_index]);
+        return gic->gic_vpe_pend[vp_index];
+    case GIC_VPE_MASK_OFS:
+        DPRINTF("(GIC_VPE_MASK) -> 0x%016x\n", gic->gic_vpe_mask[vp_index]);
+        return gic->gic_vpe_mask[vp_index];
+    case GIC_VPE_OTHER_ADDR_OFS:
+        DPRINTF("(GIC_VPE_OTHER_ADDR) -> 0x%016x\n",
+                gic->gic_vpe_other_addr[vp_index]);
+        return gic->gic_vpe_other_addr[vp_index];
+    case GIC_VPE_COMPARE_LO_OFS:
+        DPRINTF("(GIC_VPE_COMPARELO) -> 0x%016x\n",
+                gic->gic_vpe_comparelo[vp_index]);
+        return gic->gic_vpe_comparelo[vp_index];
+    case GIC_VPE_COMPARE_HI_OFS:
+        DPRINTF("(GIC_VPE_COMPAREhi) -> 0x%016x\n",
+                gic->gic_vpe_comparehi[vp_index]);
+        return gic->gic_vpe_comparehi[vp_index];
+    default:
+        SPRINTF("Warning (MIPS64_CMP) I6400_CPU0 *** read %d bytes "
+                "at GIC offset LOCAL/OTHER 0x%04x\n", size, addr);
+        break;
     }
     return 0;
 }
@@ -231,41 +270,82 @@ gic_read(void *opaque, hwaddr addr, unsigned size)
 
     /* VPE-Local Register */
     if (addr >= GIC_VPELOCAL_BASE_ADDR && addr < GIC_VPEOTHER_BASE_ADDR) {
-        switch (addr - GIC_VPELOCAL_BASE_ADDR){
-        case GIC_VPE_CTL_OFS:
-            DPRINTF("(GIC_VPE_CTL) -> 0x%016x\n", gic->gic_vpe_ctl[vp_index]);
-            return gic->gic_vpe_ctl[vp_index];
-        case GIC_VPE_PEND_OFS:
-//            printf("!");
-//            fflush(0);
-            gic_get_count(gic);
-            DPRINTF("(GIC_VPE_PEND) -> 0x%016x\n", gic->gic_vpe_pend[vp_index]);
-            return gic->gic_vpe_pend[vp_index];
-        case GIC_VPE_MASK_OFS:
-            DPRINTF("(GIC_VPE_MASK) -> 0x%016x\n", gic->gic_vpe_mask[vp_index]);
-            return gic->gic_vpe_mask[vp_index];
-        case GIC_VPE_OTHER_ADDR_OFS:
-            DPRINTF("(GIC_VPE_OTHER_ADDR) -> 0x%016x\n", gic->gic_vpe_other_addr[vp_index]);
-            return gic->gic_vpe_other_addr[vp_index];
-        case GIC_VPE_COMPARE_LO_OFS:
-            DPRINTF("(GIC_VPE_COMPARELO) -> 0x%016x\n", gic->gic_vpe_comparelo[vp_index]);
-            return gic->gic_vpe_comparelo[vp_index];
-        case GIC_VPE_COMPARE_HI_OFS:
-            DPRINTF("(GIC_VPE_COMPAREhi) -> 0x%016x\n", gic->gic_vpe_comparehi[vp_index]);
-            return gic->gic_vpe_comparehi[vp_index];
-        default:
-            SPRINTF("Warning (MIPS64_CMP) I6400_CPU0 *** read %d bytes at GIC offset 0x%04x \n", size, addr);
-            break;
-        }
+        return gic_read_vpe(gic, vp_index, addr - GIC_VPELOCAL_BASE_ADDR, size);
     }
 
     /* VPE-Other Register */
     if (addr >= GIC_VPEOTHER_BASE_ADDR && addr < GIC_USERMODE_BASE_ADDR) {
         uint32_t other_index = gic->gic_vpe_other_addr[vp_index];
+        return gic_read_vpe(gic, other_index, addr - GIC_VPEOTHER_BASE_ADDR, size);
     }
 
 //    DPRINTF("%s: unimplemented register @ %#" PRIx64 "\n", __func__, addr);
     return 0ULL;
+}
+
+static uint64_t gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
+                              uint64_t data, unsigned size)
+{
+    switch(addr) {
+    case GIC_VPE_CTL_OFS:
+        gic->gic_vpe_ctl[vp_index] &= ~1;
+        gic->gic_vpe_ctl[vp_index] |= data & 1;
+//            DPRINTF("QEMU: GIC Local interrupt control reg WRITE %x\n", data);
+        break;
+    case GIC_VPE_OTHER_ADDR_OFS:
+        gic->gic_vpe_other_addr[vp_index] = data;
+//            DPRINTF("QEMU: GIC other addressing reg WRITE %x\n", data);
+        break;
+    case GIC_VPE_OTHER_ADDR_OFS + 4:
+        // do nothing
+        break;
+    case GIC_VPE_RMASK_OFS:
+        DPRINTF("QEMU VPE%d RMASK org_mask %x, ", vp_index,
+                gic->gic_vpe_mask[vp_index]);
+        gic->gic_vpe_mask[vp_index] &= ~(data & 0x3f) & 0x3f;
+        DPRINTF("data %x, mask %x\n", data, gic->gic_vpe_mask[vp_index]);
+        break;
+    case GIC_VPE_SMASK_OFS:
+        DPRINTF("QEMU VPE%d SMASK org_mask %x, ", vp_index,
+                gic->gic_vpe_mask[vp_index]);
+        gic->gic_vpe_mask[vp_index] |= (data & 0x3f);
+        DPRINTF("data %x, mask %x\n", data, gic->gic_vpe_mask[vp_index]);
+        break;
+    case GIC_VPE_WD_MAP_OFS:
+        gic->gic_vpe_wd_map[vp_index] = data & 0xE000003F;
+        break;
+    case GIC_VPE_COMPARE_MAP_OFS:
+        gic->gic_vpe_compare_map[vp_index] = data & 0xE000003F;
+        DPRINTF("QEMU: GIC COMPARE MAP %x %x\n", data,
+                gic->gic_vpe_compare_map[vp_index]);
+        break;
+    case GIC_VPE_TIMER_MAP_OFS:
+        gic->gic_vpe_timer_map[vp_index] = data & 0xE000003F;
+        DPRINTF("QEMU: GIC Timer MAP %x %x\n", data,
+                gic->gic_vpe_timer_map[vp_index]);
+        break;
+    case GIC_VPE_COMPARE_LO_OFS:
+        gic->gic_vpe_comparelo[vp_index] = (uint32_t) data;
+        if (!(gic->gic_gl_config & 0x10000000)) {
+            uint32_t wait = gic_timer_update(gic);
+            DPRINTF("GIC Compare modified (GIC_VPE_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
+                    gic->gic_vpe_comparelo[vp_index], gic->gic_sh_counterlo, wait);
+        }
+        gic->gic_vpe_pend[vp_index] &= ~(1 << 1);
+        if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
+            printf("x%d", gic->gic_vpe_compare_map[vp_index] & 0x3F);
+            fflush(0);
+//                gic_set_irq(gic, gic->gic_vpe_compare_map[vp_index] & 0x3F, 0);
+            qemu_set_irq(gic->env[vp_index]->irq[(gic->gic_vpe_compare_map[vp_index] & 0x3F)+2], 0);
+        }
+        break;
+    case GIC_VPE_COMPARE_HI_OFS:
+        break;
+    default:
+//            DPRINTF("QEMU: not supported GIC Local WRITE request addr: %#" PRIx64 ", %lx\n", addr, data);
+        SPRINTF("Warning (MIPS64_CMP) I6400_CPU0 *** write %d bytes at GIC offset 0x%04x 0x%08lx\n", size, addr, data);
+        break;
+    }
 }
 
 static void
@@ -406,95 +486,14 @@ gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     }
 
     if (addr >= GIC_VPELOCAL_BASE_ADDR && addr < GIC_VPEOTHER_BASE_ADDR) {
-        switch(addr - 0x8000) {
-        case GIC_VPE_CTL_OFS:
-            gic->gic_vpe_ctl[vp_index] &= ~1;
-            gic->gic_vpe_ctl[vp_index] |= data & 1;
-//            DPRINTF("QEMU: GIC Local interrupt control reg WRITE %x\n", data);
-            break;
-        case GIC_VPE_OTHER_ADDR_OFS:
-            gic->gic_vpe_other_addr[vp_index] = data;
-//            DPRINTF("QEMU: GIC other addressing reg WRITE %x\n", data);
-            break;
-        case GIC_VPE_OTHER_ADDR_OFS + 4:
-            // do nothing
-            break;
-        case GIC_VPE_SMASK_OFS:
-            DPRINTF("QEMU Local SMASK org_mask %x, ", gic->gic_vpe_mask[vp_index]);
-            gic->gic_vpe_mask[vp_index] |= (data & 0x3f);
-            DPRINTF("data %x, mask %x\n", data, gic->gic_vpe_mask[vp_index]);
-            break;
-        case GIC_VPE_COMPARE_LO_OFS:
-            gic->gic_vpe_comparelo[vp_index] = (uint32_t) data;
-            if (!(gic->gic_gl_config & 0x10000000)) {
-                uint32_t wait = gic_timer_update(gic);
-                DPRINTF("GIC Compare modified (GIC_VPE_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
-                        gic->gic_vpe_comparelo[vp_index], gic->gic_sh_counterlo, wait);
-            }
-            gic->gic_vpe_pend[vp_index] &= ~(1 << 1);
-            if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
-                printf("x%d", gic->gic_vpe_compare_map[vp_index] & 0x3F);
-                fflush(0);
-//                gic_set_irq(gic, gic->gic_vpe_compare_map[vp_index] & 0x3F, 0);
-                qemu_set_irq(gic->env[vp_index]->irq[(gic->gic_vpe_compare_map[vp_index] & 0x3F)+2], 0);
-            }
-            break;
-        case GIC_VPE_COMPARE_HI_OFS:
-            break;
-        default:
-//            DPRINTF("QEMU: not supported GIC Local WRITE request addr: %#" PRIx64 ", %lx\n", addr, data);
-            SPRINTF("Warning (MIPS64_CMP) I6400_CPU0 *** write %d bytes at GIC offset 0x%04x 0x%08lx\n", size, addr, data);
-            break;
-        }
+        gic_write_vpe(gic, vp_index, addr - GIC_VPELOCAL_BASE_ADDR,
+                      data, size);
     }
 
     if (addr >= GIC_VPEOTHER_BASE_ADDR && addr < GIC_USERMODE_BASE_ADDR) {
         uint32_t other_index = gic->gic_vpe_other_addr[vp_index];
-        switch(addr - 0xc000) {
-        case GIC_VPE_RMASK_OFS:
-            DPRINTF("QEMU Other RMASK org_mask %x, ", gic->gic_vpe_mask[other_index]);
-            gic->gic_vpe_mask[other_index] &= ~(data & 0x3f) & 0x3f;
-            DPRINTF("data %x, mask %x\n", data, gic->gic_vpe_mask[other_index]);
-            break;
-        case GIC_VPE_SMASK_OFS:
-            DPRINTF("QEMU Other SMASK org_mask %x, ", gic->gic_vpe_mask[other_index]);
-            gic->gic_vpe_mask[other_index] |= (data & 0x3f);
-            DPRINTF("data %x, mask %x\n", data, gic->gic_vpe_mask[other_index]);
-            break;
-        case GIC_VPE_WD_MAP_OFS:
-            gic->gic_vpe_wd_map[other_index] = data & 0xE000003F;
-            break;
-        case GIC_VPE_COMPARE_MAP_OFS:
-            gic->gic_vpe_compare_map[other_index] = data & 0xE000003F;
-            DPRINTF("QEMU: GIC COMPARE MAP %x %x\n", data, gic->gic_vpe_compare_map[other_index]);
-            break;
-        case GIC_VPE_TIMER_MAP_OFS:
-            gic->gic_vpe_timer_map[other_index] = data & 0xE000003F;
-            DPRINTF("QEMU: GIC Timer MAP %x %x\n", data, gic->gic_vpe_timer_map[other_index]);
-            break;
-        case GIC_VPE_COMPARE_LO_OFS:
-            gic->gic_vpe_comparelo[other_index] = (uint32_t) data;
-            if (!(gic->gic_gl_config & 0x10000000)) {
-DPRINTF("GIC Compare modified (GIC_VPE_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
-        gic->gic_vpe_comparelo[other_index], gic->gic_sh_counterlo, gic_timer_update(gic));
-//                gic_timer_update(gic);
-            }
-            gic->gic_vpe_pend[other_index] &= ~(1 << 1);
-            if (gic->gic_vpe_compare_map[other_index] & 0x80000000) {
-                printf("~%d", gic->gic_vpe_compare_map[other_index] & 0x3F);
-                                fflush(0);
-//                gic_set_irq(gic, gic->gic_vpe_compare_map[0] & 0x3F, 0);
-                qemu_set_irq(gic->env[other_index]->irq[(gic->gic_vpe_compare_map[other_index] & 0x3F)+2], 0);
-            }
-            break;
-        case GIC_VPE_COMPARE_HI_OFS:
-            break;
-        default:
-//            DPRINTF("QEMU: not supported GIC Other WRITE request addr: %#" PRIx64 ", %lx\n", addr, data);
-            SPRINTF("Warning (MIPS64_CMP) I6400_CPU0 *** write %d bytes at GIC offset 0x%04x 0x%08lx\n", size, addr, data);
-            break;
-        }
-
+        gic_write_vpe(gic, other_index, addr - GIC_VPEOTHER_BASE_ADDR,
+                      data, size);
     }
 }
 
@@ -527,8 +526,8 @@ gcr_read(void *opaque, hwaddr addr, unsigned size)
         return 0x800;
 
     case GCMP_GCB_GICBA_OFS:
-        DPRINTF("0x%016lx\n", gic->gcr_gic_base_reg);
-        return gic->gcr_gic_base_reg;
+        DPRINTF("0x%016lx\n", gic->gcr_gic_base);
+        return gic->gcr_gic_base;
         break;
 
     case GCMP_GCB_GICST_OFS:
@@ -561,9 +560,12 @@ gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     switch (addr) {
     case GCMP_GCB_GICBA_OFS:
         DPRINTF("Info (MIPS64_CMP) I6400_CPU0 write %d bytes at GCR offset %04x (GCR) <- 0x%016lx\n", size, addr, data);
-        gic->gcr_gic_base_reg = data & ~1;
-        memory_region_add_subregion(get_system_memory(), gic->gcr_gic_base_reg, &gic->gic_mem);
-        printf ("init gic base addr %x %x\n", data, gic->gcr_gic_base_reg);
+        gic->gcr_gic_base = data & ~1;
+        if (data & 1) {
+            memory_region_del_subregion(get_system_memory(), &gic->gic_mem);
+            memory_region_add_subregion(get_system_memory(), gic->gcr_gic_base, &gic->gic_mem);
+            printf ("init gic base addr %x %x\n", data, gic->gcr_gic_base);
+        }
         break;
 
     default:
@@ -700,7 +702,10 @@ static int gic_local_timer_expire(gic_t *gic, uint32_t vp_index, uint64_t now)
         !gic->gic_vpe_comparehi[vp_index]) {
         return 0;
     }
-    if (compare <= now) {
+
+    if (compare <=
+            (gic->gic_sh_counterlo +
+            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec()))) {
         return 1;
     }
     return 0;
@@ -732,12 +737,27 @@ static void gic_timer_expire(gic_t *gic)
         if (gic->gic_vpe_pend[i] & (gic->gic_vpe_mask[i] & (1 << 1))) {
             if (gic->gic_vpe_compare_map[i] & 0x80000000) {
 //              DPRINTF("QEMU GIC TIMER set IRQ%d\n", gic->gic_vpe_compare_map[i]);
-//                printf("~%d", gic->gic_vpe_compare_map[i] & 0x3F);
-//                fflush(0);
+                printf("~%d", gic->gic_vpe_compare_map[i] & 0x3F);
+                fflush(0);
 //              gic_set_irq(gic, gic->gic_vpe_compare_map[i] & 0x3F, 1);
                 qemu_set_irq(gic->env[i]->irq[(gic->gic_vpe_compare_map[i] & 0x3F)+2], 1);
             }
         }
+    }
+}
+
+void gic_store_count(gic_t *gic, uint32_t count)
+{
+    printf("---QEMU: gic_store_count()\n");
+    if ((gic->gic_gl_config & 0x10000000) || !gic->timer) {
+        gic->gic_sh_counterlo = count;
+    } else {
+        /* Store new count register */
+        gic->gic_sh_counterlo =
+            count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
+                                       TIMER_FREQ, get_ticks_per_sec());
+        /* Update timer timer */
+        gic_timer_update(gic);
     }
 }
 
@@ -793,6 +813,7 @@ static void gic_timer_cb (void *opaque)
 void gic_sh_timer_init (gic_t *gic)
 {
     gic->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &gic_timer_cb, gic);
+    gic_store_count(gic, gic->gic_sh_counterlo);
 //    if (!(gic->gic_gl_config & 0x10000000)) {
 //        timer_mod(gic->timer, muldiv64(1, get_ticks_per_sec(), TIMER_FREQ));
 //    }
@@ -851,7 +872,7 @@ gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space)
     // GCMP
     /* The MIPS default location for the GCR_BASE address is 0x1FBF_8. */
     memory_region_add_subregion(address_space, GCMP_BASE_ADDR, &gic->gcr_mem);
-//    memory_region_add_subregion(address_space, GIC_BASE_ADDR, &gic->gic_mem);
+    memory_region_add_subregion(address_space, GIC_BASE_ADDR, &gic->gic_mem);
 //    memory_region_add_subregion(get_system_memory(), GIC_BASE_ADDR, &gic->gic_mem);
 
     qemu_register_reset(gic_reset, gic);
