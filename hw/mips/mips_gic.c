@@ -50,6 +50,13 @@
 //#define NUMVPES     32
 
 /* XXXKYMA: Spoof a bit of the GCR as well, just enough to get Linux to detect it */
+typedef struct _gic_timer_t
+{
+    QEMUTimer *timer;
+    uint32_t vp_index;
+    struct gic_t *gic;
+} gic_timer_t;
+
 typedef struct gic_t
 {
     CPUMIPSState *env[NUMVPES];
@@ -91,12 +98,15 @@ typedef struct gic_t
     uint32_t gic_sh_counterlo;
     QEMUTimer *timer; /* Global timer */
     uint32_t num_cpu;
+    gic_timer_t *gic_timer;
 } gic_t;
 
 
 // prototypes
 uint32_t gic_get_count(gic_t *gic);
+uint32_t gic_get_sh_count(gic_t *gic);
 static uint32_t gic_timer_update(gic_t *gic);
+static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index);
 static void gic_set_irq(void *opaque, int n_IRQ, int level);
 
 static inline int gic_get_current_cpu(gic_t *g)
@@ -115,7 +125,8 @@ static uint64_t gic_read_vpe(gic_t *gic, uint32_t vp_index,
         DPRINTF("(GIC_VPE_CTL) -> 0x%016x\n", gic->gic_vpe_ctl[vp_index]);
         return gic->gic_vpe_ctl[vp_index];
     case GIC_VPE_PEND_OFS:
-        gic_get_count(gic);
+//        gic_get_count(gic);
+        gic_get_sh_count(gic);
         DPRINTF("(GIC_VPE_PEND) -> 0x%016x\n", gic->gic_vpe_pend[vp_index]);
         return gic->gic_vpe_pend[vp_index];
     case GIC_VPE_MASK_OFS:
@@ -166,7 +177,8 @@ gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_COUNTERLO_OFS:
         //return cpu_mips_get_count(gic->env[0]);
     {
-        ret = gic_get_count(gic);
+//        ret = gic_get_count(gic);
+        ret = gic_get_sh_count(gic);
         DPRINTF("(GIC_SH_COUNTERLO) -> 0x%016x\n", ret);
         return ret;
     }
@@ -327,7 +339,8 @@ static uint64_t gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VPE_COMPARE_LO_OFS:
         gic->gic_vpe_comparelo[vp_index] = (uint32_t) data;
         if (!(gic->gic_gl_config & 0x10000000)) {
-            uint32_t wait = gic_timer_update(gic);
+//            uint32_t wait = gic_timer_update(gic);
+            uint32_t wait = gic_vpe_timer_update(gic, vp_index);
             DPRINTF("GIC Compare modified (GIC_VPE_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
                     gic->gic_vpe_comparelo[vp_index], gic->gic_sh_counterlo, wait);
         }
@@ -381,7 +394,13 @@ gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 //                timer_mod(gic->timer, muldiv64(1, get_ticks_per_sec(), TIMER_FREQ));
             }
         }
-        gic_timer_update(gic);
+//        gic_timer_update(gic);
+        {
+            int i;
+            for (i = 0; i < gic->num_cpu; i++) {
+                gic_vpe_timer_update(gic, i);
+            }
+        }
     }
         break;
     case GIC_SH_CONFIG_OFS + 4:
@@ -788,9 +807,6 @@ static void gic_timer_cb (void *opaque)
     gic_t *gic;
 
     gic = opaque;
-#if 0 || defined(MIPSSIM_COMPAT)
-    qemu_log("%s\n", __func__);
-#endif
 
 //    printf("@");
 //    fflush(0);
@@ -810,7 +826,7 @@ static void gic_timer_cb (void *opaque)
     gic->gic_sh_counterlo--;
 }
 
-void gic_sh_timer_init (gic_t *gic)
+void gic_global_timer_init (gic_t *gic)
 {
     gic->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &gic_timer_cb, gic);
     gic_store_count(gic, gic->gic_sh_counterlo);
@@ -818,6 +834,108 @@ void gic_sh_timer_init (gic_t *gic)
 //        timer_mod(gic->timer, muldiv64(1, get_ticks_per_sec(), TIMER_FREQ));
 //    }
 //    gic_timer_update(gic);
+}
+
+// VPE Local Timer
+static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
+{
+    uint64_t now, next;
+    uint32_t wait;
+    int i;
+
+    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    if (gic->gic_gl_config & 0x10000000) {
+        wait = muldiv64(now, get_ticks_per_sec(), TIMER_FREQ);
+    } else {
+        wait = gic->gic_vpe_comparelo[vp_index] - gic->gic_sh_counterlo -
+                (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+        next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
+    }
+    timer_mod(gic->gic_timer[vp_index].timer, next);
+    return wait;
+}
+
+static void gic_vpe_timer_expire(gic_t *gic, uint32_t vp_index)
+{
+    gic_vpe_timer_update(gic, vp_index);
+    gic->gic_vpe_pend[vp_index] |= (1 << 1);
+
+    if (gic->gic_vpe_pend[vp_index] & (gic->gic_vpe_mask[vp_index] & (1 << 1))) {
+        if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
+//              DPRINTF("QEMU GIC TIMER set IRQ%d\n", gic->gic_vpe_compare_map[i]);
+            printf("~%d", gic->gic_vpe_compare_map[vp_index] & 0x3F);
+            fflush(0);
+//                qemu_set_irq(gic->env[i]->irq[(gic->gic_vpe_compare_map[i] & 0x3F)+2], 1);
+            qemu_irq_raise(gic->env[vp_index]->irq[(gic->gic_vpe_compare_map[vp_index] & 0x3F)+2]);
+        }
+    }
+}
+
+void gic_store_sh_count(gic_t *gic, uint32_t count)
+{
+    printf("---QEMU: gic_store_count()\n");
+    int i;
+    if ((gic->gic_gl_config & 0x10000000) || !gic->timer) {
+        gic->gic_sh_counterlo = count;
+    } else {
+        /* Store new count register */
+        gic->gic_sh_counterlo =
+            count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
+                                       TIMER_FREQ, get_ticks_per_sec());
+        /* Update timer timer */
+        for (i = 0; i < gic->num_cpu; i++) {
+            gic_vpe_timer_update(gic, i);
+        }
+    }
+}
+
+uint32_t gic_get_sh_count(gic_t *gic)
+{
+    int i;
+    if (gic->gic_gl_config & (1 << 28)) {
+        return gic->gic_sh_counterlo;
+    } else {
+        uint64_t now;
+
+        now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        for (i = 0; i < gic->num_cpu; i++) {
+            if (timer_pending(gic->gic_timer[i].timer)
+                && timer_expired(gic->gic_timer[i].timer, now)) {
+                /* The timer has already expired.  */
+    //            printf("!");
+    //            fflush(0);
+
+                gic_vpe_timer_expire(gic, i);
+            }
+        }
+
+        return gic->gic_sh_counterlo +
+            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+    }
+}
+
+
+static void gic_vpe_timer_cb(void *opaque)
+{
+    gic_timer_t *gic_timer = opaque;
+    gic_timer->gic->gic_sh_counterlo++;
+    gic_vpe_timer_expire(gic_timer->gic, gic_timer->vp_index);
+    gic_timer->gic->gic_sh_counterlo--;
+}
+
+
+void gic_timer_init(gic_t *gic, uint32_t ncpus)
+{
+    int i;
+    gic->gic_timer = (void *) g_malloc0(sizeof(gic_timer_t) * ncpus);
+    for (i = 0; i < ncpus; i++) {
+        gic->gic_timer[i].gic = gic;
+        gic->gic_timer[i].vp_index = i;
+        gic->gic_timer[i].timer =
+            timer_new_ns(QEMU_CLOCK_VIRTUAL, &gic_vpe_timer_cb,
+                         &gic->gic_timer[i]);
+    }
+    gic_store_sh_count(gic, gic->gic_sh_counterlo);
 }
 
 static void gic_reset_register(gic_t *gic)
@@ -839,7 +957,7 @@ qemu_irq *
 gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space)
 {
     gic_t *gic;
-    uint32_t x;
+    uint32_t i;
 
     if (ncpus > NUMVPES) {
         fprintf(stderr, "Unable to initialize GIC - ncpus %d > NUMVPES!", ncpus);
@@ -848,17 +966,18 @@ gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space)
 
     gic = (gic_t *) g_malloc0(sizeof(gic_t));
 
+
     gic->num_cpu = ncpus;
 
     gic_reset_register(gic);
 
     /* Register the CPU env for all cpus with the GIC */
-    for (x = 0; x < ncpus; x++) {
+    for (i = 0; i < ncpus; i++) {
         if (cs != NULL) {
-            gic->env[x] = cs->env_ptr;
+            gic->env[i] = cs->env_ptr;
             cs = CPU_NEXT(cs);
         } else {
-            fprintf(stderr, "Unable to initialize GIC - CPUMIPSState for CPU #%d not valid!", x);
+            fprintf(stderr, "Unable to initialize GIC - CPUMIPSState for CPU #%d not valid!", i);
             return NULL;
         }
     }
@@ -878,7 +997,7 @@ gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space)
     qemu_register_reset(gic_reset, gic);
 
     gic->irqs = qemu_allocate_irqs(gic_set_irq, gic, GIC_NUM_INTRS);
-    gic_sh_timer_init(gic);
-
+//    gic_global_timer_init(gic);
+    gic_timer_init(gic, ncpus);
     return (gic->irqs);
 }
