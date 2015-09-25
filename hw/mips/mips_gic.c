@@ -941,7 +941,7 @@ void gic_timer_init(gic_t *gic, uint32_t ncpus)
 static void gic_reset_register(gic_t *gic)
 {
 //    gic->gic_vpe_ctl[0] = (1 << 0x3) | (1 << 0x1);
-    gic->gic_gl_config = 0x180f0000;
+    gic->gic_gl_config = 0x180f0000 | gic->num_cpu;
 //    gic->gic_gl_config = 0x10030000;
 //    gic->gic_gl_config = 0x100f0007;
 //    gic->gic_vpe_mask[0] = 0x3e;
