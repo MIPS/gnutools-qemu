@@ -910,7 +910,7 @@ static void main_cpu_reset(void *opaque)
        read only location. The kernel location and the arguments table
        location does not change. */
     if (loaderparams.kernel_filename) {
-        env->CP0_Status &= ~(1 << CP0St_ERL);
+        //env->CP0_Status &= ~(1 << CP0St_ERL);
     }
 
     malta_mips_config(cpu);
@@ -1255,7 +1255,7 @@ static QEMUMachine mips_malta_machine = {
     .name = "malta",
     .desc = "MIPS Malta Core LV",
     .init = mips_malta_init,
-    .max_cpus = 16,
+    .max_cpus = 32,
     .is_default = 1,
 };
 
