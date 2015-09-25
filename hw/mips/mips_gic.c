@@ -849,8 +849,8 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
     } else {
         wait = gic->gic_vpe_comparelo[vp_index] - gic->gic_sh_counterlo -
                 (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-        next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
     }
+    next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(gic->gic_timer[vp_index].timer, next);
     return wait;
 }
