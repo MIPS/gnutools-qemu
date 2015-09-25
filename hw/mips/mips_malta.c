@@ -444,6 +444,7 @@ static void malta_fpga_write(void *opaque, hwaddr addr,
 
     /* ASCIIWORD Register */
     case 0x00410:
+        printf("__0x%X__\n", (uint32_t)val);
         snprintf(s->display_text, 9, "%08X", (uint32_t)val);
         malta_fpga_update_display(s);
         break;

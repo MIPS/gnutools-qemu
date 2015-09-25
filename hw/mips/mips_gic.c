@@ -46,8 +46,8 @@
 #endif
 
 /* Support upto 4 VPEs */
-#define NUMVPES     4
-//#define NUMVPES     32
+//#define NUMVPES     4
+#define NUMVPES     32
 
 /* XXXKYMA: Spoof a bit of the GCR as well, just enough to get Linux to detect it */
 typedef struct _gic_timer_t
