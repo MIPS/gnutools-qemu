@@ -93,19 +93,17 @@ typedef struct gic_t
     uint32_t gic_vpe_comparehi[NUMVPES];
 
     uint32_t gic_vpe_other_addr[NUMVPES];
+
     /* User Mode Visible Section Registers */
 
     uint32_t gic_sh_counterlo;
-    QEMUTimer *timer; /* Global timer */
     uint32_t num_cpu;
     gic_timer_t *gic_timer;
 } gic_t;
 
 
 // prototypes
-uint32_t gic_get_count(gic_t *gic);
 uint32_t gic_get_sh_count(gic_t *gic);
-static uint32_t gic_timer_update(gic_t *gic);
 static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index);
 static void gic_set_irq(void *opaque, int n_IRQ, int level);
 
@@ -125,17 +123,24 @@ static uint64_t gic_read_vpe(gic_t *gic, uint32_t vp_index,
         DPRINTF("(GIC_VPE_CTL) -> 0x%016x\n", gic->gic_vpe_ctl[vp_index]);
         return gic->gic_vpe_ctl[vp_index];
     case GIC_VPE_PEND_OFS:
-//        gic_get_count(gic);
         gic_get_sh_count(gic);
         DPRINTF("(GIC_VPE_PEND) -> 0x%016x\n", gic->gic_vpe_pend[vp_index]);
         return gic->gic_vpe_pend[vp_index];
     case GIC_VPE_MASK_OFS:
         DPRINTF("(GIC_VPE_MASK) -> 0x%016x\n", gic->gic_vpe_mask[vp_index]);
         return gic->gic_vpe_mask[vp_index];
+    case GIC_VPE_WD_MAP_OFS:
+        return gic->gic_vpe_wd_map[vp_index];
+    case GIC_VPE_COMPARE_MAP_OFS:
+        return gic->gic_vpe_compare_map[vp_index];
+    case GIC_VPE_TIMER_MAP_OFS:
+        return gic->gic_vpe_timer_map[vp_index];
     case GIC_VPE_OTHER_ADDR_OFS:
         DPRINTF("(GIC_VPE_OTHER_ADDR) -> 0x%016x\n",
                 gic->gic_vpe_other_addr[vp_index]);
         return gic->gic_vpe_other_addr[vp_index];
+    case GIC_VPE_IDENT_OFS:
+        return vp_index;
     case GIC_VPE_COMPARE_LO_OFS:
         DPRINTF("(GIC_VPE_COMPARELO) -> 0x%016x\n",
                 gic->gic_vpe_comparelo[vp_index]);
@@ -177,7 +182,6 @@ gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_COUNTERLO_OFS:
         //return cpu_mips_get_count(gic->env[0]);
     {
-//        ret = gic_get_count(gic);
         ret = gic_get_sh_count(gic);
         DPRINTF("(GIC_SH_COUNTERLO) -> 0x%016x\n", ret);
         return ret;
@@ -304,13 +308,6 @@ static uint64_t gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
         gic->gic_vpe_ctl[vp_index] |= data & 1;
 //            DPRINTF("QEMU: GIC Local interrupt control reg WRITE %x\n", data);
         break;
-    case GIC_VPE_OTHER_ADDR_OFS:
-        gic->gic_vpe_other_addr[vp_index] = data;
-//            DPRINTF("QEMU: GIC other addressing reg WRITE %x\n", data);
-        break;
-    case GIC_VPE_OTHER_ADDR_OFS + 4:
-        // do nothing
-        break;
     case GIC_VPE_RMASK_OFS:
         DPRINTF("QEMU VPE%d RMASK org_mask %x, ", vp_index,
                 gic->gic_vpe_mask[vp_index]);
@@ -336,19 +333,25 @@ static uint64_t gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
         DPRINTF("QEMU: GIC Timer MAP %x %x\n", data,
                 gic->gic_vpe_timer_map[vp_index]);
         break;
+    case GIC_VPE_OTHER_ADDR_OFS:
+        gic->gic_vpe_other_addr[vp_index] = data;
+//            DPRINTF("QEMU: GIC other addressing reg WRITE %x\n", data);
+        break;
+    case GIC_VPE_OTHER_ADDR_OFS + 4:
+        // do nothing
+        break;
     case GIC_VPE_COMPARE_LO_OFS:
         gic->gic_vpe_comparelo[vp_index] = (uint32_t) data;
-        if (!(gic->gic_gl_config & 0x10000000)) {
-//            uint32_t wait = gic_timer_update(gic);
             uint32_t wait = gic_vpe_timer_update(gic, vp_index);
             DPRINTF("GIC Compare modified (GIC_VPE_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
                     gic->gic_vpe_comparelo[vp_index], gic->gic_sh_counterlo, wait);
-        }
+            printf("GIC Compare modified (GIC_VPE%d_Compare=0x%x GIC_Counter=0x%x) - schedule CMP timer interrupt after 0x%x\n",
+                   vp_index,
+                   gic->gic_vpe_comparelo[vp_index], gic->gic_sh_counterlo, wait);
         gic->gic_vpe_pend[vp_index] &= ~(1 << 1);
         if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
             printf("x%d", gic->gic_vpe_compare_map[vp_index] & 0x3F);
             fflush(0);
-//                gic_set_irq(gic, gic->gic_vpe_compare_map[vp_index] & 0x3F, 0);
             qemu_set_irq(gic->env[vp_index]->irq[(gic->gic_vpe_compare_map[vp_index] & 0x3F)+2], 0);
         }
         break;
@@ -658,32 +661,6 @@ static const MemoryRegionOps gcr_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-static uint32_t gic_timer_update(gic_t *gic)
-{
-    uint64_t now, next;
-    uint32_t wait;
-    uint32_t comparelo;
-    int i;
-
-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    if (gic->gic_gl_config & 0x10000000) {
-        wait = muldiv64(now, get_ticks_per_sec(), TIMER_FREQ);
-    } else {
-        comparelo = gic->gic_vpe_comparelo[0];
-        for (i = 1; i < gic->num_cpu; i++) {
-            if (comparelo > gic->gic_vpe_comparelo[i] &&
-                gic->gic_vpe_comparelo[i] != 0) {
-                comparelo = gic->gic_vpe_comparelo[i];
-            }
-        }
-
-        wait = comparelo - gic->gic_sh_counterlo -
-                (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-        next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
-    }
-    timer_mod(gic->timer, next);
-    return wait;
-}
 
 static void print_gic_status(gic_t *gic)
 {
@@ -713,129 +690,6 @@ static void print_gic_status(gic_t *gic)
 
 }
 
-static int gic_local_timer_expire(gic_t *gic, uint32_t vp_index, uint64_t now)
-{
-    uint64_t compare = gic->gic_vpe_comparelo[vp_index] |
-            (gic->gic_vpe_comparehi[vp_index] << 32);
-    if (!gic->gic_vpe_comparelo[vp_index] &&
-        !gic->gic_vpe_comparehi[vp_index]) {
-        return 0;
-    }
-
-    if (compare <=
-            (gic->gic_sh_counterlo +
-            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec()))) {
-        return 1;
-    }
-    return 0;
-}
-
-static void gic_timer_expire(gic_t *gic)
-{
-    int i;
-    int num_requests = 0;
-    uint32_t expired = 0;
-    uint64_t now;
-    gic_timer_update(gic);
-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    for (i = 0; i < gic->num_cpu; i++) {
-        if (gic_local_timer_expire(gic, i, now)) {
-            expired |= (1 << i);
-            gic->gic_vpe_pend[i] |= (1 << 1);
-            DPRINTF("gic_timer_expire pend%d %x", i, gic->gic_vpe_pend[i]);
-        }
-    }
-    if (expired == 0) {
-//        DPRINTF("ignored--- gic timer expire\n");
-        return;
-    }
-
-//    print_gic_status(gic);
-
-    for (i = 0; i < gic->num_cpu; i++) {
-        if (gic->gic_vpe_pend[i] & (gic->gic_vpe_mask[i] & (1 << 1))) {
-            if (gic->gic_vpe_compare_map[i] & 0x80000000) {
-//              DPRINTF("QEMU GIC TIMER set IRQ%d\n", gic->gic_vpe_compare_map[i]);
-                printf("~%d", gic->gic_vpe_compare_map[i] & 0x3F);
-                fflush(0);
-//              gic_set_irq(gic, gic->gic_vpe_compare_map[i] & 0x3F, 1);
-                qemu_set_irq(gic->env[i]->irq[(gic->gic_vpe_compare_map[i] & 0x3F)+2], 1);
-            }
-        }
-    }
-}
-
-void gic_store_count(gic_t *gic, uint32_t count)
-{
-    printf("---QEMU: gic_store_count()\n");
-    if ((gic->gic_gl_config & 0x10000000) || !gic->timer) {
-        gic->gic_sh_counterlo = count;
-    } else {
-        /* Store new count register */
-        gic->gic_sh_counterlo =
-            count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                       TIMER_FREQ, get_ticks_per_sec());
-        /* Update timer timer */
-        gic_timer_update(gic);
-    }
-}
-
-uint32_t gic_get_count(gic_t *gic)
-{
-    if (gic->gic_gl_config & (1 << 28)) {
-        return gic->gic_sh_counterlo;
-    } else {
-        uint64_t now;
-
-        now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-        if (timer_pending(gic->timer)
-            && timer_expired(gic->timer, now)) {
-            /* The timer has already expired.  */
-//            printf("!");
-//            fflush(0);
-
-            gic_timer_expire(gic);
-        }
-
-        return gic->gic_sh_counterlo +
-            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-    }
-}
-
-static void gic_timer_cb (void *opaque)
-{
-    gic_t *gic;
-
-    gic = opaque;
-
-//    printf("@");
-//    fflush(0);
-//    DPRINTF("---QEMU: mips_timer_cb() 1\n");
-//    if (env->CP0_Cause & (1 << CP0Ca_DC))
-//        return;
-//    DPRINTF("---QEMU: mips_timer_cb() 2\n");
-    /* ??? This callback should occur when the counter is exactly equal to
-       the comparator value.  Offset the count by one to avoid immediately
-       retriggering the callback before any virtual time has passed.  */
-//    env->CP0_Count++;
-//    cpu_mips_timer_expire(env);
-//    env->CP0_Count--;
-    gic->gic_sh_counterlo++;
-//    DPRINTF("---QEMU: gic timer tick\n");
-    gic_timer_expire(gic);
-    gic->gic_sh_counterlo--;
-}
-
-void gic_global_timer_init (gic_t *gic)
-{
-    gic->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &gic_timer_cb, gic);
-    gic_store_count(gic, gic->gic_sh_counterlo);
-//    if (!(gic->gic_gl_config & 0x10000000)) {
-//        timer_mod(gic->timer, muldiv64(1, get_ticks_per_sec(), TIMER_FREQ));
-//    }
-//    gic_timer_update(gic);
-}
-
 // VPE Local Timer
 static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
 {
@@ -851,6 +705,11 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
                 (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
     }
     next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
+//    printf("%xgic_vpe_timer_update %d: compare=%x count=%x wait=%x next=%x\n",
+//           gic->gic_gl_config & 0x10000000,
+//               vp_index, gic->gic_vpe_comparelo[vp_index],
+//               gic->gic_sh_counterlo,
+//               wait, next);
     timer_mod(gic->gic_timer[vp_index].timer, next);
     return wait;
 }
@@ -863,7 +722,7 @@ static void gic_vpe_timer_expire(gic_t *gic, uint32_t vp_index)
     if (gic->gic_vpe_pend[vp_index] & (gic->gic_vpe_mask[vp_index] & (1 << 1))) {
         if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
 //              DPRINTF("QEMU GIC TIMER set IRQ%d\n", gic->gic_vpe_compare_map[i]);
-            printf("~%d", gic->gic_vpe_compare_map[vp_index] & 0x3F);
+            printf("~%d(VPE%d)", gic->gic_vpe_compare_map[vp_index] & 0x3F, vp_index);
             fflush(0);
 //                qemu_set_irq(gic->env[i]->irq[(gic->gic_vpe_compare_map[i] & 0x3F)+2], 1);
             qemu_irq_raise(gic->env[vp_index]->irq[(gic->gic_vpe_compare_map[vp_index] & 0x3F)+2]);
@@ -875,7 +734,7 @@ void gic_store_sh_count(gic_t *gic, uint32_t count)
 {
     printf("---QEMU: gic_store_count()\n");
     int i;
-    if ((gic->gic_gl_config & 0x10000000) || !gic->timer) {
+    if ((gic->gic_gl_config & 0x10000000) || !gic->gic_timer) {
         gic->gic_sh_counterlo = count;
     } else {
         /* Store new count register */
