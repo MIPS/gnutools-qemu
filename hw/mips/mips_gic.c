@@ -36,14 +36,7 @@
 #define DPRINTF(fmt, ...)
 #define SPRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
-#if defined(MIPSSIM_COMPAT)
-/* In SV - C0COUNT has to be incremented by a number of executed instructions
-   as this is how IASim works.
-*/
-#define TIMER_FREQ get_ticks_per_sec()
-#else
-#define TIMER_FREQ  100 * 1000 * 1000
-#endif
+#define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
 /* Support upto 4 VPEs */
 //#define NUMVPES     4
@@ -383,13 +376,11 @@ gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
             if (!(pre & 0x10000000) && (gic->gic_gl_config & 0x10000000)) {
                 DPRINTF("Info (MIPS64_CMP) GIC_SH_CONFIG.COUNTSTOP modified STOPPING\n");
                 printf("Info (MIPS64_CMP) GIC_SH_CONFIG.COUNTSTOP modified STOPPING\n");
-//                timer_mod(gic->timer, muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), get_ticks_per_sec(), TIMER_FREQ));
                 gic_timer_stop_count(gic);
             }
             if ((pre & 0x10000000) && !(gic->gic_gl_config & 0x10000000)) {
                 DPRINTF("Info (MIPS64_CMP) GIC_SH_CONFIG.COUNTSTOP modified STARTING\n");
                 printf("Info (MIPS64_CMP) GIC_SH_CONFIG.COUNTSTOP modified STARTING\n");
-//                timer_mod(gic->timer, muldiv64(1, get_ticks_per_sec(), TIMER_FREQ));
                 gic_timer_start_count(gic);
             }
         }
@@ -694,13 +685,9 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
     uint32_t wait;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-//    if (gic->gic_gl_config & 0x10000000) {
-//        wait = muldiv64(now, get_ticks_per_sec(), TIMER_FREQ);
-//    } else {
-        wait = gic->gic_vpe_comparelo[vp_index] - gic->gic_sh_counterlo -
-                (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-//    }
-    next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
+    wait = gic->gic_vpe_comparelo[vp_index] - gic->gic_sh_counterlo -
+            (uint32_t)(now / TIMER_PERIOD);
+    next = now + (uint64_t)wait * TIMER_PERIOD;
 //    printf("%xgic_vpe_timer_update %d: compare=%x count=%x wait=%x next=%x\n",
 //           gic->gic_gl_config & 0x10000000,
 //               vp_index, gic->gic_vpe_comparelo[vp_index],
@@ -746,8 +733,7 @@ uint32_t gic_get_sh_count(gic_t *gic)
             }
         }
 
-        return gic->gic_sh_counterlo +
-            (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+        return gic->gic_sh_counterlo + (uint32_t)(now / TIMER_PERIOD);
     }
 }
 
@@ -759,9 +745,8 @@ void gic_store_sh_count(gic_t *gic, uint64_t count)
         gic->gic_sh_counterlo = count;
     } else {
         /* Store new count register */
-        gic->gic_sh_counterlo =
-            count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                       TIMER_FREQ, get_ticks_per_sec());
+        gic->gic_sh_counterlo = count -
+            (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
         /* Update timer timer */
         for (i = 0; i < gic->num_cpu; i++) {
             gic_vpe_timer_update(gic, i);
@@ -810,8 +795,8 @@ void gic_timer_stop_count(gic_t *gic)
 {
     int i;
     /* Store the current value */
-    gic->gic_sh_counterlo += (uint64_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                         TIMER_FREQ, get_ticks_per_sec());
+    gic->gic_sh_counterlo +=
+        (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
     for (i = 0; i < gic->num_cpu; i++) {
         timer_del(gic->gic_timer[i].timer);
     }
