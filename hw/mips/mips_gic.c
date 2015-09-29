@@ -334,7 +334,9 @@ static uint64_t gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
                 gic->gic_vpe_timer_map[vp_index]);
         break;
     case GIC_VPE_OTHER_ADDR_OFS:
-        gic->gic_vpe_other_addr[vp_index] = data;
+        if (data < gic->num_cpu) {
+            gic->gic_vpe_other_addr[vp_index] = data;
+        }
 //            DPRINTF("QEMU: GIC other addressing reg WRITE %x\n", data);
         break;
     case GIC_VPE_OTHER_ADDR_OFS + 4:
