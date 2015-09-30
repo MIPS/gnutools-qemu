@@ -658,7 +658,7 @@ static const mips_def_t mips_defs[] =
         /* FIXME: Support IEEE 754-2008 FP
          */
         .name = "I6400",
-        .CP0_PRid = 0x00010000,
+        .CP0_PRid = 0x0001A900,
         .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AR) | (0x2 << CP0C0_AT) |
                        (MMU_TYPE_R4000 << CP0C0_MT),
         .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (0x1F << CP0C1_MMU) |
