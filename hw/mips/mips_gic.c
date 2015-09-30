@@ -644,9 +644,9 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 
     switch (addr) {
     case GCMP_GCB_GC_OFS:
-        /* Set PCORES to # cores - 1 */
-        DPRINTF("0x%016x\n", smp_cpus-1);
-        return smp_cpus - 1;
+        /* Set PCORES to 0 */
+        DPRINTF("0x%016x\n", 0);
+        return 0;
     case GCMP_GCB_GCMPB_OFS:
         DPRINTF("GCMP_BASE_ADDR: %016llx\n", GCMP_BASE_ADDR);
         return GCMP_BASE_ADDR;
@@ -661,6 +661,14 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
         DPRINTF("0x%016x\n", GCMP_GCB_GICST_EX_MSK);
         return GCMP_GCB_GICST_EX_MSK;
     case 0xf0: //GCR_CPC_STATUS
+        DPRINTF("0x%016x\n", 0);
+        return 0;
+
+    case GCMP_CLCB_OFS + GCMP_CCB_CFG_OFS:
+        /* Set PVP to # cores - 1 */
+        DPRINTF("0x%016x\n", smp_cpus - 1);
+        return smp_cpus - 1;
+    case GCMP_CLCB_OFS + GCMP_CCB_OTHER_OFS:
         DPRINTF("0x%016x\n", 0);
         return 0;
     default:
