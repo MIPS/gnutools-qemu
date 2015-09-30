@@ -1437,6 +1437,7 @@ typedef struct DisasContext {
     bool mrp;
     bool pw;
     bool vp;
+    bool cmgcr;
 } DisasContext;
 
 enum {
@@ -5627,6 +5628,12 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
             break;
+        case 3:
+            check_insn(ctx, ISA_MIPS32R2);
+            CP0_CHECK(ctx->cmgcr);
+            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            rn = "CMGCRBase";
+            break;
         default:
             goto cp0_unimplemented;
        }
@@ -6958,6 +6965,12 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_EBase));
             rn = "EBase";
+            break;
+        case 3:
+            check_insn(ctx, ISA_MIPS32R2);
+            CP0_CHECK(ctx->cmgcr);
+            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            rn = "CMGCRBase";
             break;
         default:
             goto cp0_unimplemented;
@@ -20438,6 +20451,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.mrp = (env->CP0_Config5 >> CP0C5_MRP) & 1;
     ctx.pw = (env->CP0_Config3 >> CP0C3_PW) & 1;
     ctx.vp = (env->CP0_Config5 >> CP0C5_VP) & 1;
+    ctx.cmgcr = env->CP0_Config3 & (1 << CP0C3_CMGCR);
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
@@ -20890,6 +20904,9 @@ void cpu_state_reset(CPUMIPSState *env)
         env->CP0_EBase |= 0x40000000;
     } else {
         env->CP0_EBase |= 0x80000000;
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
+        env->CP0_CMGCRBase = 0x1fbf8000 >> 4;
     }
     env->CP0_Status = (1 << CP0St_BEV) | (1 << CP0St_ERL);
     /* vectored interrupts not implemented, timer on int 7,
