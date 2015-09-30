@@ -1175,7 +1175,8 @@ void mips_malta_init(MachineState *machine)
 
     /* GCR/GIC */
     if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
-        env->gic_irqs = gic_init(smp_cpus, first_cpu, system_memory);
+        gcr_init(smp_cpus, first_cpu, system_memory,
+                 (qemu_irq **)&env->gic_irqs);
     }
 
     /*

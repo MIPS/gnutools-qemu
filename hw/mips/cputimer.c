@@ -66,20 +66,14 @@ static void cpu_mips_timer_update(CPUMIPSState *env)
 static void cpu_mips_timer_expire(CPUMIPSState *env)
 {
     cpu_mips_timer_update(env);
-//    return;
     if (env->insn_flags & ISA_MIPS32R2) {
         env->CP0_Cause |= 1 << CP0Ca_TI;
     }
-//    return;
-//    printf("$%d",(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7);
-//    fflush(0);
     qemu_irq_raise(env->irq[(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
 }
 
 uint32_t cpu_mips_get_count (CPUMIPSState *env)
 {
-//    printf("^");
-//    fflush(0);
     if (env->CP0_Cause & (1 << CP0Ca_DC)) {
         return env->CP0_Count;
     } else {
@@ -104,8 +98,6 @@ void cpu_mips_store_count (CPUMIPSState *env, uint32_t count)
      * So env->timer may be NULL, which is also the case with KVM enabled so
      * treat timer as disabled in that case.
      */
-    printf("---QEMU: cpu_mips_store_count()\n");
-    printf("Cause %x\n", env->CP0_Cause);
     if (env->CP0_Cause & (1 << CP0Ca_DC) || !env->timer)
         env->CP0_Count = count;
     else {
@@ -130,7 +122,6 @@ void cpu_mips_store_compare (CPUMIPSState *env, uint32_t value)
 
 void cpu_mips_start_count(CPUMIPSState *env)
 {
-    printf("---QEMU: CPU timer start count\n");
     cpu_mips_store_count(env, env->CP0_Count);
 }
 
@@ -149,11 +140,8 @@ static void mips_timer_cb (void *opaque)
 #if 0 || defined(MIPSSIM_COMPAT)
     qemu_log("%s\n", __func__);
 #endif
-//    return;
-//    printf("---QEMU: mips_timer_cb() 1\n");
     if (env->CP0_Cause & (1 << CP0Ca_DC))
         return;
-//    printf("---QEMU: mips_timer_cb() 2\n");
     /* ??? This callback should occur when the counter is exactly equal to
        the comparator value.  Offset the count by one to avoid immediately
        retriggering the callback before any virtual time has passed.  */
