@@ -54,6 +54,7 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
+#include "hw/mips/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
 
@@ -1146,6 +1147,12 @@ void mips_malta_init(MachineState *machine)
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
 
+    /* GCR/GIC */
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
+        gcr_init(smp_cpus, first_cpu, system_memory,
+                 (qemu_irq **)&env->gic_irqs);
+    }
+
     /*
      * We have a circular dependency problem: pci_bus depends on isa_irq,
      * isa_irq is provided by i8259, i8259 depends on ISA, ISA depends
@@ -1165,7 +1172,11 @@ void mips_malta_init(MachineState *machine)
 
     /* Interrupt controller */
     /* The 8259 is attached to the MIPS CPU INT0 pin, ie interrupt 2 */
-    s->i8259 = i8259_init(isa_bus, env->irq[2]);
+    if (env->gic_irqs) {
+        s->i8259 = i8259_init(isa_bus, env->gic_irqs[3]);
+    } else {
+        s->i8259 = i8259_init(isa_bus, env->irq[2]);
+    }
 
     isa_bus_irqs(isa_bus, s->i8259);
     pci_piix4_ide_init(pci_bus, hd, piix4_devfn + 1);
@@ -1220,7 +1231,7 @@ static QEMUMachine mips_malta_machine = {
     .name = "malta",
     .desc = "MIPS Malta Core LV",
     .init = mips_malta_init,
-    .max_cpus = 16,
+    .max_cpus = 32,
     .is_default = 1,
 };
 
