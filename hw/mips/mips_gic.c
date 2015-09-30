@@ -474,9 +474,12 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* do nothing */
         break;
     case GIC_SH_COUNTERLO_OFS:
+        if (gic->gic_gl_config & 0x10000000) {
+            gic_store_sh_count(gic, data);
+        }
+        break;
     case GIC_SH_COUNTERHI_OFS:
-//        DPRINTF("QEMU: not supported TIMER WRITE request %lx\n", data);
-        // FIXME!
+        /* do nothing */
         break;
     case GIC_SH_POL_31_0_OFS:
     case GIC_SH_POL_63_32_OFS:
@@ -740,7 +743,8 @@ gic_t *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space)
     uint32_t i;
 
     if (ncpus > NUMVPES) {
-        fprintf(stderr, "Unable to initialise GIC - ncpus %d > NUMVPES!", ncpus);
+        fprintf(stderr, "Unable to initialise GIC - ncpus %d > NUMVPES!",
+                ncpus);
         return NULL;
     }
 
