@@ -656,7 +656,7 @@ static const mips_def_t mips_defs[] =
         /* FIXME: Support IEEE 754-2008 FP
          */
         .name = "I6400",
-        .CP0_PRid = 0x00010000,
+        .CP0_PRid = 0x0001A900,
         .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AR) | (0x2 << CP0C0_AT) |
                        (MMU_TYPE_R4000 << CP0C0_MT),
         .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (0x1F << CP0C1_MMU) |
@@ -664,7 +664,8 @@ static const mips_def_t mips_defs[] =
                        (2 << CP0C1_DS) | (5 << CP0C1_DL) | (3 << CP0C1_DA) |
                        (0 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1U << CP0C3_M) | (1 << CP0C3_MSAP) |
+        .CP0_Config3 = MIPS_CONFIG3 | (1U << CP0C3_M) |
+                       (1 << CP0C3_CMGCR) | (1 << CP0C3_MSAP) |
                        (1 << CP0C3_BP) | (1 << CP0C3_BI) | (1 << CP0C3_ULRI) |
                        (1 << CP0C3_RXI) | (1 << CP0C3_LPA) | (1 << CP0C3_VInt),
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M) | (3 << CP0C4_IE) |
