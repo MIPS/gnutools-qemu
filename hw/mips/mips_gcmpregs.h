@@ -82,7 +82,9 @@
 #define  GCMP_GCB_GICST_EX_SHF  0
 #define  GCMP_GCB_GICST_EX_MSK  GCMPGCBMSK(GICST_EX, 1)
 #define GCMP_GCB_CPCST_OFS      0x00f0
-
+#define GCMP_GCB_L2_CONFIG_OFS              0x0130  /* L2 Cache Configuration */
+#define  GCMP_GCB_L2_CONFIG_BYPASS_SHF      20
+#define  GCMP_GCB_L2_CONFIG_BYPASS_MSK      GCMPGCBMSK(L2_CONFIG_BYPASS, 1)
 
 /* GCB Regions */
 /* Global Region[0-3] Base Address */

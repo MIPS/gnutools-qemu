@@ -689,8 +689,10 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCMP_GCB_CPCST_OFS:
         DPRINTF("0x%016x\n", 0);
         return 0;
-    case GCMP_GCB_GC_OFS + 0x0130:
-        return (1 << 20);
+    case GCMP_GCB_GC_OFS + GCMP_GCB_L2_CONFIG_OFS:
+        /* L2 BYPASS */
+        DPRINTF("0x%016x\n", GCMP_GCB_L2_CONFIG_BYPASS_MSK);
+        return GCMP_GCB_L2_CONFIG_BYPASS_MSK;
     case GCMP_CLCB_OFS + GCMP_CCB_CFG_OFS:
         /* Set PVP to # cores - 1 */
         DPRINTF("0x%016x\n", smp_cpus - 1);
