@@ -32,6 +32,8 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
     CPUMIPSState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
+    qemu_log("-> CPU int %d, lev %d (current Cause = %x)\n", irq, level, env->CP0_Cause & CP0Ca_IP_mask);
+
     if (irq < 0 || irq > 7)
         return;
 

@@ -82,6 +82,9 @@ struct gic_t {
 
     uint32_t num_cpu;
     gic_timer_t *gic_timer;
+
+    uint32_t timer_irq[NUMVPES];
+    uint32_t ic_irq[NUMVPES];
 };
 
 struct gcr_t {
@@ -107,6 +110,9 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
     wait = gic->gic_vpe_comparelo[vp_index] - gic->gic_sh_counterlo -
             (uint32_t)(now / TIMER_PERIOD);
     next = now + (uint64_t)wait * TIMER_PERIOD;
+
+    qemu_log("GIC timer scheduled, now = %llx, next = %llx (wait = %u)\n", now, next, wait);
+
     timer_mod(gic->gic_timer[vp_index].timer, next);
     return wait;
 }
@@ -114,15 +120,21 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
 static void gic_vpe_timer_expire(gic_t *gic, uint32_t vp_index)
 {
     uint32_t pin;
+    pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
+    qemu_log("GIC timer expire => VPE[%d] irq %d\n", vp_index, pin);
     gic_vpe_timer_update(gic, vp_index);
     gic->gic_vpe_pend[vp_index] |= (1 << 1);
 
-    pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
     if (gic->gic_vpe_pend[vp_index] &
             (gic->gic_vpe_mask[vp_index] & (1 << 1))) {
         if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
+            gic->timer_irq[vp_index] = 1;
             qemu_irq_raise(gic->env[vp_index]->irq[pin]);
+        } else {
+            qemu_log("    disabled!\n");
         }
+    } else {
+        qemu_log("    masked off!\n");
     }
 }
 
@@ -179,7 +191,10 @@ static void gic_store_vpe_compare(gic_t *gic, uint32_t vp_index,
     gic->gic_vpe_pend[vp_index] &= ~(1 << 1);
     if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
         uint32_t irq_num = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
-        qemu_set_irq(gic->env[vp_index]->irq[irq_num], 0);
+        gic->timer_irq[vp_index] = 0;
+        if (!gic->ic_irq[vp_index]) {
+            qemu_set_irq(gic->env[vp_index]->irq[irq_num], 0);
+        }
     }
 }
 
@@ -288,7 +303,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_COUNTERLO_OFS:
     {
         ret = gic_get_sh_count(gic);
-        DPRINTF("(GIC_SH_COUNTERLO) -> 0x%016x\n", ret);
+        qemu_log("(GIC_SH_COUNTERLO) -> 0x%016x\n", ret);
         return ret;
     }
     case GIC_SH_COUNTERHI_OFS:
@@ -594,7 +609,7 @@ static void gic_reset(void *opaque)
 
     gic->gic_sh_counterlo = 0;
 
-    gic->gic_gl_config = 0x180f0000 | gic->num_cpu;
+    gic->gic_gl_config = 0x100f0000 | gic->num_cpu;
 }
 
 static void gic_set_irq(void *opaque, int n_IRQ, int level)
@@ -613,11 +628,18 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
         }
     }
 
+    if (i >= NUMVPES) {
+        return;
+    }
+
     if (pin >= 0 && vpe >= 0) {
         int offset;
         DPRINTF("[%s] INTR %d maps to PIN %d on VPE %d\n",
                 (level ? "ASSERT" : "DEASSERT"), n_IRQ, pin, vpe);
         /* Set the Global PEND register */
+
+        qemu_log("-> GIC int %d, lev %d => CPU irq %d\n", n_IRQ, level, pin + 2);
+
         offset = GIC_INTR_OFS(n_IRQ) / 4;
         if (level) {
             gic->gic_gl_intr_pending_reg[offset] |= (1 << GIC_INTR_BIT(n_IRQ));
@@ -630,7 +652,11 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
             kvm_mips_set_ipi_interrupt(gic->env[vpe], pin + 2, level);
         }
 #endif
-        qemu_set_irq(gic->env[vpe]->irq[pin+2], level);
+        gic->ic_irq[vpe] = level;
+        /* don't lower if timer is pending */
+        if (!gic->timer_irq[vpe] || level) {
+            qemu_set_irq(gic->env[vpe]->irq[pin+2], level);
+        }
     }
 }
 
@@ -663,7 +689,8 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCMP_GCB_CPCST_OFS:
         DPRINTF("0x%016x\n", 0);
         return 0;
-
+    case GCMP_GCB_GC_OFS + 0x0130:
+        return (1 << 20);
     case GCMP_CLCB_OFS + GCMP_CCB_CFG_OFS:
         /* Set PVP to # cores - 1 */
         DPRINTF("0x%016x\n", smp_cpus - 1);
