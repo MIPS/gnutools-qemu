@@ -695,6 +695,10 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
         /* Set PVP to # cores - 1 */
         DPRINTF("0x%016x\n", smp_cpus - 1);
         return smp_cpus - 1;
+    case GCMP_COCB_OFS + GCMP_CCB_CFG_OFS:
+        /* Set PVP to # cores - 1 */
+        DPRINTF("0x%016x\n", smp_cpus - 1);
+        return smp_cpus - 1;
     case GCMP_CLCB_OFS + GCMP_CCB_OTHER_OFS:
         DPRINTF("0x%016x\n", 0);
         return 0;
@@ -745,6 +749,9 @@ static const MemoryRegionOps gcr_ops = {
     .read = gcr_read,
     .write = gcr_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl = {
+        .max_access_size = 8,
+    },
 };
 
 /* Initialise GCR (Just enough to support GIC) */

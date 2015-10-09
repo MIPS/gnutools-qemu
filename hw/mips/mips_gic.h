@@ -20,7 +20,7 @@
 
 /* The MIPS default location for the GCR_BASE address */
 #define GCMP_BASE_ADDR          0x1fbf8000ULL
-#define GCMP_ADDRSPACE_SZ       (10  * 1024)
+#define GCMP_ADDRSPACE_SZ       0x8000
 
 /*
  * GIC Specific definitions
