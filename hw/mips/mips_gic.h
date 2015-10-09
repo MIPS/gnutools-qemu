@@ -324,11 +324,91 @@ struct gic_intr_map {
 #define GIC_FLAG_TRANSPARENT    0x02
 };
 
-typedef struct gcr_t gcr_t;
-typedef struct gic_t gic_t;
 
-gcr_t *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
+#define TYPE_MIPS_GCR "mips-gcr"
+#define MIPS_GCR(obj) OBJECT_CHECK(MIPSGCRState, (obj), TYPE_MIPS_GCR)
+
+#define TYPE_MIPS_GIC "mips-gic"
+#define MIPS_GIC(obj) OBJECT_CHECK(MIPSGICState, (obj), TYPE_MIPS_GIC)
+
+/* Support up to 32 VPEs */
+#define NUMVPES     32
+typedef struct MIPSGCRState MIPSGCRState;
+typedef struct MIPSGICState MIPSGICState;
+typedef struct MIPSGICTimerState MIPSGICTimerState;
+
+struct MIPSGCRState{
+    SysBusDevice parent_obj;
+
+    int32_t num_cpu;
+    MemoryRegion gcr_mem;
+    MIPSGICState *gic;
+} ;
+
+struct MIPSGICTimerState {
+    QEMUTimer *timer;
+    uint32_t vp_index;
+    MIPSGICState *gic;
+};
+
+struct MIPSGICState {
+    SysBusDevice parent_obj;
+
+    CPUMIPSState *env[NUMVPES];
+    MemoryRegion gic_mem;
+    qemu_irq *irqs;
+
+    /* GCR Registers */
+    target_ulong gcr_gic_base;
+
+    /* Shared Section Registers */
+    uint32_t gic_gl_config;
+    uint32_t gic_gl_intr_pol_reg[8];
+    uint32_t gic_gl_intr_trigtype_reg[8];
+    uint32_t gic_gl_intr_pending_reg[8];
+    uint32_t gic_gl_intr_mask_reg[8];
+    uint32_t gic_sh_counterlo;
+
+    uint32_t gic_gl_map_pin[256];
+
+    /* Sparse array, need a better way */
+    uint32_t gic_gl_map_vpe[0x7fa];
+
+    /* VPE Local Section Registers */
+    /* VPE Other Section Registers, aliased to local,
+     * use the other addr to access the correct instance */
+    uint32_t gic_vpe_ctl[NUMVPES];
+    uint32_t gic_vpe_pend[NUMVPES];
+    uint32_t gic_vpe_mask[NUMVPES];
+    uint32_t gic_vpe_wd_map[NUMVPES];
+    uint32_t gic_vpe_compare_map[NUMVPES];
+    uint32_t gic_vpe_timer_map[NUMVPES];
+    uint32_t gic_vpe_comparelo[NUMVPES];
+    uint32_t gic_vpe_comparehi[NUMVPES];
+
+    uint32_t gic_vpe_other_addr[NUMVPES];
+
+    /* User Mode Visible Section Registers */
+
+    int32_t num_cpu;
+    int32_t num_irq;
+    MIPSGICTimerState *gic_timer;
+
+    uint32_t timer_irq[NUMVPES];
+    uint32_t ic_irq[NUMVPES];
+};
+
+
+
+
+
+
+
+
+
+
+MIPSGCRState *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
                 qemu_irq **gic_irqs);
-gic_t *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space);
+MIPSGICState *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space);
 
 #endif /* _ASM_GICREGS_H */

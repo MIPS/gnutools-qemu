@@ -10,6 +10,7 @@
  */
 
 #include "hw/hw.h"
+#include "hw/sysbus.h"
 #include "qemu/bitmap.h"
 #include "exec/memory.h"
 #include "sysemu/sysemu.h"
@@ -24,6 +25,8 @@
 #include "hw/mips/mips_gic.h"
 #include "hw/mips/mips_gcmpregs.h"
 
+
+
 /* #define DEBUG */
 
 #ifdef DEBUG
@@ -34,65 +37,59 @@
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
-/* Support up to 32 VPEs */
-#define NUMVPES     32
+//typedef struct MIPSGICTimerState {
+//    QEMUTimer *timer;
+//    uint32_t vp_index;
+//    struct MIPSGICState *gic;
+//} MIPSGICTimerState;
+//
+//struct MIPSGICState {
+//    CPUMIPSState *env[NUMVPES];
+//    MemoryRegion gic_mem;
+//    qemu_irq *irqs;
+//
+//    /* GCR Registers */
+//    target_ulong gcr_gic_base;
+//
+//    /* Shared Section Registers */
+//    uint32_t gic_gl_config;
+//    uint32_t gic_gl_intr_pol_reg[8];
+//    uint32_t gic_gl_intr_trigtype_reg[8];
+//    uint32_t gic_gl_intr_pending_reg[8];
+//    uint32_t gic_gl_intr_mask_reg[8];
+//    uint32_t gic_sh_counterlo;
+//
+//    uint32_t gic_gl_map_pin[256];
+//
+//    /* Sparse array, need a better way */
+//    uint32_t gic_gl_map_vpe[0x7fa];
+//
+//    /* VPE Local Section Registers */
+//    /* VPE Other Section Registers, aliased to local,
+//     * use the other addr to access the correct instance */
+//    uint32_t gic_vpe_ctl[NUMVPES];
+//    uint32_t gic_vpe_pend[NUMVPES];
+//    uint32_t gic_vpe_mask[NUMVPES];
+//    uint32_t gic_vpe_wd_map[NUMVPES];
+//    uint32_t gic_vpe_compare_map[NUMVPES];
+//    uint32_t gic_vpe_timer_map[NUMVPES];
+//    uint32_t gic_vpe_comparelo[NUMVPES];
+//    uint32_t gic_vpe_comparehi[NUMVPES];
+//
+//    uint32_t gic_vpe_other_addr[NUMVPES];
+//
+//    /* User Mode Visible Section Registers */
+//
+//    uint32_t num_cpu;
+//    MIPSGICTimerState *gic_timer;
+//};
 
-typedef struct gic_timer_t {
-    QEMUTimer *timer;
-    uint32_t vp_index;
-    struct gic_t *gic;
-} gic_timer_t;
+//struct MIPSGCRState {
+//    MemoryRegion gcr_mem;
+//    MIPSGICState *gic;
+//};
 
-struct gic_t {
-    CPUMIPSState *env[NUMVPES];
-    MemoryRegion gic_mem;
-    qemu_irq *irqs;
-
-    /* GCR Registers */
-    target_ulong gcr_gic_base;
-
-    /* Shared Section Registers */
-    uint32_t gic_gl_config;
-    uint32_t gic_gl_intr_pol_reg[8];
-    uint32_t gic_gl_intr_trigtype_reg[8];
-    uint32_t gic_gl_intr_pending_reg[8];
-    uint32_t gic_gl_intr_mask_reg[8];
-    uint32_t gic_sh_counterlo;
-
-    uint32_t gic_gl_map_pin[256];
-
-    /* Sparse array, need a better way */
-    uint32_t gic_gl_map_vpe[0x7fa];
-
-    /* VPE Local Section Registers */
-    /* VPE Other Section Registers, aliased to local,
-     * use the other addr to access the correct instance */
-    uint32_t gic_vpe_ctl[NUMVPES];
-    uint32_t gic_vpe_pend[NUMVPES];
-    uint32_t gic_vpe_mask[NUMVPES];
-    uint32_t gic_vpe_wd_map[NUMVPES];
-    uint32_t gic_vpe_compare_map[NUMVPES];
-    uint32_t gic_vpe_timer_map[NUMVPES];
-    uint32_t gic_vpe_comparelo[NUMVPES];
-    uint32_t gic_vpe_comparehi[NUMVPES];
-
-    uint32_t gic_vpe_other_addr[NUMVPES];
-
-    /* User Mode Visible Section Registers */
-
-    uint32_t num_cpu;
-    gic_timer_t *gic_timer;
-
-    uint32_t timer_irq[NUMVPES];
-    uint32_t ic_irq[NUMVPES];
-};
-
-struct gcr_t {
-    MemoryRegion gcr_mem;
-    gic_t *gic;
-};
-
-static inline int gic_get_current_cpu(gic_t *g)
+static inline int gic_get_current_cpu(MIPSGICState *g)
 {
     if (g->num_cpu > 1) {
         return current_cpu->cpu_index;
@@ -101,7 +98,7 @@ static inline int gic_get_current_cpu(gic_t *g)
 }
 
 /* GIC VPE Local Timer */
-static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
+static uint32_t gic_vpe_timer_update(MIPSGICState *gic, uint32_t vp_index)
 {
     uint64_t now, next;
     uint32_t wait;
@@ -117,7 +114,7 @@ static uint32_t gic_vpe_timer_update(gic_t *gic, uint32_t vp_index)
     return wait;
 }
 
-static void gic_vpe_timer_expire(gic_t *gic, uint32_t vp_index)
+static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
 {
     uint32_t pin;
     pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
@@ -138,7 +135,7 @@ static void gic_vpe_timer_expire(gic_t *gic, uint32_t vp_index)
     }
 }
 
-static uint32_t gic_get_sh_count(gic_t *gic)
+static uint32_t gic_get_sh_count(MIPSGICState *gic)
 {
     int i;
     if (gic->gic_gl_config & (1 << 28)) {
@@ -157,7 +154,7 @@ static uint32_t gic_get_sh_count(gic_t *gic)
     }
 }
 
-static void gic_store_sh_count(gic_t *gic, uint64_t count)
+static void gic_store_sh_count(MIPSGICState *gic, uint64_t count)
 {
     int i;
     DPRINTF("QEMU: gic_store_count %lx\n", count);
@@ -175,7 +172,7 @@ static void gic_store_sh_count(gic_t *gic, uint64_t count)
     }
 }
 
-static void gic_store_vpe_compare(gic_t *gic, uint32_t vp_index,
+static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
                                   uint64_t compare)
 {
     uint32_t wait;
@@ -200,19 +197,19 @@ static void gic_store_vpe_compare(gic_t *gic, uint32_t vp_index,
 
 static void gic_vpe_timer_cb(void *opaque)
 {
-    gic_timer_t *gic_timer = opaque;
+    MIPSGICTimerState *gic_timer = opaque;
     gic_timer->gic->gic_sh_counterlo++;
     gic_vpe_timer_expire(gic_timer->gic, gic_timer->vp_index);
     gic_timer->gic->gic_sh_counterlo--;
 }
 
-static void gic_timer_start_count(gic_t *gic)
+static void gic_timer_start_count(MIPSGICState *gic)
 {
     DPRINTF("QEMU: GIC timer starts count\n");
     gic_store_sh_count(gic, gic->gic_sh_counterlo);
 }
 
-static void gic_timer_stop_count(gic_t *gic)
+static void gic_timer_stop_count(MIPSGICState *gic)
 {
     int i;
 
@@ -225,10 +222,10 @@ static void gic_timer_stop_count(gic_t *gic)
     }
 }
 
-static void gic_timer_init(gic_t *gic, uint32_t ncpus)
+static void gic_timer_init(MIPSGICState *gic, uint32_t ncpus)
 {
     int i;
-    gic->gic_timer = (void *) g_malloc0(sizeof(gic_timer_t) * ncpus);
+    gic->gic_timer = (void *) g_malloc0(sizeof(MIPSGICTimerState) * ncpus);
     for (i = 0; i < ncpus; i++) {
         gic->gic_timer[i].gic = gic;
         gic->gic_timer[i].vp_index = i;
@@ -240,7 +237,7 @@ static void gic_timer_init(gic_t *gic, uint32_t ncpus)
 }
 
 /* GIC Read VPE Local/Other Registers */
-static uint64_t gic_read_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
+static uint64_t gic_read_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
                              unsigned size)
 {
     switch (addr) {
@@ -286,7 +283,7 @@ static uint64_t gic_read_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
 static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
 {
     int reg;
-    gic_t *gic = (gic_t *) opaque;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
     uint32_t vp_index = gic_get_current_cpu(gic);
     uint32_t ret = 0;
 
@@ -400,7 +397,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
 }
 
 /* GIC Write VPE Local/Other Registers */
-static void gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
+static void gic_write_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
                               uint64_t data, unsigned size)
 {
     switch (addr) {
@@ -463,7 +460,7 @@ static void gic_write_vpe(gic_t *gic, uint32_t vp_index, hwaddr addr,
 static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
     int reg, intr;
-    gic_t *gic = (gic_t *) opaque;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
     uint32_t vp_index = gic_get_current_cpu(gic);
 
     switch (addr) {
@@ -600,7 +597,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 static void gic_reset(void *opaque)
 {
     int i;
-    gic_t *gic = (gic_t *) opaque;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
 
     /* Rest value is map to pin */
     for (i = 0; i < 256; i++) {
@@ -615,7 +612,7 @@ static void gic_reset(void *opaque)
 static void gic_set_irq(void *opaque, int n_IRQ, int level)
 {
     int vpe = -1, pin = -1, i;
-    gic_t *gic = (gic_t *) opaque;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
 
     pin = gic->gic_gl_map_pin[n_IRQ] & 0x7;
 
@@ -663,7 +660,7 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
 /* Read GCR registers */
 static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 {
-    gic_t *gic = (gic_t *) opaque;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
 
     DPRINTF("Info read %d bytes at GCR offset 0x%" PRIx64 " (GCR) -> ",
             size, addr);
@@ -715,24 +712,24 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 /* Write GCR registers */
 static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
-    gcr_t *gcr = (gcr_t *) opaque;
-    gic_t *gic = gcr->gic;
+    MIPSGCRState *gcr = (MIPSGCRState *) opaque;
+    MIPSGICState *gic = gcr->gic;
 
     switch (addr) {
     case GCMP_GCB_GICBA_OFS:
         DPRINTF("Info write %d bytes at GCR offset %" PRIx64 " <- 0x%016lx\n",
                 size, addr, data);
-        gic->gcr_gic_base = data & ~1;
-        if (data & 1) {
-            memory_region_del_subregion(get_system_memory(),
-                                        &gic->gic_mem);
-            memory_region_add_subregion(get_system_memory(),
-                                        gic->gcr_gic_base,
-                                        &gic->gic_mem);
-            DPRINTF("init gic base addr %lx " TARGET_FMT_lx "\n",
-                    data, gic->gcr_gic_base);
-            gic_store_sh_count(gic, gic->gic_sh_counterlo);
-        }
+//        gic->gcr_gic_base = data & ~1;
+//        if (data & 1) {
+//            memory_region_del_subregion(get_system_memory(),
+//                                        &gic->gic_mem);
+//            memory_region_add_subregion(get_system_memory(),
+//                                        gic->gcr_gic_base,
+//                                        &gic->gic_mem);
+//            DPRINTF("init gic base addr %lx " TARGET_FMT_lx "\n",
+//                    data, gic->gcr_gic_base);
+//            gic_store_sh_count(gic, gic->gic_sh_counterlo);
+//        }
         break;
     default:
         DPRINTF("Warning *** unimplemented GCR write at offset 0x%" PRIx64 "\n",
@@ -757,11 +754,11 @@ static const MemoryRegionOps gcr_ops = {
 };
 
 /* Initialise GCR (Just enough to support GIC) */
-gcr_t *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
+MIPSGCRState *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
                 qemu_irq **gic_irqs)
 {
-    gcr_t *gcr;
-    gcr = (gcr_t *) g_malloc0(sizeof(gcr_t));
+    MIPSGCRState *gcr;
+    gcr = (MIPSGCRState *) g_malloc0(sizeof(MIPSGCRState));
 
     if (!gcr) {
         fprintf(stderr, "Not enough memory %s\n", __func__);
@@ -775,15 +772,15 @@ gcr_t *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
     memory_region_add_subregion(address_space, GCMP_BASE_ADDR, &gcr->gcr_mem);
 
     /* initialising GIC */
-    gcr->gic = (gic_t *) gic_init(ncpus, cs, address_space);
+    gcr->gic = (MIPSGICState *) gic_init(ncpus, cs, address_space);
     *gic_irqs = gcr->gic->irqs;
     return gcr;
 }
 
 /* Initialise GIC */
-gic_t *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space)
+MIPSGICState *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space)
 {
-    gic_t *gic;
+    MIPSGICState *gic;
     uint32_t i;
 
     if (ncpus > NUMVPES) {
@@ -792,7 +789,7 @@ gic_t *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space)
         return NULL;
     }
 
-    gic = (gic_t *) g_malloc0(sizeof(gic_t));
+    gic = (MIPSGICState *) g_malloc0(sizeof(MIPSGICState));
     gic->num_cpu = ncpus;
 
     /* Register the CPU env for all cpus with the GIC */
@@ -817,3 +814,141 @@ gic_t *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space)
     gic_timer_init(gic, ncpus);
     return gic;
 }
+
+/* QOM */
+static void mips_gic_init(Object *obj)
+{
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+    MIPSGICState *s = MIPS_GIC(obj);
+    int i;
+
+    memory_region_init_io(&s->gic_mem, OBJECT(s), &gic_ops, s,
+                          "mips-gic", GIC_ADDRSPACE_SZ);
+    sysbus_init_mmio(sbd, &s->gic_mem);
+    qemu_register_reset(gic_reset, s);
+
+
+//    for (i = 0; i < num_irq; i++) {
+//        pic[i] = qdev_get_gpio_in(nvic, i);
+//    }
+}
+
+static void mips_gcr_init(Object *obj)
+{
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+    MIPSGCRState *s = MIPS_GCR(obj);
+
+    memory_region_init_io(&s->gcr_mem, OBJECT(s), &gcr_ops, s,
+                          "mips-gcr", GCMP_ADDRSPACE_SZ);
+    sysbus_init_mmio(sbd, &s->gcr_mem);
+
+
+    /* Register GCR regions */
+//    memory_region_init_io(&gcr->gcr_mem, NULL, &gcr_ops, gcr, "GCR",
+//                          GCMP_ADDRSPACE_SZ);
+    /* The MIPS default location for the GCR_BASE address is 0x1FBF_8. */
+//    memory_region_add_subregion(address_space, GCMP_BASE_ADDR, &gcr->gcr_mem);
+
+    /* initialising GIC */
+//    s->gic = (MIPSGICState *) gic_init(s->num_cpu, first_cpu, get_system_memory());
+//    *gic_irqs = s->gic->irqs;
+
+
+}
+
+static void mips_gic_realize(DeviceState *dev, Error **errp)
+{
+    MIPSGICState *s = MIPS_GIC(dev);
+    qemu_irq *irqs = g_new(qemu_irq, s->num_irq);
+    CPUState *cs = first_cpu;
+    int i;
+
+    /* Register the CPU env for all cpus with the GIC */
+    for (i = 0; i < s->num_cpu; i++) {
+        if (cs != NULL) {
+            s->env[i] = cs->env_ptr;
+            cs = CPU_NEXT(cs);
+        } else {
+            fprintf(stderr, "Unable to initialize GIC - CPUState for "
+                    "CPU #%d not valid!", i);
+            return;
+        }
+    }
+
+    gic_timer_init(s, s->num_cpu);
+
+    qdev_init_gpio_in(dev, gic_set_irq, s->num_irq);
+    for (i = 0; i < s->num_irq; i++) {
+        irqs[i] = qdev_get_gpio_in(dev, i);
+    }
+    s->irqs = irqs;
+}
+
+static void mips_gcr_realize(DeviceState *dev, Error **errp)
+{
+    MIPSGCRState *s = MIPS_GCR(dev);
+//    memory_region_add_subregion(address_space, GCMP_BASE_ADDR, &gcr->gcr_mem);
+//
+//    /* initialising GIC */
+//    gcr->gic = (MIPSGICState *) gic_init(s->num_cpu, cs, address_space);
+//    *gic_irqs = s->gic->irqs;
+}
+
+static Property mips_gic_properties[] = {
+    DEFINE_PROP_INT32("num-cpu", MIPSGICState, num_cpu, 1),
+    DEFINE_PROP_INT32("num-irq", MIPSGICState, num_irq, 256),
+//    DEFINE_PROP_STRING("cpu-model", MIPSGCRState, cpu_model),
+    DEFINE_PROP_END_OF_LIST(),
+};
+
+static Property mips_gcr_properties[] = {
+    DEFINE_PROP_INT32("num-cpu", MIPSGCRState, num_cpu, 1),
+//    DEFINE_PROP_STRING("cpu-model", MIPSGCRState, cpu_model),
+    DEFINE_PROP_END_OF_LIST(),
+};
+
+static void mips_gic_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->props = mips_gic_properties;
+    dc->realize = mips_gic_realize;
+}
+
+static void mips_gcr_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->props = mips_gcr_properties;
+//    dc->realize = mips_gcr_realize;
+}
+
+static const TypeInfo mips_gic_info = {
+    .name          = TYPE_MIPS_GIC,
+    .parent        = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(MIPSGICState),
+    .instance_init = mips_gic_init,
+    .class_init    = mips_gic_class_init,
+};
+
+static const TypeInfo mips_gcr_info = {
+    .name          = TYPE_MIPS_GCR,
+    .parent        = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(MIPSGCRState),
+    .instance_init = mips_gcr_init,
+    .class_init    = mips_gcr_class_init,
+};
+
+static void mips_gic_register_types(void)
+{
+    type_register_static(&mips_gic_info);
+}
+
+static void mips_gcr_register_types(void)
+{
+    type_register_static(&mips_gcr_info);
+}
+
+type_init(mips_gic_register_types)
+type_init(mips_gcr_register_types)
+
