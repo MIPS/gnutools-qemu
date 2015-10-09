@@ -492,16 +492,18 @@ int cpu_exec(CPUState *cpu)
                     tcg_ctx.tb_ctx.tb_invalidated_flag = 0;
                 }
                 if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
-                    qemu_log("Trace %p [" TARGET_FMT_lx "] %s\n",
+                    qemu_log("CPU%d Trace %p [" TARGET_FMT_lx "] %s\n", cpu->cpu_index,
                              tb->tc_ptr, tb->pc, lookup_symbol(tb->pc));
                 }
                 /* see if we can patch the calling TB. When the TB
                    spans two pages, we cannot safely do a direct
                    jump. */
+                /*
                 if (next_tb != 0 && tb->page_addr[1] == -1) {
                     tb_add_jump((TranslationBlock *)(next_tb & ~TB_EXIT_MASK),
                                 next_tb & TB_EXIT_MASK, tb);
                 }
+                */
                 have_tb_lock = false;
                 spin_unlock(&tcg_ctx.tb_ctx.tb_lock);
 
