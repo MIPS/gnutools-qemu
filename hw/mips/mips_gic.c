@@ -613,6 +613,9 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
 {
     int vpe = -1, pin = -1, i;
     MIPSGICState *gic = (MIPSGICState *) opaque;
+    int ored_level = level;
+
+    // MASKING REQURIED
 
     pin = gic->gic_gl_map_pin[n_IRQ] & 0x7;
 
@@ -644,16 +647,33 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
             gic->gic_gl_intr_pending_reg[offset] &= ~(1 << GIC_INTR_BIT(n_IRQ));
         }
 
+        {
+            int t_vpe;
+            for (i = 0; i < gic->num_irq; i++) {
+                if (gic->gic_gl_map_pin[i] & 0x7 == pin) {
+                    t_vpe = gic->gic_gl_map_vpe[(GIC_SH_MAP_TO_VPE_REG_OFF(i, vpe) -
+                            GIC_SH_INTR_MAP_TO_VPE_BASE_OFS) / 4];
+                    if (t_vpe & GIC_SH_MAP_TO_VPE_REG_BIT(vpe)) {
+                        ored_level |= (gic->gic_gl_intr_pending_reg[GIC_INTR_OFS(i) / 4] & (1 << GIC_INTR_BIT(i))) != 0;
+                    }
+                }
+            }
+        }
+        if (gic->gic_vpe_compare_map[vpe] & 0x07 == pin) {
+            ored_level |= ((gic->gic_vpe_pend[vpe] >> 1) & 1);
+        }
+
 #ifdef CONFIG_KVM
         if (kvm_enabled())  {
-            kvm_mips_set_ipi_interrupt(gic->env[vpe], pin + 2, level);
+            kvm_mips_set_ipi_interrupt(gic->env[vpe], pin + 2, ored_level);
         }
 #endif
-        gic->ic_irq[vpe] = level;
+//        gic->ic_irq[vpe] = level;
         /* don't lower if timer is pending */
-        if (!gic->timer_irq[vpe] || level) {
-            qemu_set_irq(gic->env[vpe]->irq[pin+2], level);
-        }
+//        if (!gic->timer_irq[vpe] || level) {
+//            qemu_set_irq(gic->env[vpe]->irq[pin+2], level);
+//        }
+        qemu_set_irq(gic->env[vpe]->irq[pin+2], ored_level);
     }
 }
 
