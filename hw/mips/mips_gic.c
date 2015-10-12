@@ -741,13 +741,16 @@ static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 static const MemoryRegionOps gic_ops = {
     .read = gic_read,
     .write = gic_write,
-    .endianness = DEVICE_LITTLE_ENDIAN,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+    .impl = {
+        .max_access_size = 8,
+    },
 };
 
 static const MemoryRegionOps gcr_ops = {
     .read = gcr_read,
     .write = gcr_write,
-    .endianness = DEVICE_LITTLE_ENDIAN,
+    .endianness = DEVICE_NATIVE_ENDIAN,
     .impl = {
         .max_access_size = 8,
     },
