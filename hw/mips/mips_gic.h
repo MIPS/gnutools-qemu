@@ -12,7 +12,6 @@
 #ifndef _ASM_GICREGS_H
 #define _ASM_GICREGS_H
 
-#undef  GICISBYTELITTLEENDIAN
 
 /*
  * GCMP Specific definitions
@@ -41,8 +40,6 @@
 #define GIC_POL_NEG     0
 #define GIC_TRIG_EDGE   1
 #define GIC_TRIG_LEVEL  0
-
-#define GIC_NUM_INTRS            (256)
 
 #define MSK(n)              ((1 << (n)) - 1)
 
@@ -351,6 +348,17 @@ struct MIPSGICTimerState {
     MIPSGICState *gic;
 };
 
+typedef struct MIPSGICIRQState {
+    bool enabled;
+    bool pending;
+    bool polarity;
+    bool trigger_type;
+    bool dual_edge;
+    uint32_t map_pin;
+    uint64_t map_vpe;
+    qemu_irq *irq;
+} MIPSGICIRQState;
+
 struct MIPSGICState {
     SysBusDevice parent_obj;
 
@@ -363,16 +371,9 @@ struct MIPSGICState {
 
     /* Shared Section Registers */
     uint32_t gic_gl_config;
-    uint32_t gic_gl_intr_pol_reg[8];
-    uint32_t gic_gl_intr_trigtype_reg[8];
-    uint32_t gic_gl_intr_pending_reg[8];
-    uint32_t gic_gl_intr_mask_reg[8];
     uint32_t gic_sh_counterlo;
 
-    uint32_t gic_gl_map_pin[256];
-
-    /* Sparse array, need a better way */
-    uint32_t gic_gl_map_vpe[0x7fa];
+    MIPSGICIRQState *gic_irqs;
 
     /* VPE Local Section Registers */
     /* VPE Other Section Registers, aliased to local,
@@ -397,15 +398,6 @@ struct MIPSGICState {
     uint32_t timer_irq[NUMVPES];
     uint32_t ic_irq[NUMVPES];
 };
-
-
-
-
-
-
-
-
-
 
 MIPSGCRState *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
                 qemu_irq **gic_irqs);
