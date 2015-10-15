@@ -54,6 +54,7 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
+#include "hw/mips/mips_gcr.h"
 #include "hw/mips/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
@@ -567,6 +568,50 @@ static MaltaFPGAState *malta_fpga_init(MemoryRegion *address_space,
     qemu_register_reset(malta_fpga_reset, s);
 
     return s;
+}
+
+static void gcr_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *gcrbusdev;
+    DeviceState *gcrdev;
+
+    object_initialize(&s->gcr, sizeof(s->gcr), TYPE_MIPS_GCR);
+    qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
+
+    gcrdev = DEVICE(&s->gcr);
+
+    object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", err);
+    object_property_set_bool(OBJECT(&s->gcr), true, "realized", err);
+    if (*err != NULL) {
+        return;
+    }
+
+    gcrbusdev = SYS_BUS_DEVICE(gcrdev);
+    sysbus_mmio_map(gcrbusdev, 0, GCMP_BASE_ADDR);
+}
+
+static void *gic_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *gicbusdev;
+    DeviceState *gicdev;
+
+    object_initialize(&s->gic, sizeof(s->gic), TYPE_MIPS_GIC);
+    qdev_set_parent_bus(DEVICE(&s->gic), sysbus_get_default());
+
+    gicdev = DEVICE(&s->gic);
+
+    object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gic), 256, "num-irq", err);
+    object_property_set_bool(OBJECT(&s->gic), true, "realized", err);
+    if (*err != NULL) {
+        return NULL;
+    }
+
+    gicbusdev = SYS_BUS_DEVICE(gicdev);
+    sysbus_mmio_map(gicbusdev, 0, GIC_BASE_ADDR);
+
+    return (void*)s->gic.irqs;
 }
 
 /* Network support */
@@ -1151,68 +1196,17 @@ void mips_malta_init(MachineState *machine)
 
     /* GCR/GIC */
     if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
-//        gcr_init(smp_cpus, first_cpu, system_memory,
-//                 (qemu_irq **)&env->gic_irqs);
-// (1)
-        SysBusDevice *gcrbusdev;
-        DeviceState *gcrdev;
         Error *err = NULL;
-
-        object_initialize(&s->gcr, sizeof(s->gcr), TYPE_MIPS_GCR);
-        qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
-
-        gcrdev = DEVICE(&s->gcr);
-
-        object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-cpu", &err);
-        object_property_set_bool(OBJECT(&s->gcr), true, "realized", &err);
+        gcr_init(s, &err);
         if (err != NULL) {
-//            error_report("Could not initialize '%s'", TYPE_MIPS_GCR);
             error_report("%s", error_get_pretty(err));
             exit(1);
         }
-
-        gcrbusdev = SYS_BUS_DEVICE(gcrdev);
-        sysbus_mmio_map(gcrbusdev, 0, GCMP_BASE_ADDR);
-
-
-        {
-            SysBusDevice *gicbusdev;
-            DeviceState *gicdev;
-            Error *err = NULL;
-
-            object_initialize(&s->gic, sizeof(s->gic), TYPE_MIPS_GIC);
-            qdev_set_parent_bus(DEVICE(&s->gic), sysbus_get_default());
-
-            gicdev = DEVICE(&s->gic);
-
-            object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-cpu", &err);
-            object_property_set_int(OBJECT(&s->gic), 256, "num-irq", &err);
-            object_property_set_bool(OBJECT(&s->gic), true, "realized", &err);
-            if (err != NULL) {
-    //            error_report("Could not initialize '%s'", TYPE_MIPS_GCR);
-                error_report("%s", error_get_pretty(err));
-                exit(1);
-            }
-
-            gicbusdev = SYS_BUS_DEVICE(gicdev);
-            sysbus_mmio_map(gicbusdev, 0, GIC_BASE_ADDR);
-
-
-            env->gic_irqs = s->gic.irqs;
+        env->gic_irqs = gic_init(s, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
         }
-
-//        (2)
-//
-//        DeviceState *gcrdev;
-//        SysBusDevice *gcrbusdev;
-//
-//        gcrdev = qdev_create(NULL, TYPE_MIPS_GCR);
-//        qdev_prop_set_int32(gcrdev, "num-cpu", smp_cpus);
-//
-//        qdev_init_nofail(gcrdev);
-//        gcrbusdev = SYS_BUS_DEVICE(gcrdev);
-//        sysbus_mmio_map(gcrbusdev, 0, GCMP_BASE_ADDR);
-
     }
 
     /*

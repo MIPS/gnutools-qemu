@@ -287,60 +287,18 @@
 #define GIC_VPE_SMASK_SWINT1_SHF    5
 #define GIC_VPE_SMASK_SWINT1_MSK    (MSK(1) << GIC_VPE_SMASK_SWINT1_SHF)
 
-/*
- * Set the Mapping of Interrupt X to a VPE.
- */
-#define GIC_SH_MAP_TO_VPE_SMASK(intr, vpe) \
-        GICWRITE(GIC_REG_ADDR(SHARED, GIC_SH_MAP_TO_VPE_REG_OFF(intr, vpe)), \
-                 GIC_SH_MAP_TO_VPE_REG_BIT(vpe))
 
-struct gic_pcpu_mask {
-    DECLARE_BITMAP(pcpu_mask, GIC_NUM_INTRS);
-};
-
-struct gic_pending_regs {
-    DECLARE_BITMAP(pending, GIC_NUM_INTRS);
-};
-
-struct gic_intrmask_regs {
-    DECLARE_BITMAP(intrmask, GIC_NUM_INTRS);
-};
-
-/*
- * Interrupt Meta-data specification. The ipiflag helps
- * in building ipi_map.
- */
-struct gic_intr_map {
-    unsigned int cpunum;        /* Directed to this CPU */
-#define GIC_UNUSED              0xdead            /* Dummy data */
-    unsigned int pin;           /* Directed to this Pin */
-    unsigned int polarity;      /* Polarity : +/-    */
-    unsigned int trigtype;      /* Trigger  : Edge/Levl */
-    unsigned int flags;         /* Misc flags    */
-#define GIC_FLAG_IPI            0x01
-#define GIC_FLAG_TRANSPARENT    0x02
-};
-
-
-#define TYPE_MIPS_GCR "mips-gcr"
-#define MIPS_GCR(obj) OBJECT_CHECK(MIPSGCRState, (obj), TYPE_MIPS_GCR)
 
 #define TYPE_MIPS_GIC "mips-gic"
 #define MIPS_GIC(obj) OBJECT_CHECK(MIPSGICState, (obj), TYPE_MIPS_GIC)
 
 /* Support up to 32 VPEs */
 #define NUMVPES     32
-typedef struct MIPSGCRState MIPSGCRState;
+
 typedef struct MIPSGICState MIPSGICState;
 typedef struct MIPSGICTimerState MIPSGICTimerState;
 
-struct MIPSGCRState{
-    SysBusDevice parent_obj;
 
-    int32_t num_cpu;
-    MemoryRegion gcr_mem;
-    MIPSGICState *gic;
-} ;
 
 struct MIPSGICTimerState {
     QEMUTimer *timer;
@@ -365,9 +323,6 @@ struct MIPSGICState {
     CPUMIPSState *env[NUMVPES];
     MemoryRegion gic_mem;
     qemu_irq *irqs;
-
-    /* GCR Registers */
-    target_ulong gcr_gic_base;
 
     /* Shared Section Registers */
     uint32_t gic_gl_config;
@@ -398,9 +353,5 @@ struct MIPSGICState {
     uint32_t timer_irq[NUMVPES];
     uint32_t ic_irq[NUMVPES];
 };
-
-MIPSGCRState *gcr_init(uint32_t ncpus, CPUState *cs, MemoryRegion * address_space,
-                qemu_irq **gic_irqs);
-MIPSGICState *gic_init(uint32_t ncpus, CPUState *cs, MemoryRegion *address_space);
 
 #endif /* _ASM_GICREGS_H */

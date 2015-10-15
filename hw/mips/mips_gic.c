@@ -572,10 +572,11 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
 
     gic->gic_irqs[n_IRQ].pending = (bool) level;
 
-    if (!gic->gic_irqs[n_IRQ].enabled) {
-        /* GIC interrupt source disabled */
-        return;
-    }
+    /* fixme: this slows UART down in Linux */
+//    if (!gic->gic_irqs[n_IRQ].enabled) {
+//        /* GIC interrupt source disabled */
+//        return;
+//    }
 
     /* Mapping: assume MAP_TO_PIN */
     pin = gic->gic_irqs[n_IRQ].map_pin & 0x3f;
@@ -584,6 +585,8 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
     if (vpe < 0 || vpe >= gic->num_cpu) {
         return;
     }
+
+//        gic->gic_irqs[n_IRQ].pending = (bool) level;
 
     /* ORing pending regs sharing same pin */
     if (!ored_level) {
@@ -614,87 +617,11 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
     qemu_set_irq(gic->env[vpe]->irq[pin+2], ored_level);
 }
 
-/* Read GCR registers */
-static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
-{
-    MIPSGICState *gic = (MIPSGICState *) opaque;
 
-    DPRINTF("Info read %d bytes at GCR offset 0x%" PRIx64 " (GCR) -> ",
-            size, addr);
-
-    switch (addr) {
-    case GCMP_GCB_GC_OFS:
-        /* Set PCORES to 0 */
-        DPRINTF("0x%016x\n", 0);
-        return 0;
-    case GCMP_GCB_GCMPB_OFS:
-        DPRINTF("GCMP_BASE_ADDR: %016llx\n", GCMP_BASE_ADDR);
-        return GCMP_BASE_ADDR;
-    case GCMP_GCB_GCMPREV_OFS:
-        DPRINTF("0x%016x\n", 0x800);
-        return 0x800;
-    case GCMP_GCB_GICBA_OFS:
-        DPRINTF("0x" TARGET_FMT_lx "\n", gic->gcr_gic_base);
-        return gic->gcr_gic_base;
-    case GCMP_GCB_GICST_OFS:
-        /* FIXME indicates a connection between GIC and CM */
-        DPRINTF("0x%016x\n", GCMP_GCB_GICST_EX_MSK);
-        return GCMP_GCB_GICST_EX_MSK;
-    case GCMP_GCB_CPCST_OFS:
-        DPRINTF("0x%016x\n", 0);
-        return 0;
-    case GCMP_GCB_GC_OFS + GCMP_GCB_L2_CONFIG_OFS:
-        /* L2 BYPASS */
-        DPRINTF("0x%016x\n", GCMP_GCB_L2_CONFIG_BYPASS_MSK);
-        return GCMP_GCB_L2_CONFIG_BYPASS_MSK;
-    case GCMP_CLCB_OFS + GCMP_CCB_CFG_OFS:
-        /* Set PVP to # cores - 1 */
-        DPRINTF("0x%016x\n", smp_cpus - 1);
-        return smp_cpus - 1;
-    case GCMP_COCB_OFS + GCMP_CCB_CFG_OFS:
-        /* Set PVP to # cores - 1 */
-        DPRINTF("0x%016x\n", smp_cpus - 1);
-        return smp_cpus - 1;
-    case GCMP_CLCB_OFS + GCMP_CCB_OTHER_OFS:
-        DPRINTF("0x%016x\n", 0);
-        return 0;
-    default:
-        DPRINTF("Warning *** unimplemented GCR read at offset 0x%" PRIx64 "\n",
-                addr);
-        return 0;
-    }
-    return 0ULL;
-}
-
-/* Write GCR registers */
-static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
-{
-    MIPSGCRState *gcr = (MIPSGCRState *) opaque;
-
-    switch (addr) {
-    case GCMP_GCB_GICBA_OFS:
-        DPRINTF("Info write %d bytes at GCR offset %" PRIx64 " <- 0x%016lx\n",
-                size, addr, data);
-        break;
-    default:
-        DPRINTF("Warning *** unimplemented GCR write at offset 0x%" PRIx64 "\n",
-                addr);
-        break;
-    }
-}
 
 static const MemoryRegionOps gic_ops = {
     .read = gic_read,
     .write = gic_write,
-    .endianness = DEVICE_NATIVE_ENDIAN,
-    .impl = {
-        .max_access_size = 8,
-    },
-};
-
-static const MemoryRegionOps gcr_ops = {
-    .read = gcr_read,
-    .write = gcr_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
     .impl = {
         .max_access_size = 8,
@@ -712,16 +639,6 @@ static void mips_gic_init(Object *obj)
                           "mips-gic", GIC_ADDRSPACE_SZ);
     sysbus_init_mmio(sbd, &s->gic_mem);
     qemu_register_reset(gic_reset, s);
-}
-
-static void mips_gcr_init(Object *obj)
-{
-    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
-    MIPSGCRState *s = MIPS_GCR(obj);
-
-    memory_region_init_io(&s->gcr_mem, OBJECT(s), &gcr_ops, s,
-                          "mips-gcr", GCMP_ADDRSPACE_SZ);
-    sysbus_init_mmio(sbd, &s->gcr_mem);
 }
 
 static void mips_gic_realize(DeviceState *dev, Error **errp)
@@ -770,24 +687,12 @@ static Property mips_gic_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
-static Property mips_gcr_properties[] = {
-    DEFINE_PROP_INT32("num-cpu", MIPSGCRState, num_cpu, 1),
-    DEFINE_PROP_END_OF_LIST(),
-};
-
 static void mips_gic_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->props = mips_gic_properties;
     dc->realize = mips_gic_realize;
-}
-
-static void mips_gcr_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-
-    dc->props = mips_gcr_properties;
 }
 
 static const TypeInfo mips_gic_info = {
@@ -798,24 +703,11 @@ static const TypeInfo mips_gic_info = {
     .class_init    = mips_gic_class_init,
 };
 
-static const TypeInfo mips_gcr_info = {
-    .name          = TYPE_MIPS_GCR,
-    .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(MIPSGCRState),
-    .instance_init = mips_gcr_init,
-    .class_init    = mips_gcr_class_init,
-};
 
 static void mips_gic_register_types(void)
 {
     type_register_static(&mips_gic_info);
 }
 
-static void mips_gcr_register_types(void)
-{
-    type_register_static(&mips_gcr_info);
-}
-
 type_init(mips_gic_register_types)
-type_init(mips_gcr_register_types)
 
