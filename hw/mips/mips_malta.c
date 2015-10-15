@@ -588,7 +588,7 @@ static void gcr_init(MaltaState *s, Error **err)
     }
 
     gcrbusdev = SYS_BUS_DEVICE(gcrdev);
-    sysbus_mmio_map(gcrbusdev, 0, GCMP_BASE_ADDR);
+    sysbus_mmio_map(gcrbusdev, 0, GCR_BASE_ADDR);
 }
 
 static void *gic_init(MaltaState *s, Error **err)
