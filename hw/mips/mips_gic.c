@@ -555,7 +555,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     }
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
-        gic->gic_irqs[irq_src].map_vpe = ffsll(data) - 1;
+        gic->gic_irqs[irq_src].map_vpe = (data)? ctz64(data) : 0;
     }
 
     /* VPE-Local Register */
