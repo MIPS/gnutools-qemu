@@ -9,7 +9,6 @@
  * Copyright (C) 2015 Imagination Technologies
  */
 
-#include <string.h>
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "qemu/bitmap.h"
@@ -24,14 +23,6 @@
 #endif
 
 #include "hw/mips/mips_gic.h"
-
-/* #define DEBUG */
-
-#ifdef DEBUG
-#define DPRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
-#else
-#define DPRINTF(fmt, ...)
-#endif
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
@@ -137,7 +128,6 @@ static uint32_t gic_get_sh_count(MIPSGICState *gic)
 static void gic_store_sh_count(MIPSGICState *gic, uint64_t count)
 {
     int i;
-    DPRINTF("QEMU: gic_store_count %lx\n", count);
 
     if ((gic->gic_sh_config & 0x10000000) || !gic->vps[0].gic_timer) {
         gic->gic_sh_counterlo = count;
@@ -160,12 +150,6 @@ static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
     gic->vps[vp_index].comparelo = (uint32_t) compare;
     wait = gic_vpe_timer_update(gic, vp_index);
 
-    DPRINTF("GIC Compare modified (GIC_VPE%d_Compare=0x%x GIC_Counter=0x%x) "
-            "- schedule CMP timer interrupt after 0x%x\n",
-            vp_index,
-            gic->vps[vp_index].comparelo, gic->gic_sh_counterlo,
-            wait);
-
     gic->vps[vp_index].pend &= ~(1 << 1);
     if (gic->vps[vp_index].compare_map & 0x80000000) {
         uint32_t pin = (gic->vps[vp_index].compare_map & GIC_MAP_MSK);
@@ -183,7 +167,6 @@ static void gic_vpe_timer_cb(void *opaque)
 
 static void gic_timer_start_count(MIPSGICState *gic)
 {
-    DPRINTF("QEMU: GIC timer starts count\n");
     gic_store_sh_count(gic, gic->gic_sh_counterlo);
 }
 
@@ -191,7 +174,6 @@ static void gic_timer_stop_count(MIPSGICState *gic)
 {
     int i;
 
-    DPRINTF("QEMU: GIC timer stops count\n");
     /* Store the current value */
     gic->gic_sh_counterlo +=
         (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
@@ -220,14 +202,11 @@ static uint64_t gic_read_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
 {
     switch (addr) {
     case GIC_VPE_CTL_OFS:
-        DPRINTF("(GIC_VPE_CTL) -> 0x%016x\n", gic->vps[vp_index].ctl);
         return gic->vps[vp_index].ctl;
     case GIC_VPE_PEND_OFS:
         gic_get_sh_count(gic);
-        DPRINTF("(GIC_VPE_PEND) -> 0x%016x\n", gic->vps[vp_index].pend);
         return gic->vps[vp_index].pend;
     case GIC_VPE_MASK_OFS:
-        DPRINTF("(GIC_VPE_MASK) -> 0x%016x\n", gic->vps[vp_index].mask);
         return gic->vps[vp_index].mask;
     case GIC_VPE_WD_MAP_OFS:
         return gic->vps[vp_index].wd_map;
@@ -236,23 +215,18 @@ static uint64_t gic_read_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VPE_TIMER_MAP_OFS:
         return gic->vps[vp_index].timer_map;
     case GIC_VPE_OTHER_ADDR_OFS:
-        DPRINTF("(GIC_VPE_OTHER_ADDR) -> 0x%016x\n",
-                gic->vps[vp_index].other_addr);
         return gic->vps[vp_index].other_addr;
     case GIC_VPE_IDENT_OFS:
         return vp_index;
     case GIC_VPE_COMPARE_LO_OFS:
-        DPRINTF("(GIC_VPE_COMPARELO) -> 0x%016x\n",
-                gic->vps[vp_index].comparelo);
         return gic->vps[vp_index].comparelo;
     case GIC_VPE_COMPARE_HI_OFS:
-        DPRINTF("(GIC_VPE_COMPAREhi) -> 0x%016x\n",
-                gic->vps[vp_index].comparehi);
         return gic->vps[vp_index].comparehi;
     default:
-        DPRINTF("Warning *** read %d bytes at GIC offset LOCAL/OTHER 0x%"
-                PRIx64 "\n",
-                size, addr);
+        qemu_log_mask(LOG_UNIMP,
+                     "Warning *** read %d bytes at GIC offset LOCAL/OTHER 0x%"
+                     PRIx64 "\n",
+                     size, addr);
         break;
     }
     return 0;
@@ -265,22 +239,16 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     uint64_t ret = 0;
     int i, base;
 
-    DPRINTF("Info read %d bytes at GIC offset 0x%" PRIx64,
-            size, addr);
-
     switch (addr) {
     case GIC_SH_CONFIG_OFS:
-        DPRINTF("(GIC_SH_CONFIG) -> 0x%016x\n", gic->gic_sh_config);
         return gic->gic_sh_config;
     case GIC_SH_CONFIG_OFS + 4:
         /* do nothing */
         return 0;
     case GIC_SH_COUNTERLO_OFS:
         ret = gic_get_sh_count(gic);
-        qemu_log("(GIC_SH_COUNTERLO) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_COUNTERHI_OFS:
-        DPRINTF("(Not supported GIC_SH_COUNTERHI) -> 0x%016lx\n", 0);
         return 0;
     case GIC_SH_POL_31_0_OFS:
     case GIC_SH_POL_63_32_OFS:
@@ -294,7 +262,6 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].polarity & 1) << i;
         }
-        DPRINTF("(GIC_SH_POL) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_TRIG_31_0_OFS:
     case GIC_SH_TRIG_63_32_OFS:
@@ -308,7 +275,6 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].trigger_type & 1) << i;
         }
-        DPRINTF("(GIC_SH_TRIG) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_PEND_31_0_OFS:
     case GIC_SH_PEND_63_32_OFS:
@@ -322,7 +288,6 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].pending & 1) << i;
         }
-        DPRINTF("(GIC_SH_PEND) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_MASK_31_0_OFS:
     case GIC_SH_MASK_63_32_OFS:
@@ -336,12 +301,12 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].enabled & 1) << i;
         }
-        DPRINTF("(GIC_SH_MASK) -> 0x%016lx\n", ret);
         return ret;
     default:
         if (addr < GIC_SH_MAP0_PIN_OFS) {
-            DPRINTF("Warning *** read %d bytes at GIC offset 0x%" PRIx64 "\n",
-                    size, addr);
+            qemu_log_mask(LOG_UNIMP,
+                "Warning *** read %d bytes at GIC offset 0x%" PRIx64 "\n",
+                size, addr);
         }
         break;
     }
@@ -350,7 +315,6 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     if (addr >= GIC_SH_MAP0_PIN_OFS && addr <= GIC_SH_MAP255_PIN_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_PIN_OFS) / 4;
         ret = gic->gic_irqs[irq_src].map_pin;
-        DPRINTF("(GIC) -> 0x%016lx\n", ret);
         return ret;
     }
 
@@ -358,7 +322,6 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
         ret = 1 << (gic->gic_irqs[irq_src].map_vpe);
-        DPRINTF("(GIC) -> 0x%016lx\n", ret);
         return ret;
     }
 
@@ -374,7 +337,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
                             size);
     }
 
-    DPRINTF("GIC unimplemented register %" PRIx64 "\n", addr);
+    qemu_log_mask(LOG_UNIMP, "GIC unimplemented register %" PRIx64 "\n", addr);
     return 0ULL;
 }
 
@@ -386,41 +349,26 @@ static void gic_write_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VPE_CTL_OFS:
         gic->vps[vp_index].ctl &= ~1;
         gic->vps[vp_index].ctl |= data & 1;
-        DPRINTF("QEMU: GIC_VPE%d_CTL Write %lx\n", vp_index, data);
         break;
     case GIC_VPE_RMASK_OFS:
         gic->vps[vp_index].mask &= ~(data & 0x3f) & 0x3f;
-
-        DPRINTF("QEMU: GIC_VPE%d_RMASK Write data %lx, mask %x\n", vp_index,
-                data, gic->vps[vp_index].mask);
         break;
     case GIC_VPE_SMASK_OFS:
         gic->vps[vp_index].mask |= (data & 0x3f);
-
-        DPRINTF("QEMU: GIC_VPE%d_SMASK Write data %lx, mask %x\n", vp_index,
-                data, gic->vps[vp_index].mask);
         break;
     case GIC_VPE_WD_MAP_OFS:
         gic->vps[vp_index].wd_map = data & 0xE000003F;
         break;
     case GIC_VPE_COMPARE_MAP_OFS:
         gic->vps[vp_index].compare_map = data & 0xE000003F;
-
-        DPRINTF("QEMU: GIC_VPE%d_COMPARE_MAP %lx %x\n", vp_index,
-                data, gic->vps[vp_index].compare_map);
         break;
     case GIC_VPE_TIMER_MAP_OFS:
         gic->vps[vp_index].timer_map = data & 0xE000003F;
-
-        DPRINTF("QEMU: GIC Timer MAP %lx %x\n", data,
-                gic->vps[vp_index].timer_map);
         break;
     case GIC_VPE_OTHER_ADDR_OFS:
         if (data < gic->num_cpu) {
             gic->vps[vp_index].other_addr = data;
         }
-
-        DPRINTF("QEMU: GIC other addressing reg WRITE %lx\n", data);
         break;
     case GIC_VPE_OTHER_ADDR_OFS + 4:
         /* do nothing */
@@ -432,7 +380,8 @@ static void gic_write_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         /* do nothing */
         break;
     default:
-        DPRINTF("Warning *** write %d bytes at GIC offset LOCAL/OTHER "
+        qemu_log_mask(LOG_UNIMP,
+                "Warning *** write %d bytes at GIC offset LOCAL/OTHER "
                 "0x%" PRIx64" 0x%08lx\n", size, addr, data);
         break;
     }
@@ -453,11 +402,9 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
                              (data & 0x10000000);
         if (pre != gic->gic_sh_config) {
             if ((gic->gic_sh_config & 0x10000000)) {
-                DPRINTF("Info GIC_SH_CONFIG.COUNTSTOP modified STOPPING\n");
                 gic_timer_stop_count(gic);
             }
             if (!(gic->gic_sh_config & 0x10000000)) {
-                DPRINTF("Info GIC_SH_CONFIG.COUNTSTOP modified STARTING\n");
                 gic_timer_start_count(gic);
             }
         }
@@ -514,8 +461,6 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         }
         break;
     case GIC_SH_WEDGE_OFS:
-        DPRINTF("addr: %#" PRIx64 ", data: %#" PRIx64 ", size: %#x\n", addr,
-               data, size);
         /* Figure out which VPE/HW Interrupt this maps to */
         intr = data & 0x7FFFFFFF;
         /* Mask/Enabled Checks */
@@ -541,7 +486,8 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 
     default:
         if (addr < GIC_SH_MAP0_PIN_OFS) {
-            DPRINTF("Warning *** write %d bytes at GIC offset 0x%" PRIx64
+            qemu_log_mask(LOG_UNIMP,
+                    "Warning *** write %d bytes at GIC offset 0x%" PRIx64
                     " 0x%08lx\n",
                     size, addr, data);
         }
