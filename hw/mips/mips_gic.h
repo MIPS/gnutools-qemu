@@ -287,7 +287,7 @@
 #define GIC_VPE_SMASK_SWINT1_SHF    5
 #define GIC_VPE_SMASK_SWINT1_MSK    (MSK(1) << GIC_VPE_SMASK_SWINT1_SHF)
 
-
+#define GIC_CPU_PIN_OFFSET          2
 
 #define TYPE_MIPS_GIC "mips-gic"
 #define MIPS_GIC(obj) OBJECT_CHECK(MIPSGICState, (obj), TYPE_MIPS_GIC)
@@ -349,9 +349,6 @@ struct MIPSGICState {
     int32_t num_cpu;
     int32_t num_irq;
     MIPSGICTimerState *gic_timer;
-
-    uint32_t timer_irq[NUMVPES];
-    uint32_t ic_irq[NUMVPES];
 };
 
 #endif /* _ASM_GICREGS_H */

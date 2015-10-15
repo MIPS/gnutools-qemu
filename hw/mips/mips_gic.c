@@ -24,7 +24,6 @@
 #endif
 
 #include "hw/mips/mips_gic.h"
-#include "hw/mips/mips_gcmpregs.h"
 
 /* #define DEBUG */
 
@@ -44,6 +43,39 @@ static inline int gic_get_current_cpu(MIPSGICState *g)
     return 0;
 }
 
+static void gic_set_vp_irq(MIPSGICState *gic, int vpe, int pin, int level)
+{
+    int ored_level = level;
+    int i;
+    /* ORing pending registers sharing same pin */
+    if (!ored_level) {
+        for (i = 0; i < gic->num_irq; i++) {
+            if ((gic->gic_irqs[i].map_pin & 0x3f) == pin &&
+                    gic->gic_irqs[i].map_vpe == vpe &&
+                    gic->gic_irqs[i].enabled) {
+                ored_level |= gic->gic_irqs[i].pending;
+            }
+            if (ored_level) {
+                /* no need to iterate all interrupts */
+                break;
+            }
+        }
+        if ((gic->gic_vpe_compare_map[vpe] & 0x3f) == pin  &&
+                ((gic->gic_vpe_mask[vpe] & GIC_VPE_SMASK_CMP_MSK))) {
+            /* ORing with local pending register (count/compare) */
+            ored_level |= ((gic->gic_vpe_pend[vpe] >> 1) & 1);
+        }
+    }
+
+#ifdef CONFIG_KVM
+    if (kvm_enabled())  {
+        kvm_mips_set_ipi_interrupt(gic->env[vpe], pin + GIC_CPU_PIN_OFFSET,
+                                   ored_level);
+    }
+#endif
+    qemu_set_irq(gic->env[vpe]->irq[pin + GIC_CPU_PIN_OFFSET], ored_level);
+}
+
 /* GIC VPE Local Timer */
 static uint32_t gic_vpe_timer_update(MIPSGICState *gic, uint32_t vp_index)
 {
@@ -55,7 +87,8 @@ static uint32_t gic_vpe_timer_update(MIPSGICState *gic, uint32_t vp_index)
             (uint32_t)(now / TIMER_PERIOD);
     next = now + (uint64_t)wait * TIMER_PERIOD;
 
-    qemu_log("GIC timer scheduled, now = %llx, next = %llx (wait = %u)\n", now, next, wait);
+    qemu_log("GIC timer scheduled, now = %llx, next = %llx (wait = %u)\n",
+             (long long) now, (long long) next, wait);
 
     timer_mod(gic->gic_timer[vp_index].timer, next);
     return wait;
@@ -64,7 +97,7 @@ static uint32_t gic_vpe_timer_update(MIPSGICState *gic, uint32_t vp_index)
 static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
 {
     uint32_t pin;
-    pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
+    pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F);
     qemu_log("GIC timer expire => VPE[%d] irq %d\n", vp_index, pin);
     gic_vpe_timer_update(gic, vp_index);
     gic->gic_vpe_pend[vp_index] |= (1 << 1);
@@ -72,8 +105,8 @@ static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
     if (gic->gic_vpe_pend[vp_index] &
             (gic->gic_vpe_mask[vp_index] & GIC_VPE_SMASK_CMP_MSK)) {
         if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
-            gic->timer_irq[vp_index] = 1;
-            qemu_irq_raise(gic->env[vp_index]->irq[pin]);
+            /* it is safe to set the irq high regardless of other GIC IRQs */
+            qemu_irq_raise(gic->env[vp_index]->irq[pin + GIC_CPU_PIN_OFFSET]);
         } else {
             qemu_log("    disabled!\n");
         }
@@ -123,6 +156,7 @@ static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
                                   uint64_t compare)
 {
     uint32_t wait;
+
     gic->gic_vpe_comparelo[vp_index] = (uint32_t) compare;
     wait = gic_vpe_timer_update(gic, vp_index);
 
@@ -134,11 +168,8 @@ static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
 
     gic->gic_vpe_pend[vp_index] &= ~(1 << 1);
     if (gic->gic_vpe_compare_map[vp_index] & 0x80000000) {
-        uint32_t irq_num = (gic->gic_vpe_compare_map[vp_index] & 0x3F) + 2;
-        gic->timer_irq[vp_index] = 0;
-        if (!gic->ic_irq[vp_index]) {
-            qemu_set_irq(gic->env[vp_index]->irq[irq_num], 0);
-        }
+        uint32_t pin = (gic->gic_vpe_compare_map[vp_index] & 0x3F);
+        gic_set_vp_irq(gic, vp_index, pin, 0);
     }
 }
 
@@ -248,11 +279,11 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_COUNTERLO_OFS:
     {
         ret = gic_get_sh_count(gic);
-        qemu_log("(GIC_SH_COUNTERLO) -> 0x%016x\n", ret);
+        qemu_log("(GIC_SH_COUNTERLO) -> 0x%016lx\n", ret);
         return ret;
     }
     case GIC_SH_COUNTERHI_OFS:
-        DPRINTF("(Not supported GIC_SH_COUNTERHI) -> 0x%016x\n", 0);
+        DPRINTF("(Not supported GIC_SH_COUNTERHI) -> 0x%016lx\n", 0);
         return 0;
     case GIC_SH_POL_31_0_OFS:
     case GIC_SH_POL_63_32_OFS:
@@ -266,7 +297,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].polarity & 1) << i;
         }
-        DPRINTF("(GIC_SH_POL) -> 0x%016x\n", ret);
+        DPRINTF("(GIC_SH_POL) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_TRIG_31_0_OFS:
     case GIC_SH_TRIG_63_32_OFS:
@@ -280,7 +311,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].trigger_type & 1) << i;
         }
-        DPRINTF("(GIC_SH_TRIG) -> 0x%016x\n", ret);
+        DPRINTF("(GIC_SH_TRIG) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_PEND_31_0_OFS:
     case GIC_SH_PEND_63_32_OFS:
@@ -294,7 +325,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].pending & 1) << i;
         }
-        DPRINTF("(GIC_SH_PEND) -> 0x%016x\n", ret);
+        DPRINTF("(GIC_SH_PEND) -> 0x%016lx\n", ret);
         return ret;
     case GIC_SH_MASK_31_0_OFS:
     case GIC_SH_MASK_63_32_OFS:
@@ -308,7 +339,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         for (i = 0; i < size * 8; i++) {
             ret |= (gic->gic_irqs[i].enabled & 1) << i;
         }
-        DPRINTF("(GIC_SH_MASK) -> 0x%016x\n", ret);
+        DPRINTF("(GIC_SH_MASK) -> 0x%016lx\n", ret);
         return ret;
     default:
         if (addr < GIC_SH_INTR_MAP_TO_PIN_BASE_OFS) {
@@ -323,7 +354,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         && addr <= GIC_SH_MAP_TO_PIN(255)) {
         reg = (addr - GIC_SH_INTR_MAP_TO_PIN_BASE_OFS) / 4;
         ret = gic->gic_irqs[reg].map_pin;
-        DPRINTF("(GIC) -> 0x%016x\n", ret);
+        DPRINTF("(GIC) -> 0x%016lx\n", ret);
         return ret;
     }
 
@@ -332,7 +363,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         && addr <= GIC_SH_MAP_TO_VPE_REG_OFF(255, 63)) {
         reg = (addr - GIC_SH_INTR_MAP_TO_VPE_BASE_OFS) / 32;
         ret = 1 << (gic->gic_irqs[reg].map_vpe);
-        DPRINTF("(GIC) -> 0x%016x\n", ret);
+        DPRINTF("(GIC) -> 0x%016lx\n", ret);
         return ret;
     }
 
@@ -549,26 +580,11 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     }
 }
 
-static void gic_reset(void *opaque)
-{
-    int i;
-    MIPSGICState *gic = (MIPSGICState *) opaque;
-
-    /* Rest value is map to pin */
-    for (i = 0; i < gic->num_irq; i++) {
-        gic->gic_irqs[i].map_pin = GIC_MAP_TO_PIN_MSK;
-    }
-
-    gic->gic_sh_counterlo = 0;
-    gic->gic_gl_config = 0x100f0000 | gic->num_cpu;
-}
-
-
 static void gic_set_irq(void *opaque, int n_IRQ, int level)
 {
-    int vpe = -1, pin = -1, i;
+    int vpe = -1, pin = -1;
     MIPSGICState *gic = (MIPSGICState *) opaque;
-    int ored_level = level;
+
 
     gic->gic_irqs[n_IRQ].pending = (bool) level;
 
@@ -586,38 +602,32 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
         return;
     }
 
-//        gic->gic_irqs[n_IRQ].pending = (bool) level;
-
-    /* ORing pending regs sharing same pin */
-    if (!ored_level) {
-        for (i = 0; i < gic->num_irq; i++) {
-            if ((gic->gic_irqs[i].map_pin & 0x3f) == pin &&
-                    gic->gic_irqs[i].map_vpe == vpe &&
-                    gic->gic_irqs[i].enabled) {
-                ored_level |= gic->gic_irqs[i].pending;
-            }
-            if (ored_level) {
-                /* no need to iterate all interrupts */
-                break;
-            }
-        }
-        if ((gic->gic_vpe_compare_map[vpe] & 0x3f) == pin  &&
-                ((gic->gic_vpe_mask[vpe] & GIC_VPE_SMASK_CMP_MSK))) {
-            /* ORing with local pending register (count/compare) */
-            ored_level |= ((gic->gic_vpe_pend[vpe] >> 1) & 1);
-        }
-    }
-
-
-#ifdef CONFIG_KVM
-    if (kvm_enabled())  {
-        kvm_mips_set_ipi_interrupt(gic->env[vpe], pin + 2, ored_level);
-    }
-#endif
-    qemu_set_irq(gic->env[vpe]->irq[pin+2], ored_level);
+    gic_set_vp_irq(gic, vpe, pin, level);
 }
 
+static void gic_reset(void *opaque)
+{
+    int i;
+    MIPSGICState *gic = (MIPSGICState *) opaque;
 
+    /* Rest value is map to pin */
+    for (i = 0; i < gic->num_irq; i++) {
+        gic->gic_irqs[i].map_pin = GIC_MAP_TO_PIN_MSK;
+    }
+
+    gic->gic_sh_counterlo = 0;
+    gic->gic_gl_config = 0x100f0000 | gic->num_cpu;
+
+    for (i = 0; i < gic->num_irq; i++) {
+        gic->gic_irqs[i].enabled = false;
+        gic->gic_irqs[i].pending = false;
+        gic->gic_irqs[i].polarity = false;
+        gic->gic_irqs[i].trigger_type = false;
+        gic->gic_irqs[i].dual_edge = false;
+        gic->gic_irqs[i].map_pin = GIC_MAP_TO_PIN_MSK;
+        gic->gic_irqs[i].map_vpe = 0;
+    }
+}
 
 static const MemoryRegionOps gic_ops = {
     .read = gic_read,
@@ -628,12 +638,11 @@ static const MemoryRegionOps gic_ops = {
     },
 };
 
-/* QOM */
+
 static void mips_gic_init(Object *obj)
 {
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     MIPSGICState *s = MIPS_GIC(obj);
-    int i;
 
     memory_region_init_io(&s->gic_mem, OBJECT(s), &gic_ops, s,
                           "mips-gic", GIC_ADDRSPACE_SZ);
@@ -668,15 +677,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
     for (i = 0; i < s->num_irq; i++) {
         irqs[i] = qdev_get_gpio_in(dev, i);
 
-        s->gic_irqs[i].irq = irqs[i];
-
-        s->gic_irqs[i].enabled = false;
-        s->gic_irqs[i].pending = false;
-        s->gic_irqs[i].polarity = false;
-        s->gic_irqs[i].trigger_type = false;
-        s->gic_irqs[i].dual_edge = false;
-        s->gic_irqs[i].map_pin = GIC_MAP_TO_PIN_MSK;
-        s->gic_irqs[i].map_vpe = 0;
+        s->gic_irqs[i].irq = (qemu_irq *) irqs[i];
     }
     s->irqs = irqs;
 }
@@ -703,11 +704,9 @@ static const TypeInfo mips_gic_info = {
     .class_init    = mips_gic_class_init,
 };
 
-
 static void mips_gic_register_types(void)
 {
     type_register_static(&mips_gic_info);
 }
 
 type_init(mips_gic_register_types)
-
