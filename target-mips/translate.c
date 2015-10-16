@@ -5631,7 +5631,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
-            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
             rn = "CMGCRBase";
             break;
         default:
@@ -6969,7 +6969,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
-            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_CMGCRBase));
             rn = "CMGCRBase";
             break;
         default:
