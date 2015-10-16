@@ -250,7 +250,7 @@ typedef struct MIPSGICIRQState {
     bool trigger_type;
     bool dual_edge;
     uint32_t map_pin;
-    uint64_t map_vpe;
+    int32_t map_vpe;
     qemu_irq *irq;
 } MIPSGICIRQState;
 

@@ -321,7 +321,11 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     /* Global Interrupt Map SrcX to VPE register */
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
-        ret = 1 << (gic->gic_irqs[irq_src].map_vpe);
+        if ((gic->gic_irqs[irq_src].map_vpe) >= 0) {
+            ret = 1 << (gic->gic_irqs[irq_src].map_vpe);
+        } else {
+            ret = 0;
+        }
         return ret;
     }
 
@@ -501,7 +505,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     }
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
-        gic->gic_irqs[irq_src].map_vpe = (data)? ctz64(data) : 0;
+        gic->gic_irqs[irq_src].map_vpe = (data)? ctz64(data) : -1;
     }
 
     /* VPE-Local Register */
@@ -570,7 +574,7 @@ static void gic_reset(void *opaque)
         gic->gic_irqs[i].trigger_type   = false;
         gic->gic_irqs[i].dual_edge      = false;
         gic->gic_irqs[i].map_pin        = GIC_MAP_TO_PIN_MSK;
-        gic->gic_irqs[i].map_vpe        = 0;
+        gic->gic_irqs[i].map_vpe        = -1;
     }
 }
 
