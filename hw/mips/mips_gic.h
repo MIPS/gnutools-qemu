@@ -150,6 +150,12 @@
 #define GIC_VPE_COMPARE_LO_OFS          0x00a0
 #define GIC_VPE_COMPARE_HI_OFS          0x00a4
 
+/* User-Mode Visible Section Register */
+/* Read-only alias for GIC Shared CounterLo */
+#define GIC_USER_MODE_COUNTERLO         0x0000
+/* Read-only alias for GIC Shared CounterHi */
+#define GIC_USER_MODE_COUNTERHI         0x0004
+
 /* Masks */
 #define GIC_SH_CONFIG_COUNTSTOP_SHF     28
 #define GIC_SH_CONFIG_COUNTSTOP_MSK     (MSK(1) << GIC_SH_CONFIG_COUNTSTOP_SHF)
