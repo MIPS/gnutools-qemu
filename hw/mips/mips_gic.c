@@ -52,9 +52,10 @@ static void gic_set_vp_irq(MIPSGICState *gic, int vpe, int pin, int level)
             }
         }
         if (((gic->vps[vpe].compare_map & GIC_MAP_MSK) == pin) &&
-                (gic->vps[vpe].mask & GIC_VPE_SMASK_CMP_MSK)) {
+                (gic->vps[vpe].mask & GIC_VPE_MASK_CMP_MSK)) {
             /* ORing with local pending register (count/compare) */
-            ored_level |= ((gic->vps[vpe].pend >> 1) & 1);
+            ored_level |= (gic->vps[vpe].pend & GIC_VPE_MASK_CMP_MSK) >>
+                          GIC_VPE_MASK_CMP_SHF;
         }
     }
 
@@ -94,10 +95,11 @@ static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
     gic->vps[vp_index].pend |= (1 << 1);
 
     if (gic->vps[vp_index].pend &
-            (gic->vps[vp_index].mask & GIC_VPE_SMASK_CMP_MSK)) {
+            (gic->vps[vp_index].mask & GIC_VPE_MASK_CMP_MSK)) {
         if (gic->vps[vp_index].compare_map & 0x80000000) {
             /* it is safe to set the irq high regardless of other GIC IRQs */
-            qemu_irq_raise(gic->vps[vp_index].env->irq[pin + GIC_CPU_PIN_OFFSET]);
+            qemu_irq_raise(gic->vps[vp_index].env->irq
+                           [pin + GIC_CPU_PIN_OFFSET]);
         } else {
             qemu_log("    disabled!\n");
         }
@@ -109,7 +111,7 @@ static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
 static uint32_t gic_get_sh_count(MIPSGICState *gic)
 {
     int i;
-    if (gic->sh_config & (1 << 28)) {
+    if (gic->sh_config & GIC_SH_CONFIG_COUNTSTOP_MSK) {
         return gic->sh_counterlo;
     } else {
         uint64_t now;
@@ -129,7 +131,8 @@ static void gic_store_sh_count(MIPSGICState *gic, uint64_t count)
 {
     int i;
 
-    if ((gic->sh_config & 0x10000000) || !gic->vps[0].gic_timer) {
+    if ((gic->sh_config & GIC_SH_CONFIG_COUNTSTOP_MSK) ||
+            !gic->vps[0].gic_timer) {
         gic->sh_counterlo = count;
     } else {
         /* Store new count register */
@@ -151,7 +154,7 @@ static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
     wait = gic_vpe_timer_update(gic, vp_index);
 
     gic->vps[vp_index].pend &= ~(1 << 1);
-    if (gic->vps[vp_index].compare_map & 0x80000000) {
+    if (gic->vps[vp_index].compare_map & GIC_MAP_TO_PIN_MSK) {
         uint32_t pin = (gic->vps[vp_index].compare_map & GIC_MAP_MSK);
         gic_set_vp_irq(gic, vp_index, pin, 0);
     }
@@ -363,23 +366,24 @@ static void gic_write_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
 {
     switch (addr) {
     case GIC_VPE_CTL_OFS:
-        gic->vps[vp_index].ctl &= ~1;
-        gic->vps[vp_index].ctl |= data & 1;
+        gic->vps[vp_index].ctl &= ~GIC_VPE_CTL_EIC_MODE_MSK;
+        gic->vps[vp_index].ctl |= data & GIC_VPE_CTL_EIC_MODE_MSK;
         break;
     case GIC_VPE_RMASK_OFS:
-        gic->vps[vp_index].mask &= ~(data & 0x3f) & 0x3f;
+        gic->vps[vp_index].mask &= ~(data & GIC_VPE_SET_RESET_MSK) &
+                                   GIC_VPE_SET_RESET_MSK;
         break;
     case GIC_VPE_SMASK_OFS:
-        gic->vps[vp_index].mask |= (data & 0x3f);
+        gic->vps[vp_index].mask |= (data & GIC_VPE_SET_RESET_MSK);
         break;
     case GIC_VPE_WD_MAP_OFS:
-        gic->vps[vp_index].wd_map = data & 0xE000003F;
+        gic->vps[vp_index].wd_map = data & GIC_MAP_TO_PIN_REG_MSK;
         break;
     case GIC_VPE_COMPARE_MAP_OFS:
-        gic->vps[vp_index].compare_map = data & 0xE000003F;
+        gic->vps[vp_index].compare_map = data & GIC_MAP_TO_PIN_REG_MSK;
         break;
     case GIC_VPE_TIMER_MAP_OFS:
-        gic->vps[vp_index].timer_map = data & 0xE000003F;
+        gic->vps[vp_index].timer_map = data & GIC_MAP_TO_PIN_REG_MSK;
         break;
     case GIC_VPE_OTHER_ADDR_OFS:
         if (data < gic->num_cpu) {
@@ -414,13 +418,12 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_CONFIG_OFS:
     {
         uint32_t pre = gic->sh_config;
-        gic->sh_config = (gic->sh_config & 0xEFFFFFFF) |
-                             (data & 0x10000000);
+        gic->sh_config = (gic->sh_config & ~GIC_SH_CONFIG_COUNTSTOP_MSK) |
+                         (data & GIC_SH_CONFIG_COUNTSTOP_MSK);
         if (pre != gic->sh_config) {
-            if ((gic->sh_config & 0x10000000)) {
+            if ((gic->sh_config & GIC_SH_CONFIG_COUNTSTOP_MSK)) {
                 gic_timer_stop_count(gic);
-            }
-            if (!(gic->sh_config & 0x10000000)) {
+            } else {
                 gic_timer_start_count(gic);
             }
         }
@@ -430,7 +433,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* do nothing */
         break;
     case GIC_SH_COUNTERLO_OFS:
-        if (gic->sh_config & 0x10000000) {
+        if (gic->sh_config & GIC_SH_CONFIG_COUNTSTOP_MSK) {
             gic_store_sh_count(gic, data);
         }
         break;
@@ -480,7 +483,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* Figure out which VPE/HW Interrupt this maps to */
         intr = data & 0x7FFFFFFF;
         /* Mask/Enabled Checks */
-        if (data & 0x80000000) {
+        if (data & GIC_SH_WEDGE_RW_MSK) {
             qemu_set_irq(gic->irqs[intr], 1);
         } else {
             qemu_set_irq(gic->irqs[intr], 0);
@@ -568,14 +571,19 @@ static void gic_reset(void *opaque)
 {
     int i;
     MIPSGICState *gic = (MIPSGICState *) opaque;
+    int numintrs = (((gic->num_irq) / 8) - 1);
 
-    gic->sh_config      = 0x100f0000 | gic->num_cpu;
+    numintrs =  (numintrs < 0)? 0: numintrs;
+
+    gic->sh_config      = (1 << GIC_SH_CONFIG_COUNTSTOP_SHF) |
+                          (numintrs << GIC_SH_CONFIG_NUMINTRS_SHF) |
+                          gic->num_cpu;
     gic->sh_counterlo   = 0;
 
     for (i = 0; i < gic->num_cpu; i++) {
         gic->vps[i].ctl         = 0x0;
         gic->vps[i].pend        = 0x0;
-        gic->vps[i].mask        = 0x1; /* COMPARE_MASK ONLY */
+        gic->vps[i].mask        = 0;
         gic->vps[i].wd_map      = GIC_MAP_TO_NMI_MSK;
         gic->vps[i].compare_map = GIC_MAP_TO_PIN_MSK;
         gic->vps[i].timer_map   = GIC_MAP_TO_PIN_MSK | 0x5;
