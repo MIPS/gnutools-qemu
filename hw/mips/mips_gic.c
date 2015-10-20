@@ -74,7 +74,7 @@ static uint32_t gic_vpe_timer_update(MIPSGICState *gic, uint32_t vp_index)
     uint32_t wait;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    wait = gic->vps[vp_index].comparelo - gic->gic_sh_counterlo -
+    wait = gic->vps[vp_index].comparelo - gic->sh_counterlo -
             (uint32_t)(now / TIMER_PERIOD);
     next = now + (uint64_t)wait * TIMER_PERIOD;
 
@@ -109,8 +109,8 @@ static void gic_vpe_timer_expire(MIPSGICState *gic, uint32_t vp_index)
 static uint32_t gic_get_sh_count(MIPSGICState *gic)
 {
     int i;
-    if (gic->gic_sh_config & (1 << 28)) {
-        return gic->gic_sh_counterlo;
+    if (gic->sh_config & (1 << 28)) {
+        return gic->sh_counterlo;
     } else {
         uint64_t now;
         now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -121,7 +121,7 @@ static uint32_t gic_get_sh_count(MIPSGICState *gic)
                 gic_vpe_timer_expire(gic, i);
             }
         }
-        return gic->gic_sh_counterlo + (uint32_t)(now / TIMER_PERIOD);
+        return gic->sh_counterlo + (uint32_t)(now / TIMER_PERIOD);
     }
 }
 
@@ -129,11 +129,11 @@ static void gic_store_sh_count(MIPSGICState *gic, uint64_t count)
 {
     int i;
 
-    if ((gic->gic_sh_config & 0x10000000) || !gic->vps[0].gic_timer) {
-        gic->gic_sh_counterlo = count;
+    if ((gic->sh_config & 0x10000000) || !gic->vps[0].gic_timer) {
+        gic->sh_counterlo = count;
     } else {
         /* Store new count register */
-        gic->gic_sh_counterlo = count -
+        gic->sh_counterlo = count -
             (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
         /* Update timer timer */
         for (i = 0; i < gic->num_cpu; i++) {
@@ -160,14 +160,14 @@ static void gic_store_vpe_compare(MIPSGICState *gic, uint32_t vp_index,
 static void gic_vpe_timer_cb(void *opaque)
 {
     MIPSGICTimerState *gic_timer = opaque;
-    gic_timer->gic->gic_sh_counterlo++;
+    gic_timer->gic->sh_counterlo++;
     gic_vpe_timer_expire(gic_timer->gic, gic_timer->vp_index);
-    gic_timer->gic->gic_sh_counterlo--;
+    gic_timer->gic->sh_counterlo--;
 }
 
 static void gic_timer_start_count(MIPSGICState *gic)
 {
-    gic_store_sh_count(gic, gic->gic_sh_counterlo);
+    gic_store_sh_count(gic, gic->sh_counterlo);
 }
 
 static void gic_timer_stop_count(MIPSGICState *gic)
@@ -175,7 +175,7 @@ static void gic_timer_stop_count(MIPSGICState *gic)
     int i;
 
     /* Store the current value */
-    gic->gic_sh_counterlo +=
+    gic->sh_counterlo +=
         (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
     for (i = 0; i < gic->num_cpu; i++) {
         timer_del(gic->vps[i].gic_timer->qtimer );
@@ -193,7 +193,7 @@ static void gic_timer_init(MIPSGICState *gic, uint32_t ncpus)
                                                &gic_vpe_timer_cb,
                                                gic->vps[i].gic_timer);
     }
-    gic_store_sh_count(gic, gic->gic_sh_counterlo);
+    gic_store_sh_count(gic, gic->sh_counterlo);
 }
 
 /* GIC Read VPE Local/Other Registers */
@@ -241,7 +241,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
 
     switch (addr) {
     case GIC_SH_CONFIG_OFS:
-        return gic->gic_sh_config;
+        return gic->sh_config;
     case GIC_SH_CONFIG_OFS + 4:
         /* do nothing */
         return 0;
@@ -413,14 +413,14 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     switch (addr) {
     case GIC_SH_CONFIG_OFS:
     {
-        uint32_t pre = gic->gic_sh_config;
-        gic->gic_sh_config = (gic->gic_sh_config & 0xEFFFFFFF) |
+        uint32_t pre = gic->sh_config;
+        gic->sh_config = (gic->sh_config & 0xEFFFFFFF) |
                              (data & 0x10000000);
-        if (pre != gic->gic_sh_config) {
-            if ((gic->gic_sh_config & 0x10000000)) {
+        if (pre != gic->sh_config) {
+            if ((gic->sh_config & 0x10000000)) {
                 gic_timer_stop_count(gic);
             }
-            if (!(gic->gic_sh_config & 0x10000000)) {
+            if (!(gic->sh_config & 0x10000000)) {
                 gic_timer_start_count(gic);
             }
         }
@@ -430,7 +430,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* do nothing */
         break;
     case GIC_SH_COUNTERLO_OFS:
-        if (gic->gic_sh_config & 0x10000000) {
+        if (gic->sh_config & 0x10000000) {
             gic_store_sh_count(gic, data);
         }
         break;
@@ -569,8 +569,8 @@ static void gic_reset(void *opaque)
     int i;
     MIPSGICState *gic = (MIPSGICState *) opaque;
 
-    gic->gic_sh_config      = 0x100f0000 | gic->num_cpu;
-    gic->gic_sh_counterlo   = 0;
+    gic->sh_config      = 0x100f0000 | gic->num_cpu;
+    gic->sh_counterlo   = 0;
 
     for (i = 0; i < gic->num_cpu; i++) {
         gic->vps[i].ctl         = 0x0;

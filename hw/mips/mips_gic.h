@@ -282,8 +282,8 @@ struct MIPSGICState {
     qemu_irq *irqs;
 
     /* Shared Section Registers */
-    uint32_t gic_sh_config;
-    uint32_t gic_sh_counterlo;
+    uint32_t sh_config;
+    uint32_t sh_counterlo;
 
     MIPSGICIRQState *gic_irqs;
 
