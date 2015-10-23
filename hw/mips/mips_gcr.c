@@ -13,6 +13,7 @@
 #include "hw/sysbus.h"
 #include "sysemu/sysemu.h"
 #include "hw/mips/mips_gcr.h"
+#include "hw/mips/mips_gic.h"
 
 /* #define DEBUG */
 
@@ -43,8 +44,8 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
         DPRINTF("0x%016x\n", gcr->gcr_rev);
         return gcr->gcr_rev;
     case GCR_GIC_BASE_OFS:
-        DPRINTF("0x" TARGET_FMT_lx "\n", gic->gcr_gic_base);
-        return gcr->gcr_gic_base;
+        DPRINTF("0x" TARGET_FMT_lx "\n", GIC_BASE_ADDR);
+        return GIC_BASE_ADDR;
     case GCR_GIC_STATUS_OFS:
         DPRINTF("0x%016x\n", GCR_GIC_STATUS_GICEX_MSK);
         return GCR_GIC_STATUS_GICEX_MSK;

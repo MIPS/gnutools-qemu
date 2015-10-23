@@ -149,6 +149,7 @@
 #define GIC_VPE_WD_INITIAL0_OFS         0x0098
 #define GIC_VPE_COMPARE_LO_OFS          0x00a0
 #define GIC_VPE_COMPARE_HI_OFS          0x00a4
+#define GIC_VL_BRK_GROUP                0x3080
 
 /* User-Mode Visible Section Register */
 /* Read-only alias for GIC Shared CounterLo */
@@ -234,7 +235,7 @@ typedef struct MIPSGICIRQState {
     bool dual_edge;
     uint32_t map_pin;
     int32_t map_vpe;
-    qemu_irq *irq;
+    qemu_irq irq;
 } MIPSGICIRQState;
 
 typedef struct MIPSGICVPState {
@@ -256,21 +257,14 @@ struct MIPSGICState {
     SysBusDevice parent_obj;
 
     MemoryRegion gic_mem;
-    qemu_irq *irqs;
 
     /* Shared Section Registers */
     uint32_t sh_config;
     uint32_t sh_counterlo;
+    MIPSGICIRQState *irq_state;
 
-    MIPSGICIRQState *gic_irqs;
-
-    /* VPE Local Section Registers */
-    /* VPE Other Section Registers, aliased to local,
-     * use the other addr to access the correct instance */
-
+    /* VPE Local/Other Section Registers */
     MIPSGICVPState *vps;
-
-    /* User Mode Visible Section Registers */
 
     int32_t num_cpu;
     int32_t num_irq;

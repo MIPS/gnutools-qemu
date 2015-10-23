@@ -591,7 +591,7 @@ static void gcr_init(MaltaState *s, Error **err)
     sysbus_mmio_map(gcrbusdev, 0, GCR_BASE_ADDR);
 }
 
-static void *gic_init(MaltaState *s, Error **err)
+static void gic_init(MaltaState *s, Error **err)
 {
     SysBusDevice *gicbusdev;
     DeviceState *gicdev;
@@ -605,13 +605,11 @@ static void *gic_init(MaltaState *s, Error **err)
     object_property_set_int(OBJECT(&s->gic), 128, "num-irq", err);
     object_property_set_bool(OBJECT(&s->gic), true, "realized", err);
     if (*err != NULL) {
-        return NULL;
+        return;
     }
 
     gicbusdev = SYS_BUS_DEVICE(gicdev);
     sysbus_mmio_map(gicbusdev, 0, GIC_BASE_ADDR);
-
-    return (void*)s->gic.irqs;
 }
 
 /* Network support */
@@ -1202,7 +1200,7 @@ void mips_malta_init(MachineState *machine)
             error_report("%s", error_get_pretty(err));
             exit(1);
         }
-        env->gic_irqs = gic_init(s, &err);
+        gic_init(s, &err);
         if (err != NULL) {
             error_report("%s", error_get_pretty(err));
             exit(1);
@@ -1228,8 +1226,8 @@ void mips_malta_init(MachineState *machine)
 
     /* Interrupt controller */
     /* The 8259 is attached to the MIPS CPU INT0 pin, ie interrupt 2 */
-    if (env->gic_irqs) {
-        s->i8259 = i8259_init(isa_bus, env->gic_irqs[3]);
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
+        s->i8259 = i8259_init(isa_bus, s->gic.irq_state[3].irq);
     } else {
         s->i8259 = i8259_init(isa_bus, env->irq[2]);
     }
