@@ -50,6 +50,8 @@ struct MIPSGCRState{
 
     int32_t gcr_rev;
     int32_t num_cpu;
+    hwaddr gcr_base;
+    hwaddr gic_base;
     MemoryRegion gcr_mem;
 } ;
 
