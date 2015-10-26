@@ -12,7 +12,8 @@
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "sysemu/sysemu.h"
-#include "hw/mips/mips_gcr.h"
+#include "hw/misc/mips_gcr.h"
+#include "hw/intc/mips_gic.h"
 
 /* Read GCR registers */
 static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)

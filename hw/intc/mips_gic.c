@@ -22,7 +22,7 @@
 #include "kvm_mips.h"
 #endif
 
-#include "hw/mips/mips_gic.h"
+#include "hw/intc/mips_gic.h"
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 

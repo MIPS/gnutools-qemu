@@ -54,8 +54,8 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
-#include "hw/mips/mips_gcr.h"
-#include "hw/mips/mips_gic.h"
+#include "hw/misc/mips_gcr.h"
+#include "hw/intc/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
 
