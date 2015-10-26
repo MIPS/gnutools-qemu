@@ -830,11 +830,6 @@ target_ulong helper_mfc0_count(CPUMIPSState *env)
     return (int32_t)cpu_mips_get_count(env);
 }
 
-target_ulong helper_mfc0_gcrbase(CPUMIPSState *env)
-{
-    return env->CP0_CMGCRBase;
-}
-
 target_ulong helper_mftc0_entryhi(CPUMIPSState *env)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);

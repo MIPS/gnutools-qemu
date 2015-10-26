@@ -54,6 +54,7 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
+#include "hw/mips/mips_gcr.h"
 #include "hw/mips/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
@@ -93,6 +94,8 @@ typedef struct {
 typedef struct {
     SysBusDevice parent_obj;
 
+    MIPSGCRState gcr;
+    MIPSGICState gic;
     qemu_irq *i8259;
 } MaltaState;
 
@@ -565,6 +568,50 @@ static MaltaFPGAState *malta_fpga_init(MemoryRegion *address_space,
     qemu_register_reset(malta_fpga_reset, s);
 
     return s;
+}
+
+static void gcr_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *gcrbusdev;
+    DeviceState *gcrdev;
+
+    object_initialize(&s->gcr, sizeof(s->gcr), TYPE_MIPS_GCR);
+    qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
+
+    gcrdev = DEVICE(&s->gcr);
+
+    object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", err);
+    object_property_set_bool(OBJECT(&s->gcr), true, "realized", err);
+    if (*err != NULL) {
+        return;
+    }
+
+    gcrbusdev = SYS_BUS_DEVICE(gcrdev);
+    sysbus_mmio_map(gcrbusdev, 0, GCR_BASE_ADDR);
+}
+
+static void *gic_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *gicbusdev;
+    DeviceState *gicdev;
+
+    object_initialize(&s->gic, sizeof(s->gic), TYPE_MIPS_GIC);
+    qdev_set_parent_bus(DEVICE(&s->gic), sysbus_get_default());
+
+    gicdev = DEVICE(&s->gic);
+
+    object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gic), 256, "num-irq", err);
+    object_property_set_bool(OBJECT(&s->gic), true, "realized", err);
+    if (*err != NULL) {
+        return NULL;
+    }
+
+    gicbusdev = SYS_BUS_DEVICE(gicdev);
+    sysbus_mmio_map(gicbusdev, 0, GIC_BASE_ADDR);
+
+    return (void *) s->gic.irqs;
 }
 
 /* Network support */
@@ -1149,8 +1196,17 @@ void mips_malta_init(MachineState *machine)
 
     /* GCR/GIC */
     if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
-        gcr_init(smp_cpus, first_cpu, system_memory,
-                 (qemu_irq **)&env->gic_irqs);
+        Error *err = NULL;
+        gcr_init(s, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
+        }
+        env->gic_irqs = gic_init(s, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
+        }
     }
 
     /*
