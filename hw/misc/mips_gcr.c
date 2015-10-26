@@ -12,8 +12,8 @@
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "sysemu/sysemu.h"
-#include "hw/mips/mips_gcr.h"
-#include "hw/mips/mips_gic.h"
+#include "hw/misc/mips_gcr.h"
+#include "hw/intc/mips_gic.h"
 
 /* #define DEBUG */
 
