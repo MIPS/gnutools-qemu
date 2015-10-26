@@ -580,7 +580,7 @@ static void gcr_init(MaltaState *s, target_ulong base, Error **err)
 
     gcrdev = DEVICE(&s->gcr);
 
-    object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-vp", err);
     object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", err);
     object_property_set_int(OBJECT(&s->gcr), base, "gcr-base", err);
     object_property_set_int(OBJECT(&s->gcr), GIC_BASE_ADDR, "gic-base", err);
@@ -605,7 +605,7 @@ static void gic_init(MaltaState *s, Error **err)
     gicdev = DEVICE(&s->gic);
     gicbase = object_property_get_int(OBJECT(&s->gcr), "gic-base", err);
 
-    object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-cpu", err);
+    object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-vp", err);
     object_property_set_int(OBJECT(&s->gic), 128, "num-irq", err);
     object_property_set_bool(OBJECT(&s->gic), true, "realized", err);
     if (*err != NULL) {

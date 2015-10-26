@@ -61,8 +61,8 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case MIPS_CLCB_OFS + GCR_CL_CONFIG_OFS:
     case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
         /* Set PVP to # cores - 1 */
-        DPRINTF("0x%016x\n", smp_cpus - 1);
-        return smp_cpus - 1;
+        DPRINTF("0x%016x\n", gcr->num_vps - 1);
+        return gcr->num_vps - 1;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
         DPRINTF("0x%016x\n", 0);
         return 0;
@@ -114,7 +114,7 @@ static void mips_gcr_init(Object *obj)
 }
 
 static Property mips_gcr_properties[] = {
-    DEFINE_PROP_INT32("num-cpu", MIPSGCRState, num_cpu, 1),
+    DEFINE_PROP_INT32("num-vp", MIPSGCRState, num_vps, 1),
     DEFINE_PROP_INT32("gcr-rev", MIPSGCRState, gcr_rev, 0x800),
     DEFINE_PROP_UINT64("gcr-base", MIPSGCRState, gcr_base, GCR_BASE_ADDR),
     DEFINE_PROP_UINT64("gic-base", MIPSGCRState, gic_base, GIC_BASE_ADDR),

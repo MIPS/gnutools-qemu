@@ -49,7 +49,7 @@ struct MIPSGCRState{
     SysBusDevice parent_obj;
 
     int32_t gcr_rev;
-    int32_t num_cpu;
+    int32_t num_vps;
     hwaddr gcr_base;
     hwaddr gic_base;
     MemoryRegion gcr_mem;
