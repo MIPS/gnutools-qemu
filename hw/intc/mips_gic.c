@@ -26,7 +26,7 @@
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
-static inline int gic_get_current_cpu(MIPSGICState *g)
+static inline int gic_get_current_vp(MIPSGICState *g)
 {
     if (g->num_cpu > 1) {
         return current_cpu->cpu_index;
@@ -257,7 +257,7 @@ static uint64_t gic_read_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
 static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
 {
     MIPSGICState *gic = (MIPSGICState *) opaque;
-    uint32_t vp_index = gic_get_current_cpu(gic);
+    uint32_t vp_index = gic_get_current_vp(gic);
     uint64_t ret = 0;
     int i, base, irq_src;
     uint32_t other_index;
@@ -385,7 +385,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
     int intr;
     MIPSGICState *gic = (MIPSGICState *) opaque;
-    uint32_t vp_index = gic_get_current_cpu(gic);
+    uint32_t vp_index = gic_get_current_vp(gic);
     int i, base, irq_src;
     uint32_t pre, other_index;
 
@@ -549,7 +549,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
     s->vps = g_new(MIPSGICVPState, s->num_cpu);
     s->irq_state = g_new(MIPSGICIRQState, s->num_irq);
 
-    /* Register the CPU env for all cpus with the GIC */
+    /* Register the env for all VPs with the GIC */
     for (i = 0; i < s->num_cpu; i++) {
         if (cs != NULL) {
             s->vps[i].env = cs->env_ptr;
