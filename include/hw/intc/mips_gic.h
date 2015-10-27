@@ -252,7 +252,7 @@ struct MIPSGICVPState {
 struct MIPSGICState {
     SysBusDevice parent_obj;
 
-    MemoryRegion gic_mem;
+    MemoryRegion iomem;
 
     /* Shared Section Registers */
     uint32_t sh_config;

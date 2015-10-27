@@ -45,14 +45,14 @@
 
 
 typedef struct MIPSGCRState MIPSGCRState;
-struct MIPSGCRState{
+struct MIPSGCRState {
     SysBusDevice parent_obj;
 
     int32_t gcr_rev;
     int32_t num_vps;
     hwaddr gcr_base;
     hwaddr gic_base;
-    MemoryRegion gcr_mem;
+    MemoryRegion iomem;
 } ;
 
 #endif /* _MIPS_GCR_H */

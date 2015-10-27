@@ -78,9 +78,9 @@ static void mips_gcr_init(Object *obj)
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     MIPSGCRState *s = MIPS_GCR(obj);
 
-    memory_region_init_io(&s->gcr_mem, OBJECT(s), &gcr_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &gcr_ops, s,
                           "mips-gcr", GCR_ADDRSPACE_SZ);
-    sysbus_init_mmio(sbd, &s->gcr_mem);
+    sysbus_init_mmio(sbd, &s->iomem);
 }
 
 static Property mips_gcr_properties[] = {

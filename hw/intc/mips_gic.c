@@ -456,9 +456,9 @@ static void mips_gic_init(Object *obj)
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     MIPSGICState *s = MIPS_GIC(obj);
 
-    memory_region_init_io(&s->gic_mem, OBJECT(s), &gic_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &gic_ops, s,
                           "mips-gic", GIC_ADDRSPACE_SZ);
-    sysbus_init_mmio(sbd, &s->gic_mem);
+    sysbus_init_mmio(sbd, &s->iomem);
     qemu_register_reset(gic_reset, s);
 }
 
