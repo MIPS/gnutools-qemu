@@ -76,11 +76,10 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
 
     gic->irq_state[n_IRQ].pending = (level != 0);
 
-    /* fixme: this slows UART down in Linux */
-//    if (!gic->irq_state[n_IRQ].enabled) {
-//        /* GIC interrupt source disabled */
-//        return;
-//    }
+    if (!gic->irq_state[n_IRQ].enabled) {
+        /* GIC interrupt source disabled */
+        return;
+    }
 
     if (vp < 0 || vp >= gic->num_vps) {
         return;
