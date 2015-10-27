@@ -220,6 +220,8 @@
 
 typedef struct MIPSGICState MIPSGICState;
 typedef struct MIPSGICTimerState MIPSGICTimerState;
+typedef struct MIPSGICIRQState MIPSGICIRQState;
+typedef struct MIPSGICVPState MIPSGICVPState;
 
 struct MIPSGICTimerState {
     QEMUTimer *qtimer;
@@ -227,7 +229,7 @@ struct MIPSGICTimerState {
     MIPSGICState *gic;
 };
 
-typedef struct MIPSGICIRQState {
+struct MIPSGICIRQState {
     bool enabled;
     bool pending;
     bool polarity;
@@ -236,9 +238,9 @@ typedef struct MIPSGICIRQState {
     uint32_t map_pin;
     int32_t map_vp;
     qemu_irq irq;
-} MIPSGICIRQState;
+};
 
-typedef struct MIPSGICVPState {
+struct MIPSGICVPState {
     uint32_t ctl;
     uint32_t pend;
     uint32_t mask;
@@ -251,7 +253,7 @@ typedef struct MIPSGICVPState {
 
     CPUMIPSState *env;
     MIPSGICTimerState *gic_timer;
-} MIPSGICVPState;
+};
 
 struct MIPSGICState {
     SysBusDevice parent_obj;

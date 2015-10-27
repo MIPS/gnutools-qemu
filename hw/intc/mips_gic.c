@@ -103,7 +103,7 @@ static uint32_t gic_vp_timer_update(MIPSGICState *gic, uint32_t vp_index)
     qemu_log("GIC timer scheduled, now = %llx, next = %llx (wait = %u)\n",
              (long long) now, (long long) next, wait);
 
-    timer_mod(gic->vps[vp_index].gic_timer->qtimer , next);
+    timer_mod(gic->vps[vp_index].gic_timer->qtimer, next);
     return wait;
 }
 
@@ -138,8 +138,8 @@ static uint32_t gic_get_sh_count(MIPSGICState *gic)
         uint64_t now;
         now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         for (i = 0; i < gic->num_vps; i++) {
-            if (timer_pending(gic->vps[i].gic_timer->qtimer )
-                && timer_expired(gic->vps[i].gic_timer->qtimer , now)) {
+            if (timer_pending(gic->vps[i].gic_timer->qtimer)
+                && timer_expired(gic->vps[i].gic_timer->qtimer, now)) {
                 /* The timer has already expired.  */
                 gic_vp_timer_expire(gic, i);
             }
@@ -200,7 +200,7 @@ static void gic_timer_stop_count(MIPSGICState *gic)
     gic->sh_counterlo +=
         (uint32_t)(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / TIMER_PERIOD);
     for (i = 0; i < gic->num_vps; i++) {
-        timer_del(gic->vps[i].gic_timer->qtimer );
+        timer_del(gic->vps[i].gic_timer->qtimer);
     }
 }
 
@@ -208,7 +208,7 @@ static void gic_timer_init(MIPSGICState *gic, uint32_t nvps)
 {
     int i;
     for (i = 0; i < nvps; i++) {
-        gic->vps[i].gic_timer = (void *) g_malloc0(sizeof(MIPSGICTimerState));
+        gic->vps[i].gic_timer = g_malloc0(sizeof(MIPSGICTimerState));
         gic->vps[i].gic_timer->gic = gic;
         gic->vps[i].gic_timer->vp_index = i;
         gic->vps[i].gic_timer->qtimer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
@@ -452,7 +452,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         break;
     case GIC_SH_MAP0_VP31_0_OFS ... GIC_SH_MAP255_VP63_32_OFS:
         irq_src = (addr - GIC_SH_MAP0_VP31_0_OFS) / 32;
-        gic->irq_state[irq_src].map_vp = (data)? ctz64(data) : -1;
+        gic->irq_state[irq_src].map_vp = (data) ? ctz64(data) : -1;
         break;
     case GIC_VPLOCAL_BASE_ADDR ... (GIC_VPLOCAL_BASE_ADDR + GIC_VL_BRK_GROUP):
         gic_write_vp(gic, vp_index, addr - GIC_VPLOCAL_BASE_ADDR, data, size);
@@ -481,7 +481,7 @@ static void gic_reset(void *opaque)
     MIPSGICState *gic = (MIPSGICState *) opaque;
     int numintrs = (((gic->num_irq) / 8) - 1);
 
-    numintrs =  (numintrs < 0)? 0: numintrs;
+    numintrs =  (numintrs < 0) ? 0 : numintrs;
 
     gic->sh_config      = (1 << GIC_SH_CONFIG_COUNTSTOP_SHF) |
                           (numintrs << GIC_SH_CONFIG_NUMINTRS_SHF) |
