@@ -20,8 +20,8 @@
 
 /* GIC Address Space Offsets */
 #define GIC_SHARED_BASE_ADDR    0x0000
-#define GIC_VPLOCAL_BASE_ADDR  0x8000
-#define GIC_VPOTHER_BASE_ADDR  0xC000
+#define GIC_VPLOCAL_BASE_ADDR   0x8000
+#define GIC_VPOTHER_BASE_ADDR   0xC000
 #define GIC_USERMODE_BASE_ADDR  0x10000
 
 /* Constants */
@@ -35,10 +35,10 @@
 /* GIC Address Space */
 #define SHARED_SECTION_OFS          0x0000
 #define SHARED_SECTION_SIZE         0x8000
-#define VP_LOCAL_SECTION_OFS       0x8000
-#define VP_LOCAL_SECTION_SIZE      0x4000
-#define VP_OTHER_SECTION_OFS       0xc000
-#define VP_OTHER_SECTION_SIZE      0x4000
+#define VP_LOCAL_SECTION_OFS        0x8000
+#define VP_LOCAL_SECTION_SIZE       0x4000
+#define VP_OTHER_SECTION_OFS        0xc000
+#define VP_OTHER_SECTION_SIZE       0x4000
 #define USM_VISIBLE_SECTION_OFS     0x10000
 #define USM_VISIBLE_SECTION_SIZE    0x10000
 
@@ -127,35 +127,35 @@
 #define GIC_SH_MAP0_PIN_OFS         0x0500
 #define GIC_SH_MAP255_PIN_OFS       0x08fc
 
-#define GIC_SH_MAP0_VP31_0_OFS     0x2000
-#define GIC_SH_MAP255_VP63_32_OFS  0x3fe4
+#define GIC_SH_MAP0_VP31_0_OFS      0x2000
+#define GIC_SH_MAP255_VP63_32_OFS   0x3fe4
 
 /* Register Map for Local Section */
-#define GIC_VP_CTL_OFS                 0x0000
-#define GIC_VP_PEND_OFS                0x0004
-#define GIC_VP_MASK_OFS                0x0008
-#define GIC_VP_RMASK_OFS               0x000c
-#define GIC_VP_SMASK_OFS               0x0010
-#define GIC_VP_WD_MAP_OFS              0x0040
-#define GIC_VP_COMPARE_MAP_OFS         0x0044
-#define GIC_VP_TIMER_MAP_OFS           0x0048
-#define GIC_VP_PERFCTR_MAP_OFS         0x0050
-#define GIC_VP_SWINT0_MAP_OFS          0x0054
-#define GIC_VP_SWINT1_MAP_OFS          0x0058
-#define GIC_VP_OTHER_ADDR_OFS          0x0080
-#define GIC_VP_IDENT_OFS               0x0088
-#define GIC_VP_WD_CONFIG0_OFS          0x0090
-#define GIC_VP_WD_COUNT0_OFS           0x0094
-#define GIC_VP_WD_INITIAL0_OFS         0x0098
-#define GIC_VP_COMPARE_LO_OFS          0x00a0
-#define GIC_VP_COMPARE_HI_OFS          0x00a4
-#define GIC_VL_BRK_GROUP                0x3080
+#define GIC_VP_CTL_OFS              0x0000
+#define GIC_VP_PEND_OFS             0x0004
+#define GIC_VP_MASK_OFS             0x0008
+#define GIC_VP_RMASK_OFS            0x000c
+#define GIC_VP_SMASK_OFS            0x0010
+#define GIC_VP_WD_MAP_OFS           0x0040
+#define GIC_VP_COMPARE_MAP_OFS      0x0044
+#define GIC_VP_TIMER_MAP_OFS        0x0048
+#define GIC_VP_PERFCTR_MAP_OFS      0x0050
+#define GIC_VP_SWINT0_MAP_OFS       0x0054
+#define GIC_VP_SWINT1_MAP_OFS       0x0058
+#define GIC_VP_OTHER_ADDR_OFS       0x0080
+#define GIC_VP_IDENT_OFS            0x0088
+#define GIC_VP_WD_CONFIG0_OFS       0x0090
+#define GIC_VP_WD_COUNT0_OFS        0x0094
+#define GIC_VP_WD_INITIAL0_OFS      0x0098
+#define GIC_VP_COMPARE_LO_OFS       0x00a0
+#define GIC_VP_COMPARE_HI_OFS       0x00a4
+#define GIC_VL_BRK_GROUP            0x3080
 
 /* User-Mode Visible Section Register */
 /* Read-only alias for GIC Shared CounterLo */
-#define GIC_USER_MODE_COUNTERLO         0x0000
+#define GIC_USER_MODE_COUNTERLO     0x0000
 /* Read-only alias for GIC Shared CounterHi */
-#define GIC_USER_MODE_COUNTERHI         0x0004
+#define GIC_USER_MODE_COUNTERHI     0x0004
 
 /* Masks */
 #define GIC_SH_CONFIG_COUNTSTOP_SHF     28
@@ -167,8 +167,8 @@
 #define GIC_SH_CONFIG_NUMINTRS_SHF      16
 #define GIC_SH_CONFIG_NUMINTRS_MSK      (MSK(8) << GIC_SH_CONFIG_NUMINTRS_SHF)
 
-#define GIC_SH_CONFIG_NUMVPS_SHF       0
-#define GIC_SH_CONFIG_NUMVPS_MSK       (MSK(8) << GIC_SH_CONFIG_NUMVPS_SHF)
+#define GIC_SH_CONFIG_NUMVPS_SHF        0
+#define GIC_SH_CONFIG_NUMVPS_MSK        (MSK(8) << GIC_SH_CONFIG_NUMVPS_SHF)
 
 #define GIC_SH_WEDGE_RW_SHF             31
 #define GIC_SH_WEDGE_RW_MSK             (MSK(1) << GIC_SH_WEDGE_RW_SHF)
@@ -185,29 +185,29 @@
     (GIC_MAP_TO_PIN_MSK | GIC_MAP_TO_NMI_MSK | GIC_MAP_TO_YQ_MSK | GIC_MAP_MSK)
 
 /* GIC_VP_CTL Masks */
-#define GIC_VP_CTL_PERFCNT_RTBL_SHF    2
-#define GIC_VP_CTL_PERFCNT_RTBL_MSK    (MSK(1) << GIC_VP_CTL_PERFCNT_RTBL_SHF)
-#define GIC_VP_CTL_TIMER_RTBL_SHF      1
-#define GIC_VP_CTL_TIMER_RTBL_MSK      (MSK(1) << GIC_VP_CTL_TIMER_RTBL_SHF)
-#define GIC_VP_CTL_EIC_MODE_SHF        0
-#define GIC_VP_CTL_EIC_MODE_MSK        (MSK(1) << GIC_VP_CTL_EIC_MODE_SHF)
+#define GIC_VP_CTL_PERFCNT_RTBL_SHF     2
+#define GIC_VP_CTL_PERFCNT_RTBL_MSK     (MSK(1) << GIC_VP_CTL_PERFCNT_RTBL_SHF)
+#define GIC_VP_CTL_TIMER_RTBL_SHF       1
+#define GIC_VP_CTL_TIMER_RTBL_MSK       (MSK(1) << GIC_VP_CTL_TIMER_RTBL_SHF)
+#define GIC_VP_CTL_EIC_MODE_SHF         0
+#define GIC_VP_CTL_EIC_MODE_MSK         (MSK(1) << GIC_VP_CTL_EIC_MODE_SHF)
 
 /* GIC_VP_MASK Masks */
-#define GIC_VP_MASK_WD_SHF         0
-#define GIC_VP_MASK_WD_MSK         (MSK(1) << GIC_VP_MASK_WD_SHF)
-#define GIC_VP_MASK_CMP_SHF        1
-#define GIC_VP_MASK_CMP_MSK        (MSK(1) << GIC_VP_MASK_CMP_SHF)
-#define GIC_VP_MASK_TIMER_SHF      2
-#define GIC_VP_MASK_TIMER_MSK      (MSK(1) << GIC_VP_MASK_TIMER_SHF)
-#define GIC_VP_MASK_PERFCNT_SHF    3
-#define GIC_VP_MASK_PERFCNT_MSK    (MSK(1) << GIC_VP_MASK_PERFCNT_SHF)
-#define GIC_VP_MASK_SWINT0_SHF     4
-#define GIC_VP_MASK_SWINT0_MSK     (MSK(1) << GIC_VP_MASK_SWINT0_SHF)
-#define GIC_VP_MASK_SWINT1_SHF     5
-#define GIC_VP_MASK_SWINT1_MSK     (MSK(1) << GIC_VP_MASK_SWINT1_SHF)
-#define GIC_VP_MASK_FDC_SHF        6
-#define GIC_VP_MASK_FDC_MSK        (MSK(1) << GIC_VP_MASK_FDC_SHF)
-#define GIC_VP_SET_RESET_MSK       (MSK(7) << GIC_VP_MASK_WD_SHF)
+#define GIC_VP_MASK_WD_SHF          0
+#define GIC_VP_MASK_WD_MSK          (MSK(1) << GIC_VP_MASK_WD_SHF)
+#define GIC_VP_MASK_CMP_SHF         1
+#define GIC_VP_MASK_CMP_MSK         (MSK(1) << GIC_VP_MASK_CMP_SHF)
+#define GIC_VP_MASK_TIMER_SHF       2
+#define GIC_VP_MASK_TIMER_MSK       (MSK(1) << GIC_VP_MASK_TIMER_SHF)
+#define GIC_VP_MASK_PERFCNT_SHF     3
+#define GIC_VP_MASK_PERFCNT_MSK     (MSK(1) << GIC_VP_MASK_PERFCNT_SHF)
+#define GIC_VP_MASK_SWINT0_SHF      4
+#define GIC_VP_MASK_SWINT0_MSK      (MSK(1) << GIC_VP_MASK_SWINT0_SHF)
+#define GIC_VP_MASK_SWINT1_SHF      5
+#define GIC_VP_MASK_SWINT1_MSK      (MSK(1) << GIC_VP_MASK_SWINT1_SHF)
+#define GIC_VP_MASK_FDC_SHF         6
+#define GIC_VP_MASK_FDC_MSK         (MSK(1) << GIC_VP_MASK_FDC_SHF)
+#define GIC_VP_SET_RESET_MSK        (MSK(7) << GIC_VP_MASK_WD_SHF)
 
 #define GIC_CPU_PIN_OFFSET          2
 
