@@ -100,9 +100,6 @@ static uint32_t gic_vp_timer_update(MIPSGICState *gic, uint32_t vp_index)
             (uint32_t)(now / TIMER_PERIOD);
     next = now + (uint64_t)wait * TIMER_PERIOD;
 
-    qemu_log("GIC timer scheduled, now = %llx, next = %llx (wait = %u)\n",
-             (long long) now, (long long) next, wait);
-
     timer_mod(gic->vps[vp_index].gic_timer->qtimer, next);
     return wait;
 }
@@ -111,7 +108,6 @@ static void gic_vp_timer_expire(MIPSGICState *gic, uint32_t vp_index)
 {
     uint32_t pin;
     pin = (gic->vps[vp_index].compare_map & GIC_MAP_MSK);
-    qemu_log("GIC timer expire => VP[%d] irq %d\n", vp_index, pin);
     gic_vp_timer_update(gic, vp_index);
     gic->vps[vp_index].pend |= (1 << 1);
 
@@ -121,11 +117,7 @@ static void gic_vp_timer_expire(MIPSGICState *gic, uint32_t vp_index)
             /* it is safe to set the irq high regardless of other GIC IRQs */
             qemu_irq_raise(gic->vps[vp_index].env->irq
                            [pin + GIC_CPU_PIN_OFFSET]);
-        } else {
-            qemu_log("    disabled!\n");
         }
-    } else {
-        qemu_log("    masked off!\n");
     }
 }
 
@@ -245,10 +237,8 @@ static uint64_t gic_read_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VP_COMPARE_HI_OFS:
         return gic->vps[vp_index].comparehi;
     default:
-        qemu_log_mask(LOG_UNIMP,
-                     "Warning *** read %d bytes at GIC offset LOCAL/OTHER 0x%"
-                     PRIx64 "\n",
-                     size, addr);
+        qemu_log_mask(LOG_UNIMP, "Read %d bytes at GIC offset LOCAL/OTHER 0x%"
+                      PRIx64 "\n", size, addr);
         break;
     }
     return 0;
@@ -326,9 +316,8 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         ret = 0;
         break;
     default:
-        qemu_log_mask(LOG_UNIMP,
-            "Warning *** read %d bytes at GIC offset 0x%" PRIx64 "\n",
-            size, addr);
+        qemu_log_mask(LOG_UNIMP, "Read %d bytes at GIC offset 0x%" PRIx64 "\n",
+                      size, addr);
         break;
     }
     return ret;
@@ -374,9 +363,8 @@ static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         /* do nothing */
         break;
     default:
-        qemu_log_mask(LOG_UNIMP,
-                "Warning *** write %d bytes at GIC offset LOCAL/OTHER "
-                "0x%" PRIx64" 0x%08lx\n", size, addr, data);
+        qemu_log_mask(LOG_UNIMP, "Write %d bytes at GIC offset LOCAL/OTHER "
+                      "0x%" PRIx64" 0x%08lx\n", size, addr, data);
         break;
     }
 }
@@ -467,10 +455,8 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* do nothing. Read-only section */
         break;
     default:
-        qemu_log_mask(LOG_UNIMP,
-                "Warning *** write %d bytes at GIC offset 0x%" PRIx64
-                " 0x%08lx\n",
-                size, addr, data);
+        qemu_log_mask(LOG_UNIMP, "Write %d bytes at GIC offset 0x%" PRIx64
+                      " 0x%08lx\n", size, addr, data);
         break;
     }
 }

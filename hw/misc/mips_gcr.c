@@ -15,81 +15,51 @@
 #include "hw/misc/mips_gcr.h"
 #include "hw/intc/mips_gic.h"
 
-/* #define DEBUG */
-
-#ifdef DEBUG
-#define DPRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
-#else
-#define DPRINTF(fmt, ...)
-#endif
-
 /* Read GCR registers */
 static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 {
     MIPSGCRState *gcr = (MIPSGCRState *) opaque;
 
-    DPRINTF("Info read %d bytes at GCR offset 0x%" PRIx64 " (GCR) -> ",
-            size, addr);
-
     switch (addr) {
     /* Global Control Block Register */
     case GCR_CONFIG_OFS:
         /* Set PCORES to 0 */
-        DPRINTF("0x%016x\n", 0);
         return 0;
     case GCR_BASE_OFS:
-        DPRINTF("GCMP_BASE_ADDR: %016llx\n", gcr->gcr_base);
         return gcr->gcr_base;
     case GCR_REV_OFS:
-        DPRINTF("0x%016x\n", gcr->gcr_rev);
         return gcr->gcr_rev;
     case GCR_GIC_BASE_OFS:
-        DPRINTF("0x" TARGET_FMT_lx "\n", gcr->gic_base);
         return gcr->gic_base;
     case GCR_GIC_STATUS_OFS:
-        DPRINTF("0x%016x\n", GCR_GIC_STATUS_GICEX_MSK);
         return GCR_GIC_STATUS_GICEX_MSK;
     case GCR_CPC_STATUS_OFS:
-        DPRINTF("0x%016x\n", 0);
         return 0;
     case GCR_L2_CONFIG_OFS:
         /* L2 BYPASS */
-        DPRINTF("0x%016x\n", GCR_L2_CONFIG_BYPASS_MSK);
         return GCR_L2_CONFIG_BYPASS_MSK;
-
         /* Core-Local and Core-Other Control Blocks */
     case MIPS_CLCB_OFS + GCR_CL_CONFIG_OFS:
     case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
         /* Set PVP to # cores - 1 */
-        DPRINTF("0x%016x\n", gcr->num_vps - 1);
         return gcr->num_vps - 1;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
-        DPRINTF("0x%016x\n", 0);
         return 0;
-
     default:
-        DPRINTF("Warning *** unimplemented GCR read at offset 0x%" PRIx64 "\n",
-                addr);
+        qemu_log_mask(LOG_UNIMP, "Read %d bytes at GCR offset 0x%" PRIx64 "\n",
+                      size, addr);
         return 0;
     }
-    return 0ULL;
+    return 0;
 }
 
 /* Write GCR registers */
 static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
-    /*
-     * MIPSGCRState *gcr = (MIPSGCRState *) opaque;
-     * */
-
     switch (addr) {
-    case GCR_GIC_BASE_OFS:
-        DPRINTF("Info write %d bytes at GCR offset %" PRIx64 " <- 0x%016lx\n",
-                size, addr, data);
-        break;
     default:
-        DPRINTF("Warning *** unimplemented GCR write at offset 0x%" PRIx64 "\n",
-                addr);
+        qemu_log_mask(LOG_UNIMP, "Write %d bytes at GCR offset 0x%" PRIx64
+                      " 0x%08lx\n", size, addr, data);
         break;
     }
 }
