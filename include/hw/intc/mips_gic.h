@@ -248,11 +248,8 @@ struct MIPSGICTimerState {
 struct MIPSGICIRQState {
     bool enabled;
     bool pending;
-    bool polarity;
-    bool trigger_type;
-    bool dual_edge;
     uint32_t map_pin;
-    uint64_t map_vpe;
+    int32_t map_vpe;
     qemu_irq irq;
 };
 
@@ -260,11 +257,8 @@ struct MIPSGICVPState {
     uint32_t ctl;
     uint32_t pend;
     uint32_t mask;
-    uint32_t wd_map;
     uint32_t compare_map;
-    uint32_t timer_map;
     uint32_t comparelo;
-    uint32_t comparehi;
     uint32_t other_addr;
 
     CPUMIPSState *env;

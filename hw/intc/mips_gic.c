@@ -221,20 +221,14 @@ static uint64_t gic_read_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         return gic->vps[vp_index].pend;
     case GIC_VPE_MASK_OFS:
         return gic->vps[vp_index].mask;
-    case GIC_VPE_WD_MAP_OFS:
-        return gic->vps[vp_index].wd_map;
     case GIC_VPE_COMPARE_MAP_OFS:
         return gic->vps[vp_index].compare_map;
-    case GIC_VPE_TIMER_MAP_OFS:
-        return gic->vps[vp_index].timer_map;
     case GIC_VPE_OTHER_ADDR_OFS:
         return gic->vps[vp_index].other_addr;
     case GIC_VPE_IDENT_OFS:
         return vp_index;
     case GIC_VPE_COMPARE_LO_OFS:
         return gic->vps[vp_index].comparelo;
-    case GIC_VPE_COMPARE_HI_OFS:
-        return gic->vps[vp_index].comparehi;
     default:
         qemu_log_mask(LOG_UNIMP,
                      "Warning *** read %d bytes at GIC offset LOCAL/OTHER 0x%"
@@ -263,33 +257,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         return ret;
     case GIC_SH_COUNTERHI_OFS:
         return 0;
-    case GIC_SH_POL_31_0_OFS:
-    case GIC_SH_POL_63_32_OFS:
-    case GIC_SH_POL_95_64_OFS:
-    case GIC_SH_POL_127_96_OFS:
-    case GIC_SH_POL_159_128_OFS:
-    case GIC_SH_POL_191_160_OFS:
-    case GIC_SH_POL_223_192_OFS:
-    case GIC_SH_POL_255_224_OFS:
-        base = (addr - GIC_SH_POL_31_0_OFS) * 8;
-        for (i = 0; i < size * 8; i++) {
-            ret |= (gic->irq_state[i].polarity & 1) << i;
-        }
-        return ret;
-    case GIC_SH_TRIG_31_0_OFS:
-    case GIC_SH_TRIG_63_32_OFS:
-    case GIC_SH_TRIG_95_64_OFS:
-    case GIC_SH_TRIG_127_96_OFS:
-    case GIC_SH_TRIG_159_128_OFS:
-    case GIC_SH_TRIG_191_160_OFS:
-    case GIC_SH_TRIG_223_192_OFS:
-    case GIC_SH_TRIG_255_224_OFS:
-        base = (addr - GIC_SH_TRIG_31_0_OFS) * 8;
-        for (i = 0; i < size * 8; i++) {
-            ret |= (gic->irq_state[i].trigger_type & 1) << i;
-        }
-        return ret;
-    case GIC_SH_PEND_31_0_OFS:
+   case GIC_SH_PEND_31_0_OFS:
     case GIC_SH_PEND_63_32_OFS:
     case GIC_SH_PEND_95_64_OFS:
     case GIC_SH_PEND_127_96_OFS:
@@ -369,28 +337,16 @@ static void gic_write_vpe(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VPE_SMASK_OFS:
         gic->vps[vp_index].mask |= (data & 0x3f);
         break;
-    case GIC_VPE_WD_MAP_OFS:
-        gic->vps[vp_index].wd_map = data & 0xE000003F;
-        break;
     case GIC_VPE_COMPARE_MAP_OFS:
         gic->vps[vp_index].compare_map = data & 0xE000003F;
-        break;
-    case GIC_VPE_TIMER_MAP_OFS:
-        gic->vps[vp_index].timer_map = data & 0xE000003F;
         break;
     case GIC_VPE_OTHER_ADDR_OFS:
         if (data < gic->num_cpu) {
             gic->vps[vp_index].other_addr = data;
         }
         break;
-    case GIC_VPE_OTHER_ADDR_OFS + 4:
-        /* do nothing */
-        break;
     case GIC_VPE_COMPARE_LO_OFS:
         gic_store_vpe_compare(gic, vp_index, data);
-        break;
-    case GIC_VPE_COMPARE_HI_OFS:
-        /* do nothing */
         break;
     default:
         qemu_log_mask(LOG_UNIMP,
@@ -429,35 +385,6 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_COUNTERLO_OFS:
         if (gic->gic_sh_config & 0x10000000) {
             gic_store_sh_count(gic, data);
-        }
-        break;
-    case GIC_SH_COUNTERHI_OFS:
-        /* do nothing */
-        break;
-    case GIC_SH_POL_31_0_OFS:
-    case GIC_SH_POL_63_32_OFS:
-    case GIC_SH_POL_95_64_OFS:
-    case GIC_SH_POL_127_96_OFS:
-    case GIC_SH_POL_159_128_OFS:
-    case GIC_SH_POL_191_160_OFS:
-    case GIC_SH_POL_223_192_OFS:
-    case GIC_SH_POL_255_224_OFS:
-        base = (addr - GIC_SH_POL_31_0_OFS) * 8;
-        for (i = 0; i < size * 8; i++) {
-            gic->irq_state[base + i].polarity = (data >> i) & 1;
-        }
-        break;
-    case GIC_SH_TRIG_31_0_OFS:
-    case GIC_SH_TRIG_63_32_OFS:
-    case GIC_SH_TRIG_95_64_OFS:
-    case GIC_SH_TRIG_127_96_OFS:
-    case GIC_SH_TRIG_159_128_OFS:
-    case GIC_SH_TRIG_191_160_OFS:
-    case GIC_SH_TRIG_223_192_OFS:
-    case GIC_SH_TRIG_255_224_OFS:
-        base = (addr - GIC_SH_TRIG_31_0_OFS) * 8;
-        for (i = 0; i < size * 8; i++) {
-            gic->irq_state[base + i].trigger_type = (data >> i) & 1;
         }
         break;
     case GIC_SH_RMASK_31_0_OFS:
@@ -545,20 +472,14 @@ static void gic_reset(void *opaque)
         gic->vps[i].ctl         = 0x0;
         gic->vps[i].pend        = 0x0;
         gic->vps[i].mask        = 0x1; /* COMPARE_MASK ONLY */
-        gic->vps[i].wd_map      = GIC_MAP_TO_NMI_MSK;
         gic->vps[i].compare_map = GIC_MAP_TO_PIN_MSK;
-        gic->vps[i].timer_map   = GIC_MAP_TO_PIN_MSK | 0x5;
         gic->vps[i].comparelo   = 0x0;
-        gic->vps[i].comparehi   = 0x0;
         gic->vps[i].other_addr  = 0x0;
     }
 
     for (i = 0; i < gic->num_irq; i++) {
         gic->irq_state[i].enabled        = false;
         gic->irq_state[i].pending        = false;
-        gic->irq_state[i].polarity       = false;
-        gic->irq_state[i].trigger_type   = false;
-        gic->irq_state[i].dual_edge      = false;
         gic->irq_state[i].map_pin        = GIC_MAP_TO_PIN_MSK;
         gic->irq_state[i].map_vpe        = 0;
     }

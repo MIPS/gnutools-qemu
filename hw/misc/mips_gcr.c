@@ -59,13 +59,7 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 /* Write GCR registers */
 static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
-    /*
-     * MIPSGCRState *gcr = (MIPSGCRState *) opaque;
-     * */
-
     switch (addr) {
-    case GCR_GIC_BASE_OFS:
-        break;
     default:
         qemu_log_mask(LOG_UNIMP,
                 "Warning *** unimplemented GCR write at offset 0x%" PRIx64 "\n",
