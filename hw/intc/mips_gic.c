@@ -34,21 +34,33 @@ static inline int gic_get_current_vp(MIPSGICState *g)
     return 0;
 }
 
-static void gic_set_vp_irq(MIPSGICState *gic, int vp, int pin, int level)
+static int gic_shared_irq(MIPSGICState *gic, int vp, int pin, int level)
 {
     int ored_level = level;
     int i;
-    /* ORing pending registers sharing same pin */
     if (!ored_level) {
-        for (i = 0; i < gic->num_irq; i++) {
-            if ((gic->irq_state[i].map_pin & GIC_MAP_MSK) == pin &&
-                    gic->irq_state[i].map_vp == vp &&
-                    gic->irq_state[i].enabled) {
-                ored_level |= gic->irq_state[i].pending;
+        if (gic->vps[vp].irq_reverse_map[pin].count > 7) {
+            for (i = 0; i < gic->num_irq; i++) {
+                if ((gic->irq_state[i].map_pin & GIC_MAP_MSK) == pin &&
+                        gic->irq_state[i].map_vp == vp &&
+                        gic->irq_state[i].enabled) {
+                    ored_level |= gic->irq_state[i].pending;
+                }
+                if (ored_level) {
+                    /* no need to iterate all interrupts */
+                    break;
+                }
             }
-            if (ored_level) {
-                /* no need to iterate all interrupts */
-                break;
+        } else if (gic->vps[vp].irq_reverse_map[pin].count > 1) {
+            int8_t *map = gic->vps[vp].irq_reverse_map[pin].map;
+            for (i = 0; i < gic->vps[vp].irq_reverse_map[pin].count; i++) {
+                if (gic->irq_state[map[i]].enabled) {
+                    ored_level |= gic->irq_state[map[i]].pending;
+                    if (ored_level) {
+                        /* no need to iterate all interrupts */
+                        break;
+                    }
+                }
             }
         }
         if (((gic->vps[vp].compare_map & GIC_MAP_MSK) == pin) &&
@@ -58,6 +70,36 @@ static void gic_set_vp_irq(MIPSGICState *gic, int vp, int pin, int level)
                           GIC_VP_MASK_CMP_SHF;
         }
     }
+    return ored_level;
+}
+
+static void gic_set_vp_irq(MIPSGICState *gic, int vp, int pin, int level)
+{
+//    int ored_level = level;
+//    int i;
+    /* ORing pending registers sharing same pin */
+//    if (!ored_level) {
+//        for (i = 0; i < gic->num_irq; i++) {
+//            if ((gic->irq_state[i].map_pin & GIC_MAP_MSK) == pin &&
+//                    gic->irq_state[i].map_vpe == vpe &&
+//                    gic->irq_state[i].enabled) {
+//                ored_level |= gic->irq_state[i].pending;
+//            }
+//            if (ored_level) {
+//                /* no need to iterate all interrupts */
+//                break;
+//            }
+//        }
+//        if (((gic->vps[vpe].compare_map & GIC_MAP_MSK) == pin) &&
+//                (gic->vps[vpe].mask & GIC_VPE_MASK_CMP_MSK)) {
+//            /* ORing with local pending register (count/compare) */
+//            ored_level |= (gic->vps[vpe].pend & GIC_VPE_MASK_CMP_MSK) >>
+//                          GIC_VPE_MASK_CMP_SHF;
+//        }
+//    }
+
+    int ored_level = gic_shared_irq(gic, vp, pin, level);
+
 
 #ifdef CONFIG_KVM
     if (kvm_enabled())  {
@@ -87,6 +129,58 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
 
     gic_set_vp_irq(gic, vp, pin, level);
 }
+
+static void add_reverse_map(MIPSGICState *gic, int irq_src, int vp,
+                            int map_pin)
+{
+//    int vpe = gic->irq_state[irq_src].map_vpe;
+//    int pin = gic->irq_state[irq_src].map_pin & GIC_MAP_MSK;
+//    int map_to_pin = gic->irq_state[irq_src].map_pin & GIC_MAP_TO_PIN_MSK;
+    int8_t *map;
+    int8_t *count;
+    int map_to_pin = map_pin & GIC_MAP_TO_PIN_MSK;
+    int pin = map_pin & GIC_MAP_MSK;
+
+    if ((vp != -1) && map_to_pin) {
+        map = gic->vps[vp].irq_reverse_map[pin].map;
+        count = &gic->vps[vp].irq_reverse_map[pin].count;
+        if (*count < 7) {
+            map[*count] = irq_src;
+            (*count)++;
+        }
+    }
+}
+
+static void remove_reverse_map(MIPSGICState *gic, int irq_src, int vp,
+                               int map_pin)
+{
+//    int vpe = gic->irq_state[irq_src].map_vpe;
+//    int pin = gic->irq_state[irq_src].map_pin & GIC_MAP_MSK;
+//    int map_to_pin = gic->irq_state[irq_src].map_pin & GIC_MAP_TO_PIN_MSK;
+
+    int8_t *map;
+    int8_t *count;
+    int i, j;
+    int map_to_pin = map_pin & GIC_MAP_TO_PIN_MSK;
+    int pin = map_pin & GIC_MAP_MSK;
+
+    if ((vp != -1) && map_to_pin) {
+        map = gic->vps[vp].irq_reverse_map[pin].map;
+        count = &gic->vps[vp].irq_reverse_map[pin].count;
+
+        for (i = 0; i < *count; i++) {
+            if (map[i] == irq_src) {
+                for (j = i; j < (*count) - 1; j++) {
+                    map[j] = map[j+1];
+                }
+                (*count)--;
+                break;
+            }
+        }
+    }
+}
+
+
 
 /* GIC VP Local Timer */
 static uint32_t gic_vp_timer_update(MIPSGICState *gic, uint32_t vp_index)
@@ -387,11 +481,25 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         break;
     case GIC_SH_MAP0_PIN_OFS ... GIC_SH_MAP255_PIN_OFS:
         irq_src = (addr - GIC_SH_MAP0_PIN_OFS) / 4;
+        remove_reverse_map(gic, irq_src, gic->irq_state[irq_src].map_vp,
+                           gic->irq_state[irq_src].map_pin);
         gic->irq_state[irq_src].map_pin = data;
+        add_reverse_map(gic, irq_src, gic->irq_state[irq_src].map_vp,
+                        gic->irq_state[irq_src].map_pin);
+//        update_reverse_map(gic, irq_src);
         break;
     case GIC_SH_MAP0_VP31_0_OFS ... GIC_SH_MAP255_VP63_32_OFS:
         irq_src = (addr - GIC_SH_MAP0_VP31_0_OFS) / 32;
-        gic->irq_state[irq_src].map_vp = (data) ? ctz64(data) : -1;
+        data = (data) ? ctz64(data) : -1;
+        if (data < gic->num_vps) {
+            remove_reverse_map(gic, irq_src, gic->irq_state[irq_src].map_vp,
+                               gic->irq_state[irq_src].map_pin);
+//            gic->irq_state[irq_src].map_vpe = (data)? ctz64(data) : -1;
+            gic->irq_state[irq_src].map_vp = data;
+            add_reverse_map(gic, irq_src, gic->irq_state[irq_src].map_vp,
+                            gic->irq_state[irq_src].map_pin);
+    //        update_reverse_map(gic, irq_src);
+        }
         break;
     case GIC_VPLOCAL_BASE_ADDR ... (GIC_VPLOCAL_BASE_ADDR + GIC_VL_BRK_GROUP):
         gic_write_vp(gic, vp_index, addr - GIC_VPLOCAL_BASE_ADDR, data, size);
@@ -414,7 +522,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 
 static void gic_reset(void *opaque)
 {
-    int i;
+    int i, j;
     MIPSGICState *gic = (MIPSGICState *) opaque;
     int numintrs = (gic->num_irq / 8) - 1;
 
@@ -432,6 +540,10 @@ static void gic_reset(void *opaque)
         gic->vps[i].compare_map = GIC_MAP_TO_PIN_MSK;
         gic->vps[i].comparelo   = 0x0;
         gic->vps[i].other_addr  = 0x0;
+
+        for (j = 0; j < 6; j++) {
+            gic->vps[i].irq_reverse_map[j].count = 0;
+        }
     }
 
     for (i = 0; i < gic->num_irq; i++) {

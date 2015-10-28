@@ -245,6 +245,10 @@ struct MIPSGICVPState {
     uint32_t comparelo;
     uint32_t other_addr;
 
+    struct {
+        int8_t count;
+        int8_t map[7];
+    } irq_reverse_map[6]; // assuming non-eic
     CPUMIPSState *env;
     MIPSGICTimerState *gic_timer;
 };
