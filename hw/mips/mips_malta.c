@@ -54,7 +54,8 @@
 #include "hw/empty_slot.h"
 #include "sysemu/kvm.h"
 #include "exec/semihost.h"
-#include "hw/mips/mips_gic.h"
+#include "hw/misc/mips_gcr.h"
+#include "hw/intc/mips_gic.h"
 
 //#define DEBUG_BOARD_INIT
 
@@ -93,6 +94,8 @@ typedef struct {
 typedef struct {
     SysBusDevice parent_obj;
 
+    MIPSGCRState gcr;
+    MIPSGICState gic;
     qemu_irq *i8259;
 } MaltaState;
 
@@ -565,6 +568,52 @@ static MaltaFPGAState *malta_fpga_init(MemoryRegion *address_space,
     qemu_register_reset(malta_fpga_reset, s);
 
     return s;
+}
+
+static void gcr_init(MaltaState *s, target_ulong base, Error **err)
+{
+    SysBusDevice *gcrbusdev;
+    DeviceState *gcrdev;
+
+    object_initialize(&s->gcr, sizeof(s->gcr), TYPE_MIPS_GCR);
+    qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
+
+    gcrdev = DEVICE(&s->gcr);
+
+    object_property_set_int(OBJECT(&s->gcr), smp_cpus, "num-vp", err);
+    object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", err);
+    object_property_set_int(OBJECT(&s->gcr), base, "gcr-base", err);
+    object_property_set_int(OBJECT(&s->gcr), GIC_BASE_ADDR, "gic-base", err);
+    object_property_set_bool(OBJECT(&s->gcr), true, "realized", err);
+    if (*err != NULL) {
+        return;
+    }
+
+    gcrbusdev = SYS_BUS_DEVICE(gcrdev);
+    sysbus_mmio_map(gcrbusdev, 0, base);
+}
+
+static void gic_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *gicbusdev;
+    DeviceState *gicdev;
+    hwaddr gicbase;
+
+    object_initialize(&s->gic, sizeof(s->gic), TYPE_MIPS_GIC);
+    qdev_set_parent_bus(DEVICE(&s->gic), sysbus_get_default());
+
+    gicdev = DEVICE(&s->gic);
+    gicbase = object_property_get_int(OBJECT(&s->gcr), "gic-base", err);
+
+    object_property_set_int(OBJECT(&s->gic), smp_cpus, "num-vp", err);
+    object_property_set_int(OBJECT(&s->gic), 128, "num-irq", err);
+    object_property_set_bool(OBJECT(&s->gic), true, "realized", err);
+    if (*err != NULL) {
+        return;
+    }
+
+    gicbusdev = SYS_BUS_DEVICE(gicdev);
+    sysbus_mmio_map(gicbusdev, 0, gicbase);
 }
 
 /* Network support */
@@ -1149,8 +1198,17 @@ void mips_malta_init(MachineState *machine)
 
     /* GCR/GIC */
     if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
-        gcr_init(smp_cpus, first_cpu, system_memory,
-                 (qemu_irq **)&env->gic_irqs);
+        Error *err = NULL;
+        gcr_init(s, env->CP0_CMGCRBase << 4, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
+        }
+        gic_init(s, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
+        }
     }
 
     /*
@@ -1172,8 +1230,8 @@ void mips_malta_init(MachineState *machine)
 
     /* Interrupt controller */
     /* The 8259 is attached to the MIPS CPU INT0 pin, ie interrupt 2 */
-    if (env->gic_irqs) {
-        s->i8259 = i8259_init(isa_bus, env->gic_irqs[3]);
+    if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
+        s->i8259 = i8259_init(isa_bus, s->gic.irq_state[3].irq);
     } else {
         s->i8259 = i8259_init(isa_bus, env->irq[2]);
     }

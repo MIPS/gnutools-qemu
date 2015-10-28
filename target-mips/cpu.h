@@ -633,7 +633,6 @@ struct CPUMIPSState {
 
     const mips_def_t *cpu_model;
     void *irq[8];
-    void **gic_irqs;
     QEMUTimer *timer; /* Internal timer */
 };
 

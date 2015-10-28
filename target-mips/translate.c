@@ -5631,7 +5631,8 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
-            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_CMGCRBase));
+            tcg_gen_ext32s_tl(arg, arg);
             rn = "CMGCRBase";
             break;
         default:
@@ -6969,7 +6970,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
-            gen_helper_mfc0_gcrbase(arg, cpu_env);
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_CMGCRBase));
             rn = "CMGCRBase";
             break;
         default:
@@ -20451,7 +20452,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.mrp = (env->CP0_Config5 >> CP0C5_MRP) & 1;
     ctx.pw = (env->CP0_Config3 >> CP0C3_PW) & 1;
     ctx.vp = (env->CP0_Config5 >> CP0C5_VP) & 1;
-    ctx.cmgcr = env->CP0_Config3 & (1 << CP0C3_CMGCR);
+    ctx.cmgcr = (env->CP0_Config3 >> CP0C3_CMGCR) & 1;
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
