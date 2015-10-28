@@ -48,10 +48,11 @@ typedef struct MIPSGCRState MIPSGCRState;
 struct MIPSGCRState {
     SysBusDevice parent_obj;
 
-    target_ulong gcr_gic_base;
     int32_t gcr_rev;
     int32_t num_vps;
-    MemoryRegion gcr_mem;
+    hwaddr gcr_base;
+    hwaddr gic_base;
+    MemoryRegion iomem;
 } ;
 
 #endif /* _MIPS_GCR_H */

@@ -26,11 +26,11 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
         /* Set PCORES to 0 */
         return 0;
     case GCR_BASE_OFS:
-        return GCR_BASE_ADDR;
+        return gcr->gcr_base;
     case GCR_REV_OFS:
         return gcr->gcr_rev;
     case GCR_GIC_BASE_OFS:
-        return gcr->gcr_gic_base;
+        return gcr->gic_base;
     case GCR_GIC_STATUS_OFS:
         return GCR_GIC_STATUS_GICEX_MSK;
     case GCR_CPC_STATUS_OFS:
@@ -78,14 +78,16 @@ static void mips_gcr_init(Object *obj)
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     MIPSGCRState *s = MIPS_GCR(obj);
 
-    memory_region_init_io(&s->gcr_mem, OBJECT(s), &gcr_ops, s,
+    memory_region_init_io(&s->iomem, OBJECT(s), &gcr_ops, s,
                           "mips-gcr", GCR_ADDRSPACE_SZ);
-    sysbus_init_mmio(sbd, &s->gcr_mem);
+    sysbus_init_mmio(sbd, &s->iomem);
 }
 
 static Property mips_gcr_properties[] = {
     DEFINE_PROP_INT32("num-vp", MIPSGCRState, num_vps, 1),
     DEFINE_PROP_INT32("gcr-rev", MIPSGCRState, gcr_rev, 0x800),
+    DEFINE_PROP_UINT64("gcr-base", MIPSGCRState, gcr_base, GCR_BASE_ADDR),
+    DEFINE_PROP_UINT64("gic-base", MIPSGCRState, gic_base, GIC_BASE_ADDR),
     DEFINE_PROP_END_OF_LIST(),
 };
 
