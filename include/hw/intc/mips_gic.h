@@ -163,8 +163,8 @@
 #define GIC_SH_CONFIG_NUMVPES_SHF       0
 #define GIC_SH_CONFIG_NUMVPES_MSK       (MSK(8) << GIC_SH_CONFIG_NUMVPES_SHF)
 
-#define GIC_SH_WEDGE_SET(intr)          ((intr) | (0x1 << 31))
-#define GIC_SH_WEDGE_CLR(intr)          ((intr) & ~(0x1 << 31))
+#define GIC_SH_WEDGE_RW_SHF             31
+#define GIC_SH_WEDGE_RW_MSK             (MSK(1) << GIC_SH_WEDGE_RW_SHF)
 
 #define GIC_MAP_TO_PIN_SHF              31
 #define GIC_MAP_TO_PIN_MSK              (MSK(1) << GIC_MAP_TO_PIN_SHF)

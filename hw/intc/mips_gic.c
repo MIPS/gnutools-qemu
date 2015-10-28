@@ -26,6 +26,8 @@
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
+static void gic_set_irq(void *opaque, int n_IRQ, int level);
+
 static inline int gic_get_current_cpu(MIPSGICState *g)
 {
     if (g->num_cpu > 1) {
@@ -457,10 +459,12 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         /* Figure out which VPE/HW Interrupt this maps to */
         intr = data & 0x7FFFFFFF;
         /* Mask/Enabled Checks */
-        if (data & 0x80000000) {
-            qemu_set_irq(gic->irqs[intr], 1);
-        } else {
-            qemu_set_irq(gic->irqs[intr], 0);
+        if (intr < gic->num_irq) {
+            if (data & GIC_SH_WEDGE_RW_MSK) {
+                gic_set_irq(gic, intr, 1);
+            } else {
+                gic_set_irq(gic, intr, 0);
+            }
         }
         break;
     case GIC_SH_SMASK_31_0_OFS:
