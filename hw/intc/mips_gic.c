@@ -26,8 +26,6 @@
 
 #define TIMER_PERIOD 10 /* 10 ns period for 100 Mhz frequency */
 
-static void gic_set_irq(void *opaque, int n_IRQ, int level);
-
 static inline int gic_get_current_cpu(MIPSGICState *g)
 {
     if (g->num_cpu > 1) {
@@ -43,10 +41,10 @@ static void gic_set_vp_irq(MIPSGICState *gic, int vpe, int pin, int level)
     /* ORing pending registers sharing same pin */
     if (!ored_level) {
         for (i = 0; i < gic->num_irq; i++) {
-            if ((gic->gic_irqs[i].map_pin & GIC_MAP_MSK) == pin &&
-                    gic->gic_irqs[i].map_vpe == vpe &&
-                    gic->gic_irqs[i].enabled) {
-                ored_level |= gic->gic_irqs[i].pending;
+            if ((gic->irq_state[i].map_pin & GIC_MAP_MSK) == pin &&
+                    gic->irq_state[i].map_vpe == vpe &&
+                    gic->irq_state[i].enabled) {
+                ored_level |= gic->irq_state[i].pending;
             }
             if (ored_level) {
                 /* no need to iterate all interrupts */
@@ -67,6 +65,26 @@ static void gic_set_vp_irq(MIPSGICState *gic, int vpe, int pin, int level)
     }
 #endif
     qemu_set_irq(gic->vps[vpe].env->irq[pin + GIC_CPU_PIN_OFFSET], ored_level);
+}
+
+static void gic_set_irq(void *opaque, int n_IRQ, int level)
+{
+    MIPSGICState *gic = (MIPSGICState *) opaque;
+    int vp = gic->irq_state[n_IRQ].map_vpe;
+    int pin = gic->irq_state[n_IRQ].map_pin & GIC_MAP_MSK;
+
+    gic->irq_state[n_IRQ].pending = (level != 0);
+
+    if (!gic->irq_state[n_IRQ].enabled) {
+        /* GIC interrupt source disabled */
+        return;
+    }
+
+    if (vp < 0 || vp >= gic->num_cpu) {
+        return;
+    }
+
+    gic_set_vp_irq(gic, vp, pin, level);
 }
 
 /* GIC VPE Local Timer */
@@ -255,7 +273,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_POL_255_224_OFS:
         base = (addr - GIC_SH_POL_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->gic_irqs[i].polarity & 1) << i;
+            ret |= (gic->irq_state[i].polarity & 1) << i;
         }
         return ret;
     case GIC_SH_TRIG_31_0_OFS:
@@ -268,7 +286,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_TRIG_255_224_OFS:
         base = (addr - GIC_SH_TRIG_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->gic_irqs[i].trigger_type & 1) << i;
+            ret |= (gic->irq_state[i].trigger_type & 1) << i;
         }
         return ret;
     case GIC_SH_PEND_31_0_OFS:
@@ -281,7 +299,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_PEND_255_224_OFS:
         base = (addr - GIC_SH_PEND_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->gic_irqs[i].pending & 1) << i;
+            ret |= (gic->irq_state[i].pending & 1) << i;
         }
         return ret;
     case GIC_SH_MASK_31_0_OFS:
@@ -294,7 +312,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_MASK_255_224_OFS:
         base = (addr - GIC_SH_MASK_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->gic_irqs[i].enabled & 1) << i;
+            ret |= (gic->irq_state[i].enabled & 1) << i;
         }
         return ret;
     default:
@@ -309,14 +327,14 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     /* Global Interrupt Map SrcX to Pin register */
     if (addr >= GIC_SH_MAP0_PIN_OFS && addr <= GIC_SH_MAP255_PIN_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_PIN_OFS) / 4;
-        ret = gic->gic_irqs[irq_src].map_pin;
+        ret = gic->irq_state[irq_src].map_pin;
         return ret;
     }
 
     /* Global Interrupt Map SrcX to VPE register */
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
-        ret = 1 << (gic->gic_irqs[irq_src].map_vpe);
+        ret = 1 << (gic->irq_state[irq_src].map_vpe);
         return ret;
     }
 
@@ -426,7 +444,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_POL_255_224_OFS:
         base = (addr - GIC_SH_POL_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            gic->gic_irqs[base + i].polarity = (data >> i) & 1;
+            gic->irq_state[base + i].polarity = (data >> i) & 1;
         }
         break;
     case GIC_SH_TRIG_31_0_OFS:
@@ -439,7 +457,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_TRIG_255_224_OFS:
         base = (addr - GIC_SH_TRIG_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            gic->gic_irqs[base + i].trigger_type = (data >> i) & 1;
+            gic->irq_state[base + i].trigger_type = (data >> i) & 1;
         }
         break;
     case GIC_SH_RMASK_31_0_OFS:
@@ -452,7 +470,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_RMASK_255_224_OFS:
         base = (addr - GIC_SH_RMASK_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            gic->gic_irqs[base + i].enabled &= !((data >> i) & 1);
+            gic->irq_state[base + i].enabled &= !((data >> i) & 1);
         }
         break;
     case GIC_SH_WEDGE_OFS:
@@ -477,7 +495,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     case GIC_SH_SMASK_255_224_OFS:
         base = (addr - GIC_SH_SMASK_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            gic->gic_irqs[base + i].enabled |= (data >> i) & 1;
+            gic->irq_state[base + i].enabled |= (data >> i) & 1;
         }
         break;
 
@@ -494,11 +512,11 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     /* Other cases */
     if (addr >= GIC_SH_MAP0_PIN_OFS && addr <= GIC_SH_MAP255_PIN_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_PIN_OFS) / 4;
-        gic->gic_irqs[irq_src].map_pin = data;
+        gic->irq_state[irq_src].map_pin = data;
     }
     if (addr >= GIC_SH_MAP0_VPE31_0_OFS && addr <= GIC_SH_MAP255_VPE63_32_OFS) {
         int irq_src = (addr - GIC_SH_MAP0_VPE31_0_OFS) / 32;
-        gic->gic_irqs[irq_src].map_vpe = (data) ? ctz64(data) : 0;
+        gic->irq_state[irq_src].map_vpe = (data) ? ctz64(data) : 0;
     }
 
     /* VPE-Local Register */
@@ -513,25 +531,6 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         gic_write_vpe(gic, other_index, addr - GIC_VPEOTHER_BASE_ADDR,
                       data, size);
     }
-}
-
-static void gic_set_irq(void *opaque, int n_IRQ, int level)
-{
-    int vpe = -1, pin = -1;
-    MIPSGICState *gic = (MIPSGICState *) opaque;
-
-
-    gic->gic_irqs[n_IRQ].pending = (bool) level;
-
-    /* Mapping: assume MAP_TO_PIN */
-    pin = gic->gic_irqs[n_IRQ].map_pin & GIC_MAP_MSK;
-    vpe = gic->gic_irqs[n_IRQ].map_vpe;
-
-    if (vpe < 0 || vpe >= gic->num_cpu) {
-        return;
-    }
-
-    gic_set_vp_irq(gic, vpe, pin, level);
 }
 
 static void gic_reset(void *opaque)
@@ -555,13 +554,13 @@ static void gic_reset(void *opaque)
     }
 
     for (i = 0; i < gic->num_irq; i++) {
-        gic->gic_irqs[i].enabled        = false;
-        gic->gic_irqs[i].pending        = false;
-        gic->gic_irqs[i].polarity       = false;
-        gic->gic_irqs[i].trigger_type   = false;
-        gic->gic_irqs[i].dual_edge      = false;
-        gic->gic_irqs[i].map_pin        = GIC_MAP_TO_PIN_MSK;
-        gic->gic_irqs[i].map_vpe        = 0;
+        gic->irq_state[i].enabled        = false;
+        gic->irq_state[i].pending        = false;
+        gic->irq_state[i].polarity       = false;
+        gic->irq_state[i].trigger_type   = false;
+        gic->irq_state[i].dual_edge      = false;
+        gic->irq_state[i].map_pin        = GIC_MAP_TO_PIN_MSK;
+        gic->irq_state[i].map_vpe        = 0;
     }
 }
 
@@ -588,7 +587,6 @@ static void mips_gic_init(Object *obj)
 static void mips_gic_realize(DeviceState *dev, Error **errp)
 {
     MIPSGICState *s = MIPS_GIC(dev);
-    qemu_irq *irqs = g_new(qemu_irq, s->num_irq);
     CPUState *cs = first_cpu;
     int i;
 
@@ -602,7 +600,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
     }
 
     s->vps = g_new(MIPSGICVPState, s->num_cpu);
-    s->gic_irqs = g_new(MIPSGICIRQState, s->num_irq);
+    s->irq_state = g_new(MIPSGICIRQState, s->num_irq);
 
     /* Register the CPU env for all cpus with the GIC */
     for (i = 0; i < s->num_cpu; i++) {
@@ -620,11 +618,8 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
 
     qdev_init_gpio_in(dev, gic_set_irq, s->num_irq);
     for (i = 0; i < s->num_irq; i++) {
-        irqs[i] = qdev_get_gpio_in(dev, i);
-
-        s->gic_irqs[i].irq = (qemu_irq *) irqs[i];
+        s->irq_state[i].irq = qdev_get_gpio_in(dev, i);
     }
-    s->irqs = irqs;
 }
 
 static Property mips_gic_properties[] = {

@@ -253,7 +253,7 @@ struct MIPSGICIRQState {
     bool dual_edge;
     uint32_t map_pin;
     uint64_t map_vpe;
-    qemu_irq *irq;
+    qemu_irq irq;
 };
 
 struct MIPSGICVPState {
@@ -281,7 +281,7 @@ struct MIPSGICState {
     uint32_t gic_sh_config;
     uint32_t gic_sh_counterlo;
 
-    MIPSGICIRQState *gic_irqs;
+    MIPSGICIRQState *irq_state;
 
     /* VPE Local Section Registers */
     /* VPE Other Section Registers, aliased to local,
