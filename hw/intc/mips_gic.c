@@ -289,6 +289,10 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
         ret = gic_read_vp(gic, other_index, addr - GIC_VPOTHER_BASE_ADDR,
                            size);
         break;
+    /* User-Mode Visible section */
+    case GIC_USERMODE_BASE_ADDR + GIC_USER_MODE_COUNTERLO:
+        ret = gic_get_sh_count(gic);
+        break;
     default:
         qemu_log_mask(LOG_UNIMP, "Read %d bytes at GIC offset 0x%" PRIx64 "\n",
                       size, addr);
@@ -396,6 +400,10 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         other_index = gic->vps[vp_index].other_addr;
         gic_write_vp(gic, other_index, addr - GIC_VPOTHER_BASE_ADDR,
                       data, size);
+        break;
+    case GIC_USERMODE_BASE_ADDR + GIC_USER_MODE_COUNTERLO:
+    case GIC_USERMODE_BASE_ADDR + GIC_USER_MODE_COUNTERHI:
+        /* do nothing. Read-only section */
         break;
     default:
         qemu_log_mask(LOG_UNIMP, "Write %d bytes at GIC offset 0x%" PRIx64
