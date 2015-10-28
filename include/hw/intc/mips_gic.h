@@ -275,7 +275,6 @@ struct MIPSGICState {
     SysBusDevice parent_obj;
 
     MemoryRegion gic_mem;
-    qemu_irq *irqs;
 
     /* Shared Section Registers */
     uint32_t gic_sh_config;
