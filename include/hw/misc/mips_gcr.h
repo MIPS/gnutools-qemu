@@ -50,7 +50,7 @@ struct MIPSGCRState {
 
     target_ulong gcr_gic_base;
     int32_t gcr_rev;
-    int32_t num_cpu;
+    int32_t num_vps;
     MemoryRegion gcr_mem;
 } ;
 

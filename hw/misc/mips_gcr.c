@@ -38,22 +38,19 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCR_L2_CONFIG_OFS:
         /* L2 BYPASS */
         return GCR_L2_CONFIG_BYPASS_MSK;
-
         /* Core-Local and Core-Other Control Blocks */
     case MIPS_CLCB_OFS + GCR_CL_CONFIG_OFS:
     case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
         /* Set PVP to # cores - 1 */
-        return smp_cpus - 1;
+        return gcr->num_vps - 1;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
         return 0;
-
     default:
-        qemu_log_mask(LOG_UNIMP,
-                "Warning *** unimplemented GCR read at offset 0x%" PRIx64 "\n",
-                addr);
+        qemu_log_mask(LOG_UNIMP, "Read %d bytes at GCR offset 0x%" PRIx64 "\n",
+                      size, addr);
         return 0;
     }
-    return 0ULL;
+    return 0;
 }
 
 /* Write GCR registers */
@@ -61,9 +58,8 @@ static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
     switch (addr) {
     default:
-        qemu_log_mask(LOG_UNIMP,
-                "Warning *** unimplemented GCR write at offset 0x%" PRIx64 "\n",
-                addr);
+        qemu_log_mask(LOG_UNIMP, "Write %d bytes at GCR offset 0x%" PRIx64
+                      " 0x%08lx\n", size, addr, data);
         break;
     }
 }
@@ -88,7 +84,7 @@ static void mips_gcr_init(Object *obj)
 }
 
 static Property mips_gcr_properties[] = {
-    DEFINE_PROP_INT32("num-cpu", MIPSGCRState, num_cpu, 1),
+    DEFINE_PROP_INT32("num-vp", MIPSGCRState, num_vps, 1),
     DEFINE_PROP_INT32("gcr-rev", MIPSGCRState, gcr_rev, 0x800),
     DEFINE_PROP_END_OF_LIST(),
 };
