@@ -145,6 +145,7 @@ void task_settid(TaskState *);
 void stop_all_tasks(void);
 void resume_all_tasks(void);
 extern const char *qemu_uname_release;
+extern const char *qemu_execve_path;
 extern unsigned long mmap_min_addr;
 
 /* ??? See if we can avoid exposing so much of the loader internals.  */
