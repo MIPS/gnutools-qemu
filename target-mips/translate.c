@@ -11093,6 +11093,27 @@ enum {
   M16_OPC_I64 = 0x1f
 };
 
+enum {
+  M16_SUBOPC_ADDIUSP = 0x0,
+  M16_SUBOPC_ADDIUGP = 0x1
+};
+
+enum {
+  M16_SUBOPC_SWSP = 0x0,
+  M16_SUBOPC_SWGP = 0x1,
+  M16_SUBOPC_SHGP = 0x2,
+  M16_SUBOPC_SBGP = 0x3
+};
+  
+enum {
+  M16_SUBOPC_LWSP = 0x0,
+  M16_SUBOPC_LWGP = 0x1,
+  M16_SUBOPC_LHGP = 0x2,
+  M16_SUBOPC_LBGP = 0x3,
+  M16_SUBOPC_LHUGP = 0x4,
+  M16_SUBOPC_LBUGP = 0x5
+};
+  
 /* I8 funct field */
 enum {
   I8_BTEQZ = 0x0,
@@ -11525,11 +11546,12 @@ static void decode_i64_mips16 (DisasContext *ctx,
 static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     int extend = cpu_lduw_code(env, ctx->pc + 2);
-    int op, rx, ry, funct, sa;
+    int op, subop, rx, ry, funct, sa;
     int16_t imm, offset;
 
     ctx->opcode = (ctx->opcode << 16) | extend;
     op = (ctx->opcode >> 11) & 0x1f;
+    subop = (ctx->opcode >> 5) & 0x7;
     sa = (ctx->opcode >> 22) & 0x1f;
     funct = (ctx->opcode >> 8) & 0x7;
     rx = xlat((ctx->opcode >> 8) & 0x7);
@@ -11542,7 +11564,17 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
        counterparts.  */
     switch (op) {
     case M16_OPC_ADDIUSP:
-        gen_arith_imm(ctx, OPC_ADDIU, rx, 29, imm);
+	switch (subop) {
+	case M16_SUBOPC_ADDIUSP:
+	    gen_arith_imm(ctx, OPC_ADDIU, rx, 29, imm);
+	    break;
+	case M16_SUBOPC_ADDIUGP:
+	    gen_arith_imm(ctx, OPC_ADDIU, rx, 28, imm);
+	    break;
+	default:
+	    generate_exception(ctx, EXCP_RI);
+	    break;
+	}
         break;
     case M16_OPC_ADDIUPC:
         gen_addiupc(ctx, rx, imm, 0, 1);
@@ -11673,7 +11705,30 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_ld(ctx, OPC_LH, ry, rx, offset);
         break;
     case M16_OPC_LWSP:
-        gen_ld(ctx, OPC_LW, rx, 29, offset);
+	switch (subop) {
+	case M16_SUBOPC_LWSP:
+	    gen_ld(ctx, OPC_LW, rx, 29, offset);
+	    break;
+	case M16_SUBOPC_LWGP:
+	    gen_ld(ctx, OPC_LW, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_LHGP:
+	    gen_ld(ctx, OPC_LH, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_LBGP:
+	    gen_ld(ctx, OPC_LB, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_LHUGP:
+	    gen_ld(ctx, OPC_LHU, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_LBUGP:
+	    gen_ld(ctx, OPC_LBU, rx, 28, offset);
+	    break;
+	default:
+            generate_exception(ctx, EXCP_RI);
+	    break;
+	}
+        break;
         break;
     case M16_OPC_LW:
         gen_ld(ctx, OPC_LW, ry, rx, offset);
@@ -11701,7 +11756,23 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_st(ctx, OPC_SH, ry, rx, offset);
         break;
     case M16_OPC_SWSP:
-        gen_st(ctx, OPC_SW, rx, 29, offset);
+	switch (subop) {
+	case M16_SUBOPC_SWSP:
+	    gen_st(ctx, OPC_SW, rx, 29, offset);
+	    break;
+	case M16_SUBOPC_SWGP:
+	    gen_st(ctx, OPC_SW, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_SHGP:
+	    gen_st(ctx, OPC_SH, rx, 28, offset);
+	    break;
+	case M16_SUBOPC_SBGP:
+	    gen_st(ctx, OPC_SB, rx, 28, offset);
+	    break;
+	default:
+            generate_exception(ctx, EXCP_RI);
+	    break;
+	}
         break;
     case M16_OPC_SW:
         gen_st(ctx, OPC_SW, ry, rx, offset);
