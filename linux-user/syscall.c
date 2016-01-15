@@ -9958,9 +9958,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+            ret = -host_to_target_errno(ENOENT);
 	else
-          ret = get_errno(stat(path(p), &st));
+            ret = get_errno(stat(path(p), &st));
         unlock_user(p, arg1, 0);
         goto do_stat;
 #endif
@@ -9969,9 +9969,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+            ret = -host_to_target_errno(ENOENT);
 	else
-          ret = get_errno(lstat(path(p), &st));
+            ret = get_errno(lstat(path(p), &st));
         unlock_user(p, arg1, 0);
         goto do_stat;
 #endif
@@ -11175,9 +11175,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+            ret = -host_to_target_errno(ENOENT);
 	else
-          ret = get_errno(stat(path(p), &st));
+            ret = get_errno(stat(path(p), &st));
         unlock_user(p, arg1, 0);
         if (!is_error(ret))
             ret = host_to_target_stat64(cpu_env, arg2, &st);
@@ -11188,9 +11188,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+            ret = -host_to_target_errno(ENOENT);
 	else
-          ret = get_errno(lstat(path(p), &st));
+            ret = get_errno(lstat(path(p), &st));
         unlock_user(p, arg1, 0);
         if (!is_error(ret))
             ret = host_to_target_stat64(cpu_env, arg2, &st);
