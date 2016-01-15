@@ -5510,6 +5510,9 @@ static int do_openat(void *cpu_env, int dirfd, const char *pathname, int flags, 
         { NULL, NULL, NULL }
     };
 
+    if (strcmp(pathname, "/etc/ld.so.cache") == 0)
+      return -host_to_target_errno(ENOENT);
+
     if (is_proc_myself(pathname, "exe")) {
         int execfd = qemu_getauxval(AT_EXECFD);
         return execfd ? execfd : get_errno(sys_openat(dirfd, exec_path, flags, mode));
@@ -7276,7 +7279,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+          ret = -host_to_target_errno(ENOENT);
 	else
           ret = get_errno(stat(path(p), &st));
         unlock_user(p, arg1, 0);
@@ -7285,7 +7288,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+          ret = -host_to_target_errno(ENOENT);
 	else
           ret = get_errno(lstat(path(p), &st));
         unlock_user(p, arg1, 0);
@@ -8337,7 +8340,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+          ret = -host_to_target_errno(ENOENT);
 	else
           ret = get_errno(stat(path(p), &st));
         unlock_user(p, arg1, 0);
@@ -8350,7 +8353,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         if (!(p = lock_user_string(arg1)))
             goto efault;
 	if (strcmp("/etc/ld.so.cache", path(p)) == 0)
-	  ret = ENOENT;
+          ret = -host_to_target_errno(ENOENT);
 	else
           ret = get_errno(lstat(path(p), &st));
         unlock_user(p, arg1, 0);
