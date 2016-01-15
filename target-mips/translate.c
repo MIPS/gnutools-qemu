@@ -11133,6 +11133,12 @@ enum {
   RRR_SUBU = 0x3
 };
 
+/* MIPS16 extended RRR */
+enum {
+  RRR_COPYW = 0x0,
+  RRR_UCOPYW = 0x1
+};
+
 /* RR funct field */
 enum {
   RR_JR = 0x00,
@@ -11548,6 +11554,7 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     int extend = cpu_lduw_code(env, ctx->pc + 2);
     int op, subop, rx, ry, funct, sa;
     int16_t imm, offset;
+    int i;
 
     ctx->opcode = (ctx->opcode << 16) | extend;
     op = (ctx->opcode >> 11) & 0x1f;
@@ -11777,6 +11784,45 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     case M16_OPC_SW:
         gen_st(ctx, OPC_SW, ry, rx, offset);
         break;
+    case M16_OPC_RRR:
+	{
+	    offset = ((ctx->opcode >> 16) & 0x1f) << 4;
+	    imm = ctx->opcode & 0x3;
+	    switch (((ctx->opcode >> 21) & 0x1)) {
+	    case RRR_COPYW:
+		for (i = 0; i < imm + 1; i++) {
+		    gen_ld(ctx, OPC_LW, 12 + i, ry, offset + 4 * i);
+		}
+		for (i = 0; i < imm + 1; i++) {
+		    gen_st(ctx, OPC_SW, 12 + i, rx, offset + 4 * i);
+		}
+		break;
+	    case RRR_UCOPYW:
+		for (i = 0; i < imm + 1; i++) {
+#ifdef TARGET_WORDS_BIGENDIAN
+		    gen_ld(ctx, OPC_LWL, 12 + i, ry, offset + 4 * i);
+		    gen_ld(ctx, OPC_LWR, 12 + i, ry, offset + 4 * i + 3);
+#else
+		    gen_ld(ctx, OPC_LWR, 12 + i, ry, offset + 4 * i);
+		    gen_ld(ctx, OPC_LWL, 12 + i, ry, offset + 4 * i + 3);
+#endif
+		}
+		for (i = 0; i < imm + 1; i++) {
+#ifdef TARGET_WORDS_BIGENDIAN
+		    gen_st(ctx, OPC_SWL, 12 + i, rx, offset + 4 * i);
+		    gen_st(ctx, OPC_SWR, 12 + i, rx, offset + 4 * i + 3);
+#else
+		    gen_st(ctx, OPC_SWR, 12 + i, rx, offset + 4 * i);
+		    gen_st(ctx, OPC_SWL, 12 + i, rx, offset + 4 * i + 3);
+#endif
+		}
+		break;
+	    default:
+		generate_exception(ctx, EXCP_RI);
+		break;
+	    }
+	}
+	break;
 #if defined(TARGET_MIPS64)
     case M16_OPC_I64:
         decode_i64_mips16(ctx, ry, funct, offset, 1);
