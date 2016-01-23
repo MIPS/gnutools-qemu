@@ -116,6 +116,20 @@ static const MemoryRegionOps itc_storage_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
+static void itc_reset_cells(MIPSITUState *s)
+{
+    int i;
+    int num_cell = get_num_cells(s);
+
+    memset(s->cell, 0, num_cell * sizeof(s->cell[0]));
+
+    for (i = 0; i < s->num_fifo; i++) {
+        s->cell[i].tag.E = 1;
+        s->cell[i].tag.FIFO = 1;
+        s->cell[i].tag.FIFODepth = ITC_CELL_DEPTH_SHIFT;
+    }
+}
+
 static void mips_itu_init(Object *obj)
 {
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
@@ -150,6 +164,9 @@ static void mips_itu_realize(DeviceState *dev, Error **errp)
     s->ITCAddressMap[1] =
         ((ITC_STORAGE_ADDRSPACE_SZ - 1) & ITC_AM1_ADDR_MASK_MASK) |
         (get_num_cells(s) << ITC_AM1_NUMENTRIES_OFS);
+
+    s->cell = g_new(ITCStorageCell, get_num_cells(s));
+    itc_reset_cells(s);
 
     memory_region_set_enabled(&s->storage_io, false);
 }

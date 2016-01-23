@@ -23,6 +23,30 @@
 #define TYPE_MIPS_ITU "mips-itu"
 #define MIPS_ITU(obj) OBJECT_CHECK(MIPSITUState, (obj), TYPE_MIPS_ITU)
 
+#define ITC_CELL_DEPTH_SHIFT 2
+#define ITC_CELL_DEPTH (1u << ITC_CELL_DEPTH_SHIFT)
+
+typedef struct ITCStorageCell {
+    struct {
+        uint8_t FIFODepth; /* Log2 of the cell depth */
+        uint8_t FIFOPtr; /* Number of elements in a FIFO cell */
+        uint8_t FIFO; /* 1 - FIFO cell, 0 - Semaphore cell */
+        uint8_t T; /* Trap Bit */
+        uint8_t F; /* Full Bit */
+        uint8_t E; /* Empty Bit */
+    } tag;
+
+    /* Index of the oldest element in the queue */
+    uint8_t fifo_out;
+
+    /* Circular buffer for FIFO. Semaphore cells use index 0 only */
+    uint64_t data[ITC_CELL_DEPTH];
+
+    /* Bitmap tracking blocked threads on the cell.
+       TODO: support >64 threads ? */
+    uint64_t blocked_threads;
+} ITCStorageCell;
+
 #define ITC_ADDRESSMAP_NUM 2
 
 typedef struct MIPSITUState {
@@ -34,6 +58,7 @@ typedef struct MIPSITUState {
     int32_t num_semaphores;
 
     /* ITC Storage */
+    ITCStorageCell *cell;
     MemoryRegion storage_io;
 
     /* ITC Configuration Tags */
