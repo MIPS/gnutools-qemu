@@ -56,6 +56,7 @@
 #include "exec/semihost.h"
 #include "hw/misc/mips_gcr.h"
 #include "hw/intc/mips_gic.h"
+#include "hw/misc/mips_itu.h"
 
 //#define DEBUG_BOARD_INIT
 
@@ -96,6 +97,7 @@ typedef struct {
 
     MIPSGCRState gcr;
     MIPSGICState gic;
+    MIPSITUState itu;
     qemu_irq *i8259;
 } MaltaState;
 
@@ -570,6 +572,25 @@ static MaltaFPGAState *malta_fpga_init(MemoryRegion *address_space,
     return s;
 }
 
+static void itu_init(MaltaState *s, Error **err)
+{
+    SysBusDevice *itubusdev;
+
+    object_initialize(&s->itu, sizeof(s->itu), TYPE_MIPS_ITU);
+    qdev_set_parent_bus(DEVICE(&s->itu), sysbus_get_default());
+
+    object_property_set_int(OBJECT(&s->itu), 16, "num-fifo", err);
+    object_property_set_int(OBJECT(&s->itu), 16, "num-semaphores", err);
+    object_property_set_bool(OBJECT(&s->itu), true, "realized", err);
+
+    if (*err != NULL) {
+        return;
+    }
+
+    itubusdev = SYS_BUS_DEVICE(&s->itu);
+    sysbus_mmio_map_overlap(itubusdev, 0, 0, 1);
+}
+
 static void gcr_init(MaltaState *s, target_ulong base, Error **err)
 {
     SysBusDevice *gcrbusdev;
@@ -931,6 +952,10 @@ static void malta_mips_config(MIPSCPU *cpu)
 
     env->mvp->CP0_MVPConf0 |= ((smp_cpus - 1) << CP0MVPC0_PVPE) |
                          ((smp_cpus * cs->nr_threads - 1) << CP0MVPC0_PTC);
+
+    if (env->itc_tag) {
+        env->mvp->CP0_MVPConf0 |= 1 << CP0MVPC0_GS;
+    }
 }
 
 static void main_cpu_reset(void *opaque)
@@ -953,6 +978,20 @@ static void main_cpu_reset(void *opaque)
         /* Start running from the bootloader we wrote to end of RAM */
         env->active_tc.PC = 0x40000000 + loaderparams.ram_low_size;
     }
+}
+
+static bool cpu_mips_itu_supported(CPUMIPSState *env)
+{
+    bool is_mt = ((env->CP0_Config5 & (1 << CP0C5_VP)) != 0) ||
+                 ((env->CP0_Config3 & (1 << CP0C3_MT)) != 0);
+
+    return is_mt && !kvm_enabled();
+
+}
+
+static void cpu_mips_attach_itc_tag(CPUMIPSState *env, MIPSITUState *itu)
+{
+    env->itc_tag = mips_itu_get_tag_region(itu);
 }
 
 static
@@ -989,6 +1028,7 @@ void mips_malta_init(MachineState *machine)
     int fl_idx = 0;
     int fl_sectors = bios_size >> 16;
     int be;
+    bool itu_present = false;
 
     DeviceState *dev = qdev_create(NULL, TYPE_MIPS_MALTA);
     MaltaState *s = MIPS_MALTA(dev);
@@ -1029,6 +1069,10 @@ void mips_malta_init(MachineState *machine)
         /* Init internal devices */
         cpu_mips_irq_init_cpu(env);
         cpu_mips_clock_init(env);
+        if (cpu_mips_itu_supported(env)) {
+            itu_present = true;
+            cpu_mips_attach_itc_tag(env, &s->itu);
+        }
         qemu_register_reset(main_cpu_reset, cpu);
     }
     cpu = MIPS_CPU(first_cpu);
@@ -1185,6 +1229,15 @@ void mips_malta_init(MachineState *machine)
     /* Init internal devices */
     cpu_mips_irq_init_cpu(env);
     cpu_mips_clock_init(env);
+
+    if (itu_present) {
+        Error *err = NULL;
+        itu_init(s, &err);
+        if (err != NULL) {
+            error_report("%s", error_get_pretty(err));
+            exit(1);
+        }
+    }
 
     /* GCR/GIC */
     if (env->CP0_Config3 & (1 << CP0C3_CMGCR)) {
