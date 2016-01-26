@@ -258,13 +258,13 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_PEND_31_0_OFS ... GIC_SH_PEND_255_224_OFS:
         base = (addr - GIC_SH_PEND_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->irq_state[base + i].pending & 1) << i;
+            ret |= (uint64_t)(gic->irq_state[base + i].pending & 1) << i;
         }
         break;
     case GIC_SH_MASK_31_0_OFS ... GIC_SH_MASK_255_224_OFS:
         base = (addr - GIC_SH_MASK_31_0_OFS) * 8;
         for (i = 0; i < size * 8; i++) {
-            ret |= (gic->irq_state[base + i].enabled & 1) << i;
+            ret |= (uint64_t)(gic->irq_state[base + i].enabled & 1) << i;
         }
         break;
     case GIC_SH_MAP0_PIN_OFS ... GIC_SH_MAP255_PIN_OFS:
@@ -274,7 +274,7 @@ static uint64_t gic_read(void *opaque, hwaddr addr, unsigned size)
     case GIC_SH_MAP0_VP31_0_OFS ... GIC_SH_MAP255_VP63_32_OFS:
         irq_src = (addr - GIC_SH_MAP0_VP31_0_OFS) / 32;
         if ((gic->irq_state[irq_src].map_vp) >= 0) {
-            ret = 1 << (gic->irq_state[irq_src].map_vp);
+            ret = 1ull << (gic->irq_state[irq_src].map_vp);
         } else {
             ret = 0;
         }
