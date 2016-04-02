@@ -2911,19 +2911,67 @@ void helper_msa_fmax_a_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     msa_move_v(pwd, pwx);
 }
 
+#define MSA_CLASS_SIGNALING_NAN      0x001
+#define MSA_CLASS_QUIET_NAN          0x002
+#define MSA_CLASS_NEGATIVE_INFINITY  0x004
+#define MSA_CLASS_NEGATIVE_NORMAL    0x008
+#define MSA_CLASS_NEGATIVE_SUBNORMAL 0x010
+#define MSA_CLASS_NEGATIVE_ZERO      0x020
+#define MSA_CLASS_POSITIVE_INFINITY  0x040
+#define MSA_CLASS_POSITIVE_NORMAL    0x080
+#define MSA_CLASS_POSITIVE_SUBNORMAL 0x100
+#define MSA_CLASS_POSITIVE_ZERO      0x200
+
+#define MSA_CLASS(name, bits)                                        \
+uint ## bits ## _t helper_msa_ ## name (CPUMIPSState *env,           \
+                                        uint ## bits ## _t arg)      \
+{                                                                    \
+    if (float ## bits ## _is_signaling_nan(arg,                      \
+                &env->active_tc.msa_fp_status)) {                    \
+        return MSA_CLASS_SIGNALING_NAN;                              \
+    } else if (float ## bits ## _is_quiet_nan(arg,                   \
+                    &env->active_tc.msa_fp_status)) {                \
+        return MSA_CLASS_QUIET_NAN;                                  \
+    } else if (float ## bits ## _is_neg(arg)) {                      \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return MSA_CLASS_NEGATIVE_INFINITY;                      \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return MSA_CLASS_NEGATIVE_ZERO;                          \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return MSA_CLASS_NEGATIVE_SUBNORMAL;                     \
+        } else {                                                     \
+            return MSA_CLASS_NEGATIVE_NORMAL;                        \
+        }                                                            \
+    } else {                                                         \
+        if (float ## bits ## _is_infinity(arg)) {                    \
+            return MSA_CLASS_POSITIVE_INFINITY;                      \
+        } else if (float ## bits ## _is_zero(arg)) {                 \
+            return MSA_CLASS_POSITIVE_ZERO;                          \
+        } else if (float ## bits ## _is_zero_or_denormal(arg)) {     \
+            return MSA_CLASS_POSITIVE_SUBNORMAL;                     \
+        } else {                                                     \
+            return MSA_CLASS_POSITIVE_NORMAL;                        \
+        }                                                            \
+    }                                                                \
+}
+
+MSA_CLASS(class_s, 32)
+MSA_CLASS(class_d, 64)
+#undef FLOAT_MSA_CLASS
+
 void helper_msa_fclass_df(CPUMIPSState *env, uint32_t df,
         uint32_t wd, uint32_t ws)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
     if (df == DF_WORD) {
-        pwd->w[0] = helper_float_class_s(env, pws->w[0]);
-        pwd->w[1] = helper_float_class_s(env, pws->w[1]);
-        pwd->w[2] = helper_float_class_s(env, pws->w[2]);
-        pwd->w[3] = helper_float_class_s(env, pws->w[3]);
+        pwd->w[0] = helper_msa_class_s(env, pws->w[0]);
+        pwd->w[1] = helper_msa_class_s(env, pws->w[1]);
+        pwd->w[2] = helper_msa_class_s(env, pws->w[2]);
+        pwd->w[3] = helper_msa_class_s(env, pws->w[3]);
     } else {
-        pwd->d[0] = helper_float_class_d(env, pws->d[0]);
-        pwd->d[1] = helper_float_class_d(env, pws->d[1]);
+        pwd->d[0] = helper_msa_class_d(env, pws->d[0]);
+        pwd->d[1] = helper_msa_class_d(env, pws->d[1]);
     }
 }
 
