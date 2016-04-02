@@ -2679,6 +2679,7 @@ static void x86_cpu_reset(CPUState *s)
         env->fptags[i] = 1;
     }
     cpu_set_fpuc(env, 0x37f);
+    set_snan_bit_is_one(0, &env->fp_status);
 
     env->mxcsr = 0x1f80;
     env->xstate_bv = XSTATE_FP | XSTATE_SSE;

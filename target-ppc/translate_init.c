@@ -572,6 +572,7 @@ static inline void vscr_init (CPUPPCState *env, uint32_t val)
     /* Altivec always uses round-to-nearest */
     set_float_rounding_mode(float_round_nearest_even, &env->vec_status);
     set_flush_to_zero(vscr_nj, &env->vec_status);
+    set_snan_bit_is_one(0, &env->vec_status);
 }
 
 #ifdef CONFIG_USER_ONLY
@@ -9618,6 +9619,7 @@ static void ppc_cpu_reset(CPUState *s)
         }
         env->spr[i] = spr->default_value;
     }
+    set_snan_bit_is_one(0, &env->fp_status);
 
     /* Flush all TLBs */
     tlb_flush(s, 1);

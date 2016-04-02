@@ -837,8 +837,10 @@ static void fpu_init (CPUMIPSState *env, const mips_def_t *def)
 {
     int i;
 
-    for (i = 0; i < MIPS_FPU_MAX; i++)
+    for (i = 0; i < MIPS_FPU_MAX; i++) {
         env->fpus[i].fcr0 = def->CP1_fcr0;
+        set_snan_bit_is_one(1, &env->fpus[i].fp_status);
+    }
 
     memcpy(&env->active_fpu, &env->fpus[0], sizeof(env->active_fpu));
 }
@@ -889,4 +891,6 @@ static void msa_reset(CPUMIPSState *env)
 
     /* clear float_status nan mode */
     set_default_nan_mode(0, &env->active_tc.msa_fp_status);
+
+    set_snan_bit_is_one(1, &env->active_tc.msa_fp_status);
 }

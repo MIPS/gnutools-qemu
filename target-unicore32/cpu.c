@@ -72,6 +72,7 @@ static void unicore_ii_cpu_initfn(Object *obj)
     env->cp0.c3_faultstatus = 0x0;
     env->cp0.c4_faultaddr = 0x0;
     env->ucf64.xregs[UC32_UCF64_FPSCR] = 0;
+    set_snan_bit_is_one(1, &env->ucf64.fp_status);
 
     set_feature(env, UC32_HWCAP_CMOV);
     set_feature(env, UC32_HWCAP_UCF64);
