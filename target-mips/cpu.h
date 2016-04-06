@@ -642,6 +642,7 @@ struct CPUMIPSState {
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
     MemoryRegion *itc_tag; /* ITC Configuration Tags */
+    target_ulong exception_base; /* ExceptionBase input to the core */
 };
 
 #include "cpu-qom.h"
