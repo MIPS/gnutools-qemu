@@ -35,7 +35,7 @@ static void cpc_run_vp(MIPSCPCState *cpc, uint64_t vp_run)
     CPU_FOREACH(cs) {
         uint64_t i = 1ULL << cs->cpu_index;
         if (i & vp_run & ~cpc->vp_running) {
-            cpu_interrupt(cs, CPU_INTERRUPT_WAKE);
+            cpu_reset(cs);
             cpc->vp_running |= i;
         }
     }
