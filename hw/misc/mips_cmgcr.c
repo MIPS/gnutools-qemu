@@ -58,6 +58,8 @@ static inline void update_gic_base(MIPSGCRState *gcr, uint64_t val)
 static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 {
     MIPSGCRState *gcr = (MIPSGCRState *) opaque;
+    MIPSGCRVPState *current_vps = &gcr->vps[current_cpu->cpu_index];
+    MIPSGCRVPState *other_vps = &gcr->vps[current_vps->other];
 
     switch (addr) {
     /* Global Control Block Register */
@@ -79,25 +81,41 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCR_L2_CONFIG_OFS:
         /* L2 BYPASS */
         return GCR_L2_CONFIG_BYPASS_MSK;
-        /* Core-Local and Core-Other Control Blocks */
+    /* Core-Local Registers */
     case MIPS_CLCB_OFS + GCR_CL_CONFIG_OFS:
-    case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
-        /* Set PVP to # of VPs - 1 */
         return gcr->num_vps - 1;
+    case MIPS_CLCB_OFS + GCR_CL_RESETBASE_OFS:
+        return current_vps->reset_base;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
-        return 0;
+        return current_vps->other;
+    /* Core-Other Registers */
+    case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
+        return gcr->num_vps - 1;
+    case MIPS_COCB_OFS + GCR_CL_RESETBASE_OFS:
+        return other_vps->reset_base;
+    case MIPS_COCB_OFS + GCR_CL_OTHER_OFS:
+        return other_vps->other;
     default:
         qemu_log_mask(LOG_UNIMP, "Read %d bytes at GCR offset 0x%" HWADDR_PRIx
                       "\n", size, addr);
         return 0;
     }
-    return 0;
+}
+
+static inline void update_cpu_exception_base(MIPSGCRVPState *vps, int vp_index)
+{
+    MIPSCPU *vp = MIPS_CPU(qemu_get_cpu(vp_index));
+    vp->env.exception_base = (int32_t)(vps->reset_base &
+                                       GCR_CL_RESET_BASE_RESETBASE_MSK);
+    /* TODO: support BEV_BASE and SELECT_BEV */
 }
 
 /* Write GCR registers */
 static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
     MIPSGCRState *gcr = (MIPSGCRState *)opaque;
+    MIPSGCRVPState *current_vps = &gcr->vps[current_cpu->cpu_index];
+    MIPSGCRVPState *other_vps = &gcr->vps[current_vps->other];
 
     switch (addr) {
     case GCR_GIC_BASE_OFS:
@@ -105,6 +123,26 @@ static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         break;
     case GCR_CPC_BASE_OFS:
         update_cpc_base(gcr, data);
+        break;
+    /* Core-Local Registers */
+    case MIPS_CLCB_OFS + GCR_CL_RESETBASE_OFS:
+        current_vps->reset_base = data & GCR_CL_RESET_BASE_MSK;
+        update_cpu_exception_base(current_vps, current_cpu->cpu_index);
+        break;
+    case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
+        if (gcr->num_vps > (data & GCR_CL_OTHER_MSK)) {
+            current_vps->other = data & GCR_CL_OTHER_MSK;
+        }
+        break;
+    /* Core-Other Registers */
+    case MIPS_COCB_OFS + GCR_CL_RESETBASE_OFS:
+        other_vps->reset_base = data & GCR_CL_RESET_BASE_MSK;
+        update_cpu_exception_base(other_vps, current_vps->other);
+        break;
+    case MIPS_COCB_OFS + GCR_CL_OTHER_OFS:
+        if (gcr->num_vps > (data & GCR_CL_OTHER_MSK)) {
+            other_vps->other = data & GCR_CL_OTHER_MSK;
+        }
         break;
     default:
         qemu_log_mask(LOG_UNIMP, "Write %d bytes at GCR offset 0x%" HWADDR_PRIx
@@ -147,9 +185,16 @@ static void mips_gcr_init(Object *obj)
 static void mips_gcr_reset(DeviceState *dev)
 {
     MIPSGCRState *s = MIPS_GCR(dev);
+    int i;
 
     update_gic_base(s, 0);
     update_cpc_base(s, 0);
+
+    for (i = 0; i < s->num_vps; i++) {
+        s->vps[i].other = 0;
+        s->vps[i].reset_base = 0xBFC00000 & GCR_CL_RESET_BASE_MSK;
+        update_cpu_exception_base(&s->vps[i], i);
+    }
 }
 
 static const VMStateDescription vmstate_mips_gcr = {
@@ -169,12 +214,21 @@ static Property mips_gcr_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
+static void mips_gcr_realize(DeviceState *dev, Error **errp)
+{
+    MIPSGCRState *s = MIPS_GCR(dev);
+
+    /* Create local set of registers for each VP */
+    s->vps = g_new(MIPSGCRVPState, s->num_vps);
+}
+
 static void mips_gcr_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
     dc->props = mips_gcr_properties;
     dc->vmsd = &vmstate_mips_gcr;
     dc->reset = mips_gcr_reset;
+    dc->realize = mips_gcr_realize;
 }
 
 static const TypeInfo mips_gcr_info = {
