@@ -20226,7 +20226,11 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_PageGrain = env->cpu_model->CP0_PageGrain;
     env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
     env->active_fpu.fcr31 = env->cpu_model->CP1_fcr31;
-    set_snan_bit_is_one(1, &env->active_fpu.fp_status);
+    if ((env->active_fpu.fcr31 >> FCR31_NAN2008) & 1) {
+        set_snan_bit_is_one(0, &env->active_fpu.fp_status);
+    } else {
+        set_snan_bit_is_one(1, &env->active_fpu.fp_status);
+    }
     env->msair = env->cpu_model->MSAIR;
     env->insn_flags = env->cpu_model->insn_flags;
 
