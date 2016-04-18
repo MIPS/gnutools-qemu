@@ -2742,32 +2742,6 @@ uint64_t helper_float_cvtd_l(CPUMIPSState *env, uint64_t dt0)
     return fdt2;
 }
 
-uint64_t helper_float_cvt_l_d(CPUMIPSState *env, uint64_t fdt0)
-{
-    uint64_t dt2;
-
-    dt2 = float64_to_int64(fdt0, &env->active_fpu.fp_status);
-    if (get_float_exception_flags(&env->active_fpu.fp_status)
-        & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
-    }
-    update_fcr31(env, GETPC());
-    return dt2;
-}
-
-uint64_t helper_float_cvt_l_s(CPUMIPSState *env, uint32_t fst0)
-{
-    uint64_t dt2;
-
-    dt2 = float32_to_int64(fst0, &env->active_fpu.fp_status);
-    if (get_float_exception_flags(&env->active_fpu.fp_status)
-        & (float_flag_invalid | float_flag_overflow)) {
-        dt2 = FP_TO_INT64_OVERFLOW;
-    }
-    update_fcr31(env, GETPC());
-    return dt2;
-}
-
 uint64_t helper_float_cvtps_pw(CPUMIPSState *env, uint64_t dt0)
 {
     uint32_t fst2;
@@ -2850,11 +2824,37 @@ uint32_t helper_float_cvts_pu(CPUMIPSState *env, uint32_t wth0)
     return wt2;
 }
 
-uint32_t helper_float_cvt_w_s(CPUMIPSState *env, uint32_t fst0)
+uint64_t helper_float_cvt_l_d(CPUMIPSState *env, uint64_t fdt0)
+{
+    uint64_t dt2;
+
+    dt2 = float64_to_int64(fdt0, &env->active_fpu.fp_status);
+    if (get_float_exception_flags(&env->active_fpu.fp_status)
+        & (float_flag_invalid | float_flag_overflow)) {
+        dt2 = FP_TO_INT64_OVERFLOW;
+    }
+    update_fcr31(env, GETPC());
+    return dt2;
+}
+
+uint64_t helper_float_cvt_l_s(CPUMIPSState *env, uint32_t fst0)
+{
+    uint64_t dt2;
+
+    dt2 = float32_to_int64(fst0, &env->active_fpu.fp_status);
+    if (get_float_exception_flags(&env->active_fpu.fp_status)
+        & (float_flag_invalid | float_flag_overflow)) {
+        dt2 = FP_TO_INT64_OVERFLOW;
+    }
+    update_fcr31(env, GETPC());
+    return dt2;
+}
+
+uint32_t helper_float_cvt_w_d(CPUMIPSState *env, uint64_t fdt0)
 {
     uint32_t wt2;
 
-    wt2 = float32_to_int32(fst0, &env->active_fpu.fp_status);
+    wt2 = float64_to_int32(fdt0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
         wt2 = FP_TO_INT32_OVERFLOW;
@@ -2863,11 +2863,11 @@ uint32_t helper_float_cvt_w_s(CPUMIPSState *env, uint32_t fst0)
     return wt2;
 }
 
-uint32_t helper_float_cvt_w_d(CPUMIPSState *env, uint64_t fdt0)
+uint32_t helper_float_cvt_w_s(CPUMIPSState *env, uint32_t fst0)
 {
     uint32_t wt2;
 
-    wt2 = float64_to_int32(fdt0, &env->active_fpu.fp_status);
+    wt2 = float32_to_int32(fst0, &env->active_fpu.fp_status);
     if (get_float_exception_flags(&env->active_fpu.fp_status)
         & (float_flag_invalid | float_flag_overflow)) {
         wt2 = FP_TO_INT32_OVERFLOW;
