@@ -70,16 +70,6 @@ else
     TEST_IMG=$IMGPROTO:$TEST_DIR/t.$IMGFMT
 fi
 
-function valgrind_qemu_io()
-{
-    valgrind --log-file=/tmp/$$.valgrind --error-exitcode=99 $REAL_QEMU_IO "$@"
-    if [ $? != 0 ]; then
-        cat /tmp/$$.valgrind
-    fi
-    rm -f /tmp/$$.valgrind
-}
-
-
 _optstr_add()
 {
     if [ -n "$1" ]; then
@@ -153,8 +143,7 @@ _make_test_img()
 
     # Start an NBD server on the image file, which is what we'll be talking to
     if [ $IMGPROTO = "nbd" ]; then
-        eval "$QEMU_NBD -v -t -b 127.0.0.1 -p 10810  $TEST_IMG_FILE &"
-        QEMU_NBD_PID=$!
+        eval "$QEMU_NBD -v -t -b 127.0.0.1 -p 10810 -f $IMGFMT  $TEST_IMG_FILE &"
         sleep 1 # FIXME: qemu-nbd needs to be listening before we continue
     fi
 }
@@ -175,7 +164,12 @@ _cleanup_test_img()
     case "$IMGPROTO" in
 
         nbd)
-            kill $QEMU_NBD_PID
+            if [ -f "${TEST_DIR}/qemu-nbd.pid" ]; then
+                local QEMU_NBD_PID
+                read QEMU_NBD_PID < "${TEST_DIR}/qemu-nbd.pid"
+                kill ${QEMU_NBD_PID}
+                rm -f "${TEST_DIR}/qemu-nbd.pid"
+            fi
             rm -f "$TEST_IMG_FILE"
             ;;
         file)
@@ -213,6 +207,13 @@ _check_test_img()
 
 _img_info()
 {
+    if [[ "$1" == "--format-specific" ]]; then
+        local format_specific=1
+        shift
+    else
+        local format_specific=0
+    fi
+
     discard=0
     regex_json_spec_start='^ *"format-specific": \{'
     $QEMU_IMG info "$@" "$TEST_IMG" 2>&1 | \
@@ -222,7 +223,9 @@ _img_info()
             -e "/^disk size:/ D" \
             -e "/actual-size/ D" | \
         while IFS='' read line; do
-            if [[ $line == "Format specific information:" ]]; then
+            if [[ $format_specific == 1 ]]; then
+                discard=0
+            elif [[ $line == "Format specific information:" ]]; then
                 discard=1
             elif [[ $line =~ $regex_json_spec_start ]]; then
                 discard=2
@@ -428,7 +431,17 @@ _unsupported_imgopts()
 #
 _require_command()
 {
-    eval c=\$$1
+    if [ "$1" = "QEMU" ]; then
+        c=$QEMU_PROG
+    elif [ "$1" = "QEMU_IMG" ]; then
+        c=$QEMU_IMG_PROG
+    elif [ "$1" = "QEMU_IO" ]; then
+        c=$QEMU_IO_PROG
+    elif [ "$1" = "QEMU_NBD" ]; then
+        c=$QEMU_NBD_PROG
+    else
+        eval c=\$$1
+    fi
     [ -x "$c" ] || _notrun "$1 utility required, skipped this test"
 }
 
@@ -479,4 +492,4 @@ _die()
 }
 
 # make sure this script returns success
-/bin/true
+true

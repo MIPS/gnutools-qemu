@@ -23,40 +23,8 @@
 #include "exec/cpu_ldst.h"
 #include "sysemu/kvm.h"
 
-#ifndef CONFIG_USER_ONLY
-static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
-#endif
-
 /*****************************************************************************/
 /* Exceptions processing helpers */
-
-static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
-                                                        uint32_t exception,
-                                                        int error_code,
-                                                        uintptr_t pc)
-{
-    CPUState *cs = CPU(mips_env_get_cpu(env));
-
-    if (exception < EXCP_SC) {
-        qemu_log("%s: %d %d\n", __func__, exception, error_code);
-    }
-    cs->exception_index = exception;
-    env->error_code = error_code;
-
-    if (pc) {
-        /* now we have a real cpu fault */
-        cpu_restore_state(cs, pc);
-    }
-
-    cpu_loop_exit(cs);
-}
-
-static inline void QEMU_NORETURN do_raise_exception(CPUMIPSState *env,
-                                                    uint32_t exception,
-                                                    uintptr_t pc)
-{
-    do_raise_exception_err(env, exception, 0, pc);
-}
 
 void helper_raise_exception_err(CPUMIPSState *env, uint32_t exception,
                                 int error_code)
@@ -66,61 +34,72 @@ void helper_raise_exception_err(CPUMIPSState *env, uint32_t exception,
 
 void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
 {
+    do_raise_exception(env, exception, GETPC());
+}
+
+void helper_raise_exception_debug(CPUMIPSState *env)
+{
+    do_raise_exception(env, EXCP_DEBUG, 0);
+}
+
+static void raise_exception(CPUMIPSState *env, uint32_t exception)
+{
     do_raise_exception(env, exception, 0);
 }
 
 #if defined(CONFIG_USER_ONLY)
 #define HELPER_LD(name, insn, type)                                     \
 static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
+                             int mem_idx, uintptr_t retaddr)            \
 {                                                                       \
-    return (type) insn##_raw(addr);                                     \
+    return (type) cpu_##insn##_data_ra(env, addr, retaddr);             \
 }
 #else
 #define HELPER_LD(name, insn, type)                                     \
 static inline type do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             int mem_idx)                               \
+                             int mem_idx, uintptr_t retaddr)            \
 {                                                                       \
     switch (mem_idx)                                                    \
     {                                                                   \
-    case 0: return (type) cpu_##insn##_kernel(env, addr); break;        \
-    case 1: return (type) cpu_##insn##_super(env, addr); break;         \
+    case 0: return (type) cpu_##insn##_kernel_ra(env, addr, retaddr);   \
+    case 1: return (type) cpu_##insn##_super_ra(env, addr, retaddr);    \
     default:                                                            \
-    case 2: return (type) cpu_##insn##_user(env, addr); break;          \
+    case 2: return (type) cpu_##insn##_user_ra(env, addr, retaddr);     \
     }                                                                   \
 }
 #endif
-HELPER_LD(lbu, ldub, uint8_t)
-HELPER_LD(lhu, lduw, uint16_t)
 HELPER_LD(lw, ldl, int32_t)
+#if defined(TARGET_MIPS64)
 HELPER_LD(ld, ldq, int64_t)
+#endif
 #undef HELPER_LD
 
 #if defined(CONFIG_USER_ONLY)
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
+                             type val, int mem_idx, uintptr_t retaddr)  \
 {                                                                       \
-    insn##_raw(addr, val);                                              \
+    cpu_##insn##_data_ra(env, addr, val, retaddr);                      \
 }
 #else
 #define HELPER_ST(name, insn, type)                                     \
 static inline void do_##name(CPUMIPSState *env, target_ulong addr,      \
-                             type val, int mem_idx)                     \
+                             type val, int mem_idx, uintptr_t retaddr)  \
 {                                                                       \
     switch (mem_idx)                                                    \
     {                                                                   \
-    case 0: cpu_##insn##_kernel(env, addr, val); break;                 \
-    case 1: cpu_##insn##_super(env, addr, val); break;                  \
+    case 0: cpu_##insn##_kernel_ra(env, addr, val, retaddr); break;     \
+    case 1: cpu_##insn##_super_ra(env, addr, val, retaddr); break;      \
     default:                                                            \
-    case 2: cpu_##insn##_user(env, addr, val); break;                   \
+    case 2: cpu_##insn##_user_ra(env, addr, val, retaddr); break;       \
     }                                                                   \
 }
 #endif
 HELPER_ST(sb, stb, uint8_t)
-HELPER_ST(sh, stw, uint16_t)
 HELPER_ST(sw, stl, uint32_t)
+#if defined(TARGET_MIPS64)
 HELPER_ST(sd, stq, uint64_t)
+#endif
 #undef HELPER_ST
 
 target_ulong helper_clo (target_ulong arg1)
@@ -291,14 +270,15 @@ target_ulong helper_bitswap(target_ulong rt)
 
 static inline hwaddr do_translate_address(CPUMIPSState *env,
                                                       target_ulong address,
-                                                      int rw)
+                                                      int rw, uintptr_t retaddr)
 {
     hwaddr lladdr;
+    CPUState *cs = CPU(mips_env_get_cpu(env));
 
     lladdr = cpu_mips_translate_address(env, address, rw);
 
     if (lladdr == -1LL) {
-        cpu_loop_exit(CPU(mips_env_get_cpu(env)));
+        cpu_loop_exit_restore(cs, retaddr);
     } else {
         return lladdr;
     }
@@ -309,11 +289,10 @@ target_ulong helper_##name(CPUMIPSState *env, target_ulong arg, int mem_idx)  \
 {                                                                             \
     if (arg & almask) {                                                       \
         env->CP0_BadVAddr = arg;                                              \
-        helper_raise_exception(env, EXCP_AdEL);                               \
+        do_raise_exception(env, EXCP_AdEL, GETPC());                          \
     }                                                                         \
-    env->lladdr = do_translate_address(env, arg, 0);                          \
-    env->llval = do_##insn(env, arg, mem_idx);                                \
-    env->hflags |= MIPS_HFLAG_LLBIT;                                          \
+    env->lladdr = do_translate_address(env, arg, 0, GETPC());                 \
+    env->llval = do_##insn(env, arg, mem_idx, GETPC());                       \
     return env->llval;                                                        \
 }
 HELPER_LD_ATOMIC(ll, lw, 0x3)
@@ -330,20 +309,15 @@ target_ulong helper_##name(CPUMIPSState *env, target_ulong arg1,              \
                                                                               \
     if (arg2 & almask) {                                                      \
         env->CP0_BadVAddr = arg2;                                             \
-        helper_raise_exception(env, EXCP_AdES);                               \
+        do_raise_exception(env, EXCP_AdES, GETPC());                          \
     }                                                                         \
-    if (do_translate_address(env, arg2, 1) == env->lladdr &&                  \
-        (env->hflags & MIPS_HFLAG_LLBIT)) {                                   \
-        tmp = do_##ld_insn(env, arg2, mem_idx);                               \
+    if (do_translate_address(env, arg2, 1, GETPC()) == env->lladdr) {         \
+        tmp = do_##ld_insn(env, arg2, mem_idx, GETPC());                      \
         if (tmp == env->llval) {                                              \
-            do_##st_insn(env, arg2, arg1, mem_idx);                           \
-            if (env->CP0_Config5 & (1 << CP0C5_LLB)) {                        \
-                env->hflags &= ~MIPS_HFLAG_LLBIT;                             \
-            }                                                                 \
+            do_##st_insn(env, arg2, arg1, mem_idx, GETPC());                  \
             return 1;                                                         \
         }                                                                     \
     }                                                                         \
-    env->hflags &= ~MIPS_HFLAG_LLBIT;                                         \
     return 0;                                                                 \
 }
 HELPER_ST_ATOMIC(sc, lw, sw, 0x3)
@@ -364,31 +338,43 @@ HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
 void helper_swl(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
                 int mem_idx)
 {
-    do_sb(env, arg2, (uint8_t)(arg1 >> 24), mem_idx);
+    do_sb(env, arg2, (uint8_t)(arg1 >> 24), mem_idx, GETPC());
 
-    if (GET_LMASK(arg2) <= 2)
-        do_sb(env, GET_OFFSET(arg2, 1), (uint8_t)(arg1 >> 16), mem_idx);
+    if (GET_LMASK(arg2) <= 2) {
+        do_sb(env, GET_OFFSET(arg2, 1), (uint8_t)(arg1 >> 16), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK(arg2) <= 1)
-        do_sb(env, GET_OFFSET(arg2, 2), (uint8_t)(arg1 >> 8), mem_idx);
+    if (GET_LMASK(arg2) <= 1) {
+        do_sb(env, GET_OFFSET(arg2, 2), (uint8_t)(arg1 >> 8), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK(arg2) == 0)
-        do_sb(env, GET_OFFSET(arg2, 3), (uint8_t)arg1, mem_idx);
+    if (GET_LMASK(arg2) == 0) {
+        do_sb(env, GET_OFFSET(arg2, 3), (uint8_t)arg1, mem_idx,
+              GETPC());
+    }
 }
 
 void helper_swr(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
                 int mem_idx)
 {
-    do_sb(env, arg2, (uint8_t)arg1, mem_idx);
+    do_sb(env, arg2, (uint8_t)arg1, mem_idx, GETPC());
 
-    if (GET_LMASK(arg2) >= 1)
-        do_sb(env, GET_OFFSET(arg2, -1), (uint8_t)(arg1 >> 8), mem_idx);
+    if (GET_LMASK(arg2) >= 1) {
+        do_sb(env, GET_OFFSET(arg2, -1), (uint8_t)(arg1 >> 8), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK(arg2) >= 2)
-        do_sb(env, GET_OFFSET(arg2, -2), (uint8_t)(arg1 >> 16), mem_idx);
+    if (GET_LMASK(arg2) >= 2) {
+        do_sb(env, GET_OFFSET(arg2, -2), (uint8_t)(arg1 >> 16), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK(arg2) == 3)
-        do_sb(env, GET_OFFSET(arg2, -3), (uint8_t)(arg1 >> 24), mem_idx);
+    if (GET_LMASK(arg2) == 3) {
+        do_sb(env, GET_OFFSET(arg2, -3), (uint8_t)(arg1 >> 24), mem_idx,
+              GETPC());
+    }
 }
 
 #if defined(TARGET_MIPS64)
@@ -404,55 +390,83 @@ void helper_swr(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
 void helper_sdl(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
                 int mem_idx)
 {
-    do_sb(env, arg2, (uint8_t)(arg1 >> 56), mem_idx);
+    do_sb(env, arg2, (uint8_t)(arg1 >> 56), mem_idx, GETPC());
 
-    if (GET_LMASK64(arg2) <= 6)
-        do_sb(env, GET_OFFSET(arg2, 1), (uint8_t)(arg1 >> 48), mem_idx);
+    if (GET_LMASK64(arg2) <= 6) {
+        do_sb(env, GET_OFFSET(arg2, 1), (uint8_t)(arg1 >> 48), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 5)
-        do_sb(env, GET_OFFSET(arg2, 2), (uint8_t)(arg1 >> 40), mem_idx);
+    if (GET_LMASK64(arg2) <= 5) {
+        do_sb(env, GET_OFFSET(arg2, 2), (uint8_t)(arg1 >> 40), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 4)
-        do_sb(env, GET_OFFSET(arg2, 3), (uint8_t)(arg1 >> 32), mem_idx);
+    if (GET_LMASK64(arg2) <= 4) {
+        do_sb(env, GET_OFFSET(arg2, 3), (uint8_t)(arg1 >> 32), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 3)
-        do_sb(env, GET_OFFSET(arg2, 4), (uint8_t)(arg1 >> 24), mem_idx);
+    if (GET_LMASK64(arg2) <= 3) {
+        do_sb(env, GET_OFFSET(arg2, 4), (uint8_t)(arg1 >> 24), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 2)
-        do_sb(env, GET_OFFSET(arg2, 5), (uint8_t)(arg1 >> 16), mem_idx);
+    if (GET_LMASK64(arg2) <= 2) {
+        do_sb(env, GET_OFFSET(arg2, 5), (uint8_t)(arg1 >> 16), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 1)
-        do_sb(env, GET_OFFSET(arg2, 6), (uint8_t)(arg1 >> 8), mem_idx);
+    if (GET_LMASK64(arg2) <= 1) {
+        do_sb(env, GET_OFFSET(arg2, 6), (uint8_t)(arg1 >> 8), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) <= 0)
-        do_sb(env, GET_OFFSET(arg2, 7), (uint8_t)arg1, mem_idx);
+    if (GET_LMASK64(arg2) <= 0) {
+        do_sb(env, GET_OFFSET(arg2, 7), (uint8_t)arg1, mem_idx,
+              GETPC());
+    }
 }
 
 void helper_sdr(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
                 int mem_idx)
 {
-    do_sb(env, arg2, (uint8_t)arg1, mem_idx);
+    do_sb(env, arg2, (uint8_t)arg1, mem_idx, GETPC());
 
-    if (GET_LMASK64(arg2) >= 1)
-        do_sb(env, GET_OFFSET(arg2, -1), (uint8_t)(arg1 >> 8), mem_idx);
+    if (GET_LMASK64(arg2) >= 1) {
+        do_sb(env, GET_OFFSET(arg2, -1), (uint8_t)(arg1 >> 8), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) >= 2)
-        do_sb(env, GET_OFFSET(arg2, -2), (uint8_t)(arg1 >> 16), mem_idx);
+    if (GET_LMASK64(arg2) >= 2) {
+        do_sb(env, GET_OFFSET(arg2, -2), (uint8_t)(arg1 >> 16), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) >= 3)
-        do_sb(env, GET_OFFSET(arg2, -3), (uint8_t)(arg1 >> 24), mem_idx);
+    if (GET_LMASK64(arg2) >= 3) {
+        do_sb(env, GET_OFFSET(arg2, -3), (uint8_t)(arg1 >> 24), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) >= 4)
-        do_sb(env, GET_OFFSET(arg2, -4), (uint8_t)(arg1 >> 32), mem_idx);
+    if (GET_LMASK64(arg2) >= 4) {
+        do_sb(env, GET_OFFSET(arg2, -4), (uint8_t)(arg1 >> 32), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) >= 5)
-        do_sb(env, GET_OFFSET(arg2, -5), (uint8_t)(arg1 >> 40), mem_idx);
+    if (GET_LMASK64(arg2) >= 5) {
+        do_sb(env, GET_OFFSET(arg2, -5), (uint8_t)(arg1 >> 40), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) >= 6)
-        do_sb(env, GET_OFFSET(arg2, -6), (uint8_t)(arg1 >> 48), mem_idx);
+    if (GET_LMASK64(arg2) >= 6) {
+        do_sb(env, GET_OFFSET(arg2, -6), (uint8_t)(arg1 >> 48), mem_idx,
+              GETPC());
+    }
 
-    if (GET_LMASK64(arg2) == 7)
-        do_sb(env, GET_OFFSET(arg2, -7), (uint8_t)(arg1 >> 56), mem_idx);
+    if (GET_LMASK64(arg2) == 7) {
+        do_sb(env, GET_OFFSET(arg2, -7), (uint8_t)(arg1 >> 56), mem_idx,
+              GETPC());
+    }
 }
 #endif /* TARGET_MIPS64 */
 
@@ -469,13 +483,14 @@ void helper_lwm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
 
         for (i = 0; i < base_reglist; i++) {
             env->active_tc.gpr[multiple_regs[i]] =
-                (target_long)do_lw(env, addr, mem_idx);
+                (target_long)do_lw(env, addr, mem_idx, GETPC());
             addr += 4;
         }
     }
 
     if (do_r31) {
-        env->active_tc.gpr[31] = (target_long)do_lw(env, addr, mem_idx);
+        env->active_tc.gpr[31] = (target_long)do_lw(env, addr, mem_idx,
+                                                    GETPC());
     }
 }
 
@@ -489,13 +504,14 @@ void helper_swm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
         target_ulong i;
 
         for (i = 0; i < base_reglist; i++) {
-            do_sw(env, addr, env->active_tc.gpr[multiple_regs[i]], mem_idx);
+            do_sw(env, addr, env->active_tc.gpr[multiple_regs[i]], mem_idx,
+                  GETPC());
             addr += 4;
         }
     }
 
     if (do_r31) {
-        do_sw(env, addr, env->active_tc.gpr[31], mem_idx);
+        do_sw(env, addr, env->active_tc.gpr[31], mem_idx, GETPC());
     }
 }
 
@@ -510,13 +526,14 @@ void helper_ldm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
         target_ulong i;
 
         for (i = 0; i < base_reglist; i++) {
-            env->active_tc.gpr[multiple_regs[i]] = do_ld(env, addr, mem_idx);
+            env->active_tc.gpr[multiple_regs[i]] = do_ld(env, addr, mem_idx,
+                                                         GETPC());
             addr += 8;
         }
     }
 
     if (do_r31) {
-        env->active_tc.gpr[31] = do_ld(env, addr, mem_idx);
+        env->active_tc.gpr[31] = do_ld(env, addr, mem_idx, GETPC());
     }
 }
 
@@ -530,13 +547,14 @@ void helper_sdm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
         target_ulong i;
 
         for (i = 0; i < base_reglist; i++) {
-            do_sd(env, addr, env->active_tc.gpr[multiple_regs[i]], mem_idx);
+            do_sd(env, addr, env->active_tc.gpr[multiple_regs[i]], mem_idx,
+                  GETPC());
             addr += 8;
         }
     }
 
     if (do_r31) {
-        do_sd(env, addr, env->active_tc.gpr[31], mem_idx);
+        do_sd(env, addr, env->active_tc.gpr[31], mem_idx, GETPC());
     }
 }
 #endif
@@ -674,7 +692,7 @@ static void sync_c0_tcstatus(CPUMIPSState *cpu, int tc,
 
     /* Sync the TASID with EntryHi.  */
     cpu->CP0_EntryHi &= ~0xff;
-    cpu->CP0_EntryHi = tasid;
+    cpu->CP0_EntryHi |= tasid;
 
     compute_hflags(cpu);
 }
@@ -868,34 +886,17 @@ target_ulong helper_mftc0_status(CPUMIPSState *env)
 
 target_ulong helper_mfc0_lladdr(CPUMIPSState *env)
 {
-    int32_t cp0_lladdr = (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
-    if (env->CP0_Config5 & (1 << CP0C5_LLB)) {
-        cp0_lladdr |= !!(env->hflags & MIPS_HFLAG_LLBIT);
-    }
-    return cp0_lladdr;
+    return (int32_t)(env->lladdr >> env->CP0_LLAddr_shift);
 }
 
 target_ulong helper_mfc0_maar(CPUMIPSState *env)
 {
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return 0;
-    }
-    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        return (int32_t) env->CP0_MAAR[env->CP0_MAARI];
-    }
-    return 0;
+    return (int32_t) env->CP0_MAAR[env->CP0_MAARI];
 }
 
 target_ulong helper_mfhc0_maar(CPUMIPSState *env)
 {
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return 0;
-    }
-
-    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        return env->CP0_MAAR[env->CP0_MAARI] >> 32;
-    }
-    return 0;
+    return env->CP0_MAAR[env->CP0_MAARI] >> 32;
 }
 
 target_ulong helper_mfc0_watchlo(CPUMIPSState *env, uint32_t sel)
@@ -961,22 +962,12 @@ target_ulong helper_dmfc0_tcschefback(CPUMIPSState *env)
 
 target_ulong helper_dmfc0_lladdr(CPUMIPSState *env)
 {
-    target_ulong cp0_lladdr = env->lladdr >> env->CP0_LLAddr_shift;
-    if (env->CP0_Config5 & (1 << CP0C5_LLB)) {
-        cp0_lladdr |= !!(env->hflags & MIPS_HFLAG_LLBIT);
-    }
-    return cp0_lladdr;
+    return env->lladdr >> env->CP0_LLAddr_shift;
 }
 
 target_ulong helper_dmfc0_maar(CPUMIPSState *env)
 {
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return 0;
-    }
-    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        return env->CP0_MAAR[env->CP0_MAARI];
-    }
-    return 0;
+    return env->CP0_MAAR[env->CP0_MAARI];
 }
 
 target_ulong helper_dmfc0_watchlo(CPUMIPSState *env, uint32_t sel)
@@ -1123,28 +1114,23 @@ void helper_mtc0_vpeopt(CPUMIPSState *env, target_ulong arg1)
     env->CP0_VPEOpt = arg1 & 0x0000ffff;
 }
 
-static inline target_ulong get_mtc0_entrylo_mask(const CPUMIPSState *env)
-{
-#if defined(TARGET_MIPS64)
-    return env->PAMask >> 6;
-#else
-    return (env->PAMask >> 6) & 0x3FFFFFFF;
-#endif
-}
+#define MTC0_ENTRYLO_MASK(env) ((env->PAMask >> 6) & 0x3FFFFFFF)
 
 void helper_mtc0_entrylo0(CPUMIPSState *env, target_ulong arg1)
 {
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo0 = (arg1 & get_mtc0_entrylo_mask(env))
+    env->CP0_EntryLo0 = (arg1 & MTC0_ENTRYLO_MASK(env))
                         | (rxi << (CP0EnLo_XI - 30));
 }
 
 #if defined(TARGET_MIPS64)
+#define DMTC0_ENTRYLO_MASK(env) (env->PAMask >> 6)
+
 void helper_dmtc0_entrylo0(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo0 = (arg1 & get_mtc0_entrylo_mask(env)) | rxi;
+    env->CP0_EntryLo0 = (arg1 & DMTC0_ENTRYLO_MASK(env)) | rxi;
 }
 #endif
 
@@ -1205,7 +1191,6 @@ void helper_mtc0_tcrestart(CPUMIPSState *env, target_ulong arg1)
     env->active_tc.PC = arg1;
     env->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
     env->lladdr = 0ULL;
-    env->hflags &= ~MIPS_HFLAG_LLBIT;
     /* MIPS16 not implemented. */
 }
 
@@ -1218,13 +1203,11 @@ void helper_mttc0_tcrestart(CPUMIPSState *env, target_ulong arg1)
         other->active_tc.PC = arg1;
         other->active_tc.CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
-        other->hflags &= ~MIPS_HFLAG_LLBIT;
         /* MIPS16 not implemented. */
     } else {
         other->tcs[other_tc].PC = arg1;
         other->tcs[other_tc].CP0_TCStatus &= ~(1 << CP0TCSt_TDS);
         other->lladdr = 0ULL;
-        other->hflags &= ~MIPS_HFLAG_LLBIT;
         /* MIPS16 not implemented. */
     }
 }
@@ -1315,7 +1298,7 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 {
     /* 1k pages not implemented */
     target_ulong rxi = arg1 & (env->CP0_PageGrain & (3u << CP0PG_XIE));
-    env->CP0_EntryLo1 = (arg1 & get_mtc0_entrylo_mask(env))
+    env->CP0_EntryLo1 = (arg1 & MTC0_ENTRYLO_MASK(env))
                         | (rxi << (CP0EnLo_XI - 30));
 }
 
@@ -1323,7 +1306,7 @@ void helper_mtc0_entrylo1(CPUMIPSState *env, target_ulong arg1)
 void helper_dmtc0_entrylo1(CPUMIPSState *env, uint64_t arg1)
 {
     uint64_t rxi = arg1 & ((env->CP0_PageGrain & (3ull << CP0PG_XIE)) << 32);
-    env->CP0_EntryLo1 = (arg1 & get_mtc0_entrylo_mask(env)) | rxi;
+    env->CP0_EntryLo1 = (arg1 & DMTC0_ENTRYLO_MASK(env)) | rxi;
 }
 #endif
 
@@ -1355,12 +1338,7 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
     env->CP0_PageGrain = (arg1 & env->CP0_PageGrain_rw_bitmask) |
                          (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
     compute_hflags(env);
-
-    if (env->hflags & MIPS_HFLAG_ELPA) {
-        env->PAMask = (1ULL << env->PABITS) - 1;
-    } else {
-        env->PAMask = DEFAULT_PAMASK;
-    }
+    restore_pamask(env);
 }
 
 void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
@@ -1368,31 +1346,31 @@ void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
 #ifdef TARGET_MIPS64
     env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
 #else
-    {
-        uint32_t mask = 0x3FFFFFFF;
-        uint32_t old_ptei = (env->CP0_PWField >> CP0PF_PTEI) & 0x3F;
-        uint32_t new_ptei = (arg1 >> CP0PF_PTEI) & 0x3F;
-        if ((env->insn_flags & ISA_MIPS32R6)) {
-            if (((arg1 >> CP0PF_GDI) & 0x3F) < 12) {
-                mask &= ~(0x3F << CP0PF_GDI);
-            }
-            if (((arg1 >> CP0PF_UDI) & 0x3F) < 12) {
-                mask &= ~(0x3F << CP0PF_UDI);
-            }
-            if (((arg1 >> CP0PF_MDI) & 0x3F) < 12) {
-                mask &= ~(0x3F << CP0PF_MDI);
-            }
-            if (((arg1 >> CP0PF_PTI) & 0x3F) < 12) {
-                mask &= ~(0x3F << CP0PF_PTI);
-            }
+    uint32_t mask = 0x3FFFFFFF;
+    uint32_t old_ptei = (env->CP0_PWField >> CP0PF_PTEI) & 0x3F;
+    uint32_t new_ptei = (arg1 >> CP0PF_PTEI) & 0x3F;
+
+    if ((env->insn_flags & ISA_MIPS32R6)) {
+        if (((arg1 >> CP0PF_GDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_GDI);
         }
-        env->CP0_PWField = arg1 & mask;
-        if ((new_ptei >= 32) ||
-                ((env->insn_flags & ISA_MIPS32R6) &&
-                        (new_ptei == 0 || new_ptei == 1))) {
-            env->CP0_PWField = (env->CP0_PWField & ~0x3F) |
-                    (old_ptei << CP0PF_PTEI);
+        if (((arg1 >> CP0PF_UDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_UDI);
         }
+        if (((arg1 >> CP0PF_MDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_MDI);
+        }
+        if (((arg1 >> CP0PF_PTI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_PTI);
+        }
+    }
+    env->CP0_PWField = arg1 & mask;
+
+    if ((new_ptei >= 32) ||
+            ((env->insn_flags & ISA_MIPS32R6) &&
+                    (new_ptei == 0 || new_ptei == 1))) {
+        env->CP0_PWField = (env->CP0_PWField & ~0x3F) |
+                (old_ptei << CP0PF_PTEI);
     }
 #endif
 }
@@ -1456,6 +1434,13 @@ void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
 {
     uint32_t mask = 0x0000000F;
 
+    if ((env->CP0_Config1 & (1 << CP0C1_PC)) &&
+        (env->insn_flags & ISA_MIPS32R6)) {
+        mask |= (1 << 4);
+    }
+    if (env->insn_flags & ISA_MIPS32R6) {
+        mask |= (1 << 5);
+    }
     if (env->CP0_Config3 & (1 << CP0C3_ULRI)) {
         mask |= (1 << 29);
 
@@ -1558,7 +1543,6 @@ void helper_mttc0_status(CPUMIPSState *env, target_ulong arg1)
 
 void helper_mtc0_intctl(CPUMIPSState *env, target_ulong arg1)
 {
-    /* vectored interrupts not implemented, no performance counters. */
     env->CP0_IntCtl = (env->CP0_IntCtl & ~0x000003e0) | (arg1 & 0x000003e0);
 }
 
@@ -1599,7 +1583,6 @@ target_ulong helper_mftc0_ebase(CPUMIPSState *env)
 
 void helper_mtc0_ebase(CPUMIPSState *env, target_ulong arg1)
 {
-    /* vectored interrupts not implemented */
     env->CP0_EBase = (env->CP0_EBase & ~0x3FFFF000) | (arg1 & 0x3FFFF000);
 }
 
@@ -1664,46 +1647,28 @@ void helper_mtc0_config5(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_lladdr(CPUMIPSState *env, target_ulong arg1)
 {
     target_long mask = env->CP0_LLAddr_rw_bitmask;
-    if (env->CP0_Config5 & (1 << CP0C5_LLB)) {
-        /* Software is allowed to clear the flag by writing to CP0_LLAddr.LLB */
-        if (!(arg1 & 1)) {
-            env->hflags &= ~MIPS_HFLAG_LLBIT;
-        }
-    }
     arg1 = arg1 << env->CP0_LLAddr_shift;
     env->lladdr = (env->lladdr & ~mask) | (arg1 & mask);
 }
 
+#define MTC0_MAAR_MASK(env) \
+        ((0x1ULL << 63) | ((env->PAMask >> 4) & ~0xFFFull) | 0x3)
+
 void helper_mtc0_maar(CPUMIPSState *env, target_ulong arg1)
 {
-    uint64_t mask = ((env->PAMask >> 4) & ~0xFFFull) | 0x3;
-
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return;
-    }
-    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        env->CP0_MAAR[env->CP0_MAARI] = arg1 & mask;
-    }
+    env->CP0_MAAR[env->CP0_MAARI] = arg1 & MTC0_MAAR_MASK(env);
 }
 
 void helper_mthc0_maar(CPUMIPSState *env, target_ulong arg1)
 {
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return;
-    }
-
-    if (env->CP0_MAARI < MIPS_MAAR_MAX) {
-        env->CP0_MAAR[env->CP0_MAARI] = ((uint64_t) arg1 << 32) |
-                (env->CP0_MAAR[env->CP0_MAARI] & 0x00000000ffffffffULL);
-    }
+    env->CP0_MAAR[env->CP0_MAARI] =
+        (((uint64_t) arg1 << 32) & MTC0_MAAR_MASK(env)) |
+        (env->CP0_MAAR[env->CP0_MAARI] & 0x00000000ffffffffULL);
 }
 
 void helper_mtc0_maari(CPUMIPSState *env, target_ulong arg1)
 {
     int index = arg1 & 0x3f;
-    if (!(env->CP0_Config5 & (1 << CP0C5_MRP))) {
-        return;
-    }
     if (index == 0x3f) {
         /* Software may write all ones to INDEX to determine the
            maximum value supported. */
@@ -1770,9 +1735,31 @@ void helper_mtc0_performance0(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Performance0 = arg1 & 0x000007ff;
 }
 
+void helper_mtc0_errctl(CPUMIPSState *env, target_ulong arg1)
+{
+    int32_t wst = arg1 & (1 << CP0EC_WST);
+    int32_t spr = arg1 & (1 << CP0EC_SPR);
+    int32_t itc = env->itc_tag ? (arg1 & (1 << CP0EC_ITC)) : 0;
+
+    env->CP0_ErrCtl = wst | spr | itc;
+
+    if (itc && !wst && !spr) {
+        env->hflags |= MIPS_HFLAG_ITC_CACHE;
+    } else {
+        env->hflags &= ~MIPS_HFLAG_ITC_CACHE;
+    }
+}
+
 void helper_mtc0_taglo(CPUMIPSState *env, target_ulong arg1)
 {
-    env->CP0_TagLo = arg1 & 0xFFFFFCF6;
+    if (env->hflags & MIPS_HFLAG_ITC_CACHE) {
+        /* If CACHE instruction is configured for ITC tags then make all
+           CP0.TagLo bits writable. The actual write to ITC Configuration
+           Tag will take care of the read-only bits. */
+        env->CP0_TagLo = arg1;
+    } else {
+        env->CP0_TagLo = arg1 & 0xFFFFFCF6;
+    }
 }
 
 void helper_mtc0_datalo(CPUMIPSState *env, target_ulong arg1)
@@ -1948,45 +1935,6 @@ target_ulong helper_evpe(CPUMIPSState *env)
     }
     return prev;
 }
-
-target_ulong helper_dvp(CPUMIPSState *env)
-{
-    CPUState *other_cs = first_cpu;
-    target_ulong prev = env->CP0_VPControl;
-
-    if (!((env->CP0_VPControl >> CP0VPCtl_DIS) &1)) {
-        CPU_FOREACH(other_cs) {
-            MIPSCPU *other_cpu = MIPS_CPU(other_cs);
-            /* Turn off all VPs except the one executing the dvp.  */
-            if (&other_cpu->env != env) {
-                mips_vpe_sleep(other_cpu);
-            }
-        }
-        env->CP0_VPControl |= (1 << CP0VPCtl_DIS);
-    }
-    return prev;
-}
-
-target_ulong helper_evp(CPUMIPSState *env)
-{
-    CPUState *other_cs = first_cpu;
-    target_ulong prev = env->CP0_VPControl;
-
-    if (((env->CP0_VPControl >> CP0VPCtl_DIS) &1)) {
-        CPU_FOREACH(other_cs) {
-            MIPSCPU *other_cpu = MIPS_CPU(other_cs);
-
-            if (&other_cpu->env != env
-                /* If the VP is WFI, don't disturb its sleep.  */
-                && !mips_vp_is_wfi(other_cpu)) {
-                /* Enable the VP.  */
-                mips_vpe_wake(other_cpu); /* And wake it up.  */
-            }
-        }
-        env->CP0_VPControl &= ~(1 << CP0VPCtl_DIS);
-    }
-    return prev;
-}
 #endif /* !CONFIG_USER_ONLY */
 
 void helper_fork(target_ulong arg1, target_ulong arg2)
@@ -2006,13 +1954,13 @@ target_ulong helper_yield(CPUMIPSState *env, target_ulong arg)
                 env->active_tc.CP0_TCStatus & (1 << CP0TCSt_DT)) {
                 env->CP0_VPEControl &= ~(0x7 << CP0VPECo_EXCPT);
                 env->CP0_VPEControl |= 4 << CP0VPECo_EXCPT;
-                helper_raise_exception(env, EXCP_THREAD);
+                do_raise_exception(env, EXCP_THREAD, GETPC());
             }
         }
     } else if (arg1 == 0) {
         if (0 /* TODO: TC underflow */) {
             env->CP0_VPEControl &= ~(0x7 << CP0VPECo_EXCPT);
-            helper_raise_exception(env, EXCP_THREAD);
+            do_raise_exception(env, EXCP_THREAD, GETPC());
         } else {
             // TODO: Deallocate TC
         }
@@ -2020,22 +1968,53 @@ target_ulong helper_yield(CPUMIPSState *env, target_ulong arg)
         /* Yield qualifier inputs not implemented. */
         env->CP0_VPEControl &= ~(0x7 << CP0VPECo_EXCPT);
         env->CP0_VPEControl |= 2 << CP0VPECo_EXCPT;
-        helper_raise_exception(env, EXCP_THREAD);
+        do_raise_exception(env, EXCP_THREAD, GETPC());
     }
     return env->CP0_YQMask;
 }
 
+/* R6 Multi-threading */
 #ifndef CONFIG_USER_ONLY
-/* TLB management */
-static void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global)
+target_ulong helper_dvp(CPUMIPSState *env)
 {
-    MIPSCPU *cpu = mips_env_get_cpu(env);
+    CPUState *other_cs = first_cpu;
+    target_ulong prev = env->CP0_VPControl;
 
-    /* Flush qemu's TLB and discard all shadowed entries.  */
-    tlb_flush(CPU(cpu), flush_global);
-    env->tlb->tlb_in_use = env->tlb->nb_tlb;
+    if (!((env->CP0_VPControl >> CP0VPCtl_DIS) & 1)) {
+        CPU_FOREACH(other_cs) {
+            MIPSCPU *other_cpu = MIPS_CPU(other_cs);
+            /* Turn off all VPs except the one executing the dvp. */
+            if (&other_cpu->env != env) {
+                mips_vpe_sleep(other_cpu);
+            }
+        }
+        env->CP0_VPControl |= (1 << CP0VPCtl_DIS);
+    }
+    return prev;
 }
 
+target_ulong helper_evp(CPUMIPSState *env)
+{
+    CPUState *other_cs = first_cpu;
+    target_ulong prev = env->CP0_VPControl;
+
+    if ((env->CP0_VPControl >> CP0VPCtl_DIS) & 1) {
+        CPU_FOREACH(other_cs) {
+            MIPSCPU *other_cpu = MIPS_CPU(other_cs);
+            if ((&other_cpu->env != env) && !mips_vp_is_wfi(other_cpu)) {
+                /* If the VP is WFI, don't disturb its sleep.
+                 * Otherwise, wake it up. */
+                mips_vpe_wake(other_cpu);
+            }
+        }
+        env->CP0_VPControl &= ~(1 << CP0VPCtl_DIS);
+    }
+    return prev;
+}
+#endif /* !CONFIG_USER_ONLY */
+
+#ifndef CONFIG_USER_ONLY
+/* TLB management */
 static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
 {
     /* Discard entries from env->tlb[first] onwards.  */
@@ -2044,13 +2023,13 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
     }
 }
 
-static inline uint64_t get_tlb_pfn_from_entrylo(uint64_t entryLo)
+static inline uint64_t get_tlb_pfn_from_entrylo(uint64_t entrylo)
 {
 #if defined(TARGET_MIPS64)
-    return extract64(entryLo, 6, 54);
+    return extract64(entrylo, 6, 54);
 #else
-    return extract64(entryLo, 6, 24) | /* PFN */
-           (extract64(entryLo, 32, 32) << 24); /* PFNX */
+    return extract64(entrylo, 6, 24) | /* PFN */
+           (extract64(entrylo, 32, 32) << 24); /* PFNX */
 #endif
 }
 
@@ -2078,13 +2057,13 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
     tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
     tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
-    tlb->PFN[0] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo0) & ~mask;
+    tlb->PFN[0] = (get_tlb_pfn_from_entrylo(env->CP0_EntryLo0) & ~mask) << 12;
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
-    tlb->PFN[1] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo1) & ~mask;
+    tlb->PFN[1] = (get_tlb_pfn_from_entrylo(env->CP0_EntryLo1) & ~mask) << 12;
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
@@ -2236,13 +2215,13 @@ void r4k_helper_tlbr(CPUMIPSState *env)
         env->CP0_EntryHi = tlb->VPN | tlb->ASID;
         env->CP0_PageMask = tlb->PageMask;
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
-                        ((target_ulong)tlb->RI0 << CP0EnLo_RI) |
-                        ((target_ulong)tlb->XI0 << CP0EnLo_XI) |
-                        (tlb->C0 << 3) | get_entrylo_pfn_from_tlb(tlb->PFN[0]);
+                        ((uint64_t)tlb->RI0 << CP0EnLo_RI) |
+                        ((uint64_t)tlb->XI0 << CP0EnLo_XI) | (tlb->C0 << 3) |
+                        get_entrylo_pfn_from_tlb(tlb->PFN[0] >> 12);
         env->CP0_EntryLo1 = tlb->G | (tlb->V1 << 1) | (tlb->D1 << 2) |
-                        ((target_ulong)tlb->RI1 << CP0EnLo_RI) |
-                        ((target_ulong)tlb->XI1 << CP0EnLo_XI) |
-                        (tlb->C1 << 3) | get_entrylo_pfn_from_tlb(tlb->PFN[1]);
+                        ((uint64_t)tlb->RI1 << CP0EnLo_RI) |
+                        ((uint64_t)tlb->XI1 << CP0EnLo_XI) | (tlb->C1 << 3) |
+                        get_entrylo_pfn_from_tlb(tlb->PFN[1] >> 12);
     }
 }
 
@@ -2338,22 +2317,6 @@ static void set_pc(CPUMIPSState *env, target_ulong error_pc)
     }
 }
 
-void helper_check_llbit(CPUMIPSState *env, target_ulong address)
-{
-    /* Write to the block of synchronizable physical memory containing the word
-       will cause SC/SCD to fail. The size and alignment of the block is
-       implementation-dependent.
-       For simplicity assuming block size = 8 bytes.
-       TODO: take into account unaligned accesses.
-    */
-    CPUState *cs = CPU(mips_env_get_cpu(env));
-    hwaddr phys_addr = mips_cpu_get_phys_page_debug(cs, address) & ~0x7;
-
-    if (phys_addr == (env->lladdr & ~0x7)) {
-        env->hflags &= ~MIPS_HFLAG_LLBIT;
-    }
-}
-
 static inline void exception_return(CPUMIPSState *env)
 {
     debug_pre_eret(env);
@@ -2371,7 +2334,7 @@ static inline void exception_return(CPUMIPSState *env)
 void helper_eret(CPUMIPSState *env)
 {
     exception_return(env);
-    env->hflags &= ~MIPS_HFLAG_LLBIT;
+    env->lladdr = 1;
 }
 
 void helper_eretnc(CPUMIPSState *env)
@@ -2384,54 +2347,58 @@ void helper_deret(CPUMIPSState *env)
     debug_pre_eret(env);
     set_pc(env, env->CP0_DEPC);
 
-    env->hflags &= MIPS_HFLAG_DM;
+    env->hflags &= ~MIPS_HFLAG_DM;
     compute_hflags(env);
     debug_post_eret(env);
 }
 #endif /* !CONFIG_USER_ONLY */
 
+static inline void check_hwrena(CPUMIPSState *env, int reg)
+{
+    if ((env->hflags & MIPS_HFLAG_CP0) || (env->CP0_HWREna & (1 << reg))) {
+        return;
+    }
+    do_raise_exception(env, EXCP_RI, GETPC());
+}
+
 target_ulong helper_rdhwr_cpunum(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 0)))
-        return env->CP0_EBase & 0x3ff;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 0);
+    return env->CP0_EBase & 0x3ff;
 }
 
 target_ulong helper_rdhwr_synci_step(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 1)))
-        return env->SYNCI_Step;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 1);
+    return env->SYNCI_Step;
 }
 
 target_ulong helper_rdhwr_cc(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 2)))
-        return env->CP0_Count;
-    else
-        helper_raise_exception(env, EXCP_RI);
-
-    return 0;
+    check_hwrena(env, 2);
+#ifdef CONFIG_USER_ONLY
+    return env->CP0_Count;
+#else
+    return (int32_t)cpu_mips_get_count(env);
+#endif
 }
 
 target_ulong helper_rdhwr_ccres(CPUMIPSState *env)
 {
-    if ((env->hflags & MIPS_HFLAG_CP0) ||
-        (env->CP0_HWREna & (1 << 3)))
-        return env->CCRes;
-    else
-        helper_raise_exception(env, EXCP_RI);
+    check_hwrena(env, 3);
+    return env->CCRes;
+}
 
-    return 0;
+target_ulong helper_rdhwr_performance(CPUMIPSState *env)
+{
+    check_hwrena(env, 4);
+    return env->CP0_Performance0;
+}
+
+target_ulong helper_rdhwr_xnp(CPUMIPSState *env)
+{
+    check_hwrena(env, 5);
+    return (env->CP0_Config5 >> CP0C5_XNP) & 1;
 }
 
 void helper_pmon(CPUMIPSState *env, int function)
@@ -2466,32 +2433,21 @@ void helper_wait(CPUMIPSState *env)
 
     cs->halted = 1;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
-    helper_raise_exception(env, EXCP_HLT);
+    /* Last instruction in the block, PC was updated before
+       - no need to recover PC and icount */
+    raise_exception(env, EXCP_HLT);
 }
 
 #if !defined(CONFIG_USER_ONLY)
 
 void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                   int access_type, int is_user,
-                                  uintptr_t retaddr, unsigned size)
+                                  uintptr_t retaddr)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
     int error_code = 0;
     int excp;
-
-    if (env->insn_flags & ISA_MIPS32R6) {
-        /* Release 6 provides support for misaligned memory access for
-         * all ordinary memory reference instructions
-         * */
-        if (!cpu_mips_validate_access(env, addr, addr, size, access_type)) {
-            CPUState *cs = CPU(mips_env_get_cpu(env));
-            do_raise_exception_err(env, cs->exception_index,
-                                   env->error_code, retaddr);
-            return;
-        }
-        return;
-    }
 
     env->CP0_BadVAddr = addr;
 
@@ -2540,9 +2496,9 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
     }
 
     if (is_exec) {
-        helper_raise_exception(env, EXCP_IBE);
+        raise_exception(env, EXCP_IBE);
     } else {
-        helper_raise_exception(env, EXCP_DBE);
+        raise_exception(env, EXCP_DBE);
     }
 }
 #endif /* !CONFIG_USER_ONLY */
@@ -2577,12 +2533,12 @@ target_ulong helper_cfc1(CPUMIPSState *env, uint32_t reg)
                 arg1 = (int32_t)
                        ((env->CP0_Status & (1  << CP0St_FR)) >> CP0St_FR);
             } else {
-                helper_raise_exception(env, EXCP_RI);
+                do_raise_exception(env, EXCP_RI, GETPC());
             }
         }
         break;
     case 5:
-        /* FRE support - read Config5.FRE bit */
+        /* FRE Support - read Config5.FRE bit */
         if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
             if (env->CP0_Config5 & (1 << CP0C5_UFE)) {
                 arg1 = (env->CP0_Config5 >> CP0C5_FRE) & 1;
@@ -2620,7 +2576,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
             env->CP0_Status &= ~(1 << CP0St_FR);
             compute_hflags(env);
         } else {
-            helper_raise_exception(env, EXCP_RI);
+            do_raise_exception(env, EXCP_RI, GETPC());
         }
         break;
     case 4:
@@ -2632,7 +2588,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
             env->CP0_Status |= (1 << CP0St_FR);
             compute_hflags(env);
         } else {
-            helper_raise_exception(env, EXCP_RI);
+            do_raise_exception(env, EXCP_RI, GETPC());
         }
         break;
     case 5:
@@ -2648,7 +2604,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
         }
         break;
     case 6:
-        /* FRE support - set Config5.FRE bit */
+        /* FRE Support - set Config5.FRE bit */
         if (!((env->active_fpu.fcr0 & (1 << FCR0_FREP)) && (rt == 0))) {
             return;
         }
@@ -2678,7 +2634,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        if (env->insn_flags & ISA_MIPS32R6) {
+        if (env->insn_flags & (ISA_MIPS32R6 | ASE_MSA)) {
             uint32_t mask = 0xfefc0000;
             env->active_fpu.fcr31 = (arg1 & ~mask) |
                 (env->active_fpu.fcr31 & mask);
@@ -2763,6 +2719,7 @@ uint64_t helper_float_cvtd_s(CPUMIPSState *env, uint32_t fst0)
     uint64_t fdt2;
 
     fdt2 = float32_to_float64(fst0, &env->active_fpu.fp_status);
+    fdt2 = float64_maybe_silence_nan(fdt2);
     update_fcr31(env, GETPC());
     return fdt2;
 }
@@ -2852,6 +2809,7 @@ uint32_t helper_float_cvts_d(CPUMIPSState *env, uint64_t fdt0)
     uint32_t fst2;
 
     fst2 = float64_to_float32(fdt0, &env->active_fpu.fp_status);
+    fst2 = float32_maybe_silence_nan(fst2);
     update_fcr31(env, GETPC());
     return fst2;
 }
@@ -3871,101 +3829,97 @@ FOP_CONDN_S(sne,  (float32_lt(fst1, fst0, &env->active_fpu.fp_status)
 #define DF_ELEMENTS(df) (MSA_WRLEN / DF_BITS(df))
 
 #if !defined(CONFIG_USER_ONLY)
-static bool cpu_mips_validate_msa_block_access(CPUMIPSState *env,
-        target_ulong address, int df, int rw)
-{
-    int i;
-    for (i = 0; i < DF_ELEMENTS(df); i++) {
-        if (!cpu_mips_validate_access(env, address + (i << df),
-                address, (1 << df), rw)) {
-            CPUState *cs = CPU(mips_env_get_cpu(env));
-            do_raise_exception_err(env, cs->exception_index,
-                                   env->error_code, GETRA());
-            return false;
-        }
-    }
-    return true;
-}
+#define MEMOP_IDX(DF)                                           \
+        TCGMemOpIdx oi = make_memop_idx(MO_TE | DF | MO_UNALN,  \
+                                        cpu_mmu_index(env, false));
+#else
+#define MEMOP_IDX(DF)
 #endif
 
-void helper_msa_ld_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int32_t s10)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
-    int i;
-
-#if !defined(CONFIG_USER_ONLY)
-    if (!cpu_mips_validate_msa_block_access(env, addr, df, MMU_DATA_LOAD)) {
-        return;
-    }
-#endif
-
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            pwd->b[i] = do_lbu(env, addr + (i << DF_BYTE),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwd->h[i] = do_lhu(env, addr + (i << DF_HALF),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwd->w[i] = do_lw(env, addr + (i << DF_WORD),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwd->d[i] = do_ld(env, addr + (i << DF_DOUBLE),
-                                env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    }
+#define MSA_LD_DF(DF, TYPE, LD_INSN, ...)                               \
+void helper_msa_ld_ ## TYPE(CPUMIPSState *env, uint32_t wd,             \
+                            target_ulong addr)                          \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    wr_t wx;                                                            \
+    int i;                                                              \
+    MEMOP_IDX(DF)                                                       \
+    for (i = 0; i < DF_ELEMENTS(DF); i++) {                             \
+        wx.TYPE[i] = LD_INSN(env, addr + (i << DF), ##__VA_ARGS__);     \
+    }                                                                   \
+    memcpy(pwd, &wx, sizeof(wr_t));                                     \
 }
 
-void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
-                     int32_t s10)
-{
-    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong addr = env->active_tc.gpr[rs] + (s10 << df);
-    int i;
-
 #if !defined(CONFIG_USER_ONLY)
-    if (!cpu_mips_validate_msa_block_access(env, addr, df, MMU_DATA_STORE)) {
-        return;
-    }
+MSA_LD_DF(DF_BYTE,   b, helper_ret_ldub_mmu, oi, GETRA())
+MSA_LD_DF(DF_HALF,   h, helper_ret_lduw_mmu, oi, GETRA())
+MSA_LD_DF(DF_WORD,   w, helper_ret_ldul_mmu, oi, GETRA())
+MSA_LD_DF(DF_DOUBLE, d, helper_ret_ldq_mmu,  oi, GETRA())
+#else
+MSA_LD_DF(DF_BYTE,   b, cpu_ldub_data)
+MSA_LD_DF(DF_HALF,   h, cpu_lduw_data)
+MSA_LD_DF(DF_WORD,   w, cpu_ldl_data)
+MSA_LD_DF(DF_DOUBLE, d, cpu_ldq_data)
 #endif
 
-    switch (df) {
-    case DF_BYTE:
-        for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            do_sb(env, addr + (i << DF_BYTE), pwd->b[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_HALF:
-        for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            do_sh(env, addr + (i << DF_HALF), pwd->h[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_WORD:
-        for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            do_sw(env, addr + (i << DF_WORD), pwd->w[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
-    case DF_DOUBLE:
-        for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            do_sd(env, addr + (i << DF_DOUBLE), pwd->d[i],
-                    env->hflags & MIPS_HFLAG_KSU);
-        }
-        break;
+#define MSA_PAGESPAN(x) \
+        ((((x) & ~TARGET_PAGE_MASK) + MSA_WRLEN/8 - 1) >= TARGET_PAGE_SIZE)
+
+static inline void ensure_writable_pages(CPUMIPSState *env,
+                                         target_ulong addr,
+                                         int mmu_idx,
+                                         uintptr_t retaddr)
+{
+#if !defined(CONFIG_USER_ONLY)
+    target_ulong page_addr;
+    if (unlikely(MSA_PAGESPAN(addr))) {
+        /* first page */
+        probe_write(env, addr, mmu_idx, retaddr);
+        /* second page */
+        page_addr = (addr & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
+        probe_write(env, page_addr, mmu_idx, retaddr);
     }
+#endif
+}
+
+#define MSA_ST_DF(DF, TYPE, ST_INSN, ...)                               \
+void helper_msa_st_ ## TYPE(CPUMIPSState *env, uint32_t wd,             \
+                            target_ulong addr)                          \
+{                                                                       \
+    wr_t *pwd = &(env->active_fpu.fpr[wd].wr);                          \
+    int mmu_idx = cpu_mmu_index(env, false);				\
+    int i;                                                              \
+    MEMOP_IDX(DF)                                                       \
+    ensure_writable_pages(env, addr, mmu_idx, GETRA());                 \
+    for (i = 0; i < DF_ELEMENTS(DF); i++) {                             \
+        ST_INSN(env, addr + (i << DF), pwd->TYPE[i], ##__VA_ARGS__);    \
+    }                                                                   \
+}
+
+#if !defined(CONFIG_USER_ONLY)
+MSA_ST_DF(DF_BYTE,   b, helper_ret_stb_mmu, oi, GETRA())
+MSA_ST_DF(DF_HALF,   h, helper_ret_stw_mmu, oi, GETRA())
+MSA_ST_DF(DF_WORD,   w, helper_ret_stl_mmu, oi, GETRA())
+MSA_ST_DF(DF_DOUBLE, d, helper_ret_stq_mmu, oi, GETRA())
+#else
+MSA_ST_DF(DF_BYTE,   b, cpu_stb_data)
+MSA_ST_DF(DF_HALF,   h, cpu_stw_data)
+MSA_ST_DF(DF_WORD,   w, cpu_stl_data)
+MSA_ST_DF(DF_DOUBLE, d, cpu_stq_data)
+#endif
+
+void helper_cache(CPUMIPSState *env, target_ulong addr, uint32_t op)
+{
+#ifndef CONFIG_USER_ONLY
+    target_ulong index = addr & 0x1fffffff;
+    if (op == 9) {
+        /* Index Store Tag */
+        memory_region_dispatch_write(env->itc_tag, index, env->CP0_TagLo,
+                                     8, MEMTXATTRS_UNSPECIFIED);
+    } else if (op == 5) {
+        /* Index Load Tag */
+        memory_region_dispatch_read(env->itc_tag, index, &env->CP0_TagLo,
+                                    8, MEMTXATTRS_UNSPECIFIED);
+    }
+#endif
 }

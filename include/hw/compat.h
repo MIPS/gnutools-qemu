@@ -1,6 +1,51 @@
 #ifndef HW_COMPAT_H
 #define HW_COMPAT_H
 
+#define HW_COMPAT_2_4 \
+        {\
+            .driver   = "virtio-blk-device",\
+            .property = "scsi",\
+            .value    = "true",\
+        },{\
+            .driver   = "e1000",\
+            .property = "extra_mac_registers",\
+            .value    = "off",\
+        },{\
+            .driver   = "virtio-pci",\
+            .property = "x-disable-pcie",\
+            .value    = "on",\
+        },{\
+            .driver   = "virtio-pci",\
+            .property = "migrate-extra",\
+            .value    = "off",\
+        },
+
+#define HW_COMPAT_2_3 \
+        {\
+            .driver   = "virtio-blk-pci",\
+            .property = "any_layout",\
+            .value    = "off",\
+        },{\
+            .driver   = "virtio-balloon-pci",\
+            .property = "any_layout",\
+            .value    = "off",\
+        },{\
+            .driver   = "virtio-serial-pci",\
+            .property = "any_layout",\
+            .value    = "off",\
+        },{\
+            .driver   = "virtio-9p-pci",\
+            .property = "any_layout",\
+            .value    = "off",\
+        },{\
+            .driver   = "virtio-rng-pci",\
+            .property = "any_layout",\
+            .value    = "off",\
+        },
+
+#define HW_COMPAT_2_2 \
+        /* empty */
+
 #define HW_COMPAT_2_1 \
         {\
             .driver   = "intel-hda",\
@@ -30,6 +75,6 @@
             .driver   = "virtio-pci",\
             .property = "virtio-pci-bus-master-bug-migration",\
             .value    = "on",\
-        }
+        },
 
 #endif /* HW_COMPAT_H */

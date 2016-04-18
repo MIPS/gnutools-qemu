@@ -29,6 +29,7 @@
 #include "trace.h"
 #include "block/thread-pool.h"
 #include "qemu/iov.h"
+#include "qapi/qmp/qstring.h"
 #include <windows.h>
 #include <winioctl.h>
 
@@ -101,7 +102,7 @@ static int aio_worker(void *arg)
     switch (aiocb->aio_type & QEMU_AIO_TYPE_MASK) {
     case QEMU_AIO_READ:
         count = handle_aiocb_rw(aiocb);
-        if (count < aiocb->aio_nbytes && aiocb->bs->growable) {
+        if (count < aiocb->aio_nbytes) {
             /* A short read means that we have reached EOF. Pad the buffer
              * with zeros for bytes after EOF. */
             iov_memset(aiocb->aio_iov, aiocb->aio_niov, count,
@@ -118,9 +119,9 @@ static int aio_worker(void *arg)
     case QEMU_AIO_WRITE:
         count = handle_aiocb_rw(aiocb);
         if (count == aiocb->aio_nbytes) {
-            count = 0;
+            ret = 0;
         } else {
-            count = -EINVAL;
+            ret = -EINVAL;
         }
         break;
     case QEMU_AIO_FLUSH:
@@ -134,7 +135,7 @@ static int aio_worker(void *arg)
         break;
     }
 
-    g_slice_free(RawWin32AIOData, aiocb);
+    g_free(aiocb);
     return ret;
 }
 
@@ -142,7 +143,7 @@ static BlockAIOCB *paio_submit(BlockDriverState *bs, HANDLE hfile,
         int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
         BlockCompletionFunc *cb, void *opaque, int type)
 {
-    RawWin32AIOData *acb = g_slice_new(RawWin32AIOData);
+    RawWin32AIOData *acb = g_new(RawWin32AIOData, 1);
     ThreadPool *pool;
 
     acb->bs = bs;
@@ -540,7 +541,7 @@ static QemuOptsList raw_create_opts = {
     }
 };
 
-static BlockDriver bdrv_file = {
+BlockDriver bdrv_file = {
     .format_name	= "file",
     .protocol_name	= "file",
     .instance_size	= sizeof(BDRVRawState),

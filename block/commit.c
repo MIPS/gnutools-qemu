@@ -15,7 +15,9 @@
 #include "trace.h"
 #include "block/block_int.h"
 #include "block/blockjob.h"
+#include "qapi/qmp/qerror.h"
 #include "qemu/ratelimit.h"
+#include "sysemu/block-backend.h"
 
 enum {
     /*
@@ -186,7 +188,7 @@ static void commit_set_speed(BlockJob *job, int64_t speed, Error **errp)
     CommitBlockJob *s = container_of(job, CommitBlockJob, common);
 
     if (speed < 0) {
-        error_set(errp, QERR_INVALID_PARAMETER, "speed");
+        error_setg(errp, QERR_INVALID_PARAMETER, "speed");
         return;
     }
     ratelimit_set_speed(&s->limit, speed / BDRV_SECTOR_SIZE, SLICE_TIME);
@@ -212,7 +214,7 @@ void commit_start(BlockDriverState *bs, BlockDriverState *base,
 
     if ((on_error == BLOCKDEV_ON_ERROR_STOP ||
          on_error == BLOCKDEV_ON_ERROR_ENOSPC) &&
-        !bdrv_iostatus_is_enabled(bs)) {
+        (!bs->blk || !blk_iostatus_is_enabled(bs->blk))) {
         error_setg(errp, "Invalid parameter combination");
         return;
     }
@@ -234,13 +236,13 @@ void commit_start(BlockDriverState *bs, BlockDriverState *base,
     orig_overlay_flags = bdrv_get_flags(overlay_bs);
 
     /* convert base & overlay_bs to r/w, if necessary */
-    if (!(orig_base_flags & BDRV_O_RDWR)) {
-        reopen_queue = bdrv_reopen_queue(reopen_queue, base,
-                                         orig_base_flags | BDRV_O_RDWR);
-    }
     if (!(orig_overlay_flags & BDRV_O_RDWR)) {
-        reopen_queue = bdrv_reopen_queue(reopen_queue, overlay_bs,
+        reopen_queue = bdrv_reopen_queue(reopen_queue, overlay_bs, NULL,
                                          orig_overlay_flags | BDRV_O_RDWR);
+    }
+    if (!(orig_base_flags & BDRV_O_RDWR)) {
+        reopen_queue = bdrv_reopen_queue(reopen_queue, base, NULL,
+                                         orig_base_flags | BDRV_O_RDWR);
     }
     if (reopen_queue) {
         bdrv_reopen_multiple(reopen_queue, &local_err);
