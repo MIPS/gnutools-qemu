@@ -8972,6 +8972,15 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp0);
         }
         break;
+    case OPC_MOV_S:
+        {
+            TCGv_i32 fp0 = tcg_temp_new_i32();
+
+            gen_load_fpr32(ctx, fp0, fs);
+            gen_store_fpr32(ctx, fp0, fd);
+            tcg_temp_free_i32(fp0);
+        }
+        break;
     case OPC_ABS_S:
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
@@ -8982,15 +8991,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             } else {
                 gen_helper_float_abs_s(fp0, fp0);
             }
-            gen_store_fpr32(ctx, fp0, fd);
-            tcg_temp_free_i32(fp0);
-        }
-        break;
-    case OPC_MOV_S:
-        {
-            TCGv_i32 fp0 = tcg_temp_new_i32();
-
-            gen_load_fpr32(ctx, fp0, fs);
             gen_store_fpr32(ctx, fp0, fd);
             tcg_temp_free_i32(fp0);
         }
@@ -9007,6 +9007,23 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             }
             gen_store_fpr32(ctx, fp0, fd);
             tcg_temp_free_i32(fp0);
+        }
+        break;
+    case OPC_CVT_L_S:
+        check_cp1_64bitmode(ctx);
+        {
+            TCGv_i32 fp32 = tcg_temp_new_i32();
+            TCGv_i64 fp64 = tcg_temp_new_i64();
+
+            gen_load_fpr32(ctx, fp32, fs);
+            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
+                gen_helper_float_cvt_2008_l_s(fp64, cpu_env, fp32);
+            } else {
+                gen_helper_float_cvt_l_s(fp64, cpu_env, fp32);
+            }
+            tcg_temp_free_i32(fp32);
+            gen_store_fpr64(ctx, fp64, fd);
+            tcg_temp_free_i64(fp64);
         }
         break;
     case OPC_ROUND_L_S:
@@ -9075,6 +9092,20 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp32);
             gen_store_fpr64(ctx, fp64, fd);
             tcg_temp_free_i64(fp64);
+        }
+        break;
+    case OPC_CVT_W_S:
+        {
+            TCGv_i32 fp0 = tcg_temp_new_i32();
+
+            gen_load_fpr32(ctx, fp0, fs);
+            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
+                gen_helper_float_cvt_2008_w_s(fp0, cpu_env, fp0);
+            } else {
+                gen_helper_float_cvt_w_s(fp0, cpu_env, fp0);
+            }
+            gen_store_fpr32(ctx, fp0, fd);
+            tcg_temp_free_i32(fp0);
         }
         break;
     case OPC_ROUND_W_S:
@@ -9372,37 +9403,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp64);
         }
         break;
-    case OPC_CVT_W_S:
-        {
-            TCGv_i32 fp0 = tcg_temp_new_i32();
-
-            gen_load_fpr32(ctx, fp0, fs);
-            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
-                gen_helper_float_cvt_2008_w_s(fp0, cpu_env, fp0);
-            } else {
-                gen_helper_float_cvt_w_s(fp0, cpu_env, fp0);
-            }
-            gen_store_fpr32(ctx, fp0, fd);
-            tcg_temp_free_i32(fp0);
-        }
-        break;
-    case OPC_CVT_L_S:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i32 fp32 = tcg_temp_new_i32();
-            TCGv_i64 fp64 = tcg_temp_new_i64();
-
-            gen_load_fpr32(ctx, fp32, fs);
-            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
-                gen_helper_float_cvt_2008_l_s(fp64, cpu_env, fp32);
-            } else {
-                gen_helper_float_cvt_l_s(fp64, cpu_env, fp32);
-            }
-            tcg_temp_free_i32(fp32);
-            gen_store_fpr64(ctx, fp64, fd);
-            tcg_temp_free_i64(fp64);
-        }
-        break;
     case OPC_CVT_PS_S:
         check_ps(ctx);
         {
@@ -9509,6 +9509,16 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp0);
         }
         break;
+    case OPC_MOV_D:
+        check_cp1_registers(ctx, fs | fd);
+        {
+            TCGv_i64 fp0 = tcg_temp_new_i64();
+
+            gen_load_fpr64(ctx, fp0, fs);
+            gen_store_fpr64(ctx, fp0, fd);
+            tcg_temp_free_i64(fp0);
+        }
+        break;
     case OPC_ABS_D:
         check_cp1_registers(ctx, fs | fd);
         {
@@ -9524,16 +9534,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp0);
         }
         break;
-    case OPC_MOV_D:
-        check_cp1_registers(ctx, fs | fd);
-        {
-            TCGv_i64 fp0 = tcg_temp_new_i64();
-
-            gen_load_fpr64(ctx, fp0, fs);
-            gen_store_fpr64(ctx, fp0, fd);
-            tcg_temp_free_i64(fp0);
-        }
-        break;
     case OPC_NEG_D:
         check_cp1_registers(ctx, fs | fd);
         {
@@ -9544,6 +9544,21 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
                 tcg_gen_xori_i64(fp0, fp0, 1ULL << 63);
             } else {
                 gen_helper_float_chs_d(fp0, fp0);
+            }
+            gen_store_fpr64(ctx, fp0, fd);
+            tcg_temp_free_i64(fp0);
+        }
+        break;
+    case OPC_CVT_L_D:
+        check_cp1_64bitmode(ctx);
+        {
+            TCGv_i64 fp0 = tcg_temp_new_i64();
+
+            gen_load_fpr64(ctx, fp0, fs);
+            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
+                gen_helper_float_cvt_2008_l_d(fp0, cpu_env, fp0);
+            } else {
+                gen_helper_float_cvt_l_d(fp0, cpu_env, fp0);
             }
             gen_store_fpr64(ctx, fp0, fd);
             tcg_temp_free_i64(fp0);
@@ -9607,6 +9622,23 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             }
             gen_store_fpr64(ctx, fp0, fd);
             tcg_temp_free_i64(fp0);
+        }
+        break;
+    case OPC_CVT_W_D:
+        check_cp1_registers(ctx, fs);
+        {
+            TCGv_i32 fp32 = tcg_temp_new_i32();
+            TCGv_i64 fp64 = tcg_temp_new_i64();
+
+            gen_load_fpr64(ctx, fp64, fs);
+            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
+                gen_helper_float_cvt_2008_w_d(fp32, cpu_env, fp64);
+            } else {
+                gen_helper_float_cvt_w_d(fp32, cpu_env, fp64);
+            }
+            tcg_temp_free_i64(fp64);
+            gen_store_fpr32(ctx, fp32, fd);
+            tcg_temp_free_i32(fp32);
         }
         break;
     case OPC_ROUND_W_D:
@@ -9935,38 +9967,6 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp64);
             gen_store_fpr32(ctx, fp32, fd);
             tcg_temp_free_i32(fp32);
-        }
-        break;
-    case OPC_CVT_W_D:
-        check_cp1_registers(ctx, fs);
-        {
-            TCGv_i32 fp32 = tcg_temp_new_i32();
-            TCGv_i64 fp64 = tcg_temp_new_i64();
-
-            gen_load_fpr64(ctx, fp64, fs);
-            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
-                gen_helper_float_cvt_2008_w_d(fp32, cpu_env, fp64);
-            } else {
-                gen_helper_float_cvt_w_d(fp32, cpu_env, fp64);
-            }
-            tcg_temp_free_i64(fp64);
-            gen_store_fpr32(ctx, fp32, fd);
-            tcg_temp_free_i32(fp32);
-        }
-        break;
-    case OPC_CVT_L_D:
-        check_cp1_64bitmode(ctx);
-        {
-            TCGv_i64 fp0 = tcg_temp_new_i64();
-
-            gen_load_fpr64(ctx, fp0, fs);
-            if ((ctx->insn_flags & ISA_MIPS32R6) && (ctx->nan2008)) {
-                gen_helper_float_cvt_2008_l_d(fp0, cpu_env, fp0);
-            } else {
-                gen_helper_float_cvt_l_d(fp0, cpu_env, fp0);
-            }
-            gen_store_fpr64(ctx, fp0, fd);
-            tcg_temp_free_i64(fp0);
         }
         break;
     case OPC_CVT_S_W:
