@@ -273,6 +273,7 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x3678FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .CP1_fcr31 = 0,
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16,
@@ -303,6 +304,7 @@ static const mips_def_t mips_defs[] =
                     (0xff << CP0TCSt_TASID),
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x95 << FCR0_PRID),
+        .CP1_fcr31 = 0,
         .CP0_SRSCtl = (0xf << CP0SRSCtl_HSS),
         .CP0_SRSConf0_rw_bitmask = 0x3fffffff,
         .CP0_SRSConf0 = (1U << CP0SRSC0_M) | (0x3fe << CP0SRSC0_SRS3) |
@@ -343,6 +345,7 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x3778FF1F,
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
                     (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
+        .CP1_fcr31 = 0,
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
@@ -435,7 +438,7 @@ static const mips_def_t mips_defs[] =
     },
     {
         /* A generic CPU supporting MIPS32 Release 6 ISA.
-           FIXME: Support IEEE 754-2008 FP.
+           FIXME: Complete support for IEEE 754-2008 FP.
                   Eventually this should be replaced by a real CPU model. */
         .name = "mips32r6-generic",
         .CP0_PRid = 0x00010000,
@@ -488,6 +491,7 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x3678FFFF,
         /* The R4000 has a full 64bit FPU but doesn't use the fcr0 bits. */
         .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 40,
         .PABITS = 36,
         .insn_flags = CPU_MIPS3,
@@ -506,6 +510,7 @@ static const mips_def_t mips_defs[] =
         .CP0_Status_rw_bitmask = 0x3678FFFF,
         /* The VR5432 has a full 64bit FPU but doesn't use the fcr0 bits. */
         .CP1_fcr0 = (0x54 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 40,
         .PABITS = 32,
         .insn_flags = CPU_VR54XX,
@@ -551,6 +556,7 @@ static const mips_def_t mips_defs[] =
         /* The 5Kf has F64 / L / W but doesn't use the fcr0 bits. */
         .CP1_fcr0 = (1 << FCR0_D) | (1 << FCR0_S) |
                     (0x81 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 42,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64,
@@ -578,6 +584,7 @@ static const mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_3D) | (1 << FCR0_PS) |
                     (1 << FCR0_D) | (1 << FCR0_S) |
                     (0x82 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 40,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64 | ASE_MIPS3D,
@@ -604,6 +611,7 @@ static const mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 42,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64R2 | ASE_MIPS3D,
@@ -655,8 +663,6 @@ static const mips_def_t mips_defs[] =
         .mmu_type = MMU_TYPE_R4000,
     },
     {
-        /* FIXME: Support IEEE 754-2008 FP
-         */
         .name = "I6400",
         .CP0_PRid = 0x0001A900,
         .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AR) | (0x2 << CP0C0_AT) |
@@ -707,6 +713,7 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x35D0FFFF,
         .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x1 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 40,
         .PABITS = 40,
         .insn_flags = CPU_LOONGSON2E,
@@ -725,6 +732,7 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0xF5D0FF1F,   /* Bits 7:5 not writable.  */
         .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x1 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 40,
         .PABITS = 40,
         .insn_flags = CPU_LOONGSON2F,
@@ -752,6 +760,7 @@ static const mips_def_t mips_defs[] =
         .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
                     (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
                     (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
+        .CP1_fcr31 = 0,
         .SEGBITS = 42,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64R2 | ASE_DSP | ASE_DSPR2,
