@@ -2508,7 +2508,7 @@ void helper_ctc1(CPUMIPSState *env, target_ulong arg1, uint32_t fs, uint32_t rt)
                      ((arg1 & 0x4) << 22);
         break;
     case 31:
-        if (env->insn_flags & ISA_MIPS32R6) {
+        if (env->insn_flags & (ISA_MIPS32R6 | ASE_MSA)) {
             uint32_t mask = 0xfefc0000;
             env->active_fpu.fcr31 = (arg1 & ~mask) |
                 (env->active_fpu.fcr31 & mask);
