@@ -28,7 +28,7 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
-#include "hw/sd.h"
+#include "hw/sd/sd.h"
 
 enum {
     ENABLE_CMD_TX   = (1<<0),
@@ -255,6 +255,7 @@ static int milkymist_memcard_init(SysBusDevice *dev)
     DriveInfo *dinfo;
     BlockBackend *blk;
 
+    /* FIXME use a qdev drive property instead of drive_get_next() */
     dinfo = drive_get_next(IF_SD);
     blk = dinfo ? blk_by_legacy_dinfo(dinfo) : NULL;
     s->card = sd_init(blk, false);
@@ -296,6 +297,8 @@ static void milkymist_memcard_class_init(ObjectClass *klass, void *data)
     k->init = milkymist_memcard_init;
     dc->reset = milkymist_memcard_reset;
     dc->vmsd = &vmstate_milkymist_memcard;
+    /* Reason: init() method uses drive_get_next() */
+    dc->cannot_instantiate_with_device_add_yet = true;
 }
 
 static const TypeInfo milkymist_memcard_info = {

@@ -24,7 +24,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 #include <inttypes.h>
 #include <time.h>
 #include <fcntl.h>
@@ -40,6 +39,8 @@
 #include "xen_blkif.h"
 #include "sysemu/blockdev.h"
 #include "sysemu/block-backend.h"
+#include "qapi/qmp/qdict.h"
+#include "qapi/qmp/qstring.h"
 
 /* ------------------------------------------------------------- */
 
@@ -74,7 +75,6 @@ struct ioreq {
     off_t               start;
     QEMUIOVector        v;
     int                 presync;
-    int                 postsync;
     uint8_t             mapped;
 
     /* grant mapping */
@@ -143,7 +143,6 @@ static void ioreq_reset(struct ioreq *ioreq)
     ioreq->status = 0;
     ioreq->start = 0;
     ioreq->presync = 0;
-    ioreq->postsync = 0;
     ioreq->mapped = 0;
 
     memset(ioreq->domids, 0, sizeof(ioreq->domids));
@@ -519,12 +518,6 @@ static void qemu_aio_complete(void *opaque, int ret)
     if (ioreq->aio_inflight > 0) {
         return;
     }
-    if (ioreq->postsync) {
-        ioreq->postsync = 0;
-        ioreq->aio_inflight++;
-        blk_aio_flush(ioreq->blkdev->blk, qemu_aio_complete, ioreq);
-        return;
-    }
 
     ioreq->status = ioreq->aio_errors ? BLKIF_RSP_ERROR : BLKIF_RSP_OKAY;
     ioreq_unmap(ioreq);
@@ -536,7 +529,11 @@ static void qemu_aio_complete(void *opaque, int ret)
             break;
         }
     case BLKIF_OP_READ:
-        block_acct_done(blk_get_stats(ioreq->blkdev->blk), &ioreq->acct);
+        if (ioreq->status == BLKIF_RSP_OKAY) {
+            block_acct_done(blk_get_stats(ioreq->blkdev->blk), &ioreq->acct);
+        } else {
+            block_acct_failed(blk_get_stats(ioreq->blkdev->blk), &ioreq->acct);
+        }
         break;
     case BLKIF_OP_DISCARD:
     default:
@@ -575,7 +572,9 @@ static int ioreq_runio_qemu_aio(struct ioreq *ioreq)
         }
 
         block_acct_start(blk_get_stats(blkdev->blk), &ioreq->acct,
-                         ioreq->v.size, BLOCK_ACCT_WRITE);
+                         ioreq->v.size,
+                         ioreq->req.operation == BLKIF_OP_WRITE ?
+                         BLOCK_ACCT_WRITE : BLOCK_ACCT_FLUSH);
         ioreq->aio_inflight++;
         blk_aio_writev(blkdev->blk, ioreq->start / BLOCK_SIZE,
                        &ioreq->v, ioreq->v.size / BLOCK_SIZE,
@@ -719,6 +718,23 @@ static void blk_handle_requests(struct XenBlkDev *blkdev)
 
         /* parse them */
         if (ioreq_parse(ioreq) != 0) {
+
+            switch (ioreq->req.operation) {
+            case BLKIF_OP_READ:
+                block_acct_invalid(blk_get_stats(blkdev->blk),
+                                   BLOCK_ACCT_READ);
+                break;
+            case BLKIF_OP_WRITE:
+                block_acct_invalid(blk_get_stats(blkdev->blk),
+                                   BLOCK_ACCT_WRITE);
+                break;
+            case BLKIF_OP_FLUSH_DISKCACHE:
+                block_acct_invalid(blk_get_stats(blkdev->blk),
+                                   BLOCK_ACCT_FLUSH);
+            default:
+                break;
+            };
+
             if (blk_send_response_one(ioreq)) {
                 xen_be_send_notify(&blkdev->xendev);
             }
@@ -897,30 +913,23 @@ static int blk_connect(struct XenDevice *xendev)
     blkdev->dinfo = drive_get(IF_XEN, 0, index);
     if (!blkdev->dinfo) {
         Error *local_err = NULL;
-        BlockBackend *blk;
-        BlockDriver *drv;
-        BlockDriverState *bs;
+        QDict *options = NULL;
+
+        if (strcmp(blkdev->fileproto, "<unset>")) {
+            options = qdict_new();
+            qdict_put(options, "driver", qstring_from_str(blkdev->fileproto));
+        }
 
         /* setup via xenbus -> create new block driver instance */
         xen_be_printf(&blkdev->xendev, 2, "create new bdrv (xenbus setup)\n");
-        blk = blk_new_with_bs(blkdev->dev, NULL);
-        if (!blk) {
-            return -1;
-        }
-        blkdev->blk = blk;
-
-        bs = blk_bs(blk);
-        drv = bdrv_find_whitelisted_format(blkdev->fileproto, readonly);
-        if (bdrv_open(&bs, blkdev->filename, NULL, NULL, qflags,
-                      drv, &local_err) != 0) {
+        blkdev->blk = blk_new_open(blkdev->dev, blkdev->filename, NULL, options,
+                                   qflags, &local_err);
+        if (!blkdev->blk) {
             xen_be_printf(&blkdev->xendev, 0, "error: %s\n",
                           error_get_pretty(local_err));
             error_free(local_err);
-            blk_unref(blk);
-            blkdev->blk = NULL;
             return -1;
         }
-        assert(bs == blk_bs(blk));
     } else {
         /* setup via qemu cmdline -> already setup for us */
         xen_be_printf(&blkdev->xendev, 2, "get configured bdrv (cmdline setup)\n");
@@ -937,9 +946,11 @@ static int blk_connect(struct XenDevice *xendev)
     blk_attach_dev_nofail(blkdev->blk, blkdev);
     blkdev->file_size = blk_getlength(blkdev->blk);
     if (blkdev->file_size < 0) {
+        BlockDriverState *bs = blk_bs(blkdev->blk);
+        const char *drv_name = bs ? bdrv_get_format_name(bs) : NULL;
         xen_be_printf(&blkdev->xendev, 1, "blk_getlength: %d (%s) | drv %s\n",
                       (int)blkdev->file_size, strerror(-blkdev->file_size),
-                      bdrv_get_format_name(blk_bs(blkdev->blk)) ?: "-");
+                      drv_name ?: "-");
         blkdev->file_size = 0;
     }
 

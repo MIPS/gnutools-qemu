@@ -1453,9 +1453,7 @@ static int xhci_ep_nuke_one_xfer(XHCITransfer *t, TRBCCode report)
         t->running_retry = 0;
         killed = 1;
     }
-    if (t->trbs) {
-        g_free(t->trbs);
-    }
+    g_free(t->trbs);
 
     t->trbs = NULL;
     t->trb_count = t->trb_alloced = 0;
@@ -1793,6 +1791,14 @@ static void xhci_xfer_report(XHCITransfer *xfer)
                 return;
             }
         }
+
+        switch (TRB_TYPE(*trb)) {
+        case TR_SETUP:
+            reported = 0;
+            shortpkt = 0;
+            break;
+        }
+
     }
 }
 
@@ -2182,7 +2188,7 @@ static void xhci_kick_ep(XHCIState *xhci, unsigned int slotid,
             xfer->trbs = NULL;
         }
         if (!xfer->trbs) {
-            xfer->trbs = g_malloc(sizeof(XHCITRB) * length);
+            xfer->trbs = g_new(XHCITRB, length);
             xfer->trb_alloced = length;
         }
         xfer->trb_count = length;
@@ -2195,7 +2201,6 @@ static void xhci_kick_ep(XHCIState *xhci, unsigned int slotid,
         if (epid == 1) {
             if (xhci_fire_ctl_transfer(xhci, xfer) >= 0) {
                 epctx->next_xfer = (epctx->next_xfer + 1) % TD_QUEUE;
-                ep = xfer->packet.ep;
             } else {
                 DPRINTF("xhci: error firing CTL transfer\n");
             }
@@ -3567,7 +3572,7 @@ static void usb_xhci_init(XHCIState *xhci)
     }
 }
 
-static int usb_xhci_initfn(struct PCIDevice *dev)
+static void usb_xhci_realize(struct PCIDevice *dev, Error **errp)
 {
     int i, ret;
 
@@ -3646,8 +3651,6 @@ static int usb_xhci_initfn(struct PCIDevice *dev)
                   &xhci->mem, 0, OFF_MSIX_PBA,
                   0x90);
     }
-
-    return 0;
 }
 
 static void usb_xhci_exit(PCIDevice *dev)
@@ -3855,7 +3858,7 @@ static const VMStateDescription vmstate_xhci = {
 
         /* Runtime Registers & state */
         VMSTATE_INT64(mfindex_start,  XHCIState),
-        VMSTATE_TIMER(mfwrap_timer,   XHCIState),
+        VMSTATE_TIMER_PTR(mfwrap_timer,   XHCIState),
         VMSTATE_STRUCT(cmd_ring, XHCIState, 1, vmstate_xhci_ring, XHCIRing),
 
         VMSTATE_END_OF_LIST()
@@ -3887,7 +3890,7 @@ static void xhci_class_init(ObjectClass *klass, void *data)
     dc->props   = xhci_properties;
     dc->reset   = xhci_reset;
     set_bit(DEVICE_CATEGORY_USB, dc->categories);
-    k->init         = usb_xhci_initfn;
+    k->realize      = usb_xhci_realize;
     k->exit         = usb_xhci_exit;
     k->vendor_id    = PCI_VENDOR_ID_NEC;
     k->device_id    = PCI_DEVICE_ID_NEC_UPD720200;

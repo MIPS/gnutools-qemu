@@ -32,7 +32,7 @@
 #include "trace.h"
 
 #define FRAME_TIMER_FREQ 1000
-#define FRAME_TIMER_NS   (1000000000 / FRAME_TIMER_FREQ)
+#define FRAME_TIMER_NS   (NANOSECONDS_PER_SECOND / FRAME_TIMER_FREQ)
 #define UFRAME_TIMER_NS  (FRAME_TIMER_NS / 8)
 
 #define NB_MAXINTRATE    8        // Max rate at which controller issues ints
@@ -726,7 +726,7 @@ static void ehci_detach(USBPort *port)
     ehci_queues_rip_device(s, port->dev, 0);
     ehci_queues_rip_device(s, port->dev, 1);
 
-    *portsc &= ~(PORTSC_CONNECT|PORTSC_PED);
+    *portsc &= ~(PORTSC_CONNECT|PORTSC_PED|PORTSC_SUSPEND);
     *portsc |= PORTSC_CSC;
 
     ehci_raise_irq(s, USBSTS_PCD);
@@ -769,30 +769,26 @@ static void ehci_wakeup(USBPort *port)
     qemu_bh_schedule(s->async_bh);
 }
 
-static int ehci_register_companion(USBBus *bus, USBPort *ports[],
-                                   uint32_t portcount, uint32_t firstport)
+static void ehci_register_companion(USBBus *bus, USBPort *ports[],
+                                    uint32_t portcount, uint32_t firstport,
+                                    Error **errp)
 {
     EHCIState *s = container_of(bus, EHCIState, bus);
     uint32_t i;
 
     if (firstport + portcount > NB_PORTS) {
-        qerror_report(QERR_INVALID_PARAMETER_VALUE, "firstport",
-                      "firstport on masterbus");
-        error_printf_unless_qmp(
-            "firstport value of %u makes companion take ports %u - %u, which "
-            "is outside of the valid range of 0 - %u\n", firstport, firstport,
-            firstport + portcount - 1, NB_PORTS - 1);
-        return -1;
+        error_setg(errp, "firstport must be between 0 and %u",
+                   NB_PORTS - portcount);
+        return;
     }
 
     for (i = 0; i < portcount; i++) {
         if (s->companion_ports[firstport + i]) {
-            qerror_report(QERR_INVALID_PARAMETER_VALUE, "masterbus",
-                          "an USB masterbus");
-            error_printf_unless_qmp(
-                "port %u on masterbus %s already has a companion assigned\n",
-                firstport + i, bus->qbus.name);
-            return -1;
+            error_setg(errp, "firstport %u asks for ports %u-%u,"
+                       " but port %u has a companion assigned already",
+                       firstport, firstport, firstport + portcount - 1,
+                       firstport + i);
+            return;
         }
     }
 
@@ -806,8 +802,6 @@ static int ehci_register_companion(USBBus *bus, USBPort *ports[],
 
     s->companion_count++;
     s->caps[0x05] = (s->companion_count << 4) | portcount;
-
-    return 0;
 }
 
 static void ehci_wakeup_endpoint(USBBus *bus, USBEndpoint *ep,
@@ -845,7 +839,7 @@ static USBDevice *ehci_find_device(EHCIState *ehci, uint8_t addr)
 }
 
 /* 4.1 host controller initialization */
-static void ehci_reset(void *opaque)
+void ehci_reset(void *opaque)
 {
     EHCIState *s = opaque;
     int i;
@@ -2437,7 +2431,7 @@ const VMStateDescription vmstate_ehci = {
         VMSTATE_UINT32(portsc[4], EHCIState),
         VMSTATE_UINT32(portsc[5], EHCIState),
         /* frame timer */
-        VMSTATE_TIMER(frame_timer, EHCIState),
+        VMSTATE_TIMER_PTR(frame_timer, EHCIState),
         VMSTATE_UINT64(last_run_ns, EHCIState),
         VMSTATE_UINT32(async_stepdown, EHCIState),
         /* schedule state */
@@ -2471,7 +2465,6 @@ void usb_ehci_realize(EHCIState *s, DeviceState *dev, Error **errp)
     s->async_bh = qemu_bh_new(ehci_frame_timer, s);
     s->device = dev;
 
-    qemu_register_reset(ehci_reset, s);
     s->vmstate = qemu_add_vm_change_state_handler(usb_ehci_vm_state_change, s);
 }
 

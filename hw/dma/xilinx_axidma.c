@@ -26,7 +26,6 @@
 #include "qemu/timer.h"
 #include "hw/ptimer.h"
 #include "qemu/log.h"
-#include "qapi/qmp/qerror.h"
 #include "qemu/main-loop.h"
 
 #include "hw/stream.h"
@@ -134,7 +133,7 @@ struct XilinxAXIDMA {
 };
 
 /*
- * Helper calls to extract info from desriptors and other trivial
+ * Helper calls to extract info from descriptors and other trivial
  * state from regs.
  */
 static inline int stream_desc_sof(struct SDesc *d)

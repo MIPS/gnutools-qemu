@@ -64,20 +64,6 @@
 #define SPI_IRQ             4
 #define UART16550_IRQ       5
 
-static void machine_cpu_reset(MicroBlazeCPU *cpu)
-{
-    CPUMBState *env = &cpu->env;
-
-    env->pvr.regs[10] = 0x0e000000; /* virtex 6 */
-    /* setup pvr to match kernel setting */
-    env->pvr.regs[5] |= PVR5_DCACHE_WRITEBACK_MASK;
-    env->pvr.regs[0] |= PVR0_USE_FPU_MASK | PVR0_ENDI;
-    env->pvr.regs[0] = (env->pvr.regs[0] & ~PVR0_VERSION_MASK) | (0x14 << 8);
-    env->pvr.regs[2] ^= PVR2_USE_FPU2_MASK;
-    env->pvr.regs[4] = 0xc56b8000;
-    env->pvr.regs[5] = 0xc56be000;
-}
-
 static void
 petalogix_ml605_init(MachineState *machine)
 {
@@ -95,16 +81,23 @@ petalogix_ml605_init(MachineState *machine)
 
     /* init CPUs */
     cpu = MICROBLAZE_CPU(object_new(TYPE_MICROBLAZE_CPU));
+    /* Use FPU but don't use floating point conversion and square
+     * root instructions
+     */
+    object_property_set_int(OBJECT(cpu), 1, "use-fpu", &error_abort);
+    object_property_set_bool(OBJECT(cpu), true, "dcache-writeback",
+                             &error_abort);
+    object_property_set_bool(OBJECT(cpu), true, "endianness", &error_abort);
     object_property_set_bool(OBJECT(cpu), true, "realized", &error_abort);
 
     /* Attach emulated BRAM through the LMB.  */
     memory_region_init_ram(phys_lmb_bram, NULL, "petalogix_ml605.lmb_bram",
-                           LMB_BRAM_SIZE, &error_abort);
+                           LMB_BRAM_SIZE, &error_fatal);
     vmstate_register_ram_global(phys_lmb_bram);
     memory_region_add_subregion(address_space_mem, 0x00000000, phys_lmb_bram);
 
     memory_region_init_ram(phys_ram, NULL, "petalogix_ml605.ram", ram_size,
-                           &error_abort);
+                           &error_fatal);
     vmstate_register_ram_global(phys_ram);
     memory_region_add_subregion(address_space_mem, MEMORY_BASEADDR, phys_ram);
 
@@ -201,23 +194,23 @@ petalogix_ml605_init(MachineState *machine)
         }
     }
 
+    /* setup PVR to match kernel settings */
+    cpu->env.pvr.regs[4] = 0xc56b8000;
+    cpu->env.pvr.regs[5] = 0xc56be000;
+    cpu->env.pvr.regs[10] = 0x0e000000; /* virtex 6 */
+
     microblaze_load_kernel(cpu, MEMORY_BASEADDR, ram_size,
                            machine->initrd_filename,
                            BINARY_DEVICE_TREE_FILE,
-                           machine_cpu_reset);
+                           NULL);
 
 }
 
-static QEMUMachine petalogix_ml605_machine = {
-    .name = "petalogix-ml605",
-    .desc = "PetaLogix linux refdesign for xilinx ml605 little endian",
-    .init = petalogix_ml605_init,
-    .is_default = 0,
-};
-
-static void petalogix_ml605_machine_init(void)
+static void petalogix_ml605_machine_init(MachineClass *mc)
 {
-    qemu_register_machine(&petalogix_ml605_machine);
+    mc->desc = "PetaLogix linux refdesign for xilinx ml605 little endian";
+    mc->init = petalogix_ml605_init;
+    mc->is_default = 0;
 }
 
-machine_init(petalogix_ml605_machine_init);
+DEFINE_MACHINE("petalogix-ml605", petalogix_ml605_machine_init)

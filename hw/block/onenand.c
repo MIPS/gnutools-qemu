@@ -346,15 +346,9 @@ static inline int onenand_prog_spare(OneNANDState *s, int sec, int secn,
 static inline int onenand_erase(OneNANDState *s, int sec, int num)
 {
     uint8_t *blankbuf, *tmpbuf;
+
     blankbuf = g_malloc(512);
-    if (!blankbuf) {
-        return 1;
-    }
     tmpbuf = g_malloc(512);
-    if (!tmpbuf) {
-        g_free(blankbuf);
-        return 1;
-    }
     memset(blankbuf, 0xff, 512);
     for (; num > 0; num--, sec++) {
         if (s->blk_cur) {
@@ -792,7 +786,7 @@ static int onenand_initfn(SysBusDevice *sbd)
     s->otp = memset(g_malloc((64 + 2) << PAGE_SHIFT),
                     0xff, (64 + 2) << PAGE_SHIFT);
     memory_region_init_ram(&s->ram, OBJECT(s), "onenand.ram",
-                           0xc000 << s->shift, &error_abort);
+                           0xc000 << s->shift, &error_fatal);
     vmstate_register_ram_global(&s->ram);
     ram = memory_region_get_ram_ptr(&s->ram);
     s->boot[0] = ram + (0x0000 << s->shift);

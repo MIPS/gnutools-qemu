@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include <signal.h>
 
 #include "cpu.h"
 #include "sysemu/kvm.h"
@@ -98,7 +97,7 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
                 return TLBRET_RI;
             }
             if (rw != MMU_DATA_STORE || (n ? tlb->D1 : tlb->D0)) {
-                *physical = (tlb->PFN[n] << 12) | (address & (mask >> 1));
+                *physical = tlb->PFN[n] | (address & (mask >> 1));
                 *prot = PAGE_READ;
                 if (n ? tlb->D1 : tlb->D0)
                     *prot |= PAGE_WRITE;
@@ -126,10 +125,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
     int ret = TLBRET_MATCH;
     /* effective address (modified for KVM T&E kernel segments) */
     target_ulong address = real_address;
-
-#if 0
-    qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
-#endif
 
 #define USEG_LIMIT      0x7FFFFFFFUL
 #define KSEG0_BASE      0x80000000UL
@@ -227,11 +222,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
             ret = TLBRET_BADADDR;
         }
     }
-#if 0
-    qemu_log(TARGET_FMT_lx " %d %d => %" HWADDR_PRIx " %d (%d)\n",
-            address, rw, access_type, *physical, *prot, ret);
-#endif
-
     return ret;
 }
 #endif
@@ -303,9 +293,10 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
 #if defined(TARGET_MIPS64)
     env->CP0_EntryHi &= env->SEGMask;
-    env->CP0_XContext = (env->CP0_XContext & ((~0ULL) << (env->SEGBITS - 7))) |
-                        ((address & 0xC00000000000ULL) >> (55 - env->SEGBITS)) |
-                        ((address & ((1ULL << env->SEGBITS) - 1) & 0xFFFFFFFFFFFFE000ULL) >> 9);
+    env->CP0_XContext =
+        /* PTEBase */   (env->CP0_XContext & ((~0ULL) << (env->SEGBITS - 7))) |
+        /* R */         (extract64(address, 62, 2) << (env->SEGBITS - 9)) |
+        /* BadVPN2 */   (extract64(address, 13, env->SEGBITS - 13) << 4);
 #endif
     cs->exception_index = exception;
     env->error_code = error_code;
@@ -671,7 +662,8 @@ int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
 #if 0
     log_cpu_state(cs, 0);
 #endif
-    qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
+    qemu_log_mask(CPU_LOG_MMU,
+              "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 
     /* data access */
@@ -681,7 +673,8 @@ int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
     access_type = ACCESS_INT;
     ret = get_physical_address(env, &physical, &prot,
                                address, rw, access_type);
-    qemu_log("%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
+    qemu_log_mask(CPU_LOG_MMU,
+             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n",
              __func__, address, ret, physical, prot);
     if (ret == TLBRET_MATCH) {
@@ -743,42 +736,6 @@ hwaddr cpu_mips_translate_address(CPUMIPSState *env, target_ulong address, int r
     } else {
         return physical;
     }
-}
-
-bool cpu_mips_validate_access(CPUMIPSState *env, target_ulong address,
-                            target_ulong badvaddr, unsigned data_size, int rw)
-{
-    hwaddr physical;
-    int prot;
-    int access_type = ACCESS_INT;
-    int ret;
-    target_ulong addr;
-
-    addr = address & ~((target_ulong) data_size - 1);
-    ret = get_physical_address(env, &physical, &prot,
-            addr, rw, access_type);
-    if (ret != TLBRET_MATCH) {
-        if (ret != TLBRET_BADADDR && addr > badvaddr) {
-            badvaddr = addr;
-        }
-        raise_mmu_exception(env, badvaddr, rw, ret);
-        return false;
-    }
-    if (data_size > 1
-            && unlikely((address & ~TARGET_PAGE_MASK) + data_size - 1
-                        >= TARGET_PAGE_SIZE)) {
-        addr += data_size;
-        ret = get_physical_address(env, &physical, &prot,
-                addr, rw, access_type);
-        if (ret != TLBRET_MATCH) {
-            if (ret != TLBRET_BADADDR) {
-                badvaddr = addr;
-            }
-            raise_mmu_exception(env, badvaddr, rw, ret);
-            return false;
-        }
-    }
-    return true;
 }
 
 static const char * const excp_names[EXCP_LAST + 1] = {
@@ -877,14 +834,16 @@ void mips_cpu_do_interrupt(CPUState *cs)
     int cause = -1;
     const char *name;
 
-    if (qemu_log_enabled() && cs->exception_index != EXCP_EXT_INTERRUPT) {
+    if (qemu_loglevel_mask(CPU_LOG_INT)
+        && cs->exception_index != EXCP_EXT_INTERRUPT) {
         if (cs->exception_index < 0 || cs->exception_index > EXCP_LAST) {
             name = "unknown";
         } else {
             name = excp_names[cs->exception_index];
         }
 
-        qemu_log("%s enter: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " %s exception\n",
+        qemu_log("%s enter: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx
+                 " %s exception\n",
                  __func__, env->active_tc.PC, env->CP0_EPC, name);
     }
     if (cs->exception_index == EXCP_EXT_INTERRUPT &&
@@ -921,13 +880,17 @@ void mips_cpu_do_interrupt(CPUState *cs)
  enter_debug_mode:
         if (env->insn_flags & ISA_MIPS3) {
             env->hflags |= MIPS_HFLAG_64;
+            if (!(env->insn_flags & ISA_MIPS64R6) ||
+                env->CP0_Status & (1 << CP0St_KX)) {
+                env->hflags &= ~MIPS_HFLAG_AWRAP;
+            }
         }
         env->hflags |= MIPS_HFLAG_DM | MIPS_HFLAG_CP0;
         env->hflags &= ~(MIPS_HFLAG_KSU);
         /* EJTAG probe trap enable is not implemented... */
         if (!(env->CP0_Status & (1 << CP0St_EXL)))
             env->CP0_Cause &= ~(1U << CP0Ca_BD);
-        env->active_tc.PC = (int32_t)0xBFC00480;
+        env->active_tc.PC = env->exception_base + 0x480;
         set_hflags_for_handler(env);
         break;
     case EXCP_RESET:
@@ -945,44 +908,44 @@ void mips_cpu_do_interrupt(CPUState *cs)
         env->CP0_Status |= (1 << CP0St_ERL) | (1 << CP0St_BEV);
         if (env->insn_flags & ISA_MIPS3) {
             env->hflags |= MIPS_HFLAG_64;
+            if (!(env->insn_flags & ISA_MIPS64R6) ||
+                env->CP0_Status & (1 << CP0St_KX)) {
+                env->hflags &= ~MIPS_HFLAG_AWRAP;
+            }
         }
         env->hflags |= MIPS_HFLAG_CP0;
         env->hflags &= ~(MIPS_HFLAG_KSU);
         if (!(env->CP0_Status & (1 << CP0St_EXL)))
             env->CP0_Cause &= ~(1U << CP0Ca_BD);
-        env->active_tc.PC = (int32_t)0xBFC00000;
+        env->active_tc.PC = env->exception_base;
         set_hflags_for_handler(env);
         break;
     case EXCP_EXT_INTERRUPT:
         cause = 0;
-        if (env->CP0_Cause & (1 << CP0Ca_IV))
-            offset = 0x200;
+        if (env->CP0_Cause & (1 << CP0Ca_IV)) {
+            uint32_t spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & 0x1f;
 
-        if (env->CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
-            /* Vectored Interrupts.  */
-            unsigned int spacing;
-            unsigned int vector;
-            unsigned int pending = (env->CP0_Cause & CP0Ca_IP_mask) >> 8;
+            if ((env->CP0_Status & (1 << CP0St_BEV)) || spacing == 0) {
+                offset = 0x200;
+            } else {
+                uint32_t vector = 0;
+                uint32_t pending = (env->CP0_Cause & CP0Ca_IP_mask) >> CP0Ca_IP;
 
-            pending &= env->CP0_Status >> 8;
-            /* Compute the Vector Spacing.  */
-            spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & ((1 << 6) - 1);
-            spacing <<= 5;
-
-            if (env->CP0_Config3 & (1 << CP0C3_VInt)) {
-                /* For VInt mode, the MIPS computes the vector internally.  */
-                for (vector = 7; vector > 0; vector--) {
-                    if (pending & (1 << vector)) {
-                        /* Found it.  */
-                        break;
+                if (env->CP0_Config3 & (1 << CP0C3_VEIC)) {
+                    /* For VEIC mode, the external interrupt controller feeds
+                     * the vector through the CP0Cause IP lines.  */
+                    vector = pending;
+                } else {
+                    /* Vectored Interrupts
+                     * Mask with Status.IM7-IM0 to get enabled interrupts. */
+                    pending &= (env->CP0_Status >> CP0St_IM) & 0xff;
+                    /* Find the highest-priority interrupt. */
+                    while (pending >>= 1) {
+                        vector++;
                     }
                 }
-            } else {
-                /* For VEIC mode, the external interrupt controller feeds the
-                   vector through the CP0Cause IP lines.  */
-                vector = pending;
+                offset = 0x200 + (vector * (spacing << 5));
             }
-            offset = 0x200 + vector * spacing;
         }
         goto set_EPC;
     case EXCP_LTLBL:
@@ -1094,7 +1057,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         goto set_EPC;
     case EXCP_DWATCH:
         cause = 23;
-        /* XXX: TODO: manage defered watch exceptions */
+        /* XXX: TODO: manage deferred watch exceptions */
         goto set_EPC;
     case EXCP_MCHECK:
         cause = 24;
@@ -1126,13 +1089,17 @@ void mips_cpu_do_interrupt(CPUState *cs)
             env->CP0_Status |= (1 << CP0St_EXL);
             if (env->insn_flags & ISA_MIPS3) {
                 env->hflags |= MIPS_HFLAG_64;
+                if (!(env->insn_flags & ISA_MIPS64R6) ||
+                    env->CP0_Status & (1 << CP0St_KX)) {
+                    env->hflags &= ~MIPS_HFLAG_AWRAP;
+                }
             }
             env->hflags |= MIPS_HFLAG_CP0;
             env->hflags &= ~(MIPS_HFLAG_KSU);
         }
         env->hflags &= ~MIPS_HFLAG_BMASK;
         if (env->CP0_Status & (1 << CP0St_BEV)) {
-            env->active_tc.PC = (int32_t)0xBFC00200;
+            env->active_tc.PC = env->exception_base + 0x200;
         } else {
             env->active_tc.PC = (int32_t)(env->CP0_EBase & ~0x3ff);
         }
@@ -1141,16 +1108,15 @@ void mips_cpu_do_interrupt(CPUState *cs)
         env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
         break;
     default:
-        qemu_log("Invalid MIPS exception %d. Exiting\n", cs->exception_index);
-        printf("Invalid MIPS exception %d. Exiting\n", cs->exception_index);
-        exit(1);
+        abort();
     }
-    if (qemu_log_enabled() && cs->exception_index != EXCP_EXT_INTERRUPT) {
+    if (qemu_loglevel_mask(CPU_LOG_INT)
+        && cs->exception_index != EXCP_EXT_INTERRUPT) {
         qemu_log("%s: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " cause %d\n"
-                "    S %08x C %08x A " TARGET_FMT_lx " D " TARGET_FMT_lx "\n",
-                __func__, env->active_tc.PC, env->CP0_EPC, cause,
-                env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
-                env->CP0_DEPC);
+                 "    S %08x C %08x A " TARGET_FMT_lx " D " TARGET_FMT_lx "\n",
+                 __func__, env->active_tc.PC, env->CP0_EPC, cause,
+                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
+                 env->CP0_DEPC);
     }
 #endif
     cs->exception_index = EXCP_NONE;
@@ -1162,7 +1128,8 @@ bool mips_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         MIPSCPU *cpu = MIPS_CPU(cs);
         CPUMIPSState *env = &cpu->env;
 
-        if (cpu_mips_hw_interrupts_pending(env)) {
+        if (cpu_mips_hw_interrupts_enabled(env) &&
+            cpu_mips_hw_interrupts_pending(env)) {
             /* Raise it */
             cs->exception_index = EXCP_EXT_INTERRUPT;
             env->error_code = 0;

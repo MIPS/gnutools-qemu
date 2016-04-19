@@ -136,7 +136,8 @@ static void scsi_dma_restart_cb(void *opaque, int running, RunState state)
         return;
     }
     if (!s->bh) {
-        s->bh = qemu_bh_new(scsi_dma_restart_bh, s);
+        AioContext *ctx = blk_get_aio_context(s->conf.blk);
+        s->bh = aio_bh_new(ctx, scsi_dma_restart_bh, s);
         qemu_bh_schedule(s->bh);
     }
 }
@@ -221,11 +222,16 @@ SCSIDevice *scsi_bus_legacy_add_drive(SCSIBus *bus, BlockBackend *blk,
                                       const char *serial, Error **errp)
 {
     const char *driver;
+    char *name;
     DeviceState *dev;
     Error *err = NULL;
 
     driver = blk_is_sg(blk) ? "scsi-generic" : "scsi-disk";
     dev = qdev_create(&bus->qbus, driver);
+    name = g_strdup_printf("legacy[%d]", unit);
+    object_property_add_child(OBJECT(bus), name, OBJECT(dev), NULL);
+    g_free(name);
+
     qdev_prop_set_uint32(dev, "scsi-id", unit);
     if (bootindex >= 0) {
         object_property_set_int(OBJECT(dev), bootindex, "bootindex",
@@ -237,8 +243,9 @@ SCSIDevice *scsi_bus_legacy_add_drive(SCSIBus *bus, BlockBackend *blk,
     if (serial && object_property_find(OBJECT(dev), "serial", NULL)) {
         qdev_prop_set_string(dev, "serial", serial);
     }
-    if (qdev_prop_set_drive(dev, "drive", blk) < 0) {
-        error_setg(errp, "Setting drive property failed");
+    qdev_prop_set_drive(dev, "drive", blk, &err);
+    if (err) {
+        error_propagate(errp, err);
         object_unparent(OBJECT(dev));
         return NULL;
     }
@@ -268,7 +275,6 @@ void scsi_bus_legacy_handle_cmdline(SCSIBus *bus, Error **errp)
         scsi_bus_legacy_add_drive(bus, blk_by_legacy_dinfo(dinfo),
                                   unit, false, -1, NULL, &err);
         if (err != NULL) {
-            error_report("%s", error_get_pretty(err));
             error_propagate(errp, err);
             break;
         }
@@ -447,7 +453,7 @@ static bool scsi_target_emulate_inquiry(SCSITargetReq *r)
         r->buf[7] = 0x10 | (r->req.bus->info->tcq ? 0x02 : 0); /* Sync, TCQ.  */
         memcpy(&r->buf[8], "QEMU    ", 8);
         memcpy(&r->buf[16], "QEMU TARGET     ", 16);
-        pstrcpy((char *) &r->buf[32], 4, qemu_get_version());
+        pstrcpy((char *) &r->buf[32], 4, qemu_hw_version());
     }
     return true;
 }
@@ -552,7 +558,7 @@ SCSIRequest *scsi_req_alloc(const SCSIReqOps *reqops, SCSIDevice *d,
     const int memset_off = offsetof(SCSIRequest, sense)
                            + sizeof(req->sense);
 
-    req = g_slice_alloc(reqops->size);
+    req = g_malloc(reqops->size);
     memset((uint8_t *)req + memset_off, 0, reqops->size - memset_off);
     req->refcount = 1;
     req->bus = bus;
@@ -1234,10 +1240,15 @@ int scsi_cdb_length(uint8_t *buf) {
 int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf)
 {
     int rc;
+    int len;
 
     cmd->lba = -1;
-    cmd->len = scsi_cdb_length(buf);
+    len = scsi_cdb_length(buf);
+    if (len < 0) {
+        return -1;
+    }
 
+    cmd->len = len;
     switch (dev->type) {
     case TYPE_TAPE:
         rc = scsi_req_stream_xfer(cmd, dev, buf);
@@ -1611,7 +1622,7 @@ void scsi_req_unref(SCSIRequest *req)
         }
         object_unref(OBJECT(req->dev));
         object_unref(OBJECT(qbus->parent));
-        g_slice_free1(req->ops->size, req);
+        g_free(req);
     }
 }
 
@@ -1756,6 +1767,8 @@ void scsi_req_cancel_async(SCSIRequest *req, Notifier *notifier)
     req->io_canceled = true;
     if (req->aiocb) {
         blk_aio_cancel_async(req->aiocb);
+    } else {
+        scsi_req_cancel_complete(req);
     }
 }
 
@@ -1770,6 +1783,8 @@ void scsi_req_cancel(SCSIRequest *req)
     req->io_canceled = true;
     if (req->aiocb) {
         blk_aio_cancel(req->aiocb);
+    } else {
+        scsi_req_cancel_complete(req);
     }
 }
 
@@ -1959,6 +1974,7 @@ static const VMStateDescription vmstate_scsi_sense_state = {
     .name = "SCSIDevice/sense",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = scsi_sense_state_needed,
     .fields = (VMStateField[]) {
         VMSTATE_UINT8_SUB_ARRAY(sense, SCSIDevice,
                                 SCSI_SENSE_BUF_SIZE_OLD,
@@ -1989,13 +2005,9 @@ const VMStateDescription vmstate_scsi_device = {
         },
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection []) {
-        {
-            .vmsd = &vmstate_scsi_sense_state,
-            .needed = scsi_sense_state_needed,
-        }, {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_scsi_sense_state,
+        NULL
     }
 };
 

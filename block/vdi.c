@@ -53,6 +53,7 @@
 #include "block/block_int.h"
 #include "qemu/module.h"
 #include "migration/migration.h"
+#include "qemu/coroutine.h"
 
 #if defined(CONFIG_UUID)
 #include <uuid/uuid.h>
@@ -195,6 +196,8 @@ typedef struct {
     uint32_t bmap_sector;
     /* VDI header (converted to host endianness). */
     VdiHeader header;
+
+    CoMutex write_lock;
 
     Error *migration_blocker;
 } BDRVVdiState;
@@ -396,7 +399,7 @@ static int vdi_open(BlockDriverState *bs, QDict *options, int flags,
 
     logout("\n");
 
-    ret = bdrv_read(bs->file, 0, (uint8_t *)&header, 1);
+    ret = bdrv_read(bs->file->bs, 0, (uint8_t *)&header, 1);
     if (ret < 0) {
         goto fail;
     }
@@ -487,22 +490,25 @@ static int vdi_open(BlockDriverState *bs, QDict *options, int flags,
 
     bmap_size = header.blocks_in_image * sizeof(uint32_t);
     bmap_size = DIV_ROUND_UP(bmap_size, SECTOR_SIZE);
-    s->bmap = qemu_try_blockalign(bs->file, bmap_size * SECTOR_SIZE);
+    s->bmap = qemu_try_blockalign(bs->file->bs, bmap_size * SECTOR_SIZE);
     if (s->bmap == NULL) {
         ret = -ENOMEM;
         goto fail;
     }
 
-    ret = bdrv_read(bs->file, s->bmap_sector, (uint8_t *)s->bmap, bmap_size);
+    ret = bdrv_read(bs->file->bs, s->bmap_sector, (uint8_t *)s->bmap,
+                    bmap_size);
     if (ret < 0) {
         goto fail_free_bmap;
     }
 
     /* Disable migration when vdi images are used */
-    error_set(&s->migration_blocker,
-              QERR_BLOCK_FORMAT_FEATURE_NOT_SUPPORTED,
-              "vdi", bdrv_get_device_name(bs), "live migration");
+    error_setg(&s->migration_blocker, "The vdi format used by node '%s' "
+               "does not support live migration",
+               bdrv_get_device_or_node_name(bs));
     migrate_add_blocker(s->migration_blocker);
+
+    qemu_co_mutex_init(&s->write_lock);
 
     return 0;
 
@@ -580,7 +586,7 @@ static int vdi_co_read(BlockDriverState *bs,
             uint64_t offset = s->header.offset_data / SECTOR_SIZE +
                               (uint64_t)bmap_entry * s->block_sectors +
                               sector_in_block;
-            ret = bdrv_read(bs->file, offset, buf, n_sectors);
+            ret = bdrv_read(bs->file->bs, offset, buf, n_sectors);
         }
         logout("%u sectors read\n", n_sectors);
 
@@ -639,12 +645,32 @@ static int vdi_co_write(BlockDriverState *bs,
                    buf, n_sectors * SECTOR_SIZE);
             memset(block + (sector_in_block + n_sectors) * SECTOR_SIZE, 0,
                    (s->block_sectors - n_sectors - sector_in_block) * SECTOR_SIZE);
-            ret = bdrv_write(bs->file, offset, block, s->block_sectors);
+
+            /* Note that this coroutine does not yield anywhere from reading the
+             * bmap entry until here, so in regards to all the coroutines trying
+             * to write to this cluster, the one doing the allocation will
+             * always be the first to try to acquire the lock.
+             * Therefore, it is also the first that will actually be able to
+             * acquire the lock and thus the padded cluster is written before
+             * the other coroutines can write to the affected area. */
+            qemu_co_mutex_lock(&s->write_lock);
+            ret = bdrv_write(bs->file->bs, offset, block, s->block_sectors);
+            qemu_co_mutex_unlock(&s->write_lock);
         } else {
             uint64_t offset = s->header.offset_data / SECTOR_SIZE +
                               (uint64_t)bmap_entry * s->block_sectors +
                               sector_in_block;
-            ret = bdrv_write(bs->file, offset, buf, n_sectors);
+            qemu_co_mutex_lock(&s->write_lock);
+            /* This lock is only used to make sure the following write operation
+             * is executed after the write issued by the coroutine allocating
+             * this cluster, therefore we do not need to keep it locked.
+             * As stated above, the allocating coroutine will always try to lock
+             * the mutex before all the other concurrent accesses to that
+             * cluster, therefore at this point we can be absolutely certain
+             * that that write operation has returned (there may be other writes
+             * in flight, but they do not concern this very operation). */
+            qemu_co_mutex_unlock(&s->write_lock);
+            ret = bdrv_write(bs->file->bs, offset, buf, n_sectors);
         }
 
         nb_sectors -= n_sectors;
@@ -669,7 +695,7 @@ static int vdi_co_write(BlockDriverState *bs,
         assert(VDI_IS_ALLOCATED(bmap_first));
         *header = s->header;
         vdi_header_to_le(header);
-        ret = bdrv_write(bs->file, 0, block, 1);
+        ret = bdrv_write(bs->file->bs, 0, block, 1);
         g_free(block);
         block = NULL;
 
@@ -687,7 +713,7 @@ static int vdi_co_write(BlockDriverState *bs,
         base = ((uint8_t *)&s->bmap[0]) + bmap_first * SECTOR_SIZE;
         logout("will write %u block map sectors starting from entry %u\n",
                n_sectors, bmap_first);
-        ret = bdrv_write(bs->file, offset, base, n_sectors);
+        ret = bdrv_write(bs->file->bs, offset, base, n_sectors);
     }
 
     return ret;
@@ -739,7 +765,7 @@ static int vdi_create(const char *filename, QemuOpts *opts, Error **errp)
         goto exit;
     }
     ret = bdrv_open(&bs, filename, NULL, NULL, BDRV_O_RDWR | BDRV_O_PROTOCOL,
-                    NULL, &local_err);
+                    &local_err);
     if (ret < 0) {
         error_propagate(errp, local_err);
         goto exit;
@@ -852,11 +878,6 @@ static QemuOptsList vdi_create_opts = {
             .def_value_str = "off"
         },
 #endif
-        {
-            .name = BLOCK_OPT_NOCOW,
-            .type = QEMU_OPT_BOOL,
-            .help = "Turn off copy-on-write (valid only on btrfs)"
-        },
         /* TODO: An additional option to set UUID values might be useful. */
         { /* end of list */ }
     }

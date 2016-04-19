@@ -85,9 +85,6 @@ static inline ioreq_t *xen_vcpu_ioreq(shared_iopage_t *shared_page, int vcpu)
 }
 #  define FMT_ioreq_size "u"
 #endif
-#ifndef HVM_PARAM_BUFIOREQ_EVTCHN
-#define HVM_PARAM_BUFIOREQ_EVTCHN 26
-#endif
 
 #define BUFFER_IO_MAX_DELAY  100
 
@@ -101,6 +98,7 @@ typedef struct XenPhysmap {
 } XenPhysmap;
 
 typedef struct XenIOState {
+    ioservid_t ioservid;
     shared_iopage_t *shared_page;
     shared_vmport_iopage_t *shared_vmport_page;
     buffered_iopage_t *buffered_io_page;
@@ -117,6 +115,8 @@ typedef struct XenIOState {
 
     struct xs_handle *xenstore;
     MemoryListener memory_listener;
+    MemoryListener io_listener;
+    DeviceListener device_listener;
     QLIST_HEAD(, XenPhysmap) physmap;
     hwaddr free_phys_offset;
     const XenPhysmap *log_for_dirtybit;
@@ -180,8 +180,7 @@ qemu_irq *xen_interrupt_controller_init(void)
 
 /* Memory Ops */
 
-static void xen_ram_init(ram_addr_t *below_4g_mem_size,
-                         ram_addr_t *above_4g_mem_size,
+static void xen_ram_init(PCMachineState *pcms,
                          ram_addr_t ram_size, MemoryRegion **ram_memory_p)
 {
     MemoryRegion *sysmem = get_system_memory();
@@ -198,23 +197,23 @@ static void xen_ram_init(ram_addr_t *below_4g_mem_size,
     }
 
     if (ram_size >= user_lowmem) {
-        *above_4g_mem_size = ram_size - user_lowmem;
-        *below_4g_mem_size = user_lowmem;
+        pcms->above_4g_mem_size = ram_size - user_lowmem;
+        pcms->below_4g_mem_size = user_lowmem;
     } else {
-        *above_4g_mem_size = 0;
-        *below_4g_mem_size = ram_size;
+        pcms->above_4g_mem_size = 0;
+        pcms->below_4g_mem_size = ram_size;
     }
-    if (!*above_4g_mem_size) {
+    if (!pcms->above_4g_mem_size) {
         block_len = ram_size;
     } else {
         /*
          * Xen does not allocate the memory continuously, it keeps a
          * hole of the size computed above or passed in.
          */
-        block_len = (1ULL << 32) + *above_4g_mem_size;
+        block_len = (1ULL << 32) + pcms->above_4g_mem_size;
     }
     memory_region_init_ram(&ram_memory, NULL, "xen.ram", block_len,
-                           &error_abort);
+                           &error_fatal);
     *ram_memory_p = &ram_memory;
     vmstate_register_ram_global(&ram_memory);
 
@@ -229,12 +228,12 @@ static void xen_ram_init(ram_addr_t *below_4g_mem_size,
      */
     memory_region_init_alias(&ram_lo, NULL, "xen.ram.lo",
                              &ram_memory, 0xc0000,
-                             *below_4g_mem_size - 0xc0000);
+                             pcms->below_4g_mem_size - 0xc0000);
     memory_region_add_subregion(sysmem, 0xc0000, &ram_lo);
-    if (*above_4g_mem_size > 0) {
+    if (pcms->above_4g_mem_size > 0) {
         memory_region_init_alias(&ram_hi, NULL, "xen.ram.hi",
                                  &ram_memory, 0x100000000ULL,
-                                 *above_4g_mem_size);
+                                 pcms->above_4g_mem_size);
         memory_region_add_subregion(sysmem, 0x100000000ULL, &ram_hi);
     }
 }
@@ -345,10 +344,10 @@ go_physmap:
         unsigned long idx = pfn + i;
         xen_pfn_t gpfn = start_gpfn + i;
 
-        rc = xc_domain_add_to_physmap(xen_xc, xen_domid, XENMAPSPACE_gmfn, idx, gpfn);
+        rc = xen_xc_domain_add_to_physmap(xen_xc, xen_domid, XENMAPSPACE_gmfn, idx, gpfn);
         if (rc) {
             DPRINTF("add_to_physmap MFN %"PRI_xen_pfn" to PFN %"
-                    PRI_xen_pfn" failed: %d\n", idx, gpfn, rc);
+                    PRI_xen_pfn" failed: %d (errno: %d)\n", idx, gpfn, rc, errno);
             return -rc;
         }
     }
@@ -422,10 +421,10 @@ static int xen_remove_from_physmap(XenIOState *state,
         xen_pfn_t idx = start_addr + i;
         xen_pfn_t gpfn = phys_offset + i;
 
-        rc = xc_domain_add_to_physmap(xen_xc, xen_domid, XENMAPSPACE_gmfn, idx, gpfn);
+        rc = xen_xc_domain_add_to_physmap(xen_xc, xen_domid, XENMAPSPACE_gmfn, idx, gpfn);
         if (rc) {
             fprintf(stderr, "add_to_physmap MFN %"PRI_xen_pfn" to PFN %"
-                    PRI_xen_pfn" failed: %d\n", idx, gpfn, rc);
+                    PRI_xen_pfn" failed: %d (errno: %d)\n", idx, gpfn, rc, errno);
             return -rc;
         }
     }
@@ -464,15 +463,26 @@ static void xen_set_memory(struct MemoryListener *listener,
     XenIOState *state = container_of(listener, XenIOState, memory_listener);
     hwaddr start_addr = section->offset_within_address_space;
     ram_addr_t size = int128_get64(section->size);
-    bool log_dirty = memory_region_is_logging(section->mr);
+    bool log_dirty = memory_region_is_logging(section->mr, DIRTY_MEMORY_VGA);
     hvmmem_type_t mem_type;
+
+    if (section->mr == &ram_memory) {
+        return;
+    } else {
+        if (add) {
+            xen_map_memory_section(xen_xc, xen_domid, state->ioservid,
+                                   section);
+        } else {
+            xen_unmap_memory_section(xen_xc, xen_domid, state->ioservid,
+                                     section);
+        }
+    }
 
     if (!memory_region_is_ram(section->mr)) {
         return;
     }
 
-    if (!(section->mr != &ram_memory
-          && ( (log_dirty && add) || (!log_dirty && !add)))) {
+    if (log_dirty != add) {
         return;
     }
 
@@ -513,6 +523,50 @@ static void xen_region_del(MemoryListener *listener,
 {
     xen_set_memory(listener, section, false);
     memory_region_unref(section->mr);
+}
+
+static void xen_io_add(MemoryListener *listener,
+                       MemoryRegionSection *section)
+{
+    XenIOState *state = container_of(listener, XenIOState, io_listener);
+
+    memory_region_ref(section->mr);
+
+    xen_map_io_section(xen_xc, xen_domid, state->ioservid, section);
+}
+
+static void xen_io_del(MemoryListener *listener,
+                       MemoryRegionSection *section)
+{
+    XenIOState *state = container_of(listener, XenIOState, io_listener);
+
+    xen_unmap_io_section(xen_xc, xen_domid, state->ioservid, section);
+
+    memory_region_unref(section->mr);
+}
+
+static void xen_device_realize(DeviceListener *listener,
+			       DeviceState *dev)
+{
+    XenIOState *state = container_of(listener, XenIOState, device_listener);
+
+    if (object_dynamic_cast(OBJECT(dev), TYPE_PCI_DEVICE)) {
+        PCIDevice *pci_dev = PCI_DEVICE(dev);
+
+        xen_map_pcidev(xen_xc, xen_domid, state->ioservid, pci_dev);
+    }
+}
+
+static void xen_device_unrealize(DeviceListener *listener,
+				 DeviceState *dev)
+{
+    XenIOState *state = container_of(listener, XenIOState, device_listener);
+
+    if (object_dynamic_cast(OBJECT(dev), TYPE_PCI_DEVICE)) {
+        PCIDevice *pci_dev = PCI_DEVICE(dev);
+
+        xen_unmap_pcidev(xen_xc, xen_domid, state->ioservid, pci_dev);
+    }
 }
 
 static void xen_sync_dirty_bitmap(XenIOState *state,
@@ -567,21 +621,27 @@ static void xen_sync_dirty_bitmap(XenIOState *state,
 }
 
 static void xen_log_start(MemoryListener *listener,
-                          MemoryRegionSection *section)
+                          MemoryRegionSection *section,
+                          int old, int new)
 {
     XenIOState *state = container_of(listener, XenIOState, memory_listener);
 
-    xen_sync_dirty_bitmap(state, section->offset_within_address_space,
-                          int128_get64(section->size));
+    if (new & ~old & (1 << DIRTY_MEMORY_VGA)) {
+        xen_sync_dirty_bitmap(state, section->offset_within_address_space,
+                              int128_get64(section->size));
+    }
 }
 
-static void xen_log_stop(MemoryListener *listener, MemoryRegionSection *section)
+static void xen_log_stop(MemoryListener *listener, MemoryRegionSection *section,
+                         int old, int new)
 {
     XenIOState *state = container_of(listener, XenIOState, memory_listener);
 
-    state->log_for_dirtybit = NULL;
-    /* Disable dirty bit tracking */
-    xc_hvm_track_dirty_vram(xen_xc, xen_domid, 0, 0, NULL);
+    if (old & ~new & (1 << DIRTY_MEMORY_VGA)) {
+        state->log_for_dirtybit = NULL;
+        /* Disable dirty bit tracking */
+        xc_hvm_track_dirty_vram(xen_xc, xen_domid, 0, 0, NULL);
+    }
 }
 
 static void xen_log_sync(MemoryListener *listener, MemoryRegionSection *section)
@@ -613,6 +673,17 @@ static MemoryListener xen_memory_listener = {
     .log_global_start = xen_log_global_start,
     .log_global_stop = xen_log_global_stop,
     .priority = 10,
+};
+
+static MemoryListener xen_io_listener = {
+    .region_add = xen_io_add,
+    .region_del = xen_io_del,
+    .priority = 10,
+};
+
+static DeviceListener xen_device_listener = {
+    .realize = xen_device_realize,
+    .unrealize = xen_device_unrealize,
 };
 
 /* get the ioreq packets from share mem */
@@ -742,9 +813,14 @@ static void cpu_ioreq_pio(ioreq_t *req)
 {
     uint32_t i;
 
+    trace_cpu_ioreq_pio(req, req->dir, req->df, req->data_is_ptr, req->addr,
+                         req->data, req->count, req->size);
+
     if (req->dir == IOREQ_READ) {
         if (!req->data_is_ptr) {
             req->data = do_inp(req->addr, req->size);
+            trace_cpu_ioreq_pio_read_reg(req, req->data, req->addr,
+                                         req->size);
         } else {
             uint32_t tmp;
 
@@ -755,6 +831,8 @@ static void cpu_ioreq_pio(ioreq_t *req)
         }
     } else if (req->dir == IOREQ_WRITE) {
         if (!req->data_is_ptr) {
+            trace_cpu_ioreq_pio_write_reg(req, req->data, req->addr,
+                                          req->size);
             do_outp(req->addr, req->size, req->data);
         } else {
             for (i = 0; i < req->count; i++) {
@@ -770,6 +848,9 @@ static void cpu_ioreq_pio(ioreq_t *req)
 static void cpu_ioreq_move(ioreq_t *req)
 {
     uint32_t i;
+
+    trace_cpu_ioreq_move(req, req->dir, req->df, req->data_is_ptr, req->addr,
+                         req->data, req->count, req->size);
 
     if (!req->data_is_ptr) {
         if (req->dir == IOREQ_READ) {
@@ -843,10 +924,17 @@ static void handle_vmport_ioreq(XenIOState *state, ioreq_t *req)
 
 static void handle_ioreq(XenIOState *state, ioreq_t *req)
 {
+    trace_handle_ioreq(req, req->type, req->dir, req->df, req->data_is_ptr,
+                       req->addr, req->data, req->count, req->size);
+
     if (!req->data_is_ptr && (req->dir == IOREQ_WRITE) &&
             (req->size < sizeof (target_ulong))) {
         req->data &= ((target_ulong) 1 << (8 * req->size)) - 1;
     }
+
+    if (req->dir == IOREQ_WRITE)
+        trace_handle_ioreq_write(req, req->type, req->df, req->data_is_ptr,
+                                 req->addr, req->data, req->count, req->size);
 
     switch (req->type) {
         case IOREQ_TYPE_PIO:
@@ -863,26 +951,62 @@ static void handle_ioreq(XenIOState *state, ioreq_t *req)
         case IOREQ_TYPE_INVALIDATE:
             xen_invalidate_map_cache();
             break;
+        case IOREQ_TYPE_PCI_CONFIG: {
+            uint32_t sbdf = req->addr >> 32;
+            uint32_t val;
+
+            /* Fake a write to port 0xCF8 so that
+             * the config space access will target the
+             * correct device model.
+             */
+            val = (1u << 31) |
+                  ((req->addr & 0x0f00) << 16) |
+                  ((sbdf & 0xffff) << 8) |
+                  (req->addr & 0xfc);
+            do_outp(0xcf8, 4, val);
+
+            /* Now issue the config space access via
+             * port 0xCFC
+             */
+            req->addr = 0xcfc | (req->addr & 0x03);
+            cpu_ioreq_pio(req);
+            break;
+        }
         default:
             hw_error("Invalid ioreq type 0x%x\n", req->type);
+    }
+    if (req->dir == IOREQ_READ) {
+        trace_handle_ioreq_read(req, req->type, req->df, req->data_is_ptr,
+                                req->addr, req->data, req->count, req->size);
     }
 }
 
 static int handle_buffered_iopage(XenIOState *state)
 {
+    buffered_iopage_t *buf_page = state->buffered_io_page;
     buf_ioreq_t *buf_req = NULL;
     ioreq_t req;
     int qw;
 
-    if (!state->buffered_io_page) {
+    if (!buf_page) {
         return 0;
     }
 
     memset(&req, 0x00, sizeof(req));
 
-    while (state->buffered_io_page->read_pointer != state->buffered_io_page->write_pointer) {
-        buf_req = &state->buffered_io_page->buf_ioreq[
-            state->buffered_io_page->read_pointer % IOREQ_BUFFER_SLOT_NUM];
+    for (;;) {
+        uint32_t rdptr = buf_page->read_pointer, wrptr;
+
+        xen_rmb();
+        wrptr = buf_page->write_pointer;
+        xen_rmb();
+        if (rdptr != buf_page->read_pointer) {
+            continue;
+        }
+        if (rdptr == wrptr) {
+            break;
+        }
+        buf_req = &buf_page->buf_ioreq[rdptr % IOREQ_BUFFER_SLOT_NUM];
         req.size = 1UL << buf_req->size;
         req.count = 1;
         req.addr = buf_req->addr;
@@ -894,15 +1018,14 @@ static int handle_buffered_iopage(XenIOState *state)
         req.data_is_ptr = 0;
         qw = (req.size == 8);
         if (qw) {
-            buf_req = &state->buffered_io_page->buf_ioreq[
-                (state->buffered_io_page->read_pointer + 1) % IOREQ_BUFFER_SLOT_NUM];
+            buf_req = &buf_page->buf_ioreq[(rdptr + 1) %
+                                           IOREQ_BUFFER_SLOT_NUM];
             req.data |= ((uint64_t)buf_req->data) << 32;
         }
 
         handle_ioreq(state, &req);
 
-        xen_mb();
-        state->buffered_io_page->read_pointer += qw ? 2 : 1;
+        atomic_add(&buf_page->read_pointer, qw + 1);
     }
 
     return req.count;
@@ -993,9 +1116,15 @@ static void xen_main_loop_prepare(XenIOState *state)
 static void xen_hvm_change_state_handler(void *opaque, int running,
                                          RunState rstate)
 {
+    XenIOState *state = opaque;
+
     if (running) {
-        xen_main_loop_prepare((XenIOState *)opaque);
+        xen_main_loop_prepare(state);
     }
+
+    xen_set_ioreq_server_state(xen_xc, xen_domid,
+                               state->ioservid,
+                               (rstate == RUN_STATE_RUNNING));
 }
 
 static void xen_exit_notifier(Notifier *n, void *data)
@@ -1060,12 +1189,13 @@ static void xen_wakeup_notifier(Notifier *notifier, void *data)
 }
 
 /* return 0 means OK, or -1 means critical issue -- will exit(1) */
-int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
+int xen_hvm_init(PCMachineState *pcms,
                  MemoryRegion **ram_memory)
 {
     int i, rc;
-    unsigned long ioreq_pfn;
-    unsigned long bufioreq_evtchn;
+    xen_pfn_t ioreq_pfn;
+    xen_pfn_t bufioreq_pfn;
+    evtchn_port_t bufioreq_evtchn;
     XenIOState *state;
 
     state = g_malloc0(sizeof (XenIOState));
@@ -1082,6 +1212,12 @@ int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
         return -1;
     }
 
+    rc = xen_create_ioreq_server(xen_xc, xen_domid, &state->ioservid);
+    if (rc < 0) {
+        perror("xen: ioreq server create");
+        return -1;
+    }
+
     state->exit.notify = xen_exit_notifier;
     qemu_add_exit_notifier(&state->exit);
 
@@ -1091,8 +1227,18 @@ int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
     state->wakeup.notify = xen_wakeup_notifier;
     qemu_register_wakeup_notifier(&state->wakeup);
 
-    xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_IOREQ_PFN, &ioreq_pfn);
+    rc = xen_get_ioreq_server_info(xen_xc, xen_domid, state->ioservid,
+                                   &ioreq_pfn, &bufioreq_pfn,
+                                   &bufioreq_evtchn);
+    if (rc < 0) {
+        hw_error("failed to get ioreq server info: error %d handle=" XC_INTERFACE_FMT,
+                 errno, xen_xc);
+    }
+
     DPRINTF("shared page at pfn %lx\n", ioreq_pfn);
+    DPRINTF("buffered io page at pfn %lx\n", bufioreq_pfn);
+    DPRINTF("buffered io evtchn is %x\n", bufioreq_evtchn);
+
     state->shared_page = xc_map_foreign_range(xen_xc, xen_domid, XC_PAGE_SIZE,
                                               PROT_READ|PROT_WRITE, ioreq_pfn);
     if (state->shared_page == NULL) {
@@ -1114,16 +1260,22 @@ int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
         hw_error("get vmport regs pfn returned error %d, rc=%d", errno, rc);
     }
 
-    xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_BUFIOREQ_PFN, &ioreq_pfn);
-    DPRINTF("buffered io page at pfn %lx\n", ioreq_pfn);
-    state->buffered_io_page = xc_map_foreign_range(xen_xc, xen_domid, XC_PAGE_SIZE,
-                                                   PROT_READ|PROT_WRITE, ioreq_pfn);
+    state->buffered_io_page = xc_map_foreign_range(xen_xc, xen_domid,
+                                                   XC_PAGE_SIZE,
+                                                   PROT_READ|PROT_WRITE,
+                                                   bufioreq_pfn);
     if (state->buffered_io_page == NULL) {
         hw_error("map buffered IO page returned error %d", errno);
     }
 
     /* Note: cpus is empty at this point in init */
     state->cpu_by_vcpu_id = g_malloc0(max_cpus * sizeof(CPUState *));
+
+    rc = xen_set_ioreq_server_state(xen_xc, xen_domid, state->ioservid, true);
+    if (rc < 0) {
+        hw_error("failed to enable ioreq server info: error %d handle=" XC_INTERFACE_FMT,
+                 errno, xen_xc);
+    }
 
     state->ioreq_local_port = g_malloc0(max_cpus * sizeof (evtchn_port_t));
 
@@ -1132,29 +1284,23 @@ int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
         rc = xc_evtchn_bind_interdomain(state->xce_handle, xen_domid,
                                         xen_vcpu_eport(state->shared_page, i));
         if (rc == -1) {
-            fprintf(stderr, "bind interdomain ioctl error %d\n", errno);
+            fprintf(stderr, "shared evtchn %d bind error %d\n", i, errno);
             return -1;
         }
         state->ioreq_local_port[i] = rc;
     }
 
-    rc = xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_BUFIOREQ_EVTCHN,
-            &bufioreq_evtchn);
-    if (rc < 0) {
-        fprintf(stderr, "failed to get HVM_PARAM_BUFIOREQ_EVTCHN\n");
-        return -1;
-    }
     rc = xc_evtchn_bind_interdomain(state->xce_handle, xen_domid,
-            (uint32_t)bufioreq_evtchn);
+                                    bufioreq_evtchn);
     if (rc == -1) {
-        fprintf(stderr, "bind interdomain ioctl error %d\n", errno);
+        fprintf(stderr, "buffered evtchn bind error %d\n", errno);
         return -1;
     }
     state->bufioreq_local_port = rc;
 
     /* Init RAM management */
     xen_map_cache_init(xen_phys_offset_to_gaddr, state);
-    xen_ram_init(below_4g_mem_size, above_4g_mem_size, ram_size, ram_memory);
+    xen_ram_init(pcms, ram_size, ram_memory);
 
     qemu_add_vm_change_state_handler(xen_hvm_change_state_handler, state);
 
@@ -1162,6 +1308,12 @@ int xen_hvm_init(ram_addr_t *below_4g_mem_size, ram_addr_t *above_4g_mem_size,
     QLIST_INIT(&state->physmap);
     memory_listener_register(&state->memory_listener, &address_space_memory);
     state->log_for_dirtybit = NULL;
+
+    state->io_listener = xen_io_listener;
+    memory_listener_register(&state->io_listener, &address_space_io);
+
+    state->device_listener = xen_device_listener;
+    device_listener_register(&state->device_listener);
 
     /* Initialize backend core & drivers */
     if (xen_be_init() != 0) {

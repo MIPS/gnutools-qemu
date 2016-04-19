@@ -13,7 +13,7 @@
 #include "sysemu/block-backend.h"
 #include "sysemu/blockdev.h"
 #include "hw/ssi.h"
-#include "hw/sd.h"
+#include "hw/sd/sd.h"
 
 //#define DEBUG_SSI_SD 1
 
@@ -255,6 +255,7 @@ static int ssi_sd_init(SSISlave *d)
     DriveInfo *dinfo;
 
     s->mode = SSI_SD_CMD;
+    /* FIXME use a qdev drive property instead of drive_get_next() */
     dinfo = drive_get_next(IF_SD);
     s->sd = sd_init(dinfo ? blk_by_legacy_dinfo(dinfo) : NULL, true);
     if (s->sd == NULL) {
