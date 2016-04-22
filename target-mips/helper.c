@@ -353,13 +353,14 @@ static uint64_t get_tlb_entry_layout(CPUMIPSState *env, uint64_t entry,
         int entry_size, int ptei)
 {
     uint64_t result = entry;
-    int rixi;
+    uint64_t rixi;
     if (ptei > entry_size) {
         ptei -= 32;
     }
     result >>= (ptei - 2);
     rixi = result & 3;
-    result >>= 2 | rixi << CP0EnLo_XI;
+    result >>= 2;
+    result |= rixi << CP0EnLo_XI;
     return result;
 }
 
