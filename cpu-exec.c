@@ -365,7 +365,6 @@ static inline bool cpu_handle_halt(CPUState *cpu)
         }
 #endif
         if (!cpu_has_work(cpu)) {
-            current_cpu = NULL;
             return true;
         }
 
@@ -506,7 +505,6 @@ static inline void cpu_handle_interrupt(CPUState *cpu,
 
     }
     if (unlikely(cpu->exit_request || replay_has_interrupt())) {
-        cpu->exit_request = 0;
         cpu->exception_index = EXCP_INTERRUPT;
         cpu_loop_exit(cpu);
     }
@@ -640,9 +638,6 @@ int cpu_exec(CPUState *cpu)
 
     cc->cpu_exec_exit(cpu);
     rcu_read_unlock();
-
-    /* fail safe : never use current_cpu outside cpu_exec() */
-    current_cpu = NULL;
 
     return ret;
 }
