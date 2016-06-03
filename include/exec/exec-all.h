@@ -409,7 +409,6 @@ extern int singlestep;
 
 /* cpu-exec.c, accessed with atomic_mb_read/atomic_mb_set */
 extern int tcg_pending_threads;
-extern bool exit_request;
 
 /**
  * qemu_work_cond - condition to wait for CPU work items completion

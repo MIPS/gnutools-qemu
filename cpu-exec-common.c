@@ -23,7 +23,6 @@
 #include "exec/exec-all.h"
 #include "exec/memory-internal.h"
 
-bool exit_request;
 int tcg_pending_threads;
 
 /* exit the current TB, but without causing any exception to be raised */
