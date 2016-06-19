@@ -5991,6 +5991,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             abi_ulong addr;
             char **q;
             int total_size = 0;
+            char *ld;
 
             argc = 0;
             guest_argp = arg2;
@@ -6041,7 +6042,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             if (!(p = lock_user_string(arg1)))
                 goto execve_efault;
 
-            ret = qemu_execve(p, argp, envp);
+            ld = strrchr(p, '/');
+            if (ld && !strcmp(ld, "/ld"))
+              ret = get_errno(execve(p, argp, envp));
+            else
+              ret = qemu_execve(p, argp, envp);
 
             unlock_user(p, arg1, 0);
 
