@@ -539,6 +539,12 @@ static bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
 
 #define SHIFT 3
 #include "softmmu_template.h"
+
+#ifdef CONFIG_ATOMIC128
+#define SHIFT 4
+#include "softmmu_template.h"
+#endif
+
 #undef MMUSUFFIX
 
 #define MMUSUFFIX _cmmu

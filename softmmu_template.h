@@ -27,25 +27,30 @@
 
 #define DATA_SIZE (1 << SHIFT)
 
-#if DATA_SIZE == 8
-#define SUFFIX q
-#define LSUFFIX q
-#define SDATA_TYPE  int64_t
+#if DATA_SIZE == 16
+#define SUFFIX     o
+#define LSUFFIX    o
+#define SDATA_TYPE Int128
+#define DATA_TYPE  Int128
+#elif DATA_SIZE == 8
+#define SUFFIX     q
+#define LSUFFIX    q
+#define SDATA_TYPE int64_t
 #define DATA_TYPE  uint64_t
 #elif DATA_SIZE == 4
-#define SUFFIX l
-#define LSUFFIX l
-#define SDATA_TYPE  int32_t
+#define SUFFIX     l
+#define LSUFFIX    l
+#define SDATA_TYPE int32_t
 #define DATA_TYPE  uint32_t
 #elif DATA_SIZE == 2
-#define SUFFIX w
-#define LSUFFIX uw
-#define SDATA_TYPE  int16_t
+#define SUFFIX     w
+#define LSUFFIX    uw
+#define SDATA_TYPE int16_t
 #define DATA_TYPE  uint16_t
 #elif DATA_SIZE == 1
-#define SUFFIX b
-#define LSUFFIX ub
-#define SDATA_TYPE  int8_t
+#define SUFFIX     b
+#define LSUFFIX    ub
+#define SDATA_TYPE int8_t
 #define DATA_TYPE  uint8_t
 #else
 #error unsupported data size
@@ -56,7 +61,7 @@
    to the register size of the host.  This is tcg_target_long, except in the
    case of a 32-bit host and 64-bit data, and for that we always have
    uint64_t.  Don't bother with this widened value for SOFTMMU_CODE_ACCESS.  */
-#if defined(SOFTMMU_CODE_ACCESS) || DATA_SIZE == 8
+#if defined(SOFTMMU_CODE_ACCESS) || DATA_SIZE >= 8
 # define WORD_TYPE  DATA_TYPE
 # define USUFFIX    SUFFIX
 #else
@@ -73,7 +78,9 @@
 #define ADDR_READ addr_read
 #endif
 
-#if DATA_SIZE == 8
+#if DATA_SIZE == 16
+# define BSWAP(X)  bswap128(X)
+#elif DATA_SIZE == 8
 # define BSWAP(X)  bswap64(X)
 #elif DATA_SIZE == 4
 # define BSWAP(X)  bswap32(X)
@@ -115,6 +122,7 @@
 # define helper_te_st_name  helper_le_st_name
 #endif
 
+#if DATA_SIZE < 16
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
                                               CPUIOTLBEntry *iotlbentry,
@@ -282,9 +290,10 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr,
     return res;
 }
 #endif /* DATA_SIZE > 1 */
+#endif /* DATA_SIZE < 16 */
 
 #ifndef SOFTMMU_CODE_ACCESS
-
+#if DATA_SIZE < 16
 /* Provide signed versions of the load routines as well.  We can of course
    avoid this for 64-bit data, or for 32-bit data on 32-bit host.  */
 #if DATA_SIZE * 8 < TCG_TARGET_REG_BITS
@@ -508,6 +517,7 @@ void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
     }
 }
 #endif
+#endif /* DATA_SIZE < 16 */
 
 #if DATA_SIZE == 1
 # define HE_SUFFIX  _mmu
@@ -549,7 +559,7 @@ void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
         /* Check TLB entry and enforce page permissions.  */            \
         if ((addr & TARGET_PAGE_MASK)                                   \
             != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {    \
-            if (!VICTIM_TLB_HIT(addr_write)) {                          \
+            if (!VICTIM_TLB_HIT(addr_write, addr)) {                    \
                 tlb_fill(ENV_GET_CPU(env), addr, MMU_DATA_STORE,        \
                          mmu_idx, retaddr);                             \
             }                                                           \
@@ -574,9 +584,30 @@ DATA_TYPE glue(glue(helper_atomic_cmpxchg, SUFFIX), HE_SUFFIX)
      TCGMemOpIdx oi, uintptr_t retaddr)
 {
     ATOMIC_MMU_BODY;
+#if DATA_SIZE < 16
     return atomic_cmpxchg(haddr, cmpv, newv);
+#else
+    __atomic_compare_exchange(haddr, &cmpv, &newv, false,
+                              __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return cmpv;
+#endif
 }
 
+#if DATA_SIZE > 1
+DATA_TYPE glue(glue(helper_atomic_cmpxchg, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE cmpv, DATA_TYPE newv,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE retv;
+    cmpv = BSWAP(cmpv);
+    newv = BSWAP(newv);
+    retv = (glue(glue(helper_atomic_cmpxchg, SUFFIX), HE_SUFFIX)
+            (env, addr, cmpv, newv, oi, retaddr));
+    return BSWAP(retv);
+}
+#endif
+
+#if DATA_SIZE < 16
 #define GEN_ATOMIC_HELPER(NAME)                                         \
 DATA_TYPE glue(glue(glue(helper_atomic_, NAME), SUFFIX), HE_SUFFIX)     \
     (CPUArchState *env, target_ulong addr, DATA_TYPE val,               \
@@ -601,18 +632,6 @@ GEN_ATOMIC_HELPER(xchg)
 #undef GEN_ATOMIC_HELPER
 
 #if DATA_SIZE > 1
-DATA_TYPE glue(glue(helper_atomic_cmpxchg, SUFFIX), RE_SUFFIX)
-    (CPUArchState *env, target_ulong addr, DATA_TYPE cmpv, DATA_TYPE newv,
-     TCGMemOpIdx oi, uintptr_t retaddr)
-{
-    DATA_TYPE retv;
-    cmpv = BSWAP(cmpv);
-    newv = BSWAP(newv);
-    retv = (glue(glue(helper_atomic_cmpxchg, SUFFIX), HE_SUFFIX)
-            (env, addr, cmpv, newv, oi, retaddr));
-    return BSWAP(retv);
-}
-
 #define GEN_ATOMIC_HELPER(NAME)                                         \
 DATA_TYPE glue(glue(glue(helper_atomic_, NAME), SUFFIX), RE_SUFFIX)     \
     (CPUArchState *env, target_ulong addr, DATA_TYPE val,               \
@@ -677,6 +696,41 @@ DATA_TYPE glue(glue(helper_atomic_add_fetch, SUFFIX), RE_SUFFIX)
     }
 }
 #endif /* DATA_SIZE > 1 */
+#else /* DATA_SIZE >= 16 */
+DATA_TYPE glue(glue(helper_atomic_ld, SUFFIX), HE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE res;
+    ATOMIC_MMU_BODY;
+    __atomic_load(haddr, &res, __ATOMIC_RELAXED);
+    return res;
+}
+
+DATA_TYPE glue(glue(helper_atomic_ld, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE res;
+    res = (glue(glue(helper_atomic_ld, SUFFIX), HE_SUFFIX)
+           (env, addr, oi, retaddr));
+    return BSWAP(res);
+}
+
+void glue(glue(helper_atomic_st, SUFFIX), HE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    ATOMIC_MMU_BODY;
+    __atomic_store(haddr, &val, __ATOMIC_RELAXED);
+}
+
+void glue(glue(helper_atomic_st, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    (glue(glue(helper_atomic_st, SUFFIX), HE_SUFFIX)
+     (env, addr, BSWAP(val), oi, retaddr));
+}
+#endif /* DATA_SIZE < 16 */
 
 #undef ATOMIC_MMU_BODY
 

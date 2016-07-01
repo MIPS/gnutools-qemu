@@ -1228,6 +1228,28 @@ GEN_ATOMIC_HELPER_ALL(xchg)
 #undef GEN_ATOMIC_HELPER_ALL
 #undef GEN_ATOMIC_HELPER
 
+#ifdef CONFIG_ATOMIC128
+#include "qemu/int128.h"
+
+/* These aren't really a "proper" helpers because TCG cannot manage Int128.
+   However, use the same format as the others, for use by the backends. */
+Int128 helper_atomic_cmpxchgo_le_mmu(CPUArchState *env, target_ulong addr,
+                                     Int128 cmpv, Int128 newv,
+                                     TCGMemOpIdx oi, uintptr_t retaddr);
+Int128 helper_atomic_cmpxchgo_be_mmu(CPUArchState *env, target_ulong addr,
+                                     Int128 cmpv, Int128 newv,
+                                     TCGMemOpIdx oi, uintptr_t retaddr);
+
+Int128 helper_atomic_ldo_le_mmu(CPUArchState *env, target_ulong addr,
+                                TCGMemOpIdx oi, uintptr_t retaddr);
+Int128 helper_atomic_ldo_be_mmu(CPUArchState *env, target_ulong addr,
+                                TCGMemOpIdx oi, uintptr_t retaddr);
+void helper_atomic_sto_le_mmu(CPUArchState *env, target_ulong addr, Int128 val,
+                              TCGMemOpIdx oi, uintptr_t retaddr);
+void helper_atomic_sto_be_mmu(CPUArchState *env, target_ulong addr, Int128 val,
+                              TCGMemOpIdx oi, uintptr_t retaddr);
+
+#endif /* CONFIG_ATOMIC128 */
 #endif /* CONFIG_SOFTMMU */
 
 #endif /* TCG_H */
