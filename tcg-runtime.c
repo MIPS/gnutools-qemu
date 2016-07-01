@@ -23,17 +23,10 @@
  */
 #include "qemu/osdep.h"
 #include "qemu/host-utils.h"
-
-/* This file is compiled once, and thus we can't include the standard
-   "exec/helper-proto.h", which has includes that are target specific.  */
-
-#include "exec/helper-head.h"
-
-#define DEF_HELPER_FLAGS_2(name, flags, ret, t1, t2) \
-  dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2));
-
-#include "tcg-runtime.h"
-
+#include "cpu.h"
+#include "exec/helper-proto.h"
+#include "exec/cpu_ldst.h"
+#include "exec/exec-all.h"
 
 /* 32-bit helpers */
 
@@ -107,3 +100,15 @@ int64_t HELPER(mulsh_i64)(int64_t arg1, int64_t arg2)
     muls64(&l, &h, arg1, arg2);
     return h;
 }
+
+#define SHIFT 0
+#include "atomic_template.h"
+
+#define SHIFT 1
+#include "atomic_template.h"
+
+#define SHIFT 2
+#include "atomic_template.h"
+
+#define SHIFT 3
+#include "atomic_template.h"
