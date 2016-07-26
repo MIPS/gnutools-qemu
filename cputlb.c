@@ -275,31 +275,49 @@ void tlb_unprotect_code(ram_addr_t ram_addr)
     cpu_physical_memory_set_dirty_flag(ram_addr, DIRTY_MEMORY_CODE);
 }
 
-static bool tlb_is_dirty_ram(CPUTLBEntry *tlbe)
-{
-    return (tlbe->addr_write & (TLB_INVALID_MASK|TLB_MMIO|TLB_NOTDIRTY)) == 0;
-}
 
-void tlb_reset_dirty_range(CPUTLBEntry *tlb_entry, uintptr_t start,
+/*
+ * Dirty write flag handling
+ *
+ * When the TCG code writes to a location it looks up the address in
+ * the TLB and uses that data to compute the final address. If any of
+ * the lower bits of the address are set then the slow path is forced.
+ * There are a number of reasons to do this but for normal RAM the
+ * most usual is detecting writes to code regions which may invalidate
+ * generated code.
+ *
+ * Because we want other vCPUs to respond to changes straight away we
+ * update the te->addr_write field atomically. If the TLB entry has
+ * been changed by the vCPU in the mean time we skip the update.
+ */
+
+static void tlb_reset_dirty_range(CPUTLBEntry *tlb_entry, uintptr_t start,
                            uintptr_t length)
 {
-    uintptr_t addr;
+    /* paired with atomic_mb_set in tlb_set_page_with_attrs */
+    uintptr_t orig_addr = atomic_mb_read(&tlb_entry->addr_write);
+    uintptr_t addr = orig_addr;
 
-    if (tlb_is_dirty_ram(tlb_entry)) {
-        addr = (tlb_entry->addr_write & TARGET_PAGE_MASK) + tlb_entry->addend;
+    if ((addr & (TLB_INVALID_MASK | TLB_MMIO | TLB_NOTDIRTY)) == 0) {
+        addr &= TARGET_PAGE_MASK;
+        addr += atomic_read(&tlb_entry->addend);
         if ((addr - start) < length) {
-            tlb_entry->addr_write |= TLB_NOTDIRTY;
+            uintptr_t notdirty_addr = orig_addr | TLB_NOTDIRTY;
+            atomic_cmpxchg(&tlb_entry->addr_write, orig_addr, notdirty_addr);
         }
     }
 }
 
+/* This is a cross vCPU call (i.e. another vCPU resetting the flags of
+ * the target vCPU). As such care needs to be taken that we don't
+ * dangerously race with another vCPU update. The only thing actually
+ * updated is the target TLB entry ->addr_write flags.
+ */
 void tlb_reset_dirty(CPUState *cpu, ram_addr_t start1, ram_addr_t length)
 {
     CPUArchState *env;
 
     int mmu_idx;
-
-    assert_cpu_is_self(cpu);
 
     env = cpu->env_ptr;
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
@@ -386,7 +404,7 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     MemoryRegionSection *section;
     unsigned int index;
     target_ulong address;
-    target_ulong code_address;
+    target_ulong code_address, write_address;
     uintptr_t addend;
     CPUTLBEntry *te;
     hwaddr iotlb, xlat, sz;
@@ -443,21 +461,24 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     } else {
         te->addr_code = -1;
     }
+
+    write_address = -1;
     if (prot & PAGE_WRITE) {
         if ((memory_region_is_ram(section->mr) && section->readonly)
             || memory_region_is_romd(section->mr)) {
             /* Write access calls the I/O callback.  */
-            te->addr_write = address | TLB_MMIO;
+            write_address = address | TLB_MMIO;
         } else if (memory_region_is_ram(section->mr)
                    && cpu_physical_memory_is_clean(
                         memory_region_get_ram_addr(section->mr) + xlat)) {
-            te->addr_write = address | TLB_NOTDIRTY;
+            write_address = address | TLB_NOTDIRTY;
         } else {
-            te->addr_write = address;
+            write_address = address;
         }
-    } else {
-        te->addr_write = -1;
     }
+
+    /* Pairs with flag setting in tlb_reset_dirty_range */
+    atomic_mb_set(&te->addr_write, write_address);
 }
 
 /* Add a new TLB entry, but without specifying the memory
