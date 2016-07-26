@@ -68,6 +68,9 @@
 /* We need a solution for stuffing 64 bit pointers in 32 bit ones if
  * we care about this combination */
 QEMU_BUILD_BUG_ON(sizeof(target_ulong) > sizeof(void *));
+QEMU_BUILD_BUG_ON(NB_MMU_MODES > 16);
+
+#define ALL_MMUIDX_BITS ((1 << NB_MMU_MODES) - 1)
 
 /* statistics */
 int tlb_flush_count;
@@ -88,7 +91,7 @@ static void tlb_flush_nocheck(CPUState *cpu, int flush_global)
     env->tlb_flush_mask = 0;
     tlb_flush_count++;
 
-    atomic_mb_set(&cpu->pending_tlb_flush, false);
+    atomic_mb_set(&cpu->pending_tlb_flush, 0);
 }
 
 static void tlb_flush_global_async_work(CPUState *cpu, void *opaque)
@@ -111,7 +114,8 @@ static void tlb_flush_global_async_work(CPUState *cpu, void *opaque)
 void tlb_flush(CPUState *cpu, int flush_global)
 {
     if (cpu->created && !qemu_cpu_is_self(cpu)) {
-        if (atomic_bool_cmpxchg(&cpu->pending_tlb_flush, false, true)) {
+        if (atomic_mb_read(&cpu->pending_tlb_flush) != ALL_MMUIDX_BITS) {
+            atomic_mb_set(&cpu->pending_tlb_flush, ALL_MMUIDX_BITS);
             async_run_on_cpu(cpu, tlb_flush_global_async_work,
                              GINT_TO_POINTER(flush_global));
         }
@@ -120,35 +124,67 @@ void tlb_flush(CPUState *cpu, int flush_global)
     }
 }
 
-static inline void v_tlb_flush_by_mmuidx(CPUState *cpu, va_list argp)
+static void tlb_flush_by_mmuidx_async_work(CPUState *cpu, void *mmu_bitmask)
 {
     CPUArchState *env = cpu->env_ptr;
+    unsigned long mmu_idx_bitmask = GPOINTER_TO_UINT(mmu_bitmask);
+    int mmu_idx;
 
     assert_cpu_is_self(cpu);
+
     tlb_debug("start\n");
 
-    for (;;) {
-        int mmu_idx = va_arg(argp, int);
+    for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
 
-        if (mmu_idx < 0) {
-            break;
+        if (test_bit(mmu_idx, &mmu_idx_bitmask)) {
+            tlb_debug("%d\n", mmu_idx);
+
+            memset(env->tlb_table[mmu_idx], -1, sizeof(env->tlb_table[0]));
+            memset(env->tlb_v_table[mmu_idx], -1, sizeof(env->tlb_v_table[0]));
         }
-
-        tlb_debug("%d\n", mmu_idx);
-
-        memset(env->tlb_table[mmu_idx], -1, sizeof(env->tlb_table[0]));
-        memset(env->tlb_v_table[mmu_idx], -1, sizeof(env->tlb_v_table[0]));
     }
 
     memset(cpu->tb_jmp_cache, 0, sizeof(cpu->tb_jmp_cache));
 }
 
+/* Helper function to slurp va_args list into a bitmap
+ */
+static inline unsigned long make_mmu_index_bitmap(va_list args)
+{
+    unsigned long bitmap = 0;
+    int mmu_index = va_arg(args, int);
+
+    /* An empty va_list would be a bad call */
+    g_assert(mmu_index > 0);
+
+    do {
+        set_bit(mmu_index, &bitmap);
+        mmu_index = va_arg(args, int);
+    } while (mmu_index >= 0);
+
+    return bitmap;
+}
+
 void tlb_flush_by_mmuidx(CPUState *cpu, ...)
 {
     va_list argp;
+    unsigned long mmu_idx_bitmap;
+
     va_start(argp, cpu);
-    v_tlb_flush_by_mmuidx(cpu, argp);
+    mmu_idx_bitmap = make_mmu_index_bitmap(argp);
     va_end(argp);
+
+    if (!qemu_cpu_is_self(cpu)) {
+        uint16_t pending_flushes =
+            mmu_idx_bitmap & ~atomic_mb_read(&cpu->pending_tlb_flush);
+        if (pending_flushes) {
+            atomic_or(&cpu->pending_tlb_flush, pending_flushes);
+            async_run_on_cpu(cpu, tlb_flush_by_mmuidx_async_work,
+                             GUINT_TO_POINTER(pending_flushes));
+        }
+    } else {
+        tlb_flush_by_mmuidx_async_work(cpu, GUINT_TO_POINTER(mmu_idx_bitmap));
+    }
 }
 
 static inline void tlb_flush_entry(CPUTLBEntry *tlb_entry, target_ulong addr)
@@ -199,15 +235,46 @@ void tlb_flush_page(CPUState *cpu, target_ulong addr)
     tb_flush_jmp_cache(cpu, addr);
 }
 
+/* As we are going to hijack the bottom bits of the page address for a
+ * mmuidx bit mask we need to fail to build if we can't do that
+ */
+QEMU_BUILD_BUG_ON(NB_MMU_MODES > TARGET_PAGE_BITS);
+
+static void tlb_flush_page_by_mmuidx_async_work(CPUState *cpu, void *data)
+{
+    CPUArchState *env = cpu->env_ptr;
+    uintptr_t page_and_mmuidx = GPOINTER_TO_UINT(data);
+    target_ulong addr = page_and_mmuidx & TARGET_PAGE_MASK;
+    int page = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+    int mmu_idx;
+    int i;
+
+    assert_cpu_is_self(cpu);
+
+    for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
+        if (test_bit(mmu_idx, &page_and_mmuidx)) {
+            tlb_flush_entry(&env->tlb_table[mmu_idx][page], addr);
+
+            /* check whether there are vltb entries that need to be flushed */
+            for (i = 0; i < CPU_VTLB_SIZE; i++) {
+                tlb_flush_entry(&env->tlb_v_table[mmu_idx][i], addr);
+            }
+        }
+    }
+
+    tb_flush_jmp_cache(cpu, addr);
+}
+
 void tlb_flush_page_by_mmuidx(CPUState *cpu, target_ulong addr, ...)
 {
     CPUArchState *env = cpu->env_ptr;
-    int i, k;
+    unsigned long mmu_idx_bitmap;
     va_list argp;
 
     va_start(argp, addr);
+    mmu_idx_bitmap = make_mmu_index_bitmap(argp);
+    va_end(argp);
 
-    assert_cpu_is_self(cpu);
     tlb_debug("addr "TARGET_FMT_lx"\n", addr);
 
     /* Check if we need to flush due to large pages.  */
@@ -216,33 +283,32 @@ void tlb_flush_page_by_mmuidx(CPUState *cpu, target_ulong addr, ...)
                   TARGET_FMT_lx "/" TARGET_FMT_lx ")\n",
                   env->tlb_flush_addr, env->tlb_flush_mask);
 
-        v_tlb_flush_by_mmuidx(cpu, argp);
-        va_end(argp);
+
+        if (!qemu_cpu_is_self(cpu)) {
+            uint16_t pending_flushes =
+                mmu_idx_bitmap & ~atomic_mb_read(&cpu->pending_tlb_flush);
+            if (pending_flushes) {
+                atomic_or(&cpu->pending_tlb_flush, pending_flushes);
+                async_run_on_cpu(cpu, tlb_flush_by_mmuidx_async_work,
+                                 GUINT_TO_POINTER(pending_flushes));
+            }
+        } else {
+            tlb_flush_by_mmuidx_async_work(cpu,
+                                           GUINT_TO_POINTER(mmu_idx_bitmap));
+        }
         return;
     }
 
+    /* This should already be page aligned */
     addr &= TARGET_PAGE_MASK;
-    i = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+    addr |= mmu_idx_bitmap;
 
-    for (;;) {
-        int mmu_idx = va_arg(argp, int);
-
-        if (mmu_idx < 0) {
-            break;
-        }
-
-        tlb_debug("idx %d\n", mmu_idx);
-
-        tlb_flush_entry(&env->tlb_table[mmu_idx][i], addr);
-
-        /* check whether there are vltb entries that need to be flushed */
-        for (k = 0; k < CPU_VTLB_SIZE; k++) {
-            tlb_flush_entry(&env->tlb_v_table[mmu_idx][k], addr);
-        }
+    if (!qemu_cpu_is_self(cpu)) {
+        async_run_on_cpu(cpu, tlb_flush_page_by_mmuidx_async_work,
+                         GUINT_TO_POINTER(addr));
+    } else {
+        tlb_flush_page_by_mmuidx_async_work(cpu, GUINT_TO_POINTER(addr));
     }
-    va_end(argp);
-
-    tb_flush_jmp_cache(cpu, addr);
 }
 
 static void tlb_flush_page_async_work(CPUState *cpu, void *opaque)
