@@ -209,6 +209,7 @@ struct MIPSGICState {
     /* GIC VP Timer */
     MIPSGICTimerState *gic_timer;
 
+    int32_t num_cpus;
     int32_t num_vps;
     int32_t num_irq;
 };

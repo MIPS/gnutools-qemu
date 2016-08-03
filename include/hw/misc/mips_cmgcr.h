@@ -31,11 +31,13 @@
 #define GCR_GIC_STATUS_OFS  0x00D0
 #define GCR_CPC_STATUS_OFS  0x00F0
 #define GCR_L2_CONFIG_OFS   0x0130
+#define GCR_SYS_CONFIG2_OFS 0x0150
 
 /* Core Local and Core Other Block Register Map */
 #define GCR_CL_CONFIG_OFS   0x0010
 #define GCR_CL_OTHER_OFS    0x0018
 #define GCR_CL_RESETBASE_OFS 0x0020
+#define GCR_CL_ID_OFS 0x0028
 
 /* GCR_L2_CONFIG register fields */
 #define GCR_L2_CONFIG_BYPASS_SHF    20
@@ -53,7 +55,9 @@
 
 /* GCR_CL_OTHER_OFS register fields */
 #define GCR_CL_OTHER_VPOTHER_MSK 0x7
-#define GCR_CL_OTHER_MSK GCR_CL_OTHER_VPOTHER_MSK
+#define GCR_CL_OTHER_COREOTHER_SHF 8
+#define GCR_CL_OTHER_COREOTHER_MSK (0x3Fu << GCR_CL_OTHER_COREOTHER_SHF)
+#define GCR_CL_OTHER_MSK (GCR_CL_OTHER_VPOTHER_MSK | GCR_CL_OTHER_COREOTHER_MSK)
 
 /* GCR_CL_RESETBASE_OFS register fields */
 #define GCR_CL_RESET_BASE_RESETBASE_MSK 0xFFFFF000U
@@ -70,6 +74,7 @@ struct MIPSGCRState {
     SysBusDevice parent_obj;
 
     int32_t gcr_rev;
+    int32_t num_cpus;
     int32_t num_vps;
     hwaddr gcr_base;
     MemoryRegion iomem;

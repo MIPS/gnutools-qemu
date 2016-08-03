@@ -944,9 +944,9 @@ static void create_cps(MaltaState *s, const char *cpu_model,
 
     object_initialize(s->cps, sizeof(MIPSCPSState), TYPE_MIPS_CPS);
     qdev_set_parent_bus(DEVICE(s->cps), sysbus_get_default());
-
     object_property_set_str(OBJECT(s->cps), cpu_model, "cpu-model", &err);
-    object_property_set_int(OBJECT(s->cps), smp_cpus, "num-vp", &err);
+    object_property_set_int(OBJECT(s->cps), smp_cores, "num-cpu", &err);
+    object_property_set_int(OBJECT(s->cps), smp_threads, "num-vp", &err);
     object_property_set_bool(OBJECT(s->cps), true, "realized", &err);
     if (err != NULL) {
         error_report("%s", error_get_pretty(err));

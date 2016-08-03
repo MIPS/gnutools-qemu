@@ -19,6 +19,13 @@
 #include "hw/misc/mips_cpc.h"
 #include "hw/intc/mips_gic.h"
 
+static inline uint32_t get_vpidx(uint32_t num_vps, uint32_t other)
+{
+    uint32_t cpu = extract32(other, 8, 6);
+    uint32_t vp = extract32(other, 0, 3);
+    return cpu * num_vps + vp;
+}
+
 static inline bool is_cpc_connected(MIPSGCRState *s)
 {
     return s->cpc_mr != NULL;
@@ -60,13 +67,12 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
 {
     MIPSGCRState *gcr = (MIPSGCRState *) opaque;
     MIPSGCRVPState *current_vps = &gcr->vps[current_cpu->cpu_index];
-    MIPSGCRVPState *other_vps = &gcr->vps[current_vps->other];
+    MIPSGCRVPState *other_vps = &gcr->vps[get_vpidx(gcr->num_vps, current_vps->other)];
 
     switch (addr) {
     /* Global Control Block Register */
     case GCR_CONFIG_OFS:
-        /* Set PCORES to 0 */
-        return 0;
+        return gcr->num_cpus - 1;
     case GCR_BASE_OFS:
         return gcr->gcr_base;
     case GCR_REV_OFS:
@@ -82,15 +88,20 @@ static uint64_t gcr_read(void *opaque, hwaddr addr, unsigned size)
     case GCR_L2_CONFIG_OFS:
         /* L2 BYPASS */
         return GCR_L2_CONFIG_BYPASS_MSK;
+    case GCR_SYS_CONFIG2_OFS:
+        return gcr->num_vps;
         /* Core-Local and Core-Other Control Blocks */
     case MIPS_CLCB_OFS + GCR_CL_CONFIG_OFS:
     case MIPS_COCB_OFS + GCR_CL_CONFIG_OFS:
-        /* Set PVP to # of VPs - 1 */
         return gcr->num_vps - 1;
     case MIPS_CLCB_OFS + GCR_CL_RESETBASE_OFS:
         return current_vps->reset_base;
     case MIPS_COCB_OFS + GCR_CL_RESETBASE_OFS:
         return other_vps->reset_base;
+    case MIPS_CLCB_OFS + GCR_CL_ID_OFS:
+        return current_cpu->cpu_index / gcr->num_vps;
+    case MIPS_COCB_OFS + GCR_CL_ID_OFS:
+        return get_vpidx(gcr->num_vps, current_vps->other) / gcr->num_vps;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
         return current_vps->other;
     case MIPS_COCB_OFS + GCR_CL_OTHER_OFS:
@@ -109,12 +120,14 @@ static inline target_ulong get_exception_base(MIPSGCRVPState *vps)
     return (int32_t)(vps->reset_base & GCR_CL_RESET_BASE_RESETBASE_MSK);
 }
 
+uint32_t gcr_other_core[128];
+
 /* Write GCR registers */
 static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
 {
     MIPSGCRState *gcr = (MIPSGCRState *)opaque;
     MIPSGCRVPState *current_vps = &gcr->vps[current_cpu->cpu_index];
-    MIPSGCRVPState *other_vps = &gcr->vps[current_vps->other];
+    MIPSGCRVPState *other_vps = &gcr->vps[get_vpidx(gcr->num_vps, current_vps->other)];
 
     switch (addr) {
     case GCR_GIC_BASE_OFS:
@@ -130,17 +143,21 @@ static void gcr_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         break;
     case MIPS_COCB_OFS + GCR_CL_RESETBASE_OFS:
         other_vps->reset_base = data & GCR_CL_RESET_BASE_MSK;
-        cpu_set_exception_base(current_vps->other,
+        cpu_set_exception_base(get_vpidx(gcr->num_vps, current_vps->other),
                                get_exception_base(other_vps));
         break;
     case MIPS_CLCB_OFS + GCR_CL_OTHER_OFS:
-        if ((data & GCR_CL_OTHER_MSK) < gcr->num_vps) {
+        if ((extract32(data, 0, 3) < gcr->num_vps) &&
+            (extract32(data, 8, 6) < gcr->num_cpus)) {
             current_vps->other = data & GCR_CL_OTHER_MSK;
+            gcr_other_core[current_cpu->cpu_index] = extract32(data, 8, 6);
         }
         break;
     case MIPS_COCB_OFS + GCR_CL_OTHER_OFS:
-        if ((data & GCR_CL_OTHER_MSK) < gcr->num_vps) {
+        if ((extract32(data, 0, 3) < gcr->num_vps) &&
+            (extract32(data, 8, 6) < gcr->num_cpus)) {
             other_vps->other = data & GCR_CL_OTHER_MSK;
+            gcr_other_core[get_vpidx(gcr->num_vps, current_vps->other)] = extract32(data, 8, 6);
         }
         break;
     default:
@@ -207,6 +224,7 @@ static const VMStateDescription vmstate_mips_gcr = {
 };
 
 static Property mips_gcr_properties[] = {
+    DEFINE_PROP_INT32("num-cpu", MIPSGCRState, num_cpus, 1),
     DEFINE_PROP_INT32("num-vp", MIPSGCRState, num_vps, 1),
     DEFINE_PROP_INT32("gcr-rev", MIPSGCRState, gcr_rev, 0x800),
     DEFINE_PROP_UINT64("gcr-base", MIPSGCRState, gcr_base, GCR_BASE_ADDR),

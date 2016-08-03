@@ -32,6 +32,7 @@
 typedef struct MIPSCPSState {
     SysBusDevice parent_obj;
 
+    uint32_t num_cpu;
     uint32_t num_vp;
     uint32_t num_irq;
     char *cpu_model;

@@ -20292,7 +20292,8 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_Random = env->tlb->nb_tlb - 1;
     env->tlb->tlb_in_use = env->tlb->nb_tlb;
     env->CP0_Wired = 0;
-    env->CP0_GlobalNumber = (cs->cpu_index & 0xFF) << CP0GN_VPId;
+    env->CP0_GlobalNumber = (((cs->cpu_index % smp_threads) & 0xFF) << CP0GN_VPId) |
+                            ((cs->cpu_index / smp_threads) << CP0GN_CoreNum);
     env->CP0_EBase = (cs->cpu_index & 0x3FF);
     if (kvm_enabled()) {
         env->CP0_EBase |= 0x40000000;

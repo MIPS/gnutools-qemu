@@ -30,45 +30,58 @@ static inline uint64_t cpc_vp_run_mask(MIPSCPCState *cpc)
     return (1ULL << cpc->num_vp) - 1;
 }
 
-static void cpc_run_vp(MIPSCPCState *cpc, uint64_t vp_run)
+static void cpc_run_vp(MIPSCPCState *cpc, uint64_t vp_run, int core)
 {
     CPUState *cs = first_cpu;
 
     CPU_FOREACH(cs) {
-        uint64_t i = 1ULL << cs->cpu_index;
-        if (i & vp_run & ~cpc->vp_running) {
-            cpu_reset(cs);
-            cpc->vp_running |= i;
+        if (cs->cpu_index / cpc->num_vp == core) {
+            uint64_t i = 1ULL << (cs->cpu_index % cpc->num_vp);
+            if (i & vp_run & ~cpc->vp_running[core]) {
+                cpu_reset(cs);
+                cpc->vp_running[core] |= i;
+            }
         }
     }
 }
 
-static void cpc_stop_vp(MIPSCPCState *cpc, uint64_t vp_stop)
+static void cpc_stop_vp(MIPSCPCState *cpc, uint64_t vp_stop, int core)
 {
     CPUState *cs = first_cpu;
 
     CPU_FOREACH(cs) {
-        uint64_t i = 1ULL << cs->cpu_index;
-        if (i & vp_stop & cpc->vp_running) {
-            cpu_interrupt(cs, CPU_INTERRUPT_HALT);
-            cpc->vp_running &= ~i;
+        if (cs->cpu_index / cpc->num_vp == core) {
+            uint64_t i = 1ULL << cs->cpu_index;
+            if (i & vp_stop & cpc->vp_running[core]) {
+                cpu_interrupt(cs, CPU_INTERRUPT_HALT);
+                cpc->vp_running[core] &= ~i;
+            }
         }
     }
 }
+
+extern uint32_t gcr_other_core[];
 
 static void cpc_write(void *opaque, hwaddr offset, uint64_t data,
                       unsigned size)
 {
     MIPSCPCState *s = opaque;
+    int vp_idx = current_cpu->cpu_index;
+    int current_core = current_cpu->cpu_index / s->num_vp;
+    int other_core = gcr_other_core[vp_idx]; /* FIXME */
 
     switch (offset) {
     case CPC_CL_BASE_OFS + CPC_VP_RUN_OFS:
+        cpc_run_vp(s, data & cpc_vp_run_mask(s), current_core);
+        break;
     case CPC_CO_BASE_OFS + CPC_VP_RUN_OFS:
-        cpc_run_vp(s, data & cpc_vp_run_mask(s));
+        cpc_run_vp(s, data & cpc_vp_run_mask(s), other_core);
         break;
     case CPC_CL_BASE_OFS + CPC_VP_STOP_OFS:
+        cpc_stop_vp(s, data & cpc_vp_run_mask(s), current_core);
+        break;
     case CPC_CO_BASE_OFS + CPC_VP_STOP_OFS:
-        cpc_stop_vp(s, data & cpc_vp_run_mask(s));
+        cpc_stop_vp(s, data & cpc_vp_run_mask(s), other_core);
         break;
     default:
         qemu_log_mask(LOG_UNIMP,
@@ -82,11 +95,20 @@ static void cpc_write(void *opaque, hwaddr offset, uint64_t data,
 static uint64_t cpc_read(void *opaque, hwaddr offset, unsigned size)
 {
     MIPSCPCState *s = opaque;
+    int vp_idx = current_cpu->cpu_index;
+    int current_core = current_cpu->cpu_index / s->num_vp;
+    int other_core = gcr_other_core[vp_idx]; /* FIXME */
 
     switch (offset) {
+    case CPC_CL_BASE_OFS + CPC_STAT_CONF_OFS:
+    case CPC_CO_BASE_OFS + CPC_STAT_CONF_OFS:
+        /* FIXME: We don't emulate domain power sequence,
+           so for now always indicate Coherent execution. */
+        return 0x7 << 19;
     case CPC_CL_BASE_OFS + CPC_VP_RUNNING_OFS:
+        return s->vp_running[current_core];
     case CPC_CO_BASE_OFS + CPC_VP_RUNNING_OFS:
-        return s->vp_running;
+        return s->vp_running[other_core];
     default:
         qemu_log_mask(LOG_UNIMP,
                       "%s: Bad offset 0x%x\n",  __func__, (int)offset);
@@ -120,7 +142,7 @@ static void mips_cpc_realize(DeviceState *dev, Error **errp)
     if (s->vp_start_running > cpc_vp_run_mask(s)) {
         error_setg(errp,
                    "incorrect vp_start_running 0x%" PRIx64 " for num_vp = %d",
-                   s->vp_running, s->num_vp);
+                   s->vp_running[0], s->num_vp);
         return;
     }
 }
@@ -130,23 +152,26 @@ static void mips_cpc_reset(DeviceState *dev)
     MIPSCPCState *s = MIPS_CPC(dev);
 
     /* Reflect the fact that all VPs are halted on reset */
-    s->vp_running = 0;
+    memset(s->vp_running, 0, sizeof(s->vp_running));
 
     /* Put selected VPs into run state */
-    cpc_run_vp(s, s->vp_start_running);
+    cpc_run_vp(s, s->vp_start_running, 0);
 }
 
 static const VMStateDescription vmstate_mips_cpc = {
     .name = "mips-cpc",
     .version_id = 0,
     .minimum_version_id = 0,
+    /*
     .fields = (VMStateField[]) {
         VMSTATE_UINT64(vp_running, MIPSCPCState),
         VMSTATE_END_OF_LIST()
     },
+    */
 };
 
 static Property mips_cpc_properties[] = {
+    DEFINE_PROP_UINT32("num-cpu", MIPSCPCState, num_cpu, 0x1),
     DEFINE_PROP_UINT32("num-vp", MIPSCPCState, num_vp, 0x1),
     DEFINE_PROP_UINT64("vp-start-running", MIPSCPCState, vp_start_running, 0x1),
     DEFINE_PROP_END_OF_LIST(),

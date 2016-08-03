@@ -70,7 +70,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     target_ulong gcr_base;
     bool itu_present = false;
 
-    for (i = 0; i < s->num_vp; i++) {
+    for (i = 0; i < (s->num_cpu * s->num_vp); i++) {
         cpu = cpu_mips_init(s->cpu_model);
         if (cpu == NULL) {
             error_setg(errp, "%s: CPU initialization failed\n",  __func__);
@@ -114,6 +114,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     object_initialize(&s->cpc, sizeof(s->cpc), TYPE_MIPS_CPC);
     qdev_set_parent_bus(DEVICE(&s->cpc), sysbus_get_default());
 
+    object_property_set_int(OBJECT(&s->cpc), s->num_cpu, "num-cpu", &err);
     object_property_set_int(OBJECT(&s->cpc), s->num_vp, "num-vp", &err);
     object_property_set_int(OBJECT(&s->cpc), 1, "vp-start-running", &err);
     object_property_set_bool(OBJECT(&s->cpc), true, "realized", &err);
@@ -129,6 +130,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     object_initialize(&s->gic, sizeof(s->gic), TYPE_MIPS_GIC);
     qdev_set_parent_bus(DEVICE(&s->gic), sysbus_get_default());
 
+    object_property_set_int(OBJECT(&s->gic), s->num_cpu, "num-cpu", &err);
     object_property_set_int(OBJECT(&s->gic), s->num_vp, "num-vp", &err);
     object_property_set_int(OBJECT(&s->gic), 128, "num-irq", &err);
     object_property_set_bool(OBJECT(&s->gic), true, "realized", &err);
@@ -146,6 +148,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     object_initialize(&s->gcr, sizeof(s->gcr), TYPE_MIPS_GCR);
     qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
 
+    object_property_set_int(OBJECT(&s->gcr), s->num_cpu, "num-cpu", &err);
     object_property_set_int(OBJECT(&s->gcr), s->num_vp, "num-vp", &err);
     object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", &err);
     object_property_set_int(OBJECT(&s->gcr), gcr_base, "gcr-base", &err);
@@ -162,6 +165,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
 }
 
 static Property mips_cps_properties[] = {
+    DEFINE_PROP_UINT32("num-cpu", MIPSCPSState, num_cpu, 1),
     DEFINE_PROP_UINT32("num-vp", MIPSCPSState, num_vp, 1),
     DEFINE_PROP_UINT32("num-irq", MIPSCPSState, num_irq, 256),
     DEFINE_PROP_STRING("cpu-model", MIPSCPSState, cpu_model),

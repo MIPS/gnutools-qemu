@@ -296,6 +296,7 @@ struct CPUMIPSState {
 # define CP0EnLo_XI 30
 #endif
     int32_t CP0_GlobalNumber;
+#define CP0GN_CoreNum 8
 #define CP0GN_VPId 0
     target_ulong CP0_Context;
     target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];

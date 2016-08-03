@@ -60,13 +60,14 @@ static void gic_set_irq(void *opaque, int n_IRQ, int level)
     MIPSGICState *gic = (MIPSGICState *) opaque;
     int vp = gic->irq_state[n_IRQ].map_vp;
     int pin = gic->irq_state[n_IRQ].map_pin & GIC_MAP_MSK;
+    int all_vps = gic->num_cpus * gic->num_vps;
 
     gic->irq_state[n_IRQ].pending = (uint8_t) level;
     if (!gic->irq_state[n_IRQ].enabled) {
         /* GIC interrupt source disabled */
         return;
     }
-    if (vp < 0 || vp >= gic->num_vps) {
+    if (vp < 0 || vp >= all_vps) {
         return;
     }
     mips_gic_set_vp_irq(gic, vp, pin, level);
@@ -218,6 +219,7 @@ static void gic_timer_store_vp_compare(MIPSGICState *gic, uint32_t vp_index,
 static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
                               uint64_t data, unsigned size)
 {
+    int all_vps = gic->num_cpus * gic->num_vps;
     switch (addr) {
     case GIC_VP_CTL_OFS:
         /* EIC isn't supported */
@@ -235,7 +237,7 @@ static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         gic->vps[vp_index].compare_map = data & GIC_MAP_TO_PIN_REG_MSK;
         break;
     case GIC_VP_OTHER_ADDR_OFS:
-        OFFSET_CHECK(data < gic->num_vps);
+        OFFSET_CHECK(data < all_vps);
         gic->vps[vp_index].other_addr = data;
         break;
     case GIC_VP_COMPARE_LO_OFS:
@@ -259,6 +261,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
     uint32_t vp_index = current_cpu->cpu_index;
     int i, base, irq_src;
     uint32_t other_index;
+    int all_vps = gic->num_cpus * gic->num_vps;
 
     switch (addr) {
     case GIC_SH_CONFIG_OFS:
@@ -320,7 +323,7 @@ static void gic_write(void *opaque, hwaddr addr, uint64_t data, unsigned size)
         irq_src = (addr - GIC_SH_MAP0_VP_OFS) / 32;
         OFFSET_CHECK(irq_src < gic->num_irq);
         data = data ? ctz64(data) : -1;
-        OFFSET_CHECK(data < gic->num_vps);
+        OFFSET_CHECK(data < all_vps);
         gic->irq_state[irq_src].map_vp = data;
         break;
     case VP_LOCAL_SECTION_OFS ... (VP_LOCAL_SECTION_OFS + GIC_VL_BRK_GROUP):
@@ -349,13 +352,14 @@ static void gic_reset(void *opaque)
     int i;
     MIPSGICState *gic = (MIPSGICState *) opaque;
     int numintrs = (gic->num_irq / 8) - 1;
+    int all_vps = gic->num_cpus * gic->num_vps;
 
     gic->sh_config = /* COUNTSTOP = 0 it is accessible via MIPSGICTimer*/
                      /* CounterHi not implemented */
                      (0            << GIC_SH_CONFIG_COUNTBITS_SHF) |
                      (numintrs     << GIC_SH_CONFIG_NUMINTRS_SHF)  |
-                     (gic->num_vps << GIC_SH_CONFIG_PVPS_SHF);
-    for (i = 0; i < gic->num_vps; i++) {
+                     (all_vps << GIC_SH_CONFIG_PVPS_SHF);
+    for (i = 0; i < all_vps; i++) {
         gic->vps[i].ctl         = 0x0;
         gic->vps[i].pend        = 0x0;
         /* PERFCNT, TIMER and WD not implemented */
@@ -400,9 +404,10 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
     MIPSGICState *s = MIPS_GIC(dev);
     CPUState *cs = first_cpu;
     int i;
+    int all_vps = s->num_cpus * s->num_vps;
 
-    if (s->num_vps > GIC_MAX_VPS) {
-        error_setg(errp, "Exceeded maximum CPUs %d", s->num_vps);
+    if (all_vps > GIC_MAX_VPS) {
+        error_setg(errp, "Exceeded maximum CPUs %d", all_vps);
         return;
     }
     if ((s->num_irq > GIC_MAX_INTRS) || (s->num_irq % 8) || (s->num_irq <= 0)) {
@@ -410,10 +415,10 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
                    "multiples of 8 : %d", GIC_MAX_INTRS, s->num_irq);
         return;
     }
-    s->vps = g_new(MIPSGICVPState, s->num_vps);
+    s->vps = g_new(MIPSGICVPState, all_vps);
     s->irq_state = g_new(MIPSGICIRQState, s->num_irq);
     /* Register the env for all VPs with the GIC */
-    for (i = 0; i < s->num_vps; i++) {
+    for (i = 0; i < all_vps; i++) {
         if (cs != NULL) {
             s->vps[i].env = cs->env_ptr;
             cs = CPU_NEXT(cs);
@@ -423,7 +428,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
             return;
         }
     }
-    s->gic_timer = mips_gictimer_init(s, s->num_vps, gic_timer_expire_cb);
+    s->gic_timer = mips_gictimer_init(s, all_vps, gic_timer_expire_cb);
     qdev_init_gpio_in(dev, gic_set_irq, s->num_irq);
     for (i = 0; i < s->num_irq; i++) {
         s->irq_state[i].irq = qdev_get_gpio_in(dev, i);
@@ -431,6 +436,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
 }
 
 static Property mips_gic_properties[] = {
+    DEFINE_PROP_INT32("num-cpu", MIPSGICState, num_cpus, 1),
     DEFINE_PROP_INT32("num-vp", MIPSGICState, num_vps, 1),
     DEFINE_PROP_INT32("num-irq", MIPSGICState, num_irq, 256),
     DEFINE_PROP_END_OF_LIST(),
