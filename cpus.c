@@ -88,7 +88,7 @@ bool cpu_is_stopped(CPUState *cpu)
 
 static bool cpu_thread_is_idle(CPUState *cpu)
 {
-    if (cpu->stop || cpu->queued_work) {
+    if (cpu->stop || cpu_has_queued_work(cpu)) {
         return false;
     }
     if (cpu_is_stopped(cpu)) {

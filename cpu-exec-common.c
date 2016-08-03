@@ -83,6 +83,18 @@ QemuCond qemu_exclusive_cond;
 
 static int safe_work_pending;
 
+/* No vCPUs can sleep while there is safe work pending as we need
+ * everything to finish up in process_cpu_work.
+ */
+bool cpu_has_queued_work(CPUState *cpu)
+{
+    if (cpu->queued_work || atomic_mb_read(&safe_work_pending) > 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 #ifdef CONFIG_USER_ONLY
 #define can_wait_for_safe() (1)
 #else
@@ -91,7 +103,8 @@ static int safe_work_pending;
  * all vCPUs are in the same thread. This will change for MTTCG
  * however.
  */
-#define can_wait_for_safe() (0)
+extern int smp_cpus;
+#define can_wait_for_safe() (mttcg_enabled && smp_cpus > 1)
 #endif
 
 void wait_safe_cpu_work(void)

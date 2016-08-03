@@ -661,6 +661,14 @@ void async_run_on_cpu(CPUState *cpu, run_on_cpu_func func, void *data);
 void async_safe_run_on_cpu(CPUState *cpu, run_on_cpu_func func, void *data);
 
 /**
+ * cpu_has_queued_work:
+ * @cpu: The vCPU to check
+ *
+ * Returns true if there is *_run_on_cpu work to be done.
+ */
+bool cpu_has_queued_work(CPUState *cpu);
+
+/**
  * qemu_get_cpu:
  * @index: The CPUState@cpu_index value of the CPU to obtain.
  *
