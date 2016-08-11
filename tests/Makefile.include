@@ -66,9 +66,9 @@ check-unit-y += tests/test-cutils$(EXESUF)
 gcov-files-test-cutils-y += util/cutils.c
 check-unit-y += tests/test-mul64$(EXESUF)
 gcov-files-test-mul64-y = util/host-utils.c
-check-unit-y += tests/test-int128$(EXESUF)
+# check-unit-y += tests/test-int128$(EXESUF)
 # all code tested by test-int128 is inside int128.h
-gcov-files-test-int128-y =
+# gcov-files-test-int128-y =
 check-unit-y += tests/rcutorture$(EXESUF)
 gcov-files-rcutorture-y = util/rcu.c
 check-unit-y += tests/test-rcu-list$(EXESUF)
@@ -417,7 +417,7 @@ test-obj-y = tests/check-qint.o tests/check-qstring.o tests/check-qdict.o \
 	tests/test-clone-visitor.o \
 	tests/test-qmp-input-visitor.o tests/test-qmp-input-strict.o \
 	tests/test-qmp-commands.o tests/test-visitor-serialization.o \
-	tests/test-x86-cpuid.o tests/test-mul64.o tests/test-int128.o \
+	tests/test-x86-cpuid.o tests/test-mul64.o \
 	tests/test-opts-visitor.o tests/test-qmp-event.o \
 	tests/rcutorture.o tests/test-rcu-list.o \
 	tests/test-qdist.o \
@@ -459,7 +459,7 @@ tests/test-hbitmap$(EXESUF): tests/test-hbitmap.o $(test-util-obj-y)
 tests/test-x86-cpuid$(EXESUF): tests/test-x86-cpuid.o
 tests/test-xbzrle$(EXESUF): tests/test-xbzrle.o migration/xbzrle.o page_cache.o $(test-util-obj-y)
 tests/test-cutils$(EXESUF): tests/test-cutils.o util/cutils.o
-tests/test-int128$(EXESUF): tests/test-int128.o
+# tests/test-int128$(EXESUF): tests/test-int128.o
 tests/rcutorture$(EXESUF): tests/rcutorture.o $(test-util-obj-y)
 tests/test-rcu-list$(EXESUF): tests/test-rcu-list.o $(test-util-obj-y)
 tests/test-qdist$(EXESUF): tests/test-qdist.o $(test-util-obj-y)
