@@ -575,24 +575,41 @@ typedef struct TCGTempSet {
     unsigned long l[BITS_TO_LONGS(TCG_MAX_TEMPS)];
 } TCGTempSet;
 
+/* While we limit helpers to 6 arguments, for 32-bit hosts, with padding,
+   this imples a max of 6*2 (64-bit in) + 2 (64-bit out) = 14 operands.
+   There are never more than 2 outputs, which means that we can store all
+   dead + sync data within 16 bits.  */
+#define DEAD_ARG  4
+#define SYNC_ARG  1
+typedef uint16_t TCGLifeData;
+
+/* The layout here is designed to avoid crossing of a 32-bit boundary.
+   If we do so, gcc adds padding, expanding the size to 12.  */
 typedef struct TCGOp {
-    TCGOpcode opc   : 8;
+    TCGOpcode opc   : 8;        /*  8 */
+
+    /* Index of the prev/next op, or 0 for the end of the list.  */
+    unsigned prev   : 10;       /* 18 */
+    unsigned next   : 10;       /* 28 */
 
     /* The number of out and in parameter for a call.  */
-    unsigned callo  : 2;
-    unsigned calli  : 6;
+    unsigned calli  : 4;        /* 32 */
+    unsigned callo  : 2;        /* 34 */
 
-    /* Index of the arguments for this op, or -1 for zero-operand ops.  */
-    signed args     : 16;
+    /* Index of the arguments for this op, or 0 for zero-operand ops.  */
+    unsigned args   : 14;       /* 48 */
 
-    /* Index of the prex/next op, or -1 for the end of the list.  */
-    signed prev     : 16;
-    signed next     : 16;
+    /* Lifetime data of the operands.  */
+    unsigned life   : 16;       /* 64 */
 } TCGOp;
 
-QEMU_BUILD_BUG_ON(NB_OPS > 0xff);
-QEMU_BUILD_BUG_ON(OPC_BUF_SIZE >= 0x7fff);
-QEMU_BUILD_BUG_ON(OPPARAM_BUF_SIZE >= 0x7fff);
+/* Make sure operands fit in the bitfields above.  */
+QEMU_BUILD_BUG_ON(NB_OPS > (1 << 8));
+QEMU_BUILD_BUG_ON(OPC_BUF_SIZE > (1 << 10));
+QEMU_BUILD_BUG_ON(OPPARAM_BUF_SIZE > (1 << 14));
+
+/* Make sure that we don't overflow 64 bits without noticing.  */
+QEMU_BUILD_BUG_ON(sizeof(TCGOp) > 8);
 
 struct TCGContext {
     uint8_t *pool_cur, *pool_end;
@@ -600,6 +617,7 @@ struct TCGContext {
     int nb_labels;
     int nb_globals;
     int nb_temps;
+    int nb_indirects;
 
     /* goto_tb support */
     tcg_insn_unit *code_buf;
@@ -607,13 +625,6 @@ struct TCGContext {
     uint16_t *tb_jmp_insn_offset; /* tb->jmp_insn_offset if USE_DIRECT_JUMP */
     uintptr_t *tb_jmp_target_addr; /* tb->jmp_target_addr if !USE_DIRECT_JUMP */
 
-    /* liveness analysis */
-    uint16_t *op_dead_args; /* for each operation, each bit tells if the
-                               corresponding argument is dead */
-    uint8_t *op_sync_args;  /* for each operation, each bit tells if the
-                               corresponding output argument needs to be
-                               sync to memory. */
-    
     TCGRegSet reserved_regs;
     intptr_t current_frame_offset;
     intptr_t frame_start;
@@ -649,8 +660,6 @@ struct TCGContext {
     int goto_tb_issue_mask;
 #endif
 
-    int gen_first_op_idx;
-    int gen_last_op_idx;
     int gen_next_op_idx;
     int gen_next_parm_idx;
 
@@ -691,6 +700,7 @@ struct TCGContext {
 };
 
 extern TCGContext tcg_ctx;
+extern bool parallel_cpus;
 
 static inline void tcg_set_insn_param(int op_idx, int arg, TCGArg v)
 {
@@ -892,6 +902,9 @@ void tcg_gen_callN(TCGContext *s, void *func,
                    TCGArg ret, int nargs, TCGArg *args);
 
 void tcg_op_remove(TCGContext *s, TCGOp *op);
+TCGOp *tcg_op_insert_before(TCGContext *s, TCGOp *op, TCGOpcode opc, int narg);
+TCGOp *tcg_op_insert_after(TCGContext *s, TCGOp *op, TCGOpcode opc, int narg);
+
 void tcg_optimize(TCGContext *s);
 
 /* only used for debugging purposes */
@@ -1164,6 +1177,81 @@ uint64_t helper_be_ldq_cmmu(CPUArchState *env, target_ulong addr,
 # define helper_ret_ldq_cmmu  helper_le_ldq_cmmu
 #endif
 
+uint8_t helper_atomic_cmpxchgb_mmu(CPUArchState *env, target_ulong addr,
+                                   uint8_t cmpv, uint8_t newv,
+                                   TCGMemOpIdx oi, uintptr_t retaddr);
+uint16_t helper_atomic_cmpxchgw_le_mmu(CPUArchState *env, target_ulong addr,
+                                       uint16_t cmpv, uint16_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+uint32_t helper_atomic_cmpxchgl_le_mmu(CPUArchState *env, target_ulong addr,
+                                       uint32_t cmpv, uint32_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+uint64_t helper_atomic_cmpxchgq_le_mmu(CPUArchState *env, target_ulong addr,
+                                       uint64_t cmpv, uint64_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+uint16_t helper_atomic_cmpxchgw_be_mmu(CPUArchState *env, target_ulong addr,
+                                       uint16_t cmpv, uint16_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+uint32_t helper_atomic_cmpxchgl_be_mmu(CPUArchState *env, target_ulong addr,
+                                       uint32_t cmpv, uint32_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+uint64_t helper_atomic_cmpxchgq_be_mmu(CPUArchState *env, target_ulong addr,
+                                       uint64_t cmpv, uint64_t newv,
+                                       TCGMemOpIdx oi, uintptr_t retaddr);
+
+#define GEN_ATOMIC_HELPER(NAME, TYPE, SUFFIX)         \
+TYPE helper_atomic_ ## NAME ## SUFFIX ## _mmu         \
+    (CPUArchState *env, target_ulong addr, TYPE val,  \
+     TCGMemOpIdx oi, uintptr_t retaddr);
+
+#define GEN_ATOMIC_HELPER_ALL(NAME)          \
+    GEN_ATOMIC_HELPER(NAME, uint8_t, b)      \
+    GEN_ATOMIC_HELPER(NAME, uint16_t, w_le)  \
+    GEN_ATOMIC_HELPER(NAME, uint32_t, l_le)  \
+    GEN_ATOMIC_HELPER(NAME, uint64_t, q_le)  \
+    GEN_ATOMIC_HELPER(NAME, uint16_t, w_be)  \
+    GEN_ATOMIC_HELPER(NAME, uint32_t, l_be)  \
+    GEN_ATOMIC_HELPER(NAME, uint64_t, q_be)
+
+GEN_ATOMIC_HELPER_ALL(fetch_add)
+GEN_ATOMIC_HELPER_ALL(fetch_sub)
+GEN_ATOMIC_HELPER_ALL(fetch_and)
+GEN_ATOMIC_HELPER_ALL(fetch_or)
+GEN_ATOMIC_HELPER_ALL(fetch_xor)
+
+GEN_ATOMIC_HELPER_ALL(add_fetch)
+GEN_ATOMIC_HELPER_ALL(sub_fetch)
+GEN_ATOMIC_HELPER_ALL(and_fetch)
+GEN_ATOMIC_HELPER_ALL(or_fetch)
+GEN_ATOMIC_HELPER_ALL(xor_fetch)
+
+GEN_ATOMIC_HELPER_ALL(xchg)
+
+#undef GEN_ATOMIC_HELPER_ALL
+#undef GEN_ATOMIC_HELPER
+
+#ifdef CONFIG_ATOMIC128
+#include "qemu/int128.h"
+
+/* These aren't really a "proper" helpers because TCG cannot manage Int128.
+   However, use the same format as the others, for use by the backends. */
+Int128 helper_atomic_cmpxchgo_le_mmu(CPUArchState *env, target_ulong addr,
+                                     Int128 cmpv, Int128 newv,
+                                     TCGMemOpIdx oi, uintptr_t retaddr);
+Int128 helper_atomic_cmpxchgo_be_mmu(CPUArchState *env, target_ulong addr,
+                                     Int128 cmpv, Int128 newv,
+                                     TCGMemOpIdx oi, uintptr_t retaddr);
+
+Int128 helper_atomic_ldo_le_mmu(CPUArchState *env, target_ulong addr,
+                                TCGMemOpIdx oi, uintptr_t retaddr);
+Int128 helper_atomic_ldo_be_mmu(CPUArchState *env, target_ulong addr,
+                                TCGMemOpIdx oi, uintptr_t retaddr);
+void helper_atomic_sto_le_mmu(CPUArchState *env, target_ulong addr, Int128 val,
+                              TCGMemOpIdx oi, uintptr_t retaddr);
+void helper_atomic_sto_be_mmu(CPUArchState *env, target_ulong addr, Int128 val,
+                              TCGMemOpIdx oi, uintptr_t retaddr);
+
+#endif /* CONFIG_ATOMIC128 */
 #endif /* CONFIG_SOFTMMU */
 
 #endif /* TCG_H */

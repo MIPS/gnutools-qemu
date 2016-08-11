@@ -77,6 +77,12 @@ void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)
     siglongjmp(cpu->jmp_env, 1);
 }
 
+void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc)
+{
+    cpu->exception_index = EXCP_ATOMIC;
+    cpu_loop_exit_restore(cpu, pc);
+}
+
 QemuCond qemu_work_cond;
 QemuCond qemu_safe_work_cond;
 QemuCond qemu_exclusive_cond;

@@ -2942,6 +2942,7 @@ static int global_init_func(void *opaque, QemuOpts *opts, Error **errp)
     g->property = qemu_opt_get(opts, "property");
     g->value    = qemu_opt_get(opts, "value");
     g->user_provided = true;
+    g->errp = &error_fatal;
     qdev_prop_register_global(g);
     return 0;
 }
@@ -4657,6 +4658,8 @@ int main(int argc, char **argv, char **envp)
 
     /* vhost-user must be cleaned up before chardevs.  */
     net_cleanup();
+    audio_cleanup();
+    monitor_cleanup();
     qemu_chr_cleanup();
 
     return 0;

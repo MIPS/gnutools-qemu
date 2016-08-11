@@ -24,15 +24,14 @@
 #include "exec/memory.h"
 #include "exec/address-spaces.h"
 #include "exec/cpu_ldst.h"
-
 #include "exec/cputlb.h"
-
 #include "exec/memory-internal.h"
 #include "exec/ram_addr.h"
 #include "exec/exec-all.h"
 #include "tcg/tcg.h"
 #include "qemu/error-report.h"
 #include "exec/log.h"
+#include "exec/helper-proto.h"
 
 /* DEBUG defines, enable DEBUG_TLB_LOG to log to the CPU_LOG_MMU target */
 /* #define DEBUG_TLB */
@@ -681,6 +680,12 @@ static bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
 
 #define SHIFT 3
 #include "softmmu_template.h"
+
+#ifdef CONFIG_ATOMIC128
+#define SHIFT 4
+#include "softmmu_template.h"
+#endif
+
 #undef MMUSUFFIX
 
 #define MMUSUFFIX _cmmu

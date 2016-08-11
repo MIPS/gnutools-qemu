@@ -167,6 +167,15 @@
 #define atomic_fetch_sub(ptr, n) __atomic_fetch_sub(ptr, n, __ATOMIC_SEQ_CST)
 #define atomic_fetch_and(ptr, n) __atomic_fetch_and(ptr, n, __ATOMIC_SEQ_CST)
 #define atomic_fetch_or(ptr, n)  __atomic_fetch_or(ptr, n, __ATOMIC_SEQ_CST)
+#define atomic_fetch_xor(ptr, n) __atomic_fetch_xor(ptr, n, __ATOMIC_SEQ_CST)
+
+#define atomic_inc_fetch(ptr)    __atomic_add_fetch(ptr, 1, __ATOMIC_SEQ_CST)
+#define atomic_dec_fetch(ptr)    __atomic_sub_fetch(ptr, 1, __ATOMIC_SEQ_CST)
+#define atomic_add_fetch(ptr, n) __atomic_add_fetch(ptr, n, __ATOMIC_SEQ_CST)
+#define atomic_sub_fetch(ptr, n) __atomic_sub_fetch(ptr, n, __ATOMIC_SEQ_CST)
+#define atomic_and_fetch(ptr, n) __atomic_and_fetch(ptr, n, __ATOMIC_SEQ_CST)
+#define atomic_or_fetch(ptr, n)  __atomic_or_fetch(ptr, n, __ATOMIC_SEQ_CST)
+#define atomic_xor_fetch(ptr, n) __atomic_xor_fetch(ptr, n, __ATOMIC_SEQ_CST)
 
 #define atomic_dec_fetch(ptr)  __atomic_sub_fetch(ptr, 1, __ATOMIC_SEQ_CST)
 
@@ -177,6 +186,7 @@
 #define atomic_sub(ptr, n) ((void) __atomic_fetch_sub(ptr, n, __ATOMIC_SEQ_CST))
 #define atomic_and(ptr, n) ((void) __atomic_fetch_and(ptr, n, __ATOMIC_SEQ_CST))
 #define atomic_or(ptr, n)  ((void) __atomic_fetch_or(ptr, n, __ATOMIC_SEQ_CST))
+#define atomic_xor(ptr, n) ((void) __atomic_fetch_xor(ptr, n, __ATOMIC_SEQ_CST))
 
 #else /* __ATOMIC_RELAXED */
 
@@ -363,6 +373,16 @@
 #define atomic_fetch_sub       __sync_fetch_and_sub
 #define atomic_fetch_and       __sync_fetch_and_and
 #define atomic_fetch_or        __sync_fetch_and_or
+#define atomic_fetch_xor       __sync_fetch_and_xor
+
+#define atomic_inc_fetch(ptr)  __sync_add_and_fetch(ptr, 1)
+#define atomic_dec_fetch(ptr)  __sync_add_and_fetch(ptr, -1)
+#define atomic_add_fetch       __sync_add_and_fetch
+#define atomic_sub_fetch       __sync_sub_and_fetch
+#define atomic_and_fetch       __sync_and_and_fetch
+#define atomic_or_fetch        __sync_or_and_fetch
+#define atomic_xor_fetch       __sync_xor_and_fetch
+
 #define atomic_cmpxchg         __sync_val_compare_and_swap
 #define atomic_bool_cmpxchg    __sync_bool_compare_and_swap
 
@@ -375,6 +395,7 @@
 #define atomic_sub(ptr, n)     ((void) __sync_fetch_and_sub(ptr, n))
 #define atomic_and(ptr, n)     ((void) __sync_fetch_and_and(ptr, n))
 #define atomic_or(ptr, n)      ((void) __sync_fetch_and_or(ptr, n))
+#define atomic_xor(ptr, n)     ((void) __sync_fetch_and_xor(ptr, n))
 
 #endif /* __ATOMIC_RELAXED */
 #endif /* QEMU_ATOMIC_H */

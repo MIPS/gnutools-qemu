@@ -1,96 +1,278 @@
 #ifndef INT128_H
 #define INT128_H
 
+#ifdef CONFIG_INT128
+#include "qemu/bswap.h"
 
-typedef struct Int128 Int128;
-
-struct Int128 {
-    uint64_t lo;
-    int64_t hi;
-};
+typedef __int128 Int128;
 
 static inline Int128 int128_make64(uint64_t a)
 {
-    return (Int128) { a, 0 };
+    return a;
+}
+
+static inline Int128 int128_make128(uint64_t lo, uint64_t hi)
+{
+    return (unsigned __int128)hi << 64 | lo;
 }
 
 static inline uint64_t int128_get64(Int128 a)
 {
-    assert(!a.hi);
-    return a.lo;
+    uint64_t r = a;
+    assert(r == a);
+    return r;
+}
+
+static inline uint64_t int128_getlo(Int128 a)
+{
+    return a;
+}
+
+static inline int64_t int128_gethi(Int128 a)
+{
+    return a >> 64;
 }
 
 static inline Int128 int128_zero(void)
 {
-    return int128_make64(0);
+    return 0;
 }
 
 static inline Int128 int128_one(void)
 {
-    return int128_make64(1);
+    return 1;
 }
 
 static inline Int128 int128_2_64(void)
 {
-    return (Int128) { 0, 1 };
+    return (Int128)1 << 64;
 }
 
 static inline Int128 int128_exts64(int64_t a)
 {
-    return (Int128) { .lo = a, .hi = (a < 0) ? -1 : 0 };
+    return a;
 }
 
 static inline Int128 int128_and(Int128 a, Int128 b)
 {
-    return (Int128) { a.lo & b.lo, a.hi & b.hi };
+    return a & b;
 }
 
 static inline Int128 int128_rshift(Int128 a, int n)
 {
-    int64_t h;
-    if (!n) {
-        return a;
-    }
-    h = a.hi >> (n & 63);
-    if (n >= 64) {
-        return (Int128) { h, h >> 63 };
+    return a >> n;
+}
+
+static inline Int128 int128_add(Int128 a, Int128 b)
+{
+    return a + b;
+}
+
+static inline Int128 int128_neg(Int128 a)
+{
+    return -a;
+}
+
+static inline Int128 int128_sub(Int128 a, Int128 b)
+{
+    return a - b;
+}
+
+static inline bool int128_nonneg(Int128 a)
+{
+    return a >= 0;
+}
+
+static inline bool int128_eq(Int128 a, Int128 b)
+{
+    return a == b;
+}
+
+static inline bool int128_ne(Int128 a, Int128 b)
+{
+    return a != b;
+}
+
+static inline bool int128_ge(Int128 a, Int128 b)
+{
+    return a >= b;
+}
+
+static inline bool int128_lt(Int128 a, Int128 b)
+{
+    return a < b;
+}
+
+static inline bool int128_le(Int128 a, Int128 b)
+{
+    return a <= b;
+}
+
+static inline bool int128_gt(Int128 a, Int128 b)
+{
+    return a > b;
+}
+
+static inline bool int128_nz(Int128 a)
+{
+    return a != 0;
+}
+
+static inline Int128 int128_min(Int128 a, Int128 b)
+{
+    return a < b ? a : b;
+}
+
+static inline Int128 int128_max(Int128 a, Int128 b)
+{
+    return a > b ? a : b;
+}
+
+static inline void int128_addto(Int128 *a, Int128 b)
+{
+    *a += b;
+}
+
+static inline void int128_subfrom(Int128 *a, Int128 b)
+{
+    *a -= b;
+}
+
+static inline Int128 bswap128(Int128 a)
+{
+    return int128_make128(bswap64(int128_gethi(a)), bswap64(int128_getlo(a)));
+}
+
+#else /* !CONFIG_INT128 */
+
+/* Here we are catering to the ABI of the host.  If the host returns
+   64-bit complex in registers, but the 128-bit structure in memory,
+   then choose the complex representation.  */
+#if defined(__GNUC__) \
+    && (defined(__powerpc__) || defined(__sparc__)) \
+    && !defined(CONFIG_TCG_INTERPRETER)
+typedef _Complex unsigned long long Int128;
+
+static inline Int128 int128_make128(uint64_t lo, uint64_t hi)
+{
+    return lo + 1i * hi;
+}
+
+static inline uint64_t int128_getlo(Int128 a)
+{
+    return __real__ a;
+}
+
+static inline int64_t int128_gethi(Int128 a)
+{
+    return __imag__ a;
+}
+#else
+typedef struct Int128 {
+    uint64_t lo;
+    int64_t hi;
+} Int128;
+
+static inline Int128 int128_make128(uint64_t lo, uint64_t hi)
+{
+    return (Int128) { lo, hi };
+}
+
+static inline uint64_t int128_getlo(Int128 a)
+{
+    return a.lo;
+}
+
+static inline int64_t int128_gethi(Int128 a)
+{
+    return a.hi;
+}
+#endif /* complex 128 */
+
+static inline Int128 int128_make64(uint64_t a)
+{
+    return int128_make128(a, 0);
+}
+
+static inline uint64_t int128_get64(Int128 a)
+{
+    assert(int128_gethi(a) == 0);
+    return int128_getlo(a);
+}
+
+static inline Int128 int128_zero(void)
+{
+    return int128_make128(0, 0);
+}
+
+static inline Int128 int128_one(void)
+{
+    return int128_make128(1, 0);
+}
+
+static inline Int128 int128_2_64(void)
+{
+    return int128_make128(0, 1);
+}
+
+static inline Int128 int128_exts64(int64_t a)
+{
+    return int128_make128(a, a < 0 ? -1 : 0);
+}
+
+static inline Int128 int128_and(Int128 a, Int128 b)
+{
+    uint64_t al = int128_getlo(a), bl = int128_getlo(b);
+    uint64_t ah = int128_gethi(a), bh = int128_gethi(b);
+
+    return int128_make128(al & bl, ah & bh);
+}
+
+static inline Int128 int128_rshift(Int128 a, int n)
+{
+    uint64_t al = int128_getlo(a), ah = int128_gethi(a);
+    int64_t h = ((int64_t)ah) >> (n & 63);
+    if (n & 64) {
+        return int128_make128(h, h >> 63);
     } else {
-        return (Int128) { (a.lo >> n) | ((uint64_t)a.hi << (64 - n)), h };
+        return int128_make128((al >> n) | (ah << (64 - n)), h);
     }
 }
 
 static inline Int128 int128_add(Int128 a, Int128 b)
 {
-    uint64_t lo = a.lo + b.lo;
+    uint64_t al = int128_getlo(a), bl = int128_getlo(b);
+    uint64_t ah = int128_gethi(a), bh = int128_gethi(b);
+    uint64_t lo = al + bl;
 
-    /* a.lo <= a.lo + b.lo < a.lo + k (k is the base, 2^64).  Hence,
-     * a.lo + b.lo >= k implies 0 <= lo = a.lo + b.lo - k < a.lo.
-     * Similarly, a.lo + b.lo < k implies a.lo <= lo = a.lo + b.lo < k.
-     *
-     * So the carry is lo < a.lo.
-     */
-    return (Int128) { lo, (uint64_t)a.hi + b.hi + (lo < a.lo) };
-}
-
-static inline Int128 int128_neg(Int128 a)
-{
-    uint64_t lo = -a.lo;
-    return (Int128) { lo, ~(uint64_t)a.hi + !lo };
+    return int128_make128(lo, ah + bh + (lo < al));
 }
 
 static inline Int128 int128_sub(Int128 a, Int128 b)
 {
-    return (Int128){ a.lo - b.lo, (uint64_t)a.hi - b.hi - (a.lo < b.lo) };
+    uint64_t al = int128_getlo(a), bl = int128_getlo(b);
+    uint64_t ah = int128_gethi(a), bh = int128_gethi(b);
+
+    return int128_make128(al - bl, ah - bh - (al < bl));
+}
+
+static inline Int128 int128_neg(Int128 a)
+{
+    uint64_t al = int128_getlo(a), ah = int128_gethi(a);
+    return int128_make128(-al, ~ah + !al);
 }
 
 static inline bool int128_nonneg(Int128 a)
 {
-    return a.hi >= 0;
+    return int128_gethi(a) >= 0;
 }
 
 static inline bool int128_eq(Int128 a, Int128 b)
 {
-    return a.lo == b.lo && a.hi == b.hi;
+    uint64_t al = int128_getlo(a), bl = int128_getlo(b);
+    uint64_t ah = int128_gethi(a), bh = int128_gethi(b);
+
+    return al == bl && ah == bh;
 }
 
 static inline bool int128_ne(Int128 a, Int128 b)
@@ -100,7 +282,10 @@ static inline bool int128_ne(Int128 a, Int128 b)
 
 static inline bool int128_ge(Int128 a, Int128 b)
 {
-    return a.hi > b.hi || (a.hi == b.hi && a.lo >= b.lo);
+    uint64_t al = int128_getlo(a), bl = int128_getlo(b);
+    int64_t  ah = int128_gethi(a), bh = int128_gethi(b);
+
+    return ah > bh || (ah == bh && al >= bl);
 }
 
 static inline bool int128_lt(Int128 a, Int128 b)
@@ -120,7 +305,8 @@ static inline bool int128_gt(Int128 a, Int128 b)
 
 static inline bool int128_nz(Int128 a)
 {
-    return a.lo || a.hi;
+    uint64_t al = int128_getlo(a), ah = int128_gethi(a);
+    return (al | ah) != 0;
 }
 
 static inline Int128 int128_min(Int128 a, Int128 b)
@@ -143,4 +329,5 @@ static inline void int128_subfrom(Int128 *a, Int128 b)
     *a = int128_sub(*a, b);
 }
 
-#endif
+#endif /* CONFIG_INT128 */
+#endif /* INT128_H */

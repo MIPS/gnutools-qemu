@@ -27,37 +27,41 @@
 
 #define DATA_SIZE (1 << SHIFT)
 
-#if DATA_SIZE == 8
-#define SUFFIX q
-#define LSUFFIX q
-#define SDATA_TYPE  int64_t
+#if DATA_SIZE == 16
+#define SUFFIX     o
+#define LSUFFIX    o
+#define SDATA_TYPE Int128
+#define DATA_TYPE  Int128
+#elif DATA_SIZE == 8
+#define SUFFIX     q
+#define LSUFFIX    q
+#define SDATA_TYPE int64_t
 #define DATA_TYPE  uint64_t
 #elif DATA_SIZE == 4
-#define SUFFIX l
-#define LSUFFIX l
-#define SDATA_TYPE  int32_t
+#define SUFFIX     l
+#define LSUFFIX    l
+#define SDATA_TYPE int32_t
 #define DATA_TYPE  uint32_t
 #elif DATA_SIZE == 2
-#define SUFFIX w
-#define LSUFFIX uw
-#define SDATA_TYPE  int16_t
+#define SUFFIX     w
+#define LSUFFIX    uw
+#define SDATA_TYPE int16_t
 #define DATA_TYPE  uint16_t
 #elif DATA_SIZE == 1
-#define SUFFIX b
-#define LSUFFIX ub
-#define SDATA_TYPE  int8_t
+#define SUFFIX     b
+#define LSUFFIX    ub
+#define SDATA_TYPE int8_t
 #define DATA_TYPE  uint8_t
 #else
 #error unsupported data size
 #endif
-
 
 /* For the benefit of TCG generated code, we want to avoid the complication
    of ABI-specific return type promotion and always return a value extended
    to the register size of the host.  This is tcg_target_long, except in the
    case of a 32-bit host and 64-bit data, and for that we always have
    uint64_t.  Don't bother with this widened value for SOFTMMU_CODE_ACCESS.  */
-#if defined(SOFTMMU_CODE_ACCESS) || DATA_SIZE == 8
+#if defined(SOFTMMU_CODE_ACCESS) || DATA_SIZE >= 8
 # define WORD_TYPE  DATA_TYPE
 # define USUFFIX    SUFFIX
 #else
@@ -74,7 +78,9 @@
 #define ADDR_READ addr_read
 #endif
 
-#if DATA_SIZE == 8
+#if DATA_SIZE == 16
+# define BSWAP(X)  bswap128(X)
+#elif DATA_SIZE == 8
 # define BSWAP(X)  bswap64(X)
 #elif DATA_SIZE == 4
 # define BSWAP(X)  bswap32(X)
@@ -116,6 +122,7 @@
 # define helper_te_st_name  helper_le_st_name
 #endif
 
+#if DATA_SIZE < 16
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
                                               CPUIOTLBEntry *iotlbentry,
@@ -291,9 +298,10 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr,
     return res;
 }
 #endif /* DATA_SIZE > 1 */
+#endif /* DATA_SIZE < 16 */
 
 #ifndef SOFTMMU_CODE_ACCESS
-
+#if DATA_SIZE < 16
 /* Provide signed versions of the load routines as well.  We can of course
    avoid this for 64-bit data, or for 32-bit data on 32-bit host.  */
 #if DATA_SIZE * 8 < TCG_TARGET_REG_BITS
@@ -526,11 +534,229 @@ void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
     }
 }
 #endif
+#endif /* DATA_SIZE < 16 */
+
+#if DATA_SIZE == 1
+# define HE_SUFFIX  _mmu
+#elif defined(HOST_WORDS_BIGENDIAN)
+# define HE_SUFFIX  _be_mmu
+# define RE_SUFFIX  _le_mmu
+#else
+# define HE_SUFFIX  _le_mmu
+# define RE_SUFFIX  _be_mmu
+#endif
+
+#define ATOMIC_MMU_BODY                                                 \
+    DATA_TYPE *haddr;                                                   \
+    do {                                                                \
+        unsigned mmu_idx = get_mmuidx(oi);                              \
+        int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);    \
+        CPUTLBEntry *tlbe = &env->tlb_table[mmu_idx][index];            \
+        target_ulong tlb_addr = tlbe->addr_write;                       \
+        int a_bits = get_alignment_bits(get_memop(oi));                 \
+                                                                        \
+        /* Adjust the given return address.  */                         \
+        retaddr -= GETPC_ADJ;                                           \
+                                                                        \
+        /* Enforce guest required alignment.  */                        \
+        if (unlikely(a_bits > 0 && (addr & ((1 << a_bits) - 1)))) {     \
+            /* ??? Maybe indicate atomic op to cpu_unaligned_access */  \
+            cpu_unaligned_access(ENV_GET_CPU(env), addr, MMU_DATA_STORE, \
+                                 mmu_idx, retaddr);                     \
+        }                                                               \
+        /* Enforce qemu required alignment.  */                         \
+        if (unlikely(addr & ((1 << SHIFT) - 1))) {                      \
+            /* We get here if guest alignment was not requested,        \
+               or was not enforced by cpu_unaligned_access above.       \
+               We might widen the access and emulate, but for now       \
+               mark an exception and exit the cpu loop.  */             \
+            cpu_loop_exit_atomic(ENV_GET_CPU(env), retaddr);            \
+        }                                                               \
+                                                                        \
+        /* Check TLB entry and enforce page permissions.  */            \
+        if ((addr & TARGET_PAGE_MASK)                                   \
+            != (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {    \
+            if (!VICTIM_TLB_HIT(addr_write, addr)) {                    \
+                tlb_fill(ENV_GET_CPU(env), addr, MMU_DATA_STORE,        \
+                         mmu_idx, retaddr);                             \
+            }                                                           \
+            tlb_addr = tlbe->addr_write;                                \
+        } else if (unlikely(tlbe->addr_read != tlb_addr)) {             \
+            /* Let the guest notice RMW on a write-only page.  */       \
+            tlb_fill(ENV_GET_CPU(env), addr, MMU_DATA_LOAD,             \
+                     mmu_idx, retaddr);                                 \
+        }                                                               \
+                                                                        \
+        /* Notice an IO access.  */                                     \
+        if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {                   \
+            /* There's really nothing that can be done to               \
+               support this apart from stop-the-world.  */              \
+            cpu_loop_exit_atomic(ENV_GET_CPU(env), retaddr);            \
+        }                                                               \
+        haddr = (DATA_TYPE *)((uintptr_t)addr + tlbe->addend);          \
+    } while (0)
+
+DATA_TYPE glue(glue(helper_atomic_cmpxchg, SUFFIX), HE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE cmpv, DATA_TYPE newv,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    ATOMIC_MMU_BODY;
+#if DATA_SIZE < 16
+    return atomic_cmpxchg(haddr, cmpv, newv);
+#else
+    __atomic_compare_exchange(haddr, &cmpv, &newv, false,
+                              __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return cmpv;
+#endif
+}
+
+#if DATA_SIZE > 1
+DATA_TYPE glue(glue(helper_atomic_cmpxchg, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE cmpv, DATA_TYPE newv,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE retv;
+    cmpv = BSWAP(cmpv);
+    newv = BSWAP(newv);
+    retv = (glue(glue(helper_atomic_cmpxchg, SUFFIX), HE_SUFFIX)
+            (env, addr, cmpv, newv, oi, retaddr));
+    return BSWAP(retv);
+}
+#endif
+
+#if DATA_SIZE < 16
+#define GEN_ATOMIC_HELPER(NAME)                                         \
+DATA_TYPE glue(glue(glue(helper_atomic_, NAME), SUFFIX), HE_SUFFIX)     \
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,               \
+     TCGMemOpIdx oi, uintptr_t retaddr)                                 \
+{                                                                       \
+    ATOMIC_MMU_BODY;                                                    \
+    return glue(atomic_, NAME)(haddr, val);                             \
+}
+
+GEN_ATOMIC_HELPER(fetch_add)
+GEN_ATOMIC_HELPER(fetch_and)
+GEN_ATOMIC_HELPER(fetch_or)
+GEN_ATOMIC_HELPER(fetch_xor)
+
+GEN_ATOMIC_HELPER(add_fetch)
+GEN_ATOMIC_HELPER(and_fetch)
+GEN_ATOMIC_HELPER(or_fetch)
+GEN_ATOMIC_HELPER(xor_fetch)
+
+GEN_ATOMIC_HELPER(xchg)
+
+#undef GEN_ATOMIC_HELPER
+
+#if DATA_SIZE > 1
+#define GEN_ATOMIC_HELPER(NAME)                                         \
+DATA_TYPE glue(glue(glue(helper_atomic_, NAME), SUFFIX), RE_SUFFIX)     \
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,               \
+     TCGMemOpIdx oi, uintptr_t retaddr)                                 \
+{                                                                       \
+    DATA_TYPE ret;                                                      \
+    val = BSWAP(val);                                                   \
+    ret = (glue(glue(glue(helper_atomic_, NAME), SUFFIX), HE_SUFFIX)    \
+           (env, addr, val, oi, retaddr));                              \
+    return BSWAP(ret);                                                  \
+}
+
+GEN_ATOMIC_HELPER(fetch_and)
+GEN_ATOMIC_HELPER(fetch_or)
+GEN_ATOMIC_HELPER(fetch_xor)
+
+GEN_ATOMIC_HELPER(and_fetch)
+GEN_ATOMIC_HELPER(or_fetch)
+GEN_ATOMIC_HELPER(xor_fetch)
+
+GEN_ATOMIC_HELPER(xchg)
+
+#undef GEN_ATOMIC_HELPER
+
+/* Note that for addition, we need to use a separate cmpxchg loop instead
+   of bswaps around the host-endian helpers.  */
+DATA_TYPE glue(glue(helper_atomic_fetch_add, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE ldo, ldn, ret, sto;
+    ATOMIC_MMU_BODY;
+
+    ldo = *haddr;
+    while (1) {
+        ret = BSWAP(ldo);
+        sto = BSWAP(ret + val);
+        ldn = atomic_cmpxchg(haddr, ldo, sto);
+        if (ldn == ldo) {
+            return ret;
+        }
+        ldo = ldn;
+    }
+}
+
+DATA_TYPE glue(glue(helper_atomic_add_fetch, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE ldo, ldn, ret, sto;
+    ATOMIC_MMU_BODY;
+
+    ldo = *haddr;
+    while (1) {
+        ret = BSWAP(ldo) + val;
+        sto = BSWAP(ret);
+        ldn = atomic_cmpxchg(haddr, ldo, sto);
+        if (ldn == ldo) {
+            return ret;
+        }
+        ldo = ldn;
+    }
+}
+#endif /* DATA_SIZE > 1 */
+#else /* DATA_SIZE >= 16 */
+DATA_TYPE glue(glue(helper_atomic_ld, SUFFIX), HE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE res;
+    ATOMIC_MMU_BODY;
+    __atomic_load(haddr, &res, __ATOMIC_RELAXED);
+    return res;
+}
+
+DATA_TYPE glue(glue(helper_atomic_ld, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    DATA_TYPE res;
+    res = (glue(glue(helper_atomic_ld, SUFFIX), HE_SUFFIX)
+           (env, addr, oi, retaddr));
+    return BSWAP(res);
+}
+
+void glue(glue(helper_atomic_st, SUFFIX), HE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    ATOMIC_MMU_BODY;
+    __atomic_store(haddr, &val, __ATOMIC_RELAXED);
+}
+
+void glue(glue(helper_atomic_st, SUFFIX), RE_SUFFIX)
+    (CPUArchState *env, target_ulong addr, DATA_TYPE val,
+     TCGMemOpIdx oi, uintptr_t retaddr)
+{
+    (glue(glue(helper_atomic_st, SUFFIX), HE_SUFFIX)
+     (env, addr, BSWAP(val), oi, retaddr));
+}
+#endif /* DATA_SIZE < 16 */
+
+#undef ATOMIC_MMU_BODY
+
 #endif /* !defined(SOFTMMU_CODE_ACCESS) */
 
 #undef READ_ACCESS_TYPE
 #undef SHIFT
 #undef DATA_TYPE
+#undef DATAX_TYPE
 #undef SUFFIX
 #undef LSUFFIX
 #undef DATA_SIZE
@@ -542,8 +768,6 @@ void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
 #undef BSWAP
 #undef TGT_BE
 #undef TGT_LE
-#undef CPU_BE
-#undef CPU_LE
 #undef helper_le_ld_name
 #undef helper_be_ld_name
 #undef helper_le_lds_name
@@ -552,3 +776,5 @@ void probe_write(CPUArchState *env, target_ulong addr, int mmu_idx,
 #undef helper_be_st_name
 #undef helper_te_ld_name
 #undef helper_te_st_name
+#undef HE_SUFFIX
+#undef RE_SUFFIX

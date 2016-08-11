@@ -1204,7 +1204,10 @@ case "$cpu" in
            cc_i386='$(CC) -m32'
            ;;
     x86_64)
-           CPU_CFLAGS="-m64"
+           # ??? Only extremely old AMD cpus do not have cmpxchg16b.
+           # If we truly care, we should simply detect this case at
+           # runtime and generate the fallback to serial emulation.
+           CPU_CFLAGS="-m64 -mcx16"
            LDFLAGS="-m64 $LDFLAGS"
            cc_i386='$(CC) -m32'
            ;;
@@ -1788,7 +1791,9 @@ fi
 ##########################################
 # avx2 optimization requirement check
 
-cat > $TMPC << EOF
+
+if test "$static" = "no" ; then
+  cat > $TMPC << EOF
 #pragma GCC push_options
 #pragma GCC target("avx2")
 #include <cpuid.h>
@@ -1801,12 +1806,13 @@ static void *bar_ifunc(void) {return (void*) bar;}
 int foo(void *a) __attribute__((ifunc("bar_ifunc")));
 int main(int argc, char *argv[]) { return foo(argv[0]);}
 EOF
-if compile_object "" ; then
-    if has readelf; then
-        if readelf --syms $TMPO 2>/dev/null |grep -q "IFUNC.*foo"; then
-            avx2_opt="yes"
-        fi
-    fi
+  if compile_object "" ; then
+      if has readelf; then
+          if readelf --syms $TMPO 2>/dev/null |grep -q "IFUNC.*foo"; then
+              avx2_opt="yes"
+          fi
+      fi
+  fi
 fi
 
 #########################################
@@ -4051,13 +4057,13 @@ fi
 
 if test "$mingw32" = "yes" -a "$guest_agent" != "no" -a "$vss_win32_sdk" != "no" ; then
   case "$vss_win32_sdk" in
-    "")   vss_win32_include="-I$source_path" ;;
+    "")   vss_win32_include="-isystem $source_path" ;;
     *\ *) # The SDK is installed in "Program Files" by default, but we cannot
           # handle path with spaces. So we symlink the headers into ".sdk/vss".
-          vss_win32_include="-I$source_path/.sdk/vss"
+          vss_win32_include="-isystem $source_path/.sdk/vss"
 	  symlink "$vss_win32_sdk/inc" "$source_path/.sdk/vss/inc"
 	  ;;
-    *)    vss_win32_include="-I$vss_win32_sdk"
+    *)    vss_win32_include="-isystem $vss_win32_sdk"
   esac
   cat > $TMPC << EOF
 #define __MIDL_user_allocate_free_DEFINED__
@@ -4434,6 +4440,26 @@ int main (void) {
 EOF
 if compile_prog "" "" ; then
     int128=yes
+fi
+
+#########################################
+# See if 128-bit atomic operations are supported.
+
+atomic128=no
+if test "$int128" = "yes"; then
+  cat > $TMPC << EOF
+int main(void)
+{
+  unsigned __int128 x = 0, y = 0;
+  y = __atomic_load_16(&x, 0);
+  __atomic_store_16(&x, y, 0);
+  __atomic_compare_exchange_16(&x, &y, x, 0, 0, 0);
+  return 0;
+}
+EOF
+  if compile_prog "" "" ; then
+    atomic128=yes
+  fi
 fi
 
 ########################################
@@ -5376,6 +5402,10 @@ if test "$int128" = "yes" ; then
   echo "CONFIG_INT128=y" >> $config_host_mak
 fi
 
+if test "$atomic128" = "yes" ; then
+  echo "CONFIG_ATOMIC128=y" >> $config_host_mak
+fi
+
 if test "$getauxval" = "yes" ; then
   echo "CONFIG_GETAUXVAL=y" >> $config_host_mak
 fi
@@ -5994,6 +6024,11 @@ for rom in seabios vgabios ; do
     echo "IASL=$iasl" >> $config_mak
     echo "LD=$ld" >> $config_mak
 done
+
+# set up tests data directory
+if [ ! -e tests/data ]; then
+    symlink "$source_path/tests/data" tests/data
+fi
 
 # set up qemu-iotests in this build directory
 iotests_common_env="tests/qemu-iotests/common.env"
