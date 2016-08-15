@@ -148,18 +148,15 @@ void tcg_gen_op6(TCGContext *ctx, TCGOpcode opc, TCGArg a1, TCGArg a2,
     tcg_emit_op(ctx, opc, pi);
 }
 
+extern int smp_cpus;
+
 void tcg_gen_mb(TCGArg mb_type)
 {
+#ifdef CONFIG_USER_ONLY
     bool emit_barriers = true;
-
-#ifndef CONFIG_USER_ONLY
-    /* TODO: When MTTCG is available for system mode, we will check
-     * the following condition and enable emit_barriers
-     * (qemu_tcg_mttcg_enabled() && smp_cpus > 1)
-     */
-    emit_barriers = false;
+#else
+    bool emit_barriers = qemu_tcg_mttcg_enabled() && smp_cpus > 1;
 #endif
-
     if (emit_barriers) {
         tcg_gen_op1(&tcg_ctx, INDEX_op_mb, mb_type);
     }
