@@ -369,24 +369,22 @@
 /* Provide shorter names for GCC atomic builtins.  */
 #define atomic_fetch_inc(ptr)  __sync_fetch_and_add(ptr, 1)
 #define atomic_fetch_dec(ptr)  __sync_fetch_and_add(ptr, -1)
-#define atomic_fetch_add       __sync_fetch_and_add
-#define atomic_fetch_sub       __sync_fetch_and_sub
-#define atomic_fetch_and       __sync_fetch_and_and
-#define atomic_fetch_or        __sync_fetch_and_or
-#define atomic_fetch_xor       __sync_fetch_and_xor
+#define atomic_fetch_add(ptr, n)  __sync_fetch_and_add(ptr, n)
+#define atomic_fetch_sub(ptr, n)  __sync_fetch_and_sub(ptr, n)
+#define atomic_fetch_and(ptr, n)  __sync_fetch_and_and(ptr, n)
+#define atomic_fetch_or(ptr, n)   __sync_fetch_and_or(ptr, n)
+#define atomic_fetch_xor(ptr, n)  __sync_fetch_and_xor(ptr, n)
 
 #define atomic_inc_fetch(ptr)  __sync_add_and_fetch(ptr, 1)
 #define atomic_dec_fetch(ptr)  __sync_add_and_fetch(ptr, -1)
-#define atomic_add_fetch       __sync_add_and_fetch
-#define atomic_sub_fetch       __sync_sub_and_fetch
-#define atomic_and_fetch       __sync_and_and_fetch
-#define atomic_or_fetch        __sync_or_and_fetch
-#define atomic_xor_fetch       __sync_xor_and_fetch
+#define atomic_add_fetch(ptr, n)  __sync_add_and_fetch(ptr, n)
+#define atomic_sub_fetch(ptr, n)  __sync_sub_and_fetch(ptr, n)
+#define atomic_and_fetch(ptr, n)  __sync_and_and_fetch(ptr, n)
+#define atomic_or_fetch(ptr, n)   __sync_or_and_fetch(ptr, n)
+#define atomic_xor_fetch(ptr, n)  __sync_xor_and_fetch(ptr, n)
 
-#define atomic_cmpxchg         __sync_val_compare_and_swap
-#define atomic_bool_cmpxchg    __sync_bool_compare_and_swap
-
-#define atomic_dec_fetch(ptr)  __sync_sub_and_fetch(ptr, 1)
+#define atomic_cmpxchg(ptr, old, new)  __sync_val_compare_and_swap(ptr, old, new)
+#define atomic_bool_cmpxchg(ptr, old, new)   __sync_bool_compare_and_swap(ptr, old, new)
 
 /* And even shorter names that return void.  */
 #define atomic_inc(ptr)        ((void) __sync_fetch_and_add(ptr, 1))

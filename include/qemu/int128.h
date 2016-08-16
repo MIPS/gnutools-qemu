@@ -4,7 +4,7 @@
 #ifdef CONFIG_INT128
 #include "qemu/bswap.h"
 
-typedef __int128 Int128;
+typedef __int128_t Int128;
 
 static inline Int128 int128_make64(uint64_t a)
 {
@@ -13,7 +13,7 @@ static inline Int128 int128_make64(uint64_t a)
 
 static inline Int128 int128_make128(uint64_t lo, uint64_t hi)
 {
-    return (unsigned __int128)hi << 64 | lo;
+    return (__uint128_t)hi << 64 | lo;
 }
 
 static inline uint64_t int128_get64(Int128 a)
