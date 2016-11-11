@@ -316,8 +316,7 @@ mips_mipssim_init(MachineState *machine)
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 #if defined(MIPSSIM_COMPAT)
     /* Use -bios to load test.hex for SV against IASim */
-    bios_size = load_elf(filename, cpu_mips_kseg0_to_phys, NULL,
-                         &entry_bios, NULL, NULL, big_endian, EM_MIPS, 1, 0);
+    bios_size = load_mips_hex(filename);
 
     if (bios_size < 0 && !kernel_filename) {
 #else
