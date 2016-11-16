@@ -2779,10 +2779,12 @@ static void gen_slt_imm(DisasContext *ctx, uint32_t opc,
 #ifdef MIPSSIM_COMPAT
 #ifndef CONFIG_USER_ONLY
     if (opc == OPC_SLTIU && rs == 0 && rt == 0) {
-        if ((uint16_t)imm == 0xabc2) {
+        if (((uint16_t)imm == 0xabc2) ||
+            ((ctx->hflags & MIPS_HFLAG_M16) && (uint16_t)imm == 0xbc2)) {
             gen_helper_avp_ok();
             return;
-        } else if ((uint16_t)imm == 0xabc1) {
+        } else if (((uint16_t)imm == 0xabc1) ||
+            ((ctx->hflags & MIPS_HFLAG_M16) && (uint16_t)imm == 0xbc1)) {
             gen_helper_avp_fail();
             return;
         }
@@ -14865,6 +14867,9 @@ static void gen_save(DisasContext *ctx, uint8_t rt, uint8_t count,
         gen_load_gpr(t0, this_rt);
         tcg_gen_qemu_st_tl(t0, va, ctx->mem_idx, MO_TEUL |
                                    ctx->default_tcg_memop_mask);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, va, 0x10004);
+#endif
 	counter++;
     }
 
@@ -14891,6 +14896,9 @@ static void gen_restore(DisasContext *ctx, uint8_t rt, uint8_t count,
 				   ctx->default_tcg_memop_mask);
         tcg_gen_ext32s_tl(t0, t0);
         gen_store_gpr(t0, this_rt);
+#ifdef MIPSSIM_COMPAT
+        gen_helper_0e2i(trace_mem_access, t0, va, 0x00004);
+#endif
 	counter++;
     }
 
