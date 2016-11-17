@@ -21,6 +21,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.  */
 
 #include "qemu/osdep.h"
 #include "disas/bfd.h"
+#include "qemu/bitops.h"
 
 /* mips.h.  Mips opcode list for GDB, the GNU debugger.
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
@@ -557,6 +558,7 @@ struct mips_opcode
 #define INSN_ISA64R2              0x00000100
 #define INSN_ISA32R6              0x00000200
 #define INSN_ISA64R6              0x00000400
+#define INSN_ISA32R7              0x00000800
 
 /* Masks used for MIPS-defined ASEs.  */
 #define INSN_ASE_MASK		  0x0000f000
@@ -1166,6 +1168,8 @@ extern const int bfd_mips16_num_opcodes;
 #define I65	INSN_ISA64R2
 #define I32R6   INSN_ISA32R6
 #define I64R6   INSN_ISA64R6
+
+#define M32R7   INSN_ISA32R7
 
 /* MIPS64 MIPS-3D ASE support.  */
 #define I16     INSN_MIPS16
@@ -4222,7 +4226,24 @@ lookup_mips_cp0sel_name (const struct mips_cp0sel_name *names,
       return &names[i];
   return NULL;
 }
-
+
+static void print_cp0_sel_name(struct disassemble_info *info,
+                               int cp0reg, int sel)
+{
+    const struct mips_cp0sel_name *n;
+    /* CP0 register including 'sel' code for mtcN (et al.), to be
+       printed textually if known.  If not known, print both
+       CP0 register name and sel numerically since CP0 register
+       with sel 0 may have a name unrelated to register being
+       printed.  */
+    n = lookup_mips_cp0sel_name(mips_cp0sel_names,
+                    mips_cp0sel_names_len, cp0reg, sel);
+    if (n != NULL) {
+        (*info->fprintf_func) (info->stream, "%s", n->name);
+    } else {
+        (*info->fprintf_func) (info->stream, "$%d,%d", cp0reg, sel);
+    }
+}
 /* Print insn arguments for 32/64-bit code.  */
 
 static void
@@ -4380,26 +4401,9 @@ print_insn_args (const char *d,
 	      break;
 
 	    case 'D':
-	      {
-		const struct mips_cp0sel_name *n;
-		unsigned int cp0reg, sel;
-
-		cp0reg = (l >> OP_SH_RD) & OP_MASK_RD;
-		sel = (l >> OP_SH_SEL) & OP_MASK_SEL;
-
-		/* CP0 register including 'sel' code for mtcN (et al.), to be
-		   printed textually if known.  If not known, print both
-		   CP0 register name and sel numerically since CP0 register
-		   with sel 0 may have a name unrelated to register being
-		   printed.  */
-		n = lookup_mips_cp0sel_name(mips_cp0sel_names,
-					    mips_cp0sel_names_len, cp0reg, sel);
-		if (n != NULL)
-		  (*info->fprintf_func) (info->stream, "%s", n->name);
-		else
-		  (*info->fprintf_func) (info->stream, "$%d,%d", cp0reg, sel);
-		break;
-	      }
+            print_cp0_sel_name(info, extract32(l, OP_SH_RD, 5),
+                               extract32(l, OP_SH_SEL, 3));
+            break;
 
 	    case 'E':
 	      lsb = ((l >> OP_SH_SHAMT) & OP_MASK_SHAMT) + 32;
@@ -4459,27 +4463,9 @@ print_insn_args (const char *d,
 	      break;
 
 	    case 'T': /* Coprocessor 0 reg name */
-	      {
-		const struct mips_cp0sel_name *n;
-		unsigned int cp0reg, sel;
-
-		cp0reg = (l >> OP_SH_RT) & OP_MASK_RT;
-		sel = (l >> OP_SH_SEL) & OP_MASK_SEL;
-
-		/* CP0 register including 'sel' code for mftc0, to be
-		   printed textually if known.  If not known, print both
-		   CP0 register name and sel numerically since CP0 register
-		   with sel 0 may have a name unrelated to register being
-		   printed.  */
-		n = lookup_mips_cp0sel_name(mips_cp0sel_names,
-					    mips_cp0sel_names_len, cp0reg, sel);
-		if (n != NULL)
-		  (*info->fprintf_func) (info->stream, "%s", n->name);
-		else
-		  (*info->fprintf_func) (info->stream, "$%d,%d", cp0reg, sel);
-		break;
-	      }
-
+            print_cp0_sel_name(info, extract32(l, OP_SH_RT, 5),
+                               extract32(l, OP_SH_SEL, 3));
+            break;
         case 'd':
             (*info->fprintf_func) (info->stream, "%s",
                     mips_wr_names[(l >> OP_SH_FD) & OP_MASK_FD]);
@@ -5798,3 +5784,700 @@ with the -M switch (multiple options should be separated by commas):\n");
   fprintf (stream, "\n");
 }
 #endif
+
+const struct mips_opcode micromips_opcodes[] =
+{
+/* These instructions appear first so that the disassembler will find
+   them first.  The assemblers uses a hash table based on the
+   instruction name anyhow.  */
+/* name,        args,       match,      mask,       pinfo,        membership */
+{"add",         "d,t,v",    0x20000110, 0xfc0003ff, WR_t,         0, M32R7},
+//put sigrie before addiu
+{"sigrie",      "mij",      0x00000000, 0xffe00000, WR_d,         0, M32R7},
+{"addiu",       "v,t,mid",  0x00000000, 0xfc006000, WR_d,         0, M32R7},
+//addiugp
+{"addiu",       "v,m8,mik", 0x40000000, 0xfc000003, WR_d,         0, M32R7},
+{"au20ipc",     "v,miv",    0xe0000002, 0xfc000002, WR_d,         0, M32R7},
+//aluipcgp
+{"alu20ipc",    "m8,miv",   0xe0000002, 0xffe00002, WR_d,         0, M32R7},
+{"addu",        "d,t,v",    0x20000150, 0xfc0003ff, WR_d,         0, M32R7},
+{"align",       "d,t,v",    0x2000001f, 0xfc00003f, WR_d,         0, M32R7},
+{"and",         "d,t,v",    0x20000250, 0xfc0003ff, WR_d,         0, M32R7},
+{"andi",        "v,t,miC",  0x80002000, 0xfc00f000, WR_d,         0, M32R7},
+{"balc",        "map",      0x2a000000, 0xfe000000, WR_d,         0, M32R7},
+{"bc",          "map",      0x28000000, 0xfc000000, WR_d,         0, M32R7},
+{"beqc",        "t,v,mae",  0x88000000, 0xfc00c000, WR_d,         0, M32R7},
+{"beqic",      "v,miB,mab", 0xc8000000, 0xfc1c0000, WR_d,         0, M32R7},
+{"beqzc",       "v,mak",    0xe8000000, 0xfc100000, WR_d,         0, M32R7},
+{"bgec",        "t,v,mae",  0x88008000, 0xfc00c000, WR_d,         0, M32R7},
+{"bgeic",      "v,miB,mab", 0xc8080000, 0xfc1c0000, WR_d,         0, M32R7},
+{"bgeuc",       "t,v,mae",  0x8800c000, 0xfc00c000, WR_d,         0, M32R7},
+{"bgeiuc",     "v,miB,mab", 0xc80c0000, 0xfc1c0000, WR_d,         0, M32R7},
+{"bitswap",     "v,t",      0x20000b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"bltc",        "t,v,mae",  0xa8008000, 0xfc00c000, WR_d,         0, M32R7},
+{"bltic",      "v,miB,mab", 0xc8180000, 0xfc1c0000, WR_d,         0, M32R7},
+{"bltuc",       "t,v,mae",  0xa800c000, 0xfc00c000, WR_d,         0, M32R7},
+{"bltiuc",     "v,miB,mab", 0xc81c0000, 0xfc1c0000, WR_d,         0, M32R7},
+{"bnec",        "t,v,mae",  0xa8000000, 0xfc00c000, WR_d,         0, M32R7},
+{"bneic",      "v,miB,mab", 0xc8100000, 0xfc1c0000, WR_d,         0, M32R7},
+{"bnezc",       "v,mak",    0xe8100000, 0xfc100000, WR_d,         0, M32R7},
+{"break",       "mij",      0x00100000, 0xfff80000, WR_d,         0, M32R7},
+{"cache",       "6,mi8(t)", 0xa4001900, 0xfc007f00, WR_d,         0, M32R7},
+{"clo",         "v,t",      0x20004b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"clz",         "v,t",      0x20005b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"di",          "",         0x2000477f, 0xffe0ffff, WR_d,         0, M32R7},
+{"di",          "v",        0x2000477f, 0xfc00ffff, WR_d,         0, M32R7},
+{"div",         "d,t,v",    0x20000118, 0xfc0003ff, WR_d,         0, M32R7},
+{"divu",        "d,t,v",    0x20000198, 0xfc0003ff, WR_d,         0, M32R7},
+{"ei",          "",         0x2000577f, 0xffe0ffff, WR_d,         0, M32R7},
+{"ei",          "v",        0x2000577f, 0xfc00ffff, WR_d,         0, M32R7},
+{"eret",        "",         0x2000f37f, 0xfc01ffff, WR_d,         0, M32R7},
+{"eretnc",      "",         0x2001f37f, 0xfc01ffff, WR_d,         0, M32R7},
+{"ext",      "v,t,mi5,miz", 0x8000f000, 0xfc00f820, WR_d,         0, M32R7},
+{"ins",      "v,t,mi5,miZ", 0x8000e000, 0xfc00f820, WR_d,         0, M32R7},
+{"jalrc",       "v,t",      0x48000000, 0xfc00f000, WR_d,         0, M32R7},
+{"jalrc.hb",    "v,t",      0x48001000, 0xfc00f000, WR_d,         0, M32R7},
+{"lb",          "v,mic(t)", 0x84000000, 0xfc00f000, WR_d,         0, M32R7},
+// lbgp
+{"lb",         "v,mii(m8)", 0x44000000, 0xfc1c0000, WR_d,         0, M32R7},
+// lbs9
+{"lb",          "v,mi8(t)", 0xa4000000, 0xfc007f00, WR_d,         0, M32R7},
+{"lbu",         "v,mic(t)", 0x84002000, 0xfc00f000, WR_d,         0, M32R7},
+// lbugp
+{"lbu",        "v,mii(m8)", 0x44080000, 0xfc1c0000, WR_d,         0, M32R7},
+// lbus9
+{"lbu",         "v,mi8(t)", 0xa4001000, 0xfc007f00, WR_d,         0, M32R7},
+{"lbux",        "d,t(v)",   0x40000107, 0xfc0007ff, WR_d,         0, M32R7},
+{"lbx",         "d,t(v)",   0x40000107, 0xfc000007, WR_d,         0, M32R7},
+{"lh",          "v,mic(t)", 0x84004000, 0xfc00f000, WR_d,         0, M32R7},
+// lhgp
+{"lh",         "v,mii(m8)", 0x44100000, 0xfc1c0000, WR_d,         0, M32R7},
+// lhs9
+{"lh",          "v,mi8(t)", 0xa4002000, 0xfc007f00, WR_d,         0, M32R7},
+{"lhu",         "v,mic(t)", 0x84006000, 0xfc00f000, WR_d,         0, M32R7},
+// lhugp
+{"lhu",        "v,mii(m8)", 0x44180000, 0xfc1c0000, WR_d,         0, M32R7},
+// lhus9
+{"lhu",         "v,mi8(t)", 0xa4003000, 0xfc007f00, WR_d,         0, M32R7},
+{"lhux",        "d,t(v)",   0x40000307, 0xfc0007ff, WR_d,         0, M32R7},
+{"lhuxs",       "d,t(v)",   0x40000347, 0xfc0007ff, WR_d,         0, M32R7},
+{"lhx",         "d,t(v)",   0x40000207, 0xfc0007ff, WR_d,         0, M32R7},
+{"lhxs",        "d,t(v)",   0x40000247, 0xfc0007ff, WR_d,         0, M32R7},
+{"ll",          "v,mi8(t)", 0xa4004100, 0xfc007f03, WR_d,         0, M32R7},
+{"llwp",        "v,mu,(t)", 0xa4004101, 0xfc007f03, WR_d,         0, M32R7},
+{"lsa",        "d,t,v,mi(", 0x4000000f, 0xfc00003f, WR_d,         0, M32R7},
+{"lu20i",       "v,miv",    0xe0000000, 0xfc000002, WR_t,         0, M32R7},
+{"lw",          "v,mic(t)", 0x84008000, 0xfc00f000, WR_d,         0, M32R7},
+// lws9
+{"lw",          "v,mi8(t)", 0xa4004000, 0xfc007f00, WR_d,         0, M32R7},
+// lwgp
+{"lw",         "v,mik(m8)", 0x40000002, 0xfc000003, WR_d,         0, M32R7},
+{"lwx",         "d,t(v)",   0x20000407, 0xfc0007ff, WR_d,         0, M32R7},
+{"lwxs",        "d,t(v)",   0x20000447, 0xfc0007ff, WR_d,         0, M32R7},
+{"mfc0",        "v,mG",     0x20000030, 0xfc003bff, WR_d,         0, M32R7},
+{"mfc0",        "v,mD",     0x20000030, 0xfc0003ff, WR_d,         0, M32R7},
+{"mod",         "d,t,v",    0x20000158, 0xfc0003ff, WR_d,         0, M32R7},
+{"modu",        "d,t,v",    0x200001d8, 0xfc0003ff, WR_d,         0, M32R7},
+{"move.balc",  "mo,ml,mal", 0x08000000, 0xfc000000, WR_d,         0, M32R7},
+{"movn",        "d,t,v",    0x20000610, 0xfc0007ff, WR_d,         0, M32R7},
+{"movz",        "d,t,v",    0x20000210, 0xfc0007ff, WR_d,         0, M32R7},
+{"mtc0",        "v,mG",     0x20000070, 0xfc003bff, WR_d,         0, M32R7},
+{"mtc0",        "v,mD",     0x20000070, 0xfc0003ff, WR_d,         0, M32R7},
+{"muh",         "d,t,v",    0x20000058, 0xfc0003ff, WR_d,         0, M32R7},
+{"muhu",        "d,t,v",    0x200000d8, 0xfc0003ff, WR_d,         0, M32R7},
+{"mul",         "d,t,v",    0x20000018, 0xfc0003ff, WR_d,         0, M32R7},
+{"mulu",        "d,t,v",    0x20000098, 0xfc0003ff, WR_d,         0, M32R7},
+{"nop",         "",         0x8000c000, 0xffe0f1ff, WR_d,         0, M32R7},
+{"nor",         "d,t,v",    0x200002d0, 0xfc0003ff, WR_d,         0, M32R7},
+{"or",          "d,t,v",    0x20000290, 0xfc0003ff, WR_d,         0, M32R7},
+{"ori",         "v,t,miC",  0x80000000, 0xfc00f000, WR_d,         0, M32R7},
+{"pause",       "",         0x8000c005, 0xffe0f1ff, WR_d,         0, M32R7},
+// put synci before pref
+{"synci",       "mi8(t)",   0xa7e01800, 0xffe07f00, WR_d,         0, M32R7},
+{"pref",      "miL,mi8(t)", 0xa4001800, 0xfc007f00, WR_d,         0, M32R7},
+{"rdhwr",       "v,mg",     0x200001c0, 0xfc0003ff, WR_d,         0, M32R7},
+{"rdpgpr",      "v,t",      0x2000e17f, 0xfc00ffff, WR_d,         0, M32R7},
+{"restore",     "mib,v",    0x80013000, 0xfc01f004, WR_d,         0, M32R7},
+{"restore.jrc", "mib,v",    0x80013004, 0xfc01f004, WR_d,         0, M32R7},
+{"rotr",        "v,t,mi5",  0x8000c0c0, 0xfc00f1e0, WR_d,         0, M32R7},
+{"rotrv",       "d,t,v",    0x200000d0, 0xfc0003ff, WR_d,         0, M32R7},
+{"save",        "mib,v",    0x80003000, 0xfc01f000, WR_d,         0, M32R7},
+{"sb",          "v,mic(t)", 0x84001000, 0xfc00f000, WR_d,         0, M32R7},
+// sbs9
+{"sb",          "v,mi8(t)", 0xa4000800, 0xfc007f00, WR_d,         0, M32R7},
+// sbgp
+{"sb",         "v,mii(m8)", 0x44040000, 0xfc1c0000, WR_d,         0, M32R7},
+{"sbx",         "d,t(v)",   0x20000087, 0xfc0007ff, WR_d,         0, M32R7},
+{"sc",          "v,mi8(t)", 0xa4004900, 0xfc007f03, WR_d,         0, M32R7},
+{"scwp",        "v,m3,(t)", 0xa4004901, 0xfc007f03, WR_d,         0, M32R7},
+{"seb",         "v,t",      0x20002b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"seh",         "v,t",      0x20003b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"seqi",        "v,t,mic",  0x20006000, 0xfc00f000, WR_d,         0, M32R7},
+{"sh",          "v,mic(t)", 0x84005000, 0xfc00f000, WR_d,         0, M32R7},
+// shs9
+{"sh",          "v,mi8(t)", 0xa4002800, 0xfc007f00, WR_d,         0, M32R7},
+// shgp
+{"sh",         "v,mii(m8)", 0x44140000, 0xfc1c0000, WR_d,         0, M32R7},
+{"shx",         "d,t(v)",   0x20000287, 0xfc0007ff, WR_d,         0, M32R7},
+{"shxs",        "d,t(v)",   0x200002c7, 0xfc0007ff, WR_d,         0, M32R7},
+// put sync/ehb before sll
+{"sync",        "miG",      0x8000c006, 0xffe0f1ff, WR_d,         0, M32R7},
+{"ehb",         "",         0x8000c003, 0xffe0f1ff, WR_d,         0, M32R7},
+{"sll",         "v,t,mi5",  0x8000c000, 0xfc00f1e0, WR_d,         0, M32R7},
+{"sllv",        "d,t,v",    0x20000010, 0xfc0003ff, WR_d,         0, M32R7},
+{"slt",         "d,t,v",    0x20000350, 0xfc0003ff, WR_d,         0, M32R7},
+{"slti",        "v,t,mic",  0x80004000, 0xfc00f000, WR_d,         0, M32R7},
+{"sltiu",       "v,t,mic",  0x80005000, 0xfc00f000, WR_d,         0, M32R7},
+{"sltu",        "d,t,v",    0x20000390, 0xfc0003ff, WR_d,         0, M32R7},
+{"sov",         "d,t,v",    0x200003d0, 0xfc0003ff, WR_d,         0, M32R7},
+{"sra",         "v,t,mi5",  0x8000c080, 0xfc00f1e0, WR_d,         0, M32R7},
+{"srav",        "d,t,v",    0x20000090, 0xfc0003ff, WR_d,         0, M32R7},
+{"srl",         "v,t,mi5",  0x8000c040, 0xfc00f1e0, WR_d,         0, M32R7},
+{"srlv",        "d,t,v",    0x20000050, 0xfc0003ff, WR_d,         0, M32R7},
+{"sub",         "d,t,v",    0x20000190, 0xfc0003ff, WR_d,         0, M32R7},
+{"subu",        "d,t,v",    0x200001d0, 0xfc0003ff, WR_d,         0, M32R7},
+{"sw",          "v,mic(t)", 0x84009000, 0xfc00f000, WR_d,         0, M32R7},
+// sws9
+{"sw",          "v,mi8(t)", 0xa4004800, 0xfc007f00, WR_d,         0, M32R7},
+// swgp
+{"sw",         "v,mik(m8)", 0x40000003, 0xfc000003, WR_d,         0, M32R7},
+{"swx",         "d,t(v)",   0x20000487, 0xfc0007ff, WR_d,         0, M32R7},
+{"swxs",        "d,t(v)",   0x200004c7, 0xfc0007ff, WR_d,         0, M32R7},
+{"syscall",     "mii",      0x00080000, 0xfffc0000, WR_d,         0, M32R7},
+{"ualw",        "v,mi8(t)", 0xa4000100, 0xfc007f00, WR_d,         0, M32R7},
+{"uasw",        "v,mi8(t)", 0xa4000900, 0xfc007f00, WR_d,         0, M32R7},
+{"wait",        "miG",      0x2000c37f, 0xfc00ffff, WR_d,         0, M32R7},
+{"wrpgpr",      "v,t",      0x2000f17f, 0xfc00ffff, WR_d,         0, M32R7},
+{"wsbh",        "v,t",      0x20007b3f, 0xfc00ffff, WR_d,         0, M32R7},
+{"xor",         "d,t,v",    0x20000310, 0xfc0003ff, WR_d,         0, M32R7},
+{"xori",        "v,t,miC",  0x80001000, 0xfc00f000, WR_d,         0, M32R7},
+{"deret",       "",         0x2000e37f, 0xfc00ffff, WR_d,         0, M32R7},
+{"sdbbp",       "mij",      0x00180000, 0xfff80000, WR_d,         0, M32R7},
+{"tlbinv",      "",         0x2000077f, 0xfc00ffff, WR_d,         0, M32R7},
+{"tlbinvf",     "",         0x2000177f, 0xfc00ffff, WR_d,         0, M32R7},
+{"tlbp",        "",         0x2000037f, 0xfc00ffff, WR_d,         0, M32R7},
+{"tlbr",        "",         0x2000137f, 0xfc00ffff, WR_d,         0, M32R7},
+{"tlbwi",       "",         0x2000237f, 0xfc00ffff, WR_d,         0, M32R7},
+{"tlbwr",       "",         0x2000337f, 0xfc00ffff, WR_d,         0, M32R7},
+{"dvp",         "v",        0x20000390, 0xfc00ffff, WR_d,         0, M32R7},
+{"evp",         "v",        0x20000790, 0xfc00ffff, WR_d,         0, M32R7},
+{"balrc",       "v,t",      0x48008000, 0xfc00f200, WR_d,         0, M32R7},
+{"balrsc",      "v,t",      0x48008200, 0xfc00f200, WR_d,         0, M32R7},
+{"brc",         "t",        0x48008000, 0xffe0f200, WR_d,         0, M32R7},
+{"brsc",        "t",        0x48008200, 0xffe0f200, WR_d,         0, M32R7},
+//ADDIU48
+{"addiu",       "v,miw",    0x60010000, 0xfc1f0000, WR_d,         0, M32R7},
+//ADDIUGP48
+{"addiu",       "v,m8,miw", 0x60020000, 0xfc1f0000, WR_d,         0, M32R7},
+//li48
+{"li",          "v,miw",    0x60000000, 0xfc1f0000, WR_d,         0, M32R7},
+
+// put before addiurs5
+{"nop",         "",         0x9008,     0xffff,     WR_t,         0, M32R7},
+//addiu r1 sp
+{"addiu",      "mt,m9,mi7", 0x7040,     0xfc40,     WR_t,         0, M32R7},
+//addiu r2
+{"addiu",      "mt,ms,mi4", 0x9000,     0xfc08,     WR_t,         0, M32R7},
+//addiu rs5
+{"addiu",       "m5,mi3",   0x9008,     0xfc08,     WR_t,         0, M32R7},
+{"addu",        "md,ms,mt", 0xb000,     0xfc01,     WR_t,         0, M32R7},
+{"and",         "mt,ms",    0x5008,     0xfc0f,     WR_t,         0, M32R7},
+{"andi",       "mt,ms,mi0", 0xf000,     0xfc00,     WR_t,         0, M32R7},
+{"balc",        "maa",      0x3800,     0xfc00,     WR_t,         0, M32R7},
+{"bc",          "maa",      0x1800,     0xfc00,     WR_t,         0, M32R7},
+// put jrc, jalrc before b{eq|ne}c
+{"jrc",         "m5",       0xd800,     0xfc1f,     WR_t,         0, M32R7},
+{"jalrc",       "m5",       0xd810,     0xfc1f,     WR_t,         0, M32R7},
+/* b{eq|ne}c */
+{"",         "mQmt,ms,ma4", 0xd800,     0xfc00,     WR_t,         0, M32R7},
+{"beqzc",       "mt,ma7",   0x9800,     0xfc00,     WR_t,         0, M32R7},
+{"bnezc",       "mt,ma7",   0xb800,     0xfc00,     WR_t,         0, M32R7},
+{"break",       "mi2",      0x1010,     0xfff8,     WR_t,         0, M32R7},
+
+{"lb",        "mt,mi1(ms)", 0x1400,     0xfc0c,     WR_t,         0, M32R7},
+{"lbu",        "mt,mi1(ms", 0x1408,     0xfc0c,     WR_t,         0, M32R7},
+{"lh",        "mt,mi@(ms)", 0x3400,     0xfc09,     WR_t,         0, M32R7},
+{"lhu",       "mt,mi@(ms)", 0x3408,     0xfc09,     WR_t,         0, M32R7},
+{"li",          "mt,mi)",   0xd000,     0xfc00,     WR_t,         0, M32R7},
+
+//lw 4x4
+{"lw",        "m(,mi#(m$)", 0x9400,     0xfc00,     WR_t,         0, M32R7},
+{"lw",        "mt,mi%(ms)", 0x7400,     0xfc00,     WR_t,         0, M32R7},
+//lwgp16
+{"lw",        "mt,mi*(m8)", 0xb400,     0xfc00,     WR_t,         0, M32R7},
+//lwsp
+{"lw",        "m5,mi6(m9)", 0x5400,     0xfc00,     WR_t,         0, M32R7},
+{"lwxs",       "md,ms(mt)", 0x5001,     0xfc01,     WR_t,         0, M32R7},
+//put sdbbp befroe move
+{"sdbbp",       "mi2",      0x1018,     0xfff8,     WR_t,         0, M32R7},
+{"move",        "m5,m0",    0x1000,     0xfc00,     WR_t,         0, M32R7},
+{"movep",       "mP",       0xbc00,     0xfc00,     WR_t,         0, M32R7},
+//moveprev
+{"movep",       "mV",       0xfc00,     0xfc00,     WR_t,         0, M32R7},
+{"not",         "mt,ms",    0x5000,     0xfc0f,     WR_t,         0, M32R7},
+{"or",          "mt,ms",    0x500c,     0xfc0f,     WR_t,         0, M32R7},
+{"restore",     "mi^",      0x1fe0,     0xffe1,     WR_t,         0, M32R7},
+{"restore.jrc", "mi^",      0x1c20,     0xfc21,     WR_t,         0, M32R7},\
+{"save",        "mi^",      0x1c00,     0xfc21,     WR_t,         0, M32R7},
+{"sb",        "mT,mi1(ms)", 0x1404,     0xfc0c,     WR_t,         0, M32R7},
+{"sh",        "mT,mi@(ms)", 0x1401,     0xfc09,     WR_t,         0, M32R7},
+{"sll",        "mt,ms,mi2", 0x3000,     0xfc08,     WR_t,         0, M32R7},
+{"srl",        "mt,ms,mi2", 0x3008,     0xfc08,     WR_t,         0, M32R7},
+{"subu",        "md,ms,mt", 0xb001,     0xfc01,     WR_t,         0, M32R7},
+{"sw",        "mT,mi%(ms)", 0xf400,     0xfc00,     WR_t,         0, M32R7},
+//swsp
+{"sw",        "m5,mi6(m9)", 0xd400,     0xfc00,     WR_t,         0, M32R7},
+//sw 4x4
+{"sw",        "m(,mi#(m$)", 0x9c00,     0xfc00,     WR_t,         0, M32R7},
+{"syscall",     "mi1",      0x1008,     0xfffc,     WR_t,         0, M32R7},
+{"xor",         "mt,ms",    0x5004,     0xfc0f,     WR_t,         0, M32R7},
+};
+
+#define MICROMIPS_NUM_OPCODES \
+    ((sizeof micromips_opcodes) / (sizeof (micromips_opcodes[0])))
+const int bfd_micromips_num_opcodes = MICROMIPS_NUM_OPCODES;
+
+/* The mips16 registers.  */
+static const unsigned int umips_decode_gpr3[] = { 16, 17, 18, 19, 4, 5, 6, 7};
+
+static const unsigned int umips_decode_gpr3_src_store[] = {
+    0, 17, 18, 19, 4, 5, 6, 7};
+
+#define umips_decode_gpr3_reg_names(rn) mips_gpr_names[umips_decode_gpr3[rn]]
+#define umips_decode_gpr3_src_store_reg_names(rn) \
+    mips_gpr_names[umips_decode_gpr3_src_store[rn]]
+
+static void print_moveprev_args(const char **s, uint64_t insn,
+                                struct disassemble_info *info)
+{
+    int rd, re, rs, rt;
+    switch (**s) {
+    case 'P': /* movep */
+        rd = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 4;
+        re = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 5;
+        rs = (extract32(insn, 4, 1) << 4) | extract32(insn, 0, 3);
+        rt = (extract32(insn, 9, 1) << 4) | extract32(insn, 5, 3);
+        break;
+    case 'V': /* moveprev */
+        rd = (extract32(insn, 4, 1) << 4) | extract32(insn, 0, 3);
+        re = (extract32(insn, 9, 1) << 4) | extract32(insn, 5, 3);
+        rs = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 4;
+        rt = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 5;
+        break;
+    }
+    (*info->fprintf_func) (info->stream, "%s ",
+        mips_gpr_names[rd]);
+
+    (*info->fprintf_func) (info->stream, "%s ",
+        mips_gpr_names[re]);
+
+    (*info->fprintf_func) (info->stream, "%s ",
+        mips_gpr_names[rs]);
+
+    (*info->fprintf_func) (info->stream, "%s ",
+        mips_gpr_names[rt]);
+}
+
+static int print_umips_insn_args(const char **s, uint64_t insn,
+                                  bfd_vma pc, struct disassemble_info *info,
+                                  int length)
+{
+    int offset;
+    switch (**s) {
+    /* 16 bit instructions */
+    case 't': /* rt3 */
+        (*info->fprintf_func) (info->stream, "%s",
+            umips_decode_gpr3_reg_names(extract32(insn, 7, 3)));
+        break;
+    case 's': /* rs3 */
+        (*info->fprintf_func) (info->stream, "%s",
+            umips_decode_gpr3_reg_names(extract32(insn, 4, 3)));
+        break;
+    case 'd': /* rd3 */
+        (*info->fprintf_func) (info->stream, "%s",
+            umips_decode_gpr3_reg_names(extract32(insn, 1, 3)));
+        break;
+    case 'T': /* rtz3 */
+        (*info->fprintf_func) (info->stream, "%s",
+            umips_decode_gpr3_src_store_reg_names(extract32(insn, 7, 3)));
+        break;
+
+    case '5':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[extract32(insn, 5, 5)]);
+        break;
+    case '0':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[extract32(insn, 0, 5)]);
+        break;
+    case '3':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_hwr_names[extract32(insn, 3, 5)]);
+        break;
+    case '8':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[28]);
+        break;
+    case '9':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[29]);
+        break;
+    case 'g':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_hwr_names[extract32(insn, 16, 5)]);
+        break;
+    case 'G':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_cp0_names[extract32(insn, 16, 5)]);
+        break;
+    case 'D':
+        print_cp0_sel_name(info, extract32(insn, 16, 5),
+                           extract32(insn, 11, 3));
+        break;
+    case 'u':
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[extract32(insn, 3, 5)]);
+        break;
+
+    case 'o': /* bit 24 */
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[extract32(insn, 24, 1) + 4]);
+        break;
+    case 'l': /* bit 25, 23..(21) */
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[(extract32(insn, 25, 1) << 4) |
+                           extract32(insn, 21, 3)]);
+        break;
+    case '(': /* rt4[9], rt2..0[7..5] */
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[(extract32(insn, 9, 1) << 4) |
+                           extract32(insn, 5, 3)]);
+        break;
+    case '$': /* rs4[4], rs2..0[2..0] */
+        (*info->fprintf_func) (info->stream, "%s",
+            mips_gpr_names[(extract32(insn, 4, 1) << 4) |
+                           extract32(insn, 0, 3)]);
+        break;
+
+        /* movep, moveprev */
+    case 'P':
+    case 'V':
+        print_moveprev_args(s, insn, info);
+        break;
+
+        /* b{eq|ne}c */
+    case 'Q':
+        (*info->fprintf_func) (info->stream, "%s",
+            (extract32(insn, 4, 3) < extract32(insn, 7, 3)) ? "BEQC" : "BNEC");
+        break;
+
+        /* immediate field */
+    case 'i':
+        ++(*s);
+        switch (**s) {
+
+        /* signed unsigned immediate fields */
+        case '1':
+            (*info->fprintf_func) (info->stream, "0x%x", extract32(insn, 0, 2));
+            break;
+        case '2':
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 3));
+            break;
+        case '@':
+            (*info->fprintf_func) (info->stream, "0x%x",
+                extract32(insn, 1, 2) << 1);
+            break;
+        case '3':
+            (*info->fprintf_func) (info->stream, "%d",
+                ((sextract32(insn, 4, 1)) << 3) | extract32(insn, 0, 3));
+            break;
+        case '4':
+            (*info->fprintf_func) (info->stream, "0x%x",
+                extract32(insn, 0, 3) << 2);
+            break;
+        case '5':
+            (*info->fprintf_func) (info->stream, "0x%x", extract32(insn, 0, 5));
+            break;
+        case '%':
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 0, 4) << 2);
+            break;
+        case '6':
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 0, 5) << 2);
+            break;
+        case '^':
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 1, 4) << 3);
+            break;
+        case '7':
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 0, 6) << 2);
+            break;
+        case '8': /* s8 */
+            (*info->fprintf_func) (info->stream, "%d",
+                ((sextract32(insn, 15, 1)) << 8) | extract32(insn, 0, 8));
+            break;
+        case 'b':
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 3, 9) << 3);
+            break;
+        case 'c':
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 12));
+            break;
+        case 'C':
+            (*info->fprintf_func) (info->stream, "0x%x",
+                extract32(insn, 0, 12));
+            break;
+        case 'd':
+            (*info->fprintf_func) (info->stream, "%d",
+                (sextract32(insn, 15, 1) << 13) | extract32(insn, 0, 13));
+            break;
+        case 'i':
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 18));
+            break;
+        case 'j':
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 19));
+            break;
+        case 'k': /* u20 */
+            (*info->fprintf_func) (info->stream, "%d",
+                extract32(insn, 2, 19) << 2);
+            break;
+        case 'v': /* s31 */
+            (*info->fprintf_func) (info->stream, "0x%x",
+                (extract32(insn, 0, 1) << 19) |
+                (extract32(insn, 2, 10) << 9) |
+                (extract32(insn, 12, 9)));
+            break;
+        case 'w': /* u32 */
+            {
+                int status;
+                uint32_t val;
+                bfd_byte buffer[2];
+
+                status = (*info->read_memory_func) ((bfd_vma) pc + 4,
+                    buffer, 2, info);
+                if (status != 0) {
+                    (*info->fprintf_func) (info->stream, "48bit instruction");
+                    (*info->memory_error_func) (status, pc + 4, info);
+                    return -1;
+                }
+
+                if (info->endian == BFD_ENDIAN_BIG) {
+                    val = bfd_getb16(buffer) << 16;
+                    val |= extract32(insn, 0, 16);
+                } else {
+                    val = bfd_getl16(buffer);
+                    val |= (extract32(insn, 0, 16) << 16);
+                }
+
+                (*info->fprintf_func) (info->stream, "0x%x", val);
+            }
+            break;
+
+            /* bits extraction */
+        case '0':
+            {
+                int eu = extract32(insn, 0, 4);
+                eu = (eu == 12) ? 0xff : (eu == 13) ? 0xffff : eu;
+                (*info->fprintf_func) (info->stream, "0x%x", eu);
+            }
+            break;
+        case ')':
+            {
+                int eu = extract32(insn, 0, 7);
+                eu = (eu == 127) ? -1 : eu;
+                (*info->fprintf_func) (info->stream, "%d", eu);
+            }
+            break;
+        case 'L': /* bit 25..(21) */
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 21, 5));
+            break;
+        case '(': /* bit 17..(9) */
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 9, 2));
+            break;
+        case 'B': /* bit 17..(11) */
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 11, 7));
+            break;
+        case 'G': /* bit 25..16 */
+            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 16, 5));
+            break;
+        case '#': /* bit 3, bit 8 */
+            (*info->fprintf_func) (info->stream, "%d",
+                (extract32(insn, 3, 1) << 3) |
+                (extract32(insn, 8, 1) << 2));
+            break;
+
+            /* special cases for ext and ins */
+        case 'z': /* esi(z)e */
+            (*info->fprintf_func) (info->stream, "0x%x",
+                extract32(insn, 6, 5) + 1);
+            break;
+        case 'Z': /* isi(Z)e */
+            (*info->fprintf_func) (info->stream, "0x%x",
+                1 + extract32(insn, 6, 5) - extract32(insn, 0, 5));
+            break;
+        }
+        break;
+
+    /* address */
+    case 'a':
+        ++(*s);
+        switch (**s) {
+        case '4':
+            offset = extract32(insn, 0, 4) << 1;
+            info->target = pc + length + offset;
+            break;
+        case '7':
+            offset = (sextract32(insn, 0, 1) << 7) |
+                     (extract32(insn, 1, 6) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'a':
+            offset = (sextract32(insn, 0, 1) << 10) |
+                     (extract32(insn, 1, 9) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'b':
+            offset = (sextract32(insn, 0, 1) << 11) |
+                     (extract32(insn, 1, 10) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'e':
+            offset = (sextract32(insn, 0, 1) << 14) |
+                     (extract32(insn, 1, 13) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'k':
+            offset = (sextract32(insn, 0, 1) << 20) |
+                     (extract32(insn, 1, 19) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'l':
+            offset = (sextract32(insn, 0, 1) << 21) |
+                     (extract32(insn, 1, 20) << 1);
+            info->target = pc + length + offset;
+            break;
+        case 'p':
+            offset = (sextract32(insn, 0, 1) << 25) |
+                     (extract32(insn, 1, 24) << 1);
+            info->target = pc + length + offset;
+            break;
+        }
+        (*info->print_address_func) (info->target, info);
+        break;
+    }
+    return 0;
+}
+
+int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
+{
+    int status;
+    bfd_byte buffer[2];
+    int length;
+    uint64_t insn;
+    int extend = 0;
+    const struct mips_opcode *op, *opend;
+
+    info->bytes_per_chunk = 2;
+    info->display_endian = info->endian;
+    info->insn_info_valid = 1;
+    info->branch_delay_insns = 0;
+    info->data_size = 0;
+    info->insn_type = dis_nonbranch;
+    info->target = 0;
+    info->target2 = 0;
+
+    set_default_mips_dis_options (info);
+    parse_mips_dis_options (info->disassembler_options);
+
+    status = (*info->read_memory_func) (memaddr, buffer, 2, info);
+    if (status != 0)
+    {
+        (*info->memory_error_func) (status, memaddr, info);
+        return -1;
+    }
+
+    length = 2;
+
+    if (info->endian == BFD_ENDIAN_BIG)
+        insn = bfd_getb16 (buffer);
+    else
+        insn = bfd_getl16 (buffer);
+
+    /* Handle the extend opcode specially.  */
+    if ((insn & 0x1000) == 0)
+    {
+        extend = insn;
+
+        status = (*info->read_memory_func) (memaddr + 2, buffer, 2, info);
+        if (status != 0)
+        {
+            (*info->fprintf_func) (info->stream, "extend 0x%x",
+                (unsigned int) extend);
+            (*info->memory_error_func) (status, memaddr + 2, info);
+            return -1;
+        }
+
+        if (info->endian == BFD_ENDIAN_BIG)
+            insn = bfd_getb16 (buffer);
+        else
+            insn = bfd_getl16 (buffer);
+
+        insn |= extend << 16;
+        length += 2;
+    }
+
+    /* FIXME: Should probably use a hash table on the major opcode here.  */
+
+    opend = micromips_opcodes + bfd_micromips_num_opcodes;
+    for (op = micromips_opcodes; op < opend; op++)
+    {
+        if (op->pinfo != INSN_MACRO
+            && !(no_aliases && (op->pinfo2 & INSN2_ALIAS))
+            && (insn & op->mask) == op->match
+            && ( ((length == 2) ^ ((op->mask >> 16) != 0))))
+        {
+            const char *s;
+
+            (*info->fprintf_func) (info->stream, "micromips %s", op->name);
+
+            if (op->args[0] != '\0') {
+                (*info->fprintf_func) (info->stream, "\t");
+            }
+            for (s = op->args; *s != '\0'; s++) {
+                char tmp[] = {'\0', '\0'};
+                if (*s == ',') {
+                    /* Skip the comma.  */
+#ifdef MIPSSIM_COMPAT
+                    (*info->fprintf_func) (info->stream, "%c ", *s);
+#endif
+                    continue;
+                }
+                if (*s == 'm') {
+                    /* microMIPS specific */
+                    ++s;
+                    print_umips_insn_args(&s, insn, memaddr, info, length);
+                } else {
+                    /* reuse MIPS32/64 */
+                    tmp[0] = *s;
+                    print_insn_args (tmp, insn, memaddr, info, op);
+                }
+            }
+
+            if ((op->pinfo & INSN_UNCOND_BRANCH_DELAY) != 0)
+            {
+                info->branch_delay_insns = 1;
+                if (info->insn_type != dis_jsr)
+                    info->insn_type = dis_branch;
+            }
+
+            return length;
+        }
+    }
+
+    (*info->fprintf_func) (info->stream, "0x%x", (uint32_t) insn);
+    info->insn_type = dis_noninsn;
+
+    return length;
+}
