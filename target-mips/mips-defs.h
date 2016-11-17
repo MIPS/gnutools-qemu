@@ -35,6 +35,7 @@
 #define   ISA_MIPS64R5  0x00001000
 #define   ISA_MIPS32R6  0x00002000
 #define   ISA_MIPS64R6  0x00004000
+#define   ISA_MIPS32R7  0x00008000
 
 /* MIPS ASEs. */
 #define   ASE_MIPS16    0x00010000
@@ -82,6 +83,9 @@
 /* MIPS Technologies "Release 6" */
 #define CPU_MIPS32R6 (CPU_MIPS32R5 | ISA_MIPS32R6)
 #define CPU_MIPS64R6 (CPU_MIPS64R5 | CPU_MIPS32R6 | ISA_MIPS64R6)
+
+/* Imagination Technologies "Release 7" */
+#define CPU_MIPS32R7 (CPU_MIPS32R6 | ISA_MIPS32R7)
 
 /* Strictly follow the architecture standard:
    - Disallow "special" instruction handling for PMON/SPIM.

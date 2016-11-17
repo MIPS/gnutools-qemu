@@ -12760,6 +12760,773 @@ enum {
     ADDIUR1SP = 0x1
 };
 
+/* microMIPS Release 7 aka microMIPS++ */
+
+/* Major opcode */
+enum {
+    P_ADDIU     = 0x00,
+    MOVE_BALC   = 0x02,
+    P16_MOVE    = 0x04,
+    P16_LB      = 0x05,
+    R7_BC16       = 0x06,
+    P16_SR      = 0x07,
+
+    R7_POOL32A  = 0x08,
+    P_BAL       = 0x0a,
+    P16_SHIFT   = 0x0c,
+    P16_LH      = 0x0d,
+    BALC16     = 0x0e,
+
+    P_GPREL     = 0x10,
+    P_LS_GP     = 0x11,
+    P_J         = 0x12,
+    R7_POOL16C  = 0x14,
+    LWSP        = 0x15,
+
+    POOL48I     = 0x18,
+    P16_ADDIU1  = 0x1c,
+    R7_LW16       = 0x1d,
+
+    P_U12       = 0x20,
+    P_LS_U12    = 0x21,
+    P_BR1       = 0x22,
+    P16_ADDIU2  = 0x24,
+    LW4X4       = 0x25,
+    R7_BEQZC16    = 0x26,
+
+    R7_POOL32F  = 0x28,
+    P_LS_S9     = 0x29,
+    P_BR2       = 0x2a,
+    P16_ADDU    = 0x2c,
+    R7_LWGP16   = 0x2d,
+    R7_BNEZC16  = 0x2e,
+    R7_MOVEP    = 0x2f,
+
+    R7_POOL32S  = 0x30,
+    P_BRI       = 0x32,
+    R7_LI16       = 0x34,
+    SWSP        = 0x35,
+    P16_BR      = 0x36,
+
+    P_LUI       = 0x38,
+    P_BZ        = 0x3a,
+    R7_ANDI16   = 0x3c,
+    R7_SW16        = 0x3d
+};
+
+/* P16.LB instruction pool */
+enum {
+    LB16       = 0x00,
+    R7_SB16       = 0x01,
+    R7_LBU16      = 0x02
+};
+
+/* P16.SR instruction pool */
+enum {
+    P16_SR_W    = 0x00,
+    P16_SR_D    = 0x01
+};
+
+/* POOL32A instruction pool */
+enum {
+    POOL32A0    = 0x00,
+    SPECIAL2    = 0x01,
+    COP2_1      = 0x02,
+    UDI         = 0x03,
+    POOL32A5    = 0x05,
+    POOL32A7    = 0x07
+};
+
+/* P.BAL instruction pool */
+enum {
+    R7_BC       = 0x00,
+    R7_BALC     = 0x01
+};
+
+/* P16.SHIFT instruction pool */
+enum {
+    R7_SLL16      = 0x00,
+    R7_SRL16      = 0x01
+};
+
+/* P16.LH  instruction pool */
+enum {
+    LH16       = 0x00,
+    R7_SH16       = 0x01,
+    R7_LHU16      = 0x02
+};
+
+/* P.GPREL instruction pool */
+enum {
+    ADDIUGP     = 0x00,
+    P_GPREL_D   = 0x01,
+    LWGP        = 0x02,
+    SWGP        = 0x03
+};
+
+/* P.LS.GPL instruction pool */
+enum {
+    LBGP       = 0x00,
+    SBGP       = 0x01,
+    LBUGP      = 0x02,
+    P_LS_GP_CP1 = 0x03,
+    LHGP       = 0x04,
+    SHGP       = 0x05,
+    LHUGP      = 0x06,
+    P_LS_GP_M64 = 0x07
+};
+
+/* P.J instruction pool */
+enum {
+    R7_JALRC    = 0x00,
+    R7_JALRC_HB = 0x01
+};
+
+/* POOL16C instruction pool */
+enum {
+    POOL16C_0   = 0x00,
+    LWXS16     = 0x01
+};
+
+/* POOL48I instruction pool */
+enum {
+    LI48        = 0x00,
+    DADDIU48    = 0x11,
+    DLUI48      = 0x14
+};
+
+/* P16.ADDIU1 instruction pool */
+enum {
+    R7_ADDIUR1SP = 0x01
+};
+
+/* P.U12 instruction pool */
+enum {
+    ORI         = 0x00,
+    XORI        = 0x01,
+    ANDI        = 0x02,
+    P_SR        = 0x03,
+    SLTI        = 0x04,
+    SLTIU       = 0x05,
+    SEQI        = 0x06,
+    P_SR_F      = 0x07,
+    DAHI        = 0x08,
+    DATI        = 0x09,
+    P_SR_D      = 0x0b,
+    P_SHIFT     = 0x0c,
+    P_INS       = 0x0e,
+    P_EXT       = 0x0f
+};
+
+/* P.LS.U12 instruction pool */
+enum {
+    LB          = 0x00,
+    SB          = 0x01,
+    LBU         = 0x02,
+    LH          = 0x04,
+    SH          = 0x05,
+    LHU         = 0x06,
+    R7_LWU      = 0x07,
+    LW          = 0x08,
+    SW          = 0x09,
+    LWC1        = 0x0a,
+    SWC1        = 0x0b,
+    LD          = 0x0c,
+    SD          = 0x0d,
+    LDC1        = 0x0e,
+    SDC1        = 0x0f
+};
+
+/* P.BR1 instruction pool */
+enum {
+    R7_BEQC     = 0x00,
+    P_BR3A      = 0x01,
+    R7_BGEC     = 0x02,
+    R7_BGEUC    = 0x03
+};
+
+/* P16.ADDIU2 instruction pool */
+enum {
+    R7_ADDIUR2  = 0x00,
+    P_ADDIURS5  = 0x01
+};
+
+/* POOL32F instruction pool */
+enum {
+    POOL32F_0   = 0x00,
+    POOL32F_3   = 0x03,
+    POOL32F_5   = 0x05
+};
+
+/* P.LS.S9, P.LS.S and P.LS.E instruction pool */
+enum {
+    P_LS_S0         = 0x00,
+    P_LS_S1         = 0x01,
+    P_LS_E0         = 0x04,
+    P_LS_E1         = 0x05
+};
+
+
+/* P.BR2 instruction pool */
+enum {
+    R7_BNEC     = 0x00,
+    R7_BLTC     = 0x02,
+    R7_BLTUC    = 0x03
+};
+
+/* P16.ADDU instruction pool */
+enum {
+    R7_ADDU16     = 0x00,
+    R7_SUBU16     = 0x01
+};
+
+/* POOL32S instruction pool */
+enum {
+    POOL32S_0   = 0x00,
+    POOL32S_4   = 0x04
+};
+
+/* P.BRI instruction pool */
+enum {
+    BEQIC       = 0x00,
+    BGEIC       = 0x02,
+    BGEUIC      = 0x03,
+    BNEIC       = 0x04,
+    BLTIC       = 0x06,
+    BLTUIC      = 0x07
+};
+
+/* P.LUI instruction pool */
+enum {
+    R7_LUI      = 0x00,
+    P_AUIPC     = 0x01
+};
+
+/* P.BZ instruction pool */
+enum {
+    R7_BEQZC    = 0x00,
+    R7_BNEZC    = 0x01
+};
+
+/* P.RI instruction pool L shifted by 1*/
+enum {
+    R7_SIGRIE   = 0x00,
+    P_SYSCALL   = 0x02,
+    R7_SYSCALL  = 0x02,
+    HYPCALL     = 0x03,
+    BREAK       = 0x04,
+    R7_SDBBP    = 0x06
+};
+
+/* PP.ADDIU instruction pool */
+enum {
+    ADDIU       = 0x00,
+    DADDIU      = 0x01
+};
+
+/* P16.RI instruction pool */
+enum {
+    P16_SYSCALL = 0x01,
+    R7_BREAK16    = 0x02,
+    R7_SDBBP16    = 0x03
+};
+
+/* P16.SR.W instruction pool */
+enum {
+    SAVE16     = 0x00,
+    P_RESTORE16 = 0x01
+};
+
+/* P16.SR.D instruction pool */
+enum {
+    DSAVE16    = 0x00,
+    DRESTORE16 = 0x01
+};
+
+/* POOL32A0 instruction pool */
+enum {
+    R7_SLLV     = 0x02,
+    R7_MUL      = 0x03,
+    R7_MFC0     = 0x06,
+    MFHC0       = 0x07,
+    R7_SRLV     = 0x0a,
+    R7_MUH      = 0x0b,
+    R7_MTC0     = 0x0e,
+    MTHC0       = 0x0f,
+    R7_SRAV     = 0x12,
+    R7_MULU     = 0x13,
+    MFGC0       = 0x16,
+    MFHGC0      = 0x17,
+    R7_ROTRV    = 0x1a,
+    R7_MUHU     = 0x1b,
+    MTGC0       = 0x1e,
+    MTHGC0      = 0x1f,
+    R7_ADD      = 0x22,
+    R7_DIV      = 0x23,
+    DMFC0       = 0x26,
+    ADDU        = 0x2a,
+    R7_MOD      = 0x2b,
+    DMTC0       = 0x2e,
+    R7_SUB      = 0x32,
+    R7_DIVU     = 0x33,
+    DMFGC0      = 0x36,
+    R7_RDHWR    = 0x38,
+    SUBU        = 0x3a,
+    R7_MODU     = 0x3b,
+    DMTGC0      = 0x3e,
+    P_CMOVE     = 0x42,
+    R7_AND      = 0x4a,
+    OR          = 0x52,
+    R7_NOR      = 0x5a,
+    XOR         = 0x62,
+    P_MT_VPE    = 0x67,
+    R7_SLT      = 0x6a,
+    P_MFTR_MTTR = 0x6f,
+    P_SLTU      = 0x72,
+    FORK        = 0x77,
+    SOV         = 0x7a,
+    YIELD       = 0x7f
+};
+
+/* POOL32A5 instruction pool */
+enum {
+    CMP_EQ_PH   = 0x00,
+    CMP_LT_PH   = 0x08,
+    CMP_LE_PH   = 0x10,
+    CMPGU_EQ_QB = 0x18,
+    CMPGU_LT_QB = 0x20,
+    CMPGU_LE_QB = 0x28,
+    CMPGDU_EQ_QB    = 0x30,
+    CMPGDU_LT_QB    = 0x38,
+    CMPGDU_LE_QB    = 0x40,
+    CMPU_EQ_QB  = 0x48,
+    CMPU_LT_QB  = 0x50,
+    CMPU_LE_QB  = 0x58,
+    ADDQ_S_W    = 0x60,
+    SUBQ_S_W    = 0x68,
+    ADDSC       = 0x70,
+    ADDWC       = 0x78,
+
+    ADDQ_S_PH   = 0x01,
+    ADDQH_R_PH  = 0x09,
+    ADDQH_R_W   = 0x11,
+    ADDU_S_QB   = 0x19,
+    ADDU_S_PH   = 0x21,
+    ADDUH_R_QB  = 0x29,
+    SHRAV_R_PH  = 0x31,
+    SHRAV_R_QB  = 0x39,
+    SUBQ_S_PH   = 0x41,
+    SUBQH_R_PH  = 0x49,
+    SUBQH_R_W   = 0x51,
+    SUBU_S_QB   = 0x59,
+    SUBU_S_PH   = 0x61,
+    SUBUH_R_QB  = 0x69,
+    SHLLV_S_PH  = 0x71,
+    PRECR_SRA_R_PH_W    = 0x79,
+
+    MULEU_S_PH_QBL  = 0x12,
+    MULEU_S_PH_QBR  = 0x1a,
+    MULQ_RS_PH  = 0x22,
+    MULQ_S_PH   = 0x2a,
+    MULQ_RS_W   = 0x32,
+    MULQ_S_W    = 0x3a,
+    APPEND      = 0x42,
+    PREPEND     = 0x4a,
+    MODSUB      = 0x52,
+    SHRAV_R_W   = 0x5a,
+    SHRLV_PH    = 0x62,
+    SHRLV_QB    = 0x6a,
+    SHLLV_QB    = 0x72,
+    SHLLV_S_W   = 0x7a,
+
+    SHILO       = 0x03,
+
+    MULEQ_S_W_PHL   = 0x04,
+    MULEQ_S_W_PHR   = 0x0c,
+
+    MUL_S_PH        = 0x05,
+    PRECR_QB_PH     = 0x0d,
+    PRECRQ_QB_PH    = 0x15,
+    PRECRQ_PH_W     = 0x1d,
+    PRECRQ_RS_PH_W  = 0x25,
+    PRECRQU_S_QB_PH = 0x2d,
+    PACKRL_PH       = 0x35,
+    PICK_QB         = 0x3d,
+    PICK_PH         = 0x45,
+
+    SHRA_R_W        = 0x5e,
+    SHRA_R_PH       = 0x66,
+    SHLL_S_PH       = 0x76,
+    SHLL_S_W        = 0x7e,
+
+    REPL_PH         = 0x07
+};
+
+/* POOL32A7 instruction pool */
+enum {
+    P_LSX           = 0x00,
+    R7_LSA          = 0x01,
+    R7_ALIGN        = 0x03,
+    R7_POOL32AXF    = 0x07
+};
+
+/* P.GPREL.D instruction pool */
+enum {
+    LD_GP           = 0x00,
+    SD_GP           = 0x01
+};
+
+/* P.LS.GP.CP1 instruction pool */
+enum {
+    LWC1_GP         = 0x00,
+    SWC1_GP         = 0x01,
+    LDC1_GP         = 0x02,
+    SDC1_GP         = 0x03
+};
+
+/* P.LS.GP.M64 instruction pool */
+enum {
+    LWU_GP          = 0x00
+};
+
+/* POOL16C_0 instruction pool */
+enum {
+    POOL16C_00      = 0x00
+};
+
+/* P.SR instruction pool */
+enum {
+    SAVE            = 0x00,
+    P_RESTORE       = 0x01
+};
+
+/* P.SR.F instruction pool */
+enum {
+    SAVEF           = 0x00,
+    RESTOREF        = 0x01
+};
+
+/* P.SR.D instruction pool */
+enum {
+    DSAVE           = 0x00,
+    DRESTORE        = 0x01
+};
+
+/* P.SHIFT instruction pool */
+enum {
+    P_SLL           = 0x00,
+    SRL             = 0x02,
+    R7_SRA          = 0x04,
+    R7_ROTR         = 0x06,
+    DSLL            = 0x08,
+    DSLL32          = 0x09,
+    DSRL            = 0x0a,
+    DSRL32          = 0x0b,
+    DSRA            = 0x0c,
+    DSRA32          = 0x0d,
+    DROTR           = 0x0e,
+    DROTR32         = 0x0f
+};
+
+/* P.INS instruction pool */
+enum {
+    R7_INS             = 0x00,
+    DINSU           = 0x01,
+    DINSM           = 0x02,
+    DINS            = 0x03
+};
+
+/* P.EXT instruction pool */
+enum {
+    R7_EXT          = 0x00,
+    DEXTU           = 0x01,
+    DEXTM           = 0x02,
+    DEXT            = 0x03
+};
+/* P.BR3A instruction pool */
+enum {
+    R7_BC1EQZC          = 0x00,
+    R7_BC1NEZC          = 0x01,
+    R7_BC2EQZC          = 0x02,
+    R7_BC2NEZC          = 0x03,
+    BPOSGE32C           = 0x04
+};
+
+/* POOL32F_0 (fmt) instruction pool */
+enum {
+    RINT_S              = 0x04,
+    RINT_D              = 0x44,
+    ADD_S               = 0x06,
+    SELEQZ_S            = 0x07,
+    SELEQZ_D            = 0x47,
+    CLASS_S             = 0x0c,
+    CLASS_D             = 0x4c,
+    SUB_S               = 0x0e,
+    SELNEZ_S            = 0x0f,
+    SELNEZ_D            = 0x4f,
+    MUL_S               = 0x16,
+    SEL_S               = 0x17,
+    SEL_D               = 0x57,
+    DIV_S               = 0x1e,
+    ADD_D               = 0x26,
+    SUB_D               = 0x2e,
+    MUL_D               = 0x36,
+    MADDF_S             = 0x37,
+    MADDF_D             = 0x77,
+    DIV_D               = 0x3e,
+    MSUBF_S             = 0x3f,
+    MSUBF_D             = 0x7f
+};
+
+/* POOL32F_3  instruction pool */
+enum {
+    R7_MIN_FMT         = 0x00,
+    R7_MAX_FMT         = 0x01,
+    R7_MINA_FMT        = 0x04,
+    R7_MAXA_FMT        = 0x05,
+    R7_POOL32FXF       = 0x07
+};
+
+/* POOL32F_5  instruction pool */
+enum {
+    R7_CMP_CONDN_S     = 0x00,
+    R7_CMP_CONDN_D     = 0x02
+};
+
+/* POOL32S_4  instruction pool */
+enum {
+    DALIGN          = 0x00,
+    DALIGN32        = 0x01,
+    POOL32SXF       = 0x07
+};
+
+/* P16.JRC  instruction pool */
+enum {
+    R7_JRC           = 0x00,
+    R7_JALRC16       = 0x01
+};
+
+/* P16.SYSCALL  instruction pool */
+enum {
+    SYSCALL16         = 0x00,
+    HYPCALL16         = 0x01
+};
+
+/* P.CMOVE instruction pool */
+enum {
+    R7_MOVZ            = 0x00,
+    R7_MOVN            = 0x01
+};
+
+/* P.MT_VPE and _P.MT_VPE instruction pool */
+enum {
+    P_D_MT_VPE          = 0x02,
+    P_E_MT_VPE          = 0x03
+};
+
+/* PP.LSX and PP.LSXS instruction pool */
+enum {
+    LBX         = 0x00,
+    LHX         = 0x08,
+    LWX         = 0x10,
+    LDX         = 0x18,
+
+    SBX         = 0x02,
+    SHX         = 0x0a,
+    SWX         = 0x12,
+    SDX         = 0x1a,
+
+    LBUX        = 0x04,
+    LHUX        = 0x0c,
+    LWC1X       = 0x14,
+    LDC1X       = 0x1c,
+
+    LWUX        = 0x0e,
+    SWC1X       = 0x16,
+    SDC1X       = 0x1e,
+
+    LHXS        = 0x09,
+    R7_LWXS     = 0x11,
+    LDXS        = 0x19,
+
+    SHXS        = 0x0b,
+    SWXS        = 0x13,
+    SDXS        = 0x1b,
+
+    LHUXS       = 0x0d,
+    LWC1XS      = 0x15,
+    LDC1XS      = 0x1d,
+
+    LWUXS       = 0x0f,
+    SWC1XS      = 0x17,
+    SDC1XS      = 0x1f
+};
+
+/* POOL32Axf instruction pool */
+enum {
+    POOL32AXF_4 = 0x04,
+    POOL32AXF_5 = 0x05
+};
+
+/* POOL32Axf_{4, 5} instruction pool */
+enum {
+    R7_BITSWAP  = 0x05,
+    R7_SEB      = 0x15,
+    R7_SEH      = 0x1d,
+    R7_CLO      = 0x25,
+    R7_CLZ      = 0x2d,
+    R7_WSBH     = 0x3d,
+
+    R7_TLBP     = 0x01,
+    R7_TLBR     = 0x09,
+    R7_TLBWI    = 0x11,
+    R7_TLBWR    = 0x19,
+    R7_TLBINV   = 0x03,
+    R7_TLBINVF  = 0x0b,
+    R7_DI       = 0x23,
+    R7_EI       = 0x2b,
+    R7_RDPGPR   = 0x70,
+    R7_WRPGPR   = 0x78,
+    R7_WAIT     = 0x61,
+    R7_DERET    = 0x71,
+    R7_ERETX    = 0x79
+};
+
+/* POOL32FxF_{0, 1} insturction pool */
+enum {
+    R7_CFC1     = 0x40,
+    R7_CTC1     = 0x60,
+    R7_MFC1     = 0x80,
+    R7_MTC1     = 0xa0,
+    R7_MFHC1    = 0xc0,
+    R7_MTHC1    = 0xe0,
+
+    R7_CVT_S_PL = 0x84,
+    R7_CVT_S_PU = 0xa4,
+
+    CVT_L_S     = 0x004,
+    CVT_L_D     = 0x104,
+    CVT_W_S     = 0x024,
+    CVT_W_D     = 0x124,
+
+    RSQRT_S     = 0x008,
+    RSQRT_D     = 0x108,
+
+    SQRT_S      = 0x028,
+    SQRT_D      = 0x128,
+
+    RECIP_S     = 0x048,
+    RECIP_D     = 0x148,
+
+    FLOOR_L_S   = 0x00c,
+    FLOOR_L_D   = 0x10c,
+
+    FLOOR_W_S   = 0x02c,
+    FLOOR_W_D   = 0x12c,
+
+    CEIL_L_S    = 0x04c,
+    CEIL_L_D    = 0x14c,
+    CEIL_W_S    = 0x06c,
+    CEIL_W_D    = 0x16c,
+    TRUNC_L_S   = 0x08c,
+    TRUNC_L_D   = 0x18c,
+    TRUNC_W_S   = 0x0ac,
+    TRUNC_W_D   = 0x1ac,
+    ROUND_L_S   = 0x0cc,
+    ROUND_L_D   = 0x1cc,
+    ROUND_W_S   = 0x0ec,
+    ROUND_W_D   = 0x1ec,
+
+    MOV_S       = 0x01,
+    MOV_D       = 0x81,
+    ABS_S       = 0x0d,
+    ABS_D       = 0x8d,
+    NEG_S       = 0x2d,
+    NEG_D       = 0xad,
+    CVT_D_S     = 0x04d,
+    CVT_D_W     = 0x0cd,
+    CVT_D_L     = 0x14d,
+    CVT_S_D     = 0x06d,
+    CVT_S_W     = 0x0ed,
+    CVT_S_L     = 0x16d
+};
+
+/* ERETx instruction pool */
+enum {
+    R7_ERET     = 0x00,
+    R7_ERETNC   = 0x01
+};
+
+// more here // tired
+
+/* POOL16C_00 instruction pool */
+enum {
+    R7_NOT16           = 0x00,
+    R7_XOR16           = 0x01,
+    R7_AND16           = 0x02,
+    R7_OR16            = 0x03
+};
+
+/* P.RESTORE instrcution pool */
+enum {
+    R7_RESTORE          = 0x00,
+    RESTORE_JRC         = 0x01
+};
+
+/* P.LS.S0 instruction pool */
+enum {
+    LBS9        = 0x00,
+    LHS9        = 0x04,
+    LWS9        = 0x08,
+    LDS9        = 0x0c,
+
+    SBS9        = 0x01,
+    SHS9        = 0x05,
+    SWS9        = 0x09,
+    SDS9        = 0x0d,
+
+    LBUS9       = 0x02,
+    LHUS9       = 0x06,
+    LWC1S9      = 0x0a,
+    LDC1S9      = 0x0e,
+
+    P_PREF      = 0x03,
+    LWUS9       = 0x07,
+    SWC1S9      = 0x0b,
+    SDC1S9      = 0x0f
+};
+
+/* P.LS.S1 instruction pool */
+enum {
+    UALW        = 0x00,
+    P_LL        = 0x08,
+    P_LLD       = 0x0c,
+
+    UASW        = 0x01,
+    P_SC        = 0x09,
+    P_SCD       = 0x0d,
+
+    ASET_ACLR   = 0x02,
+    R7_LWC2     = 0x0a,
+    LDC2        = 0x0e,
+
+    R7_CACHE    = 0x03,
+    R7_SWC2     = 0x0b,
+    SDC2        = 0x0f,
+};
+
+/* P.LL instruction pool */
+enum {
+    R7_LL       = 0x00,
+    LLWP        = 0x01
+};
+
+/* P.SC instruction pool */
+enum {
+    R7_SC       = 0x00,
+    SCWP        = 0x01
+};
+
 static int mmreg (int r)
 {
     static const int map[] = { 16, 17, 2, 3, 4, 5, 6, 7 };
