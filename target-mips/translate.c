@@ -20441,6 +20441,11 @@ void cpu_state_reset(CPUMIPSState *env)
         env->CP0_PWField = 0x02;
     }
 
+    if (env->CP0_Config3 & (1 << CP0C3_ISA)) {
+        /*  microMIPS on reset when Config3.ISA == {1, 3} */
+        env->hflags |= MIPS_HFLAG_M16;
+    }
+
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         msa_reset(env);
