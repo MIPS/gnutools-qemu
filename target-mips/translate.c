@@ -2304,6 +2304,44 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t0);
 }
 
+static void gen_llwp(DisasContext *ctx, uint32_t base, int16_t offset,
+                    uint32_t reg1, uint32_t reg2)
+{
+#ifdef CONFIG_USER_ONLY
+    TCGv taddr = tcg_temp_new();
+    TCGv tval = tcg_temp_new();
+
+    gen_base_offset_addr(ctx, taddr, base, offset);
+    tcg_gen_qemu_ld32s(tval, taddr, ctx->mem_idx);
+    tcg_gen_st_tl(taddr, cpu_env, offsetof(CPUMIPSState, lladdr));
+    tcg_gen_st_tl(tval, cpu_env, offsetof(CPUMIPSState, llval));
+    tcg_gen_ext32s_tl(tval, tval);
+    gen_store_gpr(tval, reg1);
+
+    gen_base_offset_addr(ctx, taddr, base, offset + 4);
+    tcg_gen_qemu_ld32s(tval, taddr, ctx->mem_idx);
+    tcg_gen_st_tl(tval, cpu_env, offsetof(CPUMIPSState, llval_wp));
+    tcg_gen_ext32s_tl(tval, tval);
+    gen_store_gpr(tval, reg2);
+
+    tcg_temp_free(taddr);
+    tcg_temp_free(tval);
+#else
+    TCGv taddr = tcg_temp_new();
+    TCGv_i32 helper_mem_idx = tcg_const_i32(ctx->mem_idx);
+    TCGv_i32 helper_reg1 = tcg_const_i32(reg1);
+    TCGv_i32 helper_reg2 = tcg_const_i32(reg2);
+
+    gen_base_offset_addr(ctx, taddr, base, offset);
+    gen_helper_llwp(cpu_env, taddr, helper_reg1, helper_reg2, helper_mem_idx);
+
+    tcg_temp_free(taddr);
+    tcg_temp_free_i32(helper_mem_idx);
+    tcg_temp_free_i32(helper_reg1);
+    tcg_temp_free_i32(helper_reg2);
+#endif
+}
+
 /* Store */
 static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
                     int base, int16_t offset)
@@ -2378,6 +2416,63 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
     }
     tcg_temp_free(t1);
     tcg_temp_free(t0);
+}
+
+static void gen_scwp(DisasContext *ctx, uint32_t base, int16_t offset,
+                    uint32_t reg1, uint32_t reg2)
+{
+#ifdef CONFIG_USER_ONLY
+    TCGv taddr = tcg_temp_local_new();
+    TCGv t0 = tcg_temp_new();
+    TCGLabel *l1 = gen_new_label();
+    TCGLabel *l2 = gen_new_label();
+
+    gen_base_offset_addr(ctx, taddr, base, offset);
+    tcg_gen_andi_tl(t0, taddr, 0x7);
+    tcg_gen_brcondi_tl(TCG_COND_EQ, t0, 0, l1);
+    tcg_gen_st_tl(taddr, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));
+    generate_exception(ctx, EXCP_AdES);
+    gen_set_label(l1);
+    tcg_gen_ld_tl(t0, cpu_env, offsetof(CPUMIPSState, lladdr));
+    tcg_gen_brcond_tl(TCG_COND_NE, taddr, t0, l2);
+    tcg_gen_movi_tl(t0, reg1 | 0x60);
+    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, llreg));
+    gen_load_gpr(t0, reg1);
+    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, llnewval));
+    gen_load_gpr(t0, reg2);
+    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, llnewval_wp));
+    generate_exception_end(ctx, EXCP_SC);
+    gen_set_label(l2);
+    tcg_gen_movi_tl(t0, 0);
+    gen_store_gpr(t0, reg1);
+    tcg_temp_free(t0);
+    tcg_temp_free(taddr);
+#else
+    TCGv taddr = tcg_temp_new();
+    TCGv_i64 tdata = tcg_temp_new_i64();
+    TCGv_i32 helper_mem_idx = tcg_const_i32(ctx->mem_idx);
+
+    TCGv t0 = tcg_temp_new();
+    TCGv_i64 t1_64 = tcg_temp_new_i64();
+
+    gen_load_gpr(t0, reg2);
+    tcg_gen_ext_tl_i64(tdata, t0);
+    tcg_gen_shli_i64(tdata, tdata, 32);
+
+    gen_load_gpr(t0, reg1);
+    tcg_gen_ext_tl_i64(t1_64, t0);
+    tcg_gen_or_i64(tdata, tdata, t1_64);
+
+    gen_base_offset_addr(ctx, taddr, base, offset);
+    gen_helper_scwp(cpu_gpr[reg1], cpu_env, taddr, tdata, helper_mem_idx);
+
+    tcg_temp_free(taddr);
+    tcg_temp_free_i64(tdata);
+    tcg_temp_free_i32(helper_mem_idx);
+
+    tcg_temp_free(t0);
+    tcg_temp_free_i64(t1_64);
+#endif
 }
 
 /* Load and store */
@@ -17382,7 +17477,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                         gen_ld(ctx, OPC_LL, rt, rs, s);
                         break;
                     case LLWP:
-                        // FIXME
+                        gen_llwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
                         break;
                     }
                     break;
@@ -17392,7 +17487,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                         gen_st_cond(ctx, OPC_SC, rt, rs, s);
                         break;
                     case SCWP:
-                        // FIXME
+                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
                         break;
                     }
                     break;
