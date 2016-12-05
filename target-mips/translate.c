@@ -17919,7 +17919,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         default:
             /* P16.BRI */
-            if (rs < rt) {
+            if (extract32(ctx->opcode, 4, 3) < extract32(ctx->opcode, 7, 3)) {
                 /* BEQC16 */
                 gen_compute_branch(ctx, OPC_BEQ, 2, rs, rt,
                                    extract32(ctx->opcode, 0, 4) << 1, 0);
