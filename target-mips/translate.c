@@ -12888,6 +12888,7 @@ enum {
     P16_ADDIU2  = 0x24,
     LW4X4       = 0x25,
     R7_BEQZC16    = 0x26,
+    SW4X4       = 0x27,
 
     R7_POOL32F  = 0x28,
     P_LS_S9     = 0x29,
@@ -12906,7 +12907,8 @@ enum {
     P_LUI       = 0x38,
     P_BZ        = 0x3a,
     R7_ANDI16   = 0x3c,
-    R7_SW16        = 0x3d
+    R7_SW16     = 0x3d,
+    MOVEPREV    = 0x3f
 };
 
 /* P16.LB instruction pool */
@@ -12986,7 +12988,10 @@ enum {
 /* POOL48I instruction pool */
 enum {
     LI48        = 0x00,
+    ADDIU48     = 0x01,
+    ADDIUGP48   = 0x02,
     DADDIU48    = 0x11,
+    DADDIUGP48  = 0x12,
     DLUI48      = 0x14
 };
 
@@ -16890,6 +16895,16 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                                 extract32(ctx->opcode, 0, 16) << 16 | insn);
             }
             break;
+        case ADDIU48:
+            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rt],
+                            extract32(ctx->opcode, 0, 16) << 16 | insn);
+            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            break;
+        case ADDIUGP48:
+            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[28],
+                            extract32(ctx->opcode, 0, 16) << 16 | insn);
+            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            break;
         default:
             generate_exception_end(ctx, EXCP_RI);
             break;
@@ -17859,6 +17874,17 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_ld(ctx, OPC_LW, rt, rs, u);
         }
         break;
+    case SW4X4:
+        {
+            int rt = (extract32(ctx->opcode, 9, 1) << 4) |
+                     extract32(ctx->opcode, 5, 3);
+            int rs = (extract32(ctx->opcode, 4, 1) << 4) |
+                     extract32(ctx->opcode, 0, 3);
+            int u = (extract32(ctx->opcode, 3, 1) << 3) |
+                    (extract32(ctx->opcode, 8, 1) << 2);
+            gen_st(ctx, OPC_SW, rt, rs, u);
+        }
+        break;
     case R7_LWGP16:
         {
             int u = extract32(ctx->opcode, 0, 7) << 2;
@@ -17970,18 +17996,31 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R7_MOVEP:
+    case MOVEPREV:
         {
-            static const int gpr2dest1[] = {4, 5, 6, 7};
-            static const int gpr2dest2[] = {5, 6, 7, 4};
+            static const int gpr2reg1[] = {4, 5, 6, 7};
+            static const int gpr2reg2[] = {5, 6, 7, 8};
             int re;
             int rd2 = extract32(ctx->opcode, 3, 1) << 1 |
                       extract32(ctx->opcode, 8, 1);
-            rd = gpr2dest1[rd2];
-            re = gpr2dest2[rd2];
-            rs = extract32(ctx->opcode, 4, 1) << 4 |
-                 extract32(ctx->opcode, 0, 3);
-            rt = extract32(ctx->opcode, 9, 1) << 4 |
-                 extract32(ctx->opcode, 5, 3);
+            int r1 = gpr2reg1[rd2];
+            int r2 = gpr2reg2[rd2];
+            int r3 = extract32(ctx->opcode, 4, 1) << 4 |
+                     extract32(ctx->opcode, 0, 3);
+            int r4 = extract32(ctx->opcode, 9, 1) << 4 |
+                     extract32(ctx->opcode, 5, 3);
+
+            if(op == R7_MOVEP) {
+                rd = r1;
+                re = r2;
+                rs = r3;
+                rt = r4;
+            } else {
+                rd = r3;
+                re = r4;
+                rs = r1;
+                rt = r2;
+            }
             if (rs) {
                 tcg_gen_mov_tl(cpu_gpr[rd], cpu_gpr[rs]);
             } else {
