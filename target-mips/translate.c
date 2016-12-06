@@ -12976,7 +12976,14 @@ enum {
 /* P.J instruction pool */
 enum {
     R7_JALRC    = 0x00,
-    R7_JALRC_HB = 0x01
+    R7_JALRC_HB = 0x01,
+    P_BREG      = 0x08
+};
+
+/* P.BREG instruction pool */
+enum {
+    P_BALRC     = 0x00,
+    P_BALRSC    = 0x01
 };
 
 /* POOL16C instruction pool */
@@ -13708,6 +13715,36 @@ static void gen_andi16(DisasContext *ctx)
     int encoded = ZIMM(ctx->opcode, 0, 4);
 
     gen_logic_imm(ctx, OPC_ANDI, rd, rs, decoded_imm[encoded]);
+}
+
+/* P.BREG type microMIPS R7 branches: BALRC, BALRSC, BRC and BRSC */
+static void gen_compute_r7_pbreg_branch(DisasContext *ctx, uint32_t opc,
+                                        int rs, int rt)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+    int m16_lowbit = (ctx->hflags & MIPS_HFLAG_M16) != 0;
+
+    /* link */
+    if (rt != 0) {
+        tcg_gen_movi_tl(cpu_gpr[rt], ctx->pc + 4 + m16_lowbit);
+    }
+
+    /* Load needed operands and calculate btarget */
+    gen_load_gpr(t0, rs);
+    if (opc == P_BALRSC) {
+        tcg_gen_shli_tl(t0, t0, 1);
+    }
+    tcg_gen_movi_tl(t1, ctx->pc + 4);
+    gen_op_addr_add(ctx, btarget, t1, t0);
+    gen_op_addr_add(ctx, btarget, t1, t0);
+
+    ctx->hflags |= MIPS_HFLAG_BR;
+    /* Generating branch here as compact branches don't have delay slot */
+    gen_branch(ctx, 4);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
 }
 
 static void gen_ldst_multiple (DisasContext *ctx, uint32_t opc, int reglist,
@@ -17552,6 +17589,11 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         case R7_JALRC:
         case R7_JALRC_HB:
             gen_compute_branch(ctx, OPC_JALR, 4, rs, rt, 0, 0);
+            break;
+        case P_BREG:
+            gen_compute_r7_pbreg_branch(ctx, extract32(ctx->opcode, 9, 1),
+                                        extract32(ctx->opcode, 16, 5),
+                                        extract32(ctx->opcode, 21, 5));
             break;
         default:
             generate_exception_end(ctx, EXCP_RI);
