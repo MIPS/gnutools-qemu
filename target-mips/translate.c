@@ -13734,6 +13734,7 @@ static void gen_compute_r7_pbreg_branch(DisasContext *ctx, uint32_t opc,
     gen_load_gpr(t0, rs);
     if (opc == P_BALRSC) {
         tcg_gen_shli_tl(t0, t0, 1);
+        tcg_gen_ori_tl(t0, t0, m16_lowbit);
     }
     tcg_gen_movi_tl(t1, ctx->pc + 4);
     gen_op_addr_add(ctx, btarget, t1, t0);
