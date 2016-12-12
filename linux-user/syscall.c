@@ -5997,7 +5997,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             abi_ulong addr;
             char **q;
             int total_size = 0;
-            char *ld;
+            char *bin;
 
             argc = 0;
             guest_argp = arg2;
@@ -6048,8 +6048,8 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             if (!(p = lock_user_string(arg1)))
                 goto execve_efault;
 
-            ld = strrchr(p, '/');
-            if (ld && !strcmp(ld, "/ld"))
+            bin = strrchr(p, '/');
+            if (bin && (!strcmp(bin, "/ld") || !strcmp(bin, "/as")))
               ret = get_errno(execve(p, argp, envp));
             else
               ret = qemu_execve(p, argp, envp);
