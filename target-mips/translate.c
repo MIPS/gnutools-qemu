@@ -16589,15 +16589,7 @@ static void gen_pool32axf_r7_insn(CPUMIPSState *env, DisasContext *ctx)
             gen_cp0(env, ctx, OPC_DERET, 0, 0);
             break;
         case R7_ERETX:
-            switch ((ctx->opcode >> 16) & 1) {
-            case R7_ERET:
-                gen_helper_eret(cpu_env);
-                break;
-            case R7_ERETNC:
-                gen_helper_eretnc(cpu_env);
-                break;
-            }
-            ctx->bstate = BS_EXCP;
+            gen_cp0(env, ctx, OPC_ERET, 0, 0);
             break;
 #endif
         default:
