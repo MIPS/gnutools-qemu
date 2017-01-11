@@ -17546,7 +17546,6 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     break;
                 case R7_CACHE:
                     check_cp0_enabled(ctx);
-                    generate_exception_end(ctx, EXCP_RI);
                     if (ctx->hflags & MIPS_HFLAG_ITC_CACHE) {
                         gen_cache_operation(ctx, rt, rs, s);
                     }
