@@ -1435,6 +1435,7 @@ typedef struct DisasContext {
     bool pw;
     bool abs2008;
     bool nan2008;
+    bool xnp;
 } DisasContext;
 
 enum {
@@ -17522,7 +17523,12 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                         gen_ld(ctx, OPC_LL, rt, rs, s);
                         break;
                     case LLWP:
-                        gen_llwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
+                        if (ctx->xnp) {
+                            generate_exception_end(ctx, EXCP_RI);
+                        } else {
+                            gen_llwp(ctx, rs, 0, rt,
+                                     extract32(ctx->opcode, 3, 5));
+                        }
                         break;
                     }
                     break;
@@ -22730,6 +22736,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
     ctx.pw = (env->CP0_Config3 >> CP0C3_PW) & 1;
     ctx.nan2008 = (env->active_fpu.fcr31 >> FCR31_NAN2008) & 1;
     ctx.abs2008 = (env->active_fpu.fcr31 >> FCR31_ABS2008) & 1;
+    ctx.xnp = (env->CP0_Config5 >> CP0C5_XNP) & 1;
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
