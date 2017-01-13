@@ -17538,7 +17538,12 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                         gen_st_cond(ctx, OPC_SC, rt, rs, s);
                         break;
                     case SCWP:
-                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
+                        if (ctx->xnp) {
+                            generate_exception_end(ctx, EXCP_RI);
+                        } else {
+                            gen_scwp(ctx, rs, 0, rt,
+                                     extract32(ctx->opcode, 3, 5));
+                        }
                         break;
                     }
                     break;
