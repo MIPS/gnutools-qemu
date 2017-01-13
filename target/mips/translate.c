@@ -23326,6 +23326,8 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     //8
     CHK_CP0_REG_ULONG(CP0_BadVAddr,              "BadVAddr    ");
+    CHK_CP0_REG(CP0_BadInstr,                    "BadInstr    ");
+    CHK_CP0_REG(CP0_BadInstrP,                   "BadInstrP   ");
 
     //9
     CHK_CP0_REG(CP0_Count,                       "Count       ");
