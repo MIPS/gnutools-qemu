@@ -17400,6 +17400,21 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 gen_st(ctx, OPC_SH, rt, 28, u);
                 break;
             case P_LS_GP_CP1:
+                u &= ~ 0x3;
+                switch ((ctx->opcode & 0x3)) {
+                    case LWC1_GP:
+                        gen_cop1_ldst(ctx, OPC_LWC1, rt, 28, u);
+                        break;
+                    case LDC1_GP:
+                        gen_cop1_ldst(ctx, OPC_LDC1, rt, 28, u);
+                        break;
+                    case SWC1_GP:
+                        gen_cop1_ldst(ctx, OPC_SWC1, rt, 28, u);
+                        break;
+                    case SDC1_GP:
+                        gen_cop1_ldst(ctx, OPC_SDC1, rt, 28, u);
+                        break;
+                }
                 break;
             default:
                 generate_exception_end(ctx, EXCP_RI);
@@ -17434,6 +17449,18 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 break;
             case SW:
                 gen_st(ctx, OPC_SW, rt, rs, u);
+                break;
+            case LWC1:
+                gen_cop1_ldst(ctx, OPC_LWC1, rt, rs, u);
+                break;
+            case LDC1:
+                gen_cop1_ldst(ctx, OPC_LDC1, rt, rs, u);
+                break;
+            case SWC1:
+                gen_cop1_ldst(ctx, OPC_SWC1, rt, rs, u);
+                break;
+            case SDC1:
+                gen_cop1_ldst(ctx, OPC_SDC1, rt, rs, u);
                 break;
             default:
                 generate_exception_end(ctx, EXCP_RI);
@@ -17471,6 +17498,18 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     break;
                 case SWS9:
                     gen_st(ctx, OPC_SW, rt, rs, s);
+                    break;
+                case LWC1S9:
+                    gen_cop1_ldst(ctx, OPC_LWC1, rt, rs, s);
+                    break;
+                case LDC1S9:
+                    gen_cop1_ldst(ctx, OPC_LDC1, rt, rs, s);
+                    break;
+                case SWC1S9:
+                    gen_cop1_ldst(ctx, OPC_SWC1, rt, rs, s);
+                    break;
+                case SDC1S9:
+                    gen_cop1_ldst(ctx, OPC_SDC1, rt, rs, s);
                     break;
                 case P_PREF:
                     if (rt == 31) {
