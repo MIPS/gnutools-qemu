@@ -14732,7 +14732,6 @@ static void gen_save(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
     gen_load_gpr(t0, first_gpr);
     tcg_gen_qemu_st_tl(t0, taddr, ctx->mem_idx, MO_TEUL |
                                   ctx->default_tcg_memop_mask);
-    fp_pending = (first_gpr == 30) ? 0 : fp_pending;
 
     while (num_pending > 0) {
         if (fp_pending) {
@@ -14778,7 +14777,6 @@ static void gen_restore(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
                        ctx->default_tcg_memop_mask);
     tcg_gen_ext32s_tl(t0, t0);
     gen_store_gpr(t0, first_gpr);
-    fp_pending = (first_gpr == 30) ? 0 : fp_pending;
 
     while (num_pending > 0) {
         if (fp_pending) {
