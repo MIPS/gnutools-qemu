@@ -6636,7 +6636,20 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
         {
             const char *s;
 
+#ifdef MIPSSIM_COMPAT
+            { // Uppercase OP names
+                char tmp[20];
+                int i;
+
+                memset(tmp, 0, 20);
+                for (i = 0; i < strlen(op->name) && i < 20; i++) {
+                  tmp[i] = (char) toupper(op->name[i]);
+                }
+                (*info->fprintf_func) (info->stream, "micromips %-10s ", tmp);
+            }
+#else
             (*info->fprintf_func) (info->stream, "micromips %s", op->name);
+#endif
 
             if (op->args[0] != '\0') {
                 (*info->fprintf_func) (info->stream, "\t");
