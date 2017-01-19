@@ -342,7 +342,13 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
 
         if (env->insn_flags & ASE_MICROMIPS) {
             // FIXME micromips disa
-            fprintf(out, "%08lx micromips _disa_here\n", (unsigned long)opcode);
+            if ((opcode & 0x10000000) == 0) {
+                fprintf(out, "%08lx ", (unsigned long) opcode);
+            } else {
+                fprintf(out, "%04x ", opcode >> 16);
+            }
+            print_insn_micromips(pc, &s.info);
+            fprintf(out, "\n");
         }
         else if (env->insn_flags & ASE_MIPS16) {
             // FIXME mips16 disa
