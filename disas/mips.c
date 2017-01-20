@@ -5932,11 +5932,9 @@ const struct mips_opcode micromips_opcodes[] =
 {"sh",          "v,()",  0x44140000, 0xfc1c0000, WR_d,         0, M32R7},
 {"shx",         "d,t,(v)", 0x20000287, 0xfc0007ff, WR_d,         0, M32R7},
 {"shxs",        "d,t,(v)", 0x200002c7, 0xfc0007ff, WR_d,         0, M32R7},
-
 // put sync/ehb before sll
 {"sync",        "",      0x8000c006, 0xffe0f1ff, WR_d,         0, M32R7},
 {"ehb",         "",      0x8000c003, 0xffe0f1ff, WR_d,         0, M32R7},
-
 {"sll",         "v,t",   0x8000c000, 0xfc00f1e0, WR_d,         0, M32R7},
 {"sllv",        "d,t,v", 0x20000010, 0xfc0003ff, WR_d,         0, M32R7},
 {"slt",         "d,t,v", 0x20000350, 0xfc0003ff, WR_d,         0, M32R7},
@@ -5957,7 +5955,6 @@ const struct mips_opcode micromips_opcodes[] =
 {"sw",          "v,()",  0x40000003, 0xfc000003, WR_d,         0, M32R7},
 {"swx",         "d,t,(v)", 0x20000487, 0xfc0007ff, WR_d,         0, M32R7},
 {"swxs",        "d,t,(v)", 0x200004c7, 0xfc0007ff, WR_d,         0, M32R7},
-
 {"syscall",     "",      0x00080000, 0xfffc0000, WR_d,         0, M32R7},
 {"ualw",        "v,(t)", 0xa4000100, 0xfc007f00, WR_d,         0, M32R7},
 {"uasw",        "v,(t)", 0xa4000900, 0xfc007f00, WR_d,         0, M32R7},
@@ -5976,12 +5973,6 @@ const struct mips_opcode micromips_opcodes[] =
 {"tlbwr",       "",      0x2000337f, 0xfc00ffff, WR_d,         0, M32R7},
 {"dvp",         "v",     0x20000390, 0xfc00ffff, WR_d,         0, M32R7},
 {"evp",         "v",     0x20000790, 0xfc00ffff, WR_d,         0, M32R7},
-
-
-
-
-
-
 {"balrc",       "v,t",   0x48008000, 0xfc00e100, WR_d,         0, M32R7},
 {"balrsc",      "v,t",   0x48008200, 0xfc00f200, WR_d,         0, M32R7},
 {"brc",         "t",     0x48008000, 0xffe0f200, WR_d,         0, M32R7},
@@ -5992,7 +5983,6 @@ const struct mips_opcode micromips_opcodes[] =
 {"addiu",       "v",     0x60020000, 0xfc1f0000, WR_d,         0, M32R7},
 //li48
 {"li",          "v",     0x60000000, 0xfc1f0000, WR_d,         0, M32R7},
-
 
 // put before addiurs5
 {"nop",         "",      0x9008,     0xffff,     WR_t,         0, M32R7},
@@ -6027,11 +6017,11 @@ const struct mips_opcode micromips_opcodes[] =
 //lwgp16
 {"lw",          "",      0xb400,     0xfc00,     WR_t,         0, M32R7},
 //lwsp
-{"lw",          "",      0x5400,     0xfc00,     WR_t,         0, M32R7},
+{"lw",          "mt,mu(mp)",      0x5400,     0xfc00,     WR_t,         0, M32R7},
 {"lwxs",        "",      0x5001,     0xfc01,     WR_t,         0, M32R7},
 //put sdbbp befroe move
 {"sdbbp",       "",      0x1018,     0xfff8,     WR_t,         0, M32R7},
-{"move",        "",      0x1000,     0xfc00,     WR_t,         0, M32R7},
+{"move",        "mt,ms",      0x1000,     0xfc00,     WR_t,         0, M32R7},
 {"movep",       "",      0xbc00,     0xfc00,     WR_t,         0, M32R7},
 //moveprev
 {"movep",       "",      0xfc00,     0xfc00,     WR_t,         0, M32R7},
@@ -6040,7 +6030,6 @@ const struct mips_opcode micromips_opcodes[] =
 {"restore",     "",      0x1fe0,     0xffe1,     WR_t,         0, M32R7},
 {"restore.jrc", "",      0x1c20,     0xfc21,     WR_t,         0, M32R7},\
 {"save",        "",      0x1c00,     0xfc21,     WR_t,         0, M32R7},
-
 {"sb",          "",      0x1404,     0xfc0c,     WR_t,         0, M32R7},
 {"sh",          "",      0x1401,     0xfc09,     WR_t,         0, M32R7},
 {"sll",         "",      0x3000,     0xfc08,     WR_t,         0, M32R7},
@@ -6049,20 +6038,21 @@ const struct mips_opcode micromips_opcodes[] =
 {"sw",          "",      0xf400,     0xfc00,     WR_t,         0, M32R7},
 //swsp
 {"sw",          "",      0xd400,     0xfc00,     WR_t,         0, M32R7},
-
 //sw 4x4
 {"sw",          "",      0x9c00,     0xfc00,     WR_t,         0, M32R7},
-
 {"syscall",     "",      0x1008,     0xfffc,     WR_t,         0, M32R7},
 {"xor",         "",      0x5004,     0xfc0f,     WR_t,         0, M32R7},
-
-
-
 };
 
 #define MICROMIPS_NUM_OPCODES \
     ((sizeof micromips_opcodes) / (sizeof (micromips_opcodes[0])))
 const int bfd_micromips_num_opcodes = MICROMIPS_NUM_OPCODES;
+
+/* The mips16 registers.  */
+static const unsigned int umips_decode_gpr3[] =
+{ 16, 17, 18, 19, 4, 5, 6, 7 };
+
+#define umips_decode_gpr3_reg_names(rn) mips_gpr_names[umips_decode_gpr3[rn]]
 
 
 int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
@@ -6142,9 +6132,42 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             if (op->args[0] != '\0') {
                 (*info->fprintf_func) (info->stream, "\t");
             }
-
-            s = op->args;
-            print_insn_args (s, insn, memaddr, info, op);
+            for (s = op->args; *s != '\0'; s++) {
+                char tmp[] = {'\0', '\0'};
+                if (*s == ',') {
+                    /* Skip the comma.  */
+#ifdef MIPSSIM_COMPAT
+                    (*info->fprintf_func) (info->stream, "%c ", *s);
+#endif
+                    continue;
+                }
+                if (*s == 'm') {
+                    /* microMIPS specific */
+                    ++s;
+                    switch (*s) {
+                        case 't':
+                            (*info->fprintf_func) (info->stream, "%s",
+                                mips_gpr_names[(insn >> 5) & 0x1f]);
+                            break;
+                        case 's':
+                            (*info->fprintf_func) (info->stream, "%s",
+                                mips_gpr_names[(insn >> 0) & 0x1f]);
+                            break;
+                        case 'p':
+                            (*info->fprintf_func) (info->stream, "%s",
+                                mips_gpr_names[29]);
+                            break;
+                        case 'u':
+                            (*info->fprintf_func) (info->stream, "0x%x",
+                                ((insn >> 0) & 0x1f) << 2);
+                            break;
+                    }
+                } else {
+                    /* reuse MIPS32/64 */
+                    tmp[0] = *s;
+                    print_insn_args (tmp, insn, memaddr, info, op);
+                }
+            }
 
             if ((op->pinfo & INSN_UNCOND_BRANCH_DELAY) != 0)
             {
