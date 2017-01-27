@@ -5807,7 +5807,7 @@ const struct mips_opcode micromips_opcodes[] =
    them first.  The assemblers uses a hash table based on the
    instruction name anyhow.  */
 /* name,        args,    match,      mask,       pinfo,           membership */
-{"add",         "d,t,v", 0x20000110, 0xfc0001ff, WR_t,         0, M32R7},
+{"add",         "d,t,v", 0x20000110, 0xfc0003ff, WR_t,         0, M32R7},
 //put sigrie before addiu
 {"sigrie",      "",      0x00000000, 0xffe00000, WR_d,         0, M32R7},
 {"addiu",       "v,t",   0x00000000, 0xfc006000, WR_d,         0, M32R7},
@@ -5973,7 +5973,7 @@ const struct mips_opcode micromips_opcodes[] =
 {"tlbwr",       "",      0x2000337f, 0xfc00ffff, WR_d,         0, M32R7},
 {"dvp",         "v",     0x20000390, 0xfc00ffff, WR_d,         0, M32R7},
 {"evp",         "v",     0x20000790, 0xfc00ffff, WR_d,         0, M32R7},
-{"balrc",       "v,t",   0x48008000, 0xfc00e100, WR_d,         0, M32R7},
+{"balrc",       "v,t",   0x48008000, 0xfc00f200, WR_d,         0, M32R7},
 {"balrsc",      "v,t",   0x48008200, 0xfc00f200, WR_d,         0, M32R7},
 {"brc",         "t",     0x48008000, 0xffe0f200, WR_d,         0, M32R7},
 {"brsc",        "t",     0x48008200, 0xffe0f200, WR_d,         0, M32R7},
@@ -5997,14 +5997,15 @@ const struct mips_opcode micromips_opcodes[] =
 {"andi",        "",      0xf000,     0xfc00,     WR_t,         0, M32R7},
 {"balc",        "",      0x3800,     0xfc00,     WR_t,         0, M32R7},
 {"bc",          "",      0x1800,     0xfc00,     WR_t,         0, M32R7},
-//b{eq|ne}c
+// put jrc, jalrc before b{eq|ne}c
+{"jrc",         "",      0xd800,     0xfc1f,     WR_t,         0, M32R7},
+{"jalrc",       "",      0xd810,     0xfc1f,     WR_t,         0, M32R7},
 {"b{eq|ne}c",   "",      0xd800,     0xfc00,     WR_t,         0, M32R7},
 {"beqzc",       "",      0x9800,     0xfc00,     WR_t,         0, M32R7},
 {"bnec",        "",      0xd800,     0xfc00,     WR_t,         0, M32R7},
 {"bnezc",       "",      0xb800,     0xfc00,     WR_t,         0, M32R7},
 {"break",       "",      0x1010,     0xfff8,     WR_t,         0, M32R7},
-{"jalrc",       "",      0xd810,     0xfc1f,     WR_t,         0, M32R7},
-{"jrc",         "",      0xd800,     0xfc1f,     WR_t,         0, M32R7},
+
 {"lb",          "",      0x1400,     0xfc0c,     WR_t,         0, M32R7},
 {"lbu",         "",      0x1408,     0xfc0c,     WR_t,         0, M32R7},
 {"lh",          "",      0x3400,     0xfc09,     WR_t,         0, M32R7},
