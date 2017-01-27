@@ -2107,7 +2107,7 @@ OP_ST_ATOMIC(scd,st64,ld64,0x7);
 #undef OP_ST_ATOMIC
 
 static void gen_base_offset_addr (DisasContext *ctx, TCGv addr,
-                                  int base, int16_t offset)
+                                  int base, int offset)
 {
     if (base == 0) {
         tcg_gen_movi_tl(addr, offset);
@@ -2135,7 +2135,7 @@ static target_ulong pc_relative_pc (DisasContext *ctx)
 
 /* Load */
 static void gen_ld(DisasContext *ctx, uint32_t opc,
-                   int rt, int base, int16_t offset)
+                   int rt, int base, int offset)
 {
     TCGv t0, t1, t2;
 
@@ -2345,7 +2345,7 @@ static void gen_llwp(DisasContext *ctx, uint32_t base, int16_t offset,
 
 /* Store */
 static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
-                    int base, int16_t offset)
+                    int base, int offset)
 {
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
