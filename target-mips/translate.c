@@ -16714,6 +16714,93 @@ out:
     tcg_temp_free(t1);
 }
 
+static void gen_p_lsx(DisasContext *ctx, int rd, int rs, int rt)
+{
+    TCGv t0, t1;
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+    tcg_gen_movi_tl(t1, 0);
+    if (rs == 0) {
+        tcg_gen_movi_tl(t0, 0);
+    } else {
+        gen_load_gpr(t0, rs);
+    }
+    if (rt == 0) {
+        tcg_gen_movi_tl(t1, 0);
+    } else {
+        gen_load_gpr(t1, rt);
+    }
+    if (((ctx->opcode >> 6) & 1) == 1) {
+        /* PP.LSXS instructions require shifting */
+        switch ((ctx->opcode >> 6) & 0x1f) {
+            case LHXS:
+            case SHXS:
+            case LHUXS:
+                tcg_gen_shli_tl(t0, t0, 1);
+                break;
+            case R7_LWXS:
+            case SWXS:
+                tcg_gen_shli_tl(t0, t0, 2);
+                break;
+        }
+    }
+    gen_op_addr_add(ctx, t0, t0, t1);
+
+    switch ((ctx->opcode >> 6) & 0x1f) {
+        case LBX:
+            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
+                               MO_SB);
+            gen_store_gpr(t0, rd);
+            break;
+        case LHX:
+        case LHXS:
+            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
+                               MO_TESW);
+            gen_store_gpr(t0, rd);
+            break;
+        case LWX:
+        case R7_LWXS:
+            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
+                               MO_TESL);
+            gen_store_gpr(t0, rd);
+            break;
+        case LBUX:
+            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
+                               MO_UB);
+            gen_store_gpr(t0, rd);
+            break;
+        case LHUX:
+        case LHUXS:
+            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
+                               MO_TEUW);
+            gen_store_gpr(t0, rd);
+            break;
+        case SBX:
+            gen_load_gpr(t1, rd);
+            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
+                               MO_8);
+            break;
+        case SHX:
+        case SHXS:
+            gen_load_gpr(t1, rd);
+            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
+                               MO_TEUW);
+            break;
+        case SWX:
+        case SWXS:
+            gen_load_gpr(t1, rd);
+            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
+                               MO_TEUL);
+            break;
+        default:
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+    }
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
 static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
 {
     uint16_t insn;
@@ -16781,91 +16868,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
             {
                 switch ((ctx->opcode >> 3) & 0x07) {
                 case P_LSX:
-                    {
-                        TCGv t0, t1;
-                        t0 = tcg_temp_new();
-                        t1 = tcg_temp_new();
-                        tcg_gen_movi_tl(t1, 0);
-                        if (rs == 0) {
-                            tcg_gen_movi_tl(t0, 0);
-                        } else {
-                            gen_load_gpr(t0, rs);
-                        }
-                        if (rt == 0) {
-                            tcg_gen_movi_tl(t1, 0);
-                        } else {
-                            gen_load_gpr(t1, rt);
-                        }
-                        if (((ctx->opcode >> 6) & 1) == 1) {
-                            /* PP.LSXS instructions require shifting */
-                            switch ((ctx->opcode >> 6) & 0x1f) {
-                            case LHXS:
-                            case SHXS:
-                            case LHUXS:
-                                tcg_gen_shli_tl(t0, t0, 1);
-                                break;
-                            case R7_LWXS:
-                            case SWXS:
-                                tcg_gen_shli_tl(t0, t0, 2);
-                                break;
-                            }
-                        }
-                        gen_op_addr_add(ctx, t0, t0, t1);
-
-                        switch ((ctx->opcode >> 6) & 0x1f) {
-                        case LBX:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
-                                               MO_SB);
-                            gen_store_gpr(t0, rd);
-                            break;
-                        case LHX:
-                        case LHXS:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
-                                               MO_TESW);
-                            gen_store_gpr(t0, rd);
-                            break;
-                        case LWX:
-                        case R7_LWXS:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
-                                               MO_TESL);
-                            gen_store_gpr(t0, rd);
-                            break;
-                        case LBUX:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
-                                               MO_UB);
-                            gen_store_gpr(t0, rd);
-                            break;
-                        case LHUX:
-                        case LHUXS:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
-                                               MO_TEUW);
-                            gen_store_gpr(t0, rd);
-                            break;
-                        case SBX:
-                            gen_load_gpr(t1, rd);
-                            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
-                                               MO_8);
-                            break;
-                        case SHX:
-                        case SHXS:
-                            gen_load_gpr(t1, rd);
-                            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
-                                               MO_TEUW);
-                            break;
-                        case SWX:
-                        case SWXS:
-                            gen_load_gpr(t1, rd);
-                            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
-                                               MO_TEUL);
-                            break;
-                        default:
-                            generate_exception_end(ctx, EXCP_RI);
-                            break;
-                        }
-
-                        tcg_temp_free(t0);
-                        tcg_temp_free(t1);
-                    }
+                    gen_p_lsx(ctx, rd, rs, rt);
                     break;
                 case R7_LSA:
                     /* In uMIPS++, the shift field directly encodes the shift
