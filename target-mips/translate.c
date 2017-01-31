@@ -14718,7 +14718,7 @@ static void gen_adjust_sp(DisasContext *ctx, int u)
 }
 
 static void gen_save(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
-                     uint8_t fp, uint8_t gp, uint8_t u)
+                     uint8_t fp, uint8_t gp, uint16_t u)
 {
     int num_pending = count;
     TCGv taddr = tcg_temp_new();
@@ -14760,7 +14760,7 @@ static void gen_save(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
 }
 
 static void gen_restore(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
-                        uint8_t fp, uint8_t gp, uint8_t u)
+                        uint8_t fp, uint8_t gp, uint16_t u)
 {
     int num_pending = count;
     TCGv taddr = tcg_temp_new();
