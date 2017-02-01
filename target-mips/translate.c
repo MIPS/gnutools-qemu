@@ -13726,13 +13726,15 @@ static void gen_compute_r7_pbreg_branch(DisasContext *ctx, uint32_t opc,
     TCGv t1 = tcg_temp_new();
     int m16_lowbit = (ctx->hflags & MIPS_HFLAG_M16) != 0;
 
+    /* load rs */
+    gen_load_gpr(t0, rs);
+
     /* link */
     if (rt != 0) {
         tcg_gen_movi_tl(cpu_gpr[rt], ctx->pc + 4 + m16_lowbit);
     }
 
-    /* Load needed operands and calculate btarget */
-    gen_load_gpr(t0, rs);
+    /* calculate btarget */
     if (opc == P_BALRSC) {
         tcg_gen_shli_tl(t0, t0, 1);
         tcg_gen_ori_tl(t0, t0, m16_lowbit);
