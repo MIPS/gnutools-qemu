@@ -23476,6 +23476,11 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     }
 
     //FPU
+    if(env_prev.active_fpu.fcr0 != env->active_fpu.fcr0) {
+        SVLOG_START_LINE();
+        sv_log("Write FCR0             = %08x\n", env->active_fpu.fcr0);
+    }
+
     if(env_prev.active_fpu.fcr31 != env->active_fpu.fcr31) {
         SVLOG_START_LINE();
         sv_log("Write FCSR             = %08x\n", env->active_fpu.fcr31);
