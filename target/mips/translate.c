@@ -2441,7 +2441,6 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
         break;
     case OPC_SB:
         tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_8);
-        break;
 #ifdef MIPSSIM_COMPAT
         gen_helper_0e2i(trace_mem_access, t1, t0, 0x10001);
 #endif
