@@ -18095,7 +18095,8 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                      extract32(ctx->opcode, 0, 3);
             int r4 = extract32(ctx->opcode, 9, 1) << 4 |
                      extract32(ctx->opcode, 5, 3);
-
+            TCGv t0 = tcg_temp_new();
+            TCGv t1 = tcg_temp_new();
             if(op == R7_MOVEP) {
                 rd = r1;
                 re = r2;
@@ -18107,16 +18108,12 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                 rs = r1;
                 rt = r2;
             }
-            if (rs) {
-                tcg_gen_mov_tl(cpu_gpr[rd], cpu_gpr[rs]);
-            } else {
-                tcg_gen_movi_tl(cpu_gpr[rd], 0);
-            }
-            if (rt) {
-                tcg_gen_mov_tl(cpu_gpr[re], cpu_gpr[rt]);
-            } else {
-                tcg_gen_movi_tl(cpu_gpr[re], 0);
-            }
+            gen_load_gpr(t0, rs);
+            gen_load_gpr(t1, rt);
+            tcg_gen_mov_tl(cpu_gpr[rd], t0);
+            tcg_gen_mov_tl(cpu_gpr[re], t1);
+            tcg_temp_free(t0);
+            tcg_temp_free(t1);
         }
         break;
     default:
