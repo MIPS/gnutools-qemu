@@ -341,8 +341,13 @@ void mips_sv_disas(FILE *out, CPUArchState *env, target_ulong code,
         }
 
         if (env->insn_flags & ASE_MICROMIPS) {
-            // FIXME micromips disa
-            if ((opcode & 0x10000000) == 0) {
+            if (((opcode & 0xfc1f0000) == 0x60000000) &&
+                (env->insn_flags & ISA_MIPS32R7)) {
+                /* LI48 */
+                uint16_t insn_low_48;
+                target_read_memory(pc+4, (bfd_byte *)&insn_low_48, 2, &s.info);
+                fprintf(out, "%08lx%04x ", (unsigned long) opcode, insn_low_48);
+            } else if ((opcode & 0x10000000) == 0) {
                 fprintf(out, "%08lx ", (unsigned long) opcode);
             } else {
                 fprintf(out, "%04x ", opcode >> 16);
