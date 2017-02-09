@@ -13098,15 +13098,15 @@ enum {
 enum {
     BEQIC       = 0x00,
     BGEIC       = 0x02,
-    BGEUIC      = 0x03,
+    BGEIUC      = 0x03,
     BNEIC       = 0x04,
     BLTIC       = 0x06,
-    BLTUIC      = 0x07
+    BLTIUC      = 0x07
 };
 
 /* P.LUI instruction pool */
 enum {
-    R7_LUI      = 0x00,
+    LU20I       = 0x00,
     P_AUIPC     = 0x01
 };
 
@@ -16671,14 +16671,14 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
     case BLTIC:
         bcond_compute = 1;
         break;
-    case BGEUIC:
+    case BGEIUC:
         if (rt == 0 && imm == 0) {
             /* Unconditional branch */
         } else  {
             bcond_compute = 1;
         }
         break;
-    case BLTUIC:
+    case BLTIUC:
         bcond_compute = 1;
         break;
     default:
@@ -16710,10 +16710,10 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
         case BLTIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LT), t0, t1, fs);
             break;
-        case BGEUIC:
+        case BGEIUC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_GEU), t0, t1, fs);
             break;
-        case BLTUIC:
+        case BLTIUC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LTU), t0, t1, fs);
             break;
         }
@@ -17371,7 +17371,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case P_LUI:
         switch ((ctx->opcode >> 1) & 1) {
-        case R7_LUI:
+        case LU20I:
             tcg_gen_movi_tl(cpu_gpr[rt], sextract32(ctx->opcode, 0, 1) << 31 |
                             extract32(ctx->opcode, 2, 10) << 21 |
                             extract32(ctx->opcode, 12, 9) << 12);
@@ -17383,12 +17383,11 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                              extract32(ctx->opcode, 12, 9) << 12;
                 target_long addr;
                 if (rt == 0) {
-                    /* ALUIPCGP* */
-    // fixme:                gen_pcrel
+                    /* ALU20IPCGP* */
                     addr = ~0xFFF & addr_add(ctx, ctx->pc, offset);
                     tcg_gen_movi_tl(cpu_gpr[28], addr);
                 } else {
-                    /* AUIPC */
+                    /* AU20IPC */
                     addr = addr_add(ctx, ctx->pc, offset);
                     tcg_gen_movi_tl(cpu_gpr[rt], addr);
                 }
