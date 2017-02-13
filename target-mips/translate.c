@@ -13635,6 +13635,21 @@ enum {
     SCWP        = 0x01
 };
 
+static int mmreg_r7(int r)
+{
+    static const int map[] = { 16, 17, 18, 19, 4, 5, 6, 7 };
+
+    return map[r];
+}
+
+/* Used for 16-bit store instructions.  */
+static int mmreg2_r7(int r)
+{
+    static const int map[] = { 0, 17, 18, 19, 4, 5, 6, 7 };
+
+    return map[r];
+}
+
 static int mmreg (int r)
 {
     static const int map[] = { 16, 17, 2, 3, 4, 5, 6, 7 };
@@ -16344,8 +16359,8 @@ static void gen_r7_align(DisasContext *ctx, int rd, int rs, int rt, int shift)
 
 static void gen_pool16c_r7_insn(DisasContext *ctx)
 {
-    int rt = mmreg(uMIPS_RD(ctx->opcode));
-    int rs = mmreg(uMIPS_RS(ctx->opcode));
+    int rt = mmreg_r7(uMIPS_RD(ctx->opcode));
+    int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
 
     switch ((ctx->opcode >> 2) & 0x3) {
     case R7_NOT16:
@@ -17753,9 +17768,9 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
 static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     uint32_t op;
-    int rt = mmreg(uMIPS_RD(ctx->opcode));
-    int rs = mmreg(uMIPS_RS(ctx->opcode));
-    int rd = mmreg(uMIPS_RS1(ctx->opcode));
+    int rt = mmreg_r7(uMIPS_RD(ctx->opcode));
+    int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
+    int rd = mmreg_r7(uMIPS_RS1(ctx->opcode));
 
     /* make sure instructions are on a halfword boundary */
     if (ctx->pc & 0x1) {
@@ -17900,7 +17915,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                 break;
             case R7_SB16:
                 {
-                    int rt = mmreg2(uMIPS_RD(ctx->opcode));
+                    int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
                     gen_st(ctx, OPC_SB, rt, rs, u);
                 }
                 break;
@@ -17922,7 +17937,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                 break;
             case R7_SH16:
                 {
-                    int rt = mmreg2(uMIPS_RD(ctx->opcode));
+                    int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
                     gen_st(ctx, OPC_SH, rt, rs, u);
                 }
                 break;
@@ -17987,8 +18002,8 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
     case R7_SW16:
         {
-            int rt = mmreg2(uMIPS_RD(ctx->opcode));
-            int rs = mmreg(uMIPS_RS(ctx->opcode));
+            int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
+            int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
             int u = extract32(ctx->opcode, 0, 4) << 2;
 
             gen_st(ctx, OPC_SW, rt, rs, u);
