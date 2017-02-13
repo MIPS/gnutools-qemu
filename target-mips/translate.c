@@ -17384,11 +17384,11 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 target_long addr;
                 if (rt == 0) {
                     /* ALU20IPCGP* */
-                    addr = ~0xFFF & addr_add(ctx, ctx->pc, offset);
+                    addr = ~0xFFF & addr_add(ctx, ctx->pc + 4, offset);
                     tcg_gen_movi_tl(cpu_gpr[28], addr);
                 } else {
                     /* AU20IPC */
-                    addr = addr_add(ctx, ctx->pc, offset);
+                    addr = addr_add(ctx, ctx->pc + 4, offset);
                     tcg_gen_movi_tl(cpu_gpr[rt], addr);
                 }
             }
