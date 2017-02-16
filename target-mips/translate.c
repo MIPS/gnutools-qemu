@@ -2479,18 +2479,15 @@ static void gen_scwp(DisasContext *ctx, uint32_t base, int16_t offset,
 
 /* Load and store */
 static void gen_flt_ldst (DisasContext *ctx, uint32_t opc, int ft,
-                          int base, int16_t offset)
+                          TCGv taddr)
 {
-    TCGv t0 = tcg_temp_new();
-
-    gen_base_offset_addr(ctx, t0, base, offset);
     /* Don't do NOP if destination is zero: we must perform the actual
        memory access. */
     switch (opc) {
     case OPC_LWC1:
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
-            tcg_gen_qemu_ld_i32(fp0, t0, ctx->mem_idx, MO_TESL |
+            tcg_gen_qemu_ld_i32(fp0, taddr, ctx->mem_idx, MO_TESL |
                                 ctx->default_tcg_memop_mask);
             gen_store_fpr32(ctx, fp0, ft);
             tcg_temp_free_i32(fp0);
@@ -2500,7 +2497,7 @@ static void gen_flt_ldst (DisasContext *ctx, uint32_t opc, int ft,
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
             gen_load_fpr32(ctx, fp0, ft);
-            tcg_gen_qemu_st_i32(fp0, t0, ctx->mem_idx, MO_TEUL |
+            tcg_gen_qemu_st_i32(fp0, taddr, ctx->mem_idx, MO_TEUL |
                                 ctx->default_tcg_memop_mask);
             tcg_temp_free_i32(fp0);
         }
@@ -2508,7 +2505,7 @@ static void gen_flt_ldst (DisasContext *ctx, uint32_t opc, int ft,
     case OPC_LDC1:
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
-            tcg_gen_qemu_ld_i64(fp0, t0, ctx->mem_idx, MO_TEQ |
+            tcg_gen_qemu_ld_i64(fp0, taddr, ctx->mem_idx, MO_TEQ |
                                 ctx->default_tcg_memop_mask);
             gen_store_fpr64(ctx, fp0, ft);
             tcg_temp_free_i64(fp0);
@@ -2518,7 +2515,7 @@ static void gen_flt_ldst (DisasContext *ctx, uint32_t opc, int ft,
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
             gen_load_fpr64(ctx, fp0, ft);
-            tcg_gen_qemu_st_i64(fp0, t0, ctx->mem_idx, MO_TEQ |
+            tcg_gen_qemu_st_i64(fp0, taddr, ctx->mem_idx, MO_TEQ |
                                 ctx->default_tcg_memop_mask);
             tcg_temp_free_i64(fp0);
         }
@@ -2526,15 +2523,15 @@ static void gen_flt_ldst (DisasContext *ctx, uint32_t opc, int ft,
     default:
         MIPS_INVAL("flt_ldst");
         generate_exception_end(ctx, EXCP_RI);
-        goto out;
+        break;
     }
- out:
-    tcg_temp_free(t0);
 }
 
 static void gen_cop1_ldst(DisasContext *ctx, uint32_t op, int rt,
                           int rs, int16_t imm)
 {
+    TCGv t0 = tcg_temp_new();
+
     if (ctx->CP0_Config1 & (1 << CP0C1_FP)) {
         check_cp1_enabled(ctx);
         switch (op) {
@@ -2543,11 +2540,13 @@ static void gen_cop1_ldst(DisasContext *ctx, uint32_t op, int rt,
             check_insn(ctx, ISA_MIPS2);
             /* Fallthrough */
         default:
-            gen_flt_ldst(ctx, op, rt, rs, imm);
+            gen_base_offset_addr(ctx, t0, rs, imm);
+            gen_flt_ldst(ctx, op, rt, t0);
         }
     } else {
         generate_exception_err(ctx, EXCP_CpU, 1);
     }
+    tcg_temp_free(t0);
 }
 
 /* Arithmetic with immediate operand */
@@ -16762,7 +16761,13 @@ static void gen_p_lsx(DisasContext *ctx, int rd, int rs, int rt)
                 break;
             case R7_LWXS:
             case SWXS:
+            case LWC1XS:
+            case SWC1XS:
                 tcg_gen_shli_tl(t0, t0, 2);
+                break;
+            case LDC1XS:
+            case SDC1XS:
+                tcg_gen_shli_tl(t0, t0, 3);
                 break;
         }
     }
@@ -16813,6 +16818,38 @@ static void gen_p_lsx(DisasContext *ctx, int rd, int rs, int rt)
             gen_load_gpr(t1, rd);
             tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
                                MO_TEUL);
+            break;
+        case LWC1X:
+        case LWC1XS:
+        case LDC1X:
+        case LDC1XS:
+        case SWC1X:
+        case SWC1XS:
+        case SDC1X:
+        case SDC1XS:
+            if (ctx->CP0_Config1 & (1 << CP0C1_FP)) {
+                check_cp1_enabled(ctx);
+                switch ((ctx->opcode >> 6) & 0x1f) {
+                    case LWC1X:
+                    case LWC1XS:
+                        gen_flt_ldst(ctx, OPC_LWC1, rd, t0);
+                        break;
+                    case LDC1X:
+                    case LDC1XS:
+                        gen_flt_ldst(ctx, OPC_LDC1, rd, t0);
+                        break;
+                    case SWC1X:
+                    case SWC1XS:
+                        gen_flt_ldst(ctx, OPC_SWC1, rd, t0);
+                        break;
+                    case SDC1X:
+                    case SDC1XS:
+                        gen_flt_ldst(ctx, OPC_SDC1, rd, t0);
+                        break;
+                }
+            } else {
+                generate_exception_err(ctx, EXCP_CpU, 1);
+            }
             break;
         default:
             generate_exception_end(ctx, EXCP_RI);
