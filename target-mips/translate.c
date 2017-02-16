@@ -1436,6 +1436,7 @@ typedef struct DisasContext {
     bool abs2008;
     bool nan2008;
     bool xnp;
+    bool umips_x7_dec;
 } DisasContext;
 
 enum {
@@ -16362,6 +16363,11 @@ static void gen_pool16c_r7_insn(DisasContext *ctx)
     int rt = mmreg_r7(uMIPS_RD(ctx->opcode));
     int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
 
+    if (ctx->umips_x7_dec) {
+        rt = mmreg(uMIPS_RD(ctx->opcode));
+        rs = mmreg(uMIPS_RS(ctx->opcode));
+    }
+
     switch ((ctx->opcode >> 2) & 0x3) {
     case R7_NOT16:
         gen_logic(ctx, OPC_NOR, rt, rs, 0);
@@ -17771,6 +17777,12 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
     int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
     int rd = mmreg_r7(uMIPS_RS1(ctx->opcode));
 
+    if (ctx->umips_x7_dec) {
+        rt = mmreg(uMIPS_RD(ctx->opcode));
+        rs = mmreg(uMIPS_RS(ctx->opcode));
+        rd = mmreg(uMIPS_RS1(ctx->opcode));
+    }
+
     /* make sure instructions are on a halfword boundary */
     if (ctx->pc & 0x1) {
         env->CP0_BadVAddr = ctx->pc;
@@ -17915,6 +17927,9 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             case R7_SB16:
                 {
                     int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
+                    if (ctx->umips_x7_dec) {
+                        rt = mmreg2(uMIPS_RD(ctx->opcode));
+                    }
                     gen_st(ctx, OPC_SB, rt, rs, u);
                 }
                 break;
@@ -17937,6 +17952,9 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             case R7_SH16:
                 {
                     int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
+                    if (ctx->umips_x7_dec) {
+                        rt = mmreg2(uMIPS_RD(ctx->opcode));
+                    }
                     gen_st(ctx, OPC_SH, rt, rs, u);
                 }
                 break;
@@ -18005,6 +18023,10 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             int rs = mmreg_r7(uMIPS_RS(ctx->opcode));
             int u = extract32(ctx->opcode, 0, 4) << 2;
 
+            if (ctx->umips_x7_dec) {
+                rt = mmreg2(uMIPS_RD(ctx->opcode));
+                rs = mmreg(uMIPS_RS(ctx->opcode));
+            }
             gen_st(ctx, OPC_SW, rt, rs, u);
         }
         break;
@@ -22794,6 +22816,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
     ctx.nan2008 = (env->active_fpu.fcr31 >> FCR31_NAN2008) & 1;
     ctx.abs2008 = (env->active_fpu.fcr31 >> FCR31_ABS2008) & 1;
     ctx.xnp = (env->CP0_Config5 >> CP0C5_XNP) & 1;
+    ctx.umips_x7_dec = !!(env->insn_flags & UMIPS_DEC_X7);
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;

@@ -48,6 +48,8 @@
 #define   ASE_MICROMIPS 0x00800000
 #define   ASE_MSA       0x01000000
 
+#define   UMIPS_DEC_X7  0x02000000
+
 /* Chip specific instructions. */
 #define		INSN_LOONGSON2E  0x20000000
 #define		INSN_LOONGSON2F  0x40000000
