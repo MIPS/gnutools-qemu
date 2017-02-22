@@ -1435,6 +1435,7 @@ typedef struct DisasContext {
     bool vp;
     bool cmgcr;
     bool mrp;
+    bool pw;
     bool nan2008;
     bool abs2008;
 } DisasContext;
@@ -1634,18 +1635,35 @@ static inline void generate_exception_end(DisasContext *ctx, int excp)
 /* Floating point register moves. */
 static void gen_load_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
+#ifdef CONFIG_USER_ONLY
+    if (ctx->hflags & MIPS_HFLAG_FRE && (reg & 1)) {
+        tcg_gen_extrh_i64_i32(t, fpu_f64[reg & ~1]);
+        return;
+    }
+#else
     if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
     }
+#endif
     tcg_gen_extrl_i64_i32(t, fpu_f64[reg]);
 }
 
 static void gen_store_fpr32(DisasContext *ctx, TCGv_i32 t, int reg)
 {
     TCGv_i64 t64;
+#ifdef CONFIG_USER_ONLY
+    if ((ctx->hflags & MIPS_HFLAG_FRE) && (reg & 1)) {
+        t64 = tcg_temp_new_i64();
+        tcg_gen_extu_i32_i64(t64, t);
+        tcg_gen_deposit_i64(fpu_f64[reg & ~1], fpu_f64[reg & ~1], t64, 32, 32);
+        tcg_temp_free_i64(t64);
+        return;
+    }
+#else
     if (ctx->hflags & MIPS_HFLAG_FRE) {
         generate_exception(ctx, EXCP_RI);
     }
+#endif
     t64 = tcg_temp_new_i64();
     tcg_gen_extu_i32_i64(t64, t);
     tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 0, 32);
@@ -5152,6 +5170,21 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            CP0_CHECK(ctx->pw);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            CP0_CHECK(ctx->pw);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -5186,6 +5219,11 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -5807,6 +5845,21 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             rn = "PageGrain";
             ctx->bstate = BS_STOP;
             break;
+        case 5:
+            CP0_CHECK(ctx->pw);
+            gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -5841,6 +5894,11 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -6469,6 +6527,21 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
             rn = "PageGrain";
             break;
+        case 5:
+            CP0_CHECK(ctx->pw);
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWField));
+            rn = "PWField";
+            break;
+        case 7:
+            CP0_CHECK(ctx->pw);
+            tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWSize));
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -6503,6 +6576,11 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
             rn = "SRSConf4";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -7107,6 +7185,21 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_pagegrain(cpu_env, arg);
             rn = "PageGrain";
             break;
+        case 5:
+            CP0_CHECK(ctx->pw);
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
+            rn = "PWBase";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwfield(cpu_env, arg);
+            rn = "PWField";
+            break;
+        case 7:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwsize(cpu_env, arg);
+            rn = "PWSize";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -7141,6 +7234,11 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
             rn = "SRSConf4";
+            break;
+        case 6:
+            CP0_CHECK(ctx->pw);
+            gen_helper_mtc0_pwctl(cpu_env, arg);
+            rn = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
@@ -8891,7 +8989,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp0);
         }
         break;
-    case OPC_ABS_S:
+    case OPC_MOV_S:
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
 
@@ -8905,11 +9003,16 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i32(fp0);
         }
         break;
-    case OPC_MOV_S:
+    case OPC_ABS_S:
         {
             TCGv_i32 fp0 = tcg_temp_new_i32();
 
             gen_load_fpr32(ctx, fp0, fs);
+            if (ctx->abs2008) {
+                tcg_gen_andi_i32(fp0, fp0, 0x7fffffffUL);
+            } else {
+                gen_helper_float_abs_s(fp0, fp0);
+            }
             gen_store_fpr32(ctx, fp0, fd);
             tcg_temp_free_i32(fp0);
         }
@@ -9428,7 +9531,7 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp0);
         }
         break;
-    case OPC_ABS_D:
+    case OPC_MOV_D:
         check_cp1_registers(ctx, fs | fd);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
@@ -9443,12 +9546,17 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
             tcg_temp_free_i64(fp0);
         }
         break;
-    case OPC_MOV_D:
+    case OPC_ABS_D:
         check_cp1_registers(ctx, fs | fd);
         {
             TCGv_i64 fp0 = tcg_temp_new_i64();
 
             gen_load_fpr64(ctx, fp0, fs);
+            if (ctx->abs2008) {
+                tcg_gen_andi_i64(fp0, fp0, 0x7fffffffffffffffULL);
+            } else {
+                gen_helper_float_abs_d(fp0, fp0);
+            }
             gen_store_fpr64(ctx, fp0, fd);
             tcg_temp_free_i64(fp0);
         }
@@ -19916,6 +20024,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
              (env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F));
     ctx.vp = (env->CP0_Config5 >> CP0C5_VP) & 1;
     ctx.mrp = (env->CP0_Config5 >> CP0C5_MRP) & 1;
+    ctx.pw = (env->CP0_Config3 >> CP0C3_PW) & 1;
     ctx.nan2008 = (env->active_fpu.fcr31 >> FCR31_NAN2008) & 1;
     ctx.abs2008 = (env->active_fpu.fcr31 >> FCR31_ABS2008) & 1;
     restore_cpu_state(env, &ctx);
@@ -20389,9 +20498,20 @@ void cpu_state_reset(CPUMIPSState *env)
         env->CP0_Status |= (1 << CP0St_FR);
     }
 
+    if (env->insn_flags & ISA_MIPS32R6) {
+        env->CP0_PWField = 0x0C30C302;
+        env->CP0_PWSize = 0x40;
+    } else {
+        env->CP0_PWField = 0x02;
+    }
+
     /* MSA */
     if (env->CP0_Config3 & (1 << CP0C3_MSAP)) {
         msa_reset(env);
+#ifdef CONFIG_USER_ONLY
+        /* MSA access enabled */
+        env->CP0_Config5 |= 1 << CP0C5_MSAEn;
+#endif
     }
 
     compute_hflags(env);

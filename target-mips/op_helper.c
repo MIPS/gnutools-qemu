@@ -1314,15 +1314,20 @@ void helper_mtc0_context(CPUMIPSState *env, target_ulong arg1)
     env->CP0_Context = (env->CP0_Context & 0x007FFFFF) | (arg1 & ~0x007FFFFF);
 }
 
-void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+void update_pagemask(CPUMIPSState *env, target_ulong arg1, int32_t *pagemask)
 {
     uint64_t mask = arg1 >> (TARGET_PAGE_BITS + 1);
     if (!(env->insn_flags & ISA_MIPS32R6) || (arg1 == ~0) ||
         (mask == 0x0000 || mask == 0x0003 || mask == 0x000F ||
          mask == 0x003F || mask == 0x00FF || mask == 0x03FF ||
          mask == 0x0FFF || mask == 0x3FFF || mask == 0xFFFF)) {
-        env->CP0_PageMask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
+        *pagemask = arg1 & (0x1FFFFFFF & (TARGET_PAGE_MASK << 1));
     }
+}
+
+void helper_mtc0_pagemask(CPUMIPSState *env, target_ulong arg1)
+{
+    update_pagemask(env, arg1, &env->CP0_PageMask);
 }
 
 void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
@@ -1333,6 +1338,49 @@ void helper_mtc0_pagegrain(CPUMIPSState *env, target_ulong arg1)
                          (env->CP0_PageGrain & ~env->CP0_PageGrain_rw_bitmask);
     compute_hflags(env);
     restore_pamask(env);
+}
+
+void helper_mtc0_pwfield(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    env->CP0_PWField = arg1 & 0x3F3FFFFFFFULL;
+#else
+    uint32_t mask = 0x3FFFFFFF;
+    uint32_t old_ptei = (env->CP0_PWField >> CP0PF_PTEI) & 0x3F;
+    uint32_t new_ptei = (arg1 >> CP0PF_PTEI) & 0x3F;
+
+    if ((env->insn_flags & ISA_MIPS32R6)) {
+        if (((arg1 >> CP0PF_GDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_GDI);
+        }
+        if (((arg1 >> CP0PF_UDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_UDI);
+        }
+        if (((arg1 >> CP0PF_MDI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_MDI);
+        }
+        if (((arg1 >> CP0PF_PTI) & 0x3F) < 12) {
+            mask &= ~(0x3F << CP0PF_PTI);
+        }
+    }
+    env->CP0_PWField = arg1 & mask;
+
+    if ((new_ptei >= 32) ||
+            ((env->insn_flags & ISA_MIPS32R6) &&
+                    (new_ptei == 0 || new_ptei == 1))) {
+        env->CP0_PWField = (env->CP0_PWField & ~0x3F) |
+                (old_ptei << CP0PF_PTEI);
+    }
+#endif
+}
+
+void helper_mtc0_pwsize(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    env->CP0_PWSize = arg1 & 0x3F7FFFFFFFULL;
+#else
+    env->CP0_PWSize = arg1 & 0x3FFFFFFF;
+#endif
 }
 
 void helper_mtc0_wired(CPUMIPSState *env, target_ulong arg1)
@@ -1369,6 +1417,16 @@ void helper_mtc0_srsconf3(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_srsconf4(CPUMIPSState *env, target_ulong arg1)
 {
     env->CP0_SRSConf4 |= arg1 & env->CP0_SRSConf4_rw_bitmask;
+}
+
+void helper_mtc0_pwctl(CPUMIPSState *env, target_ulong arg1)
+{
+#ifdef TARGET_MIPS64
+    /* PWEn = 0. Hardware page table walking is not implemented. */
+    env->CP0_PWCtl = (env->CP0_PWCtl & 0x000000C0) | (arg1 & 0x5C00003F);
+#else
+    env->CP0_PWCtl = (arg1 & 0x800000FF);
+#endif
 }
 
 void helper_mtc0_hwrena(CPUMIPSState *env, target_ulong arg1)
@@ -1980,6 +2038,7 @@ static inline uint64_t get_tlb_pfn_from_entrylo(uint64_t entrylo)
 static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
+    uint64_t mask = env->CP0_PageMask >> (TARGET_PAGE_BITS + 1);
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
@@ -2000,13 +2059,13 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
     tlb->C0 = (env->CP0_EntryLo0 >> 3) & 0x7;
     tlb->XI0 = (env->CP0_EntryLo0 >> CP0EnLo_XI) & 1;
     tlb->RI0 = (env->CP0_EntryLo0 >> CP0EnLo_RI) & 1;
-    tlb->PFN[0] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo0) << 12;
+    tlb->PFN[0] = (get_tlb_pfn_from_entrylo(env->CP0_EntryLo0) & ~mask) << 12;
     tlb->V1 = (env->CP0_EntryLo1 & 2) != 0;
     tlb->D1 = (env->CP0_EntryLo1 & 4) != 0;
     tlb->C1 = (env->CP0_EntryLo1 >> 3) & 0x7;
     tlb->XI1 = (env->CP0_EntryLo1 >> CP0EnLo_XI) & 1;
     tlb->RI1 = (env->CP0_EntryLo1 >> CP0EnLo_RI) & 1;
-    tlb->PFN[1] = get_tlb_pfn_from_entrylo(env->CP0_EntryLo1) << 12;
+    tlb->PFN[1] = (get_tlb_pfn_from_entrylo(env->CP0_EntryLo1) & ~mask) << 12;
 }
 
 void r4k_helper_tlbinv(CPUMIPSState *env)
@@ -3558,6 +3617,8 @@ uint ## bits ## _t helper_float_ ## name (CPUMIPSState *env,         \
 {                                                                    \
     return float_ ## name(arg, &env->active_fpu.fp_status);          \
 }
+
+
 
 FLOAT_CLASS(class_s, 32)
 FLOAT_CLASS(class_d, 64)
