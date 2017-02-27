@@ -510,6 +510,10 @@ struct CPUMIPSState {
 #define CP0C5_CV         29
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
+#define CP0C5_ULS        20
+#define CP0C5_CRCP       18
+//#define CP0C5_MI         17
+#define CP0C5_GI         15
 #define CP0C5_XNP        13
 #define CP0C5_UFE        9
 #define CP0C5_FRE        8
