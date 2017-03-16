@@ -69,6 +69,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     Error *err = NULL;
     target_ulong gcr_base;
     bool itu_present = false;
+    bool saar_present = false;
 
     for (i = 0; i < s->num_vp; i++) {
         cpu = cpu_mips_init(s->cpu_model);
@@ -86,12 +87,14 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
             itu_present = true;
             /* Attach ITC Tag to the VP */
             env->itc_tag = mips_itu_get_tag_region(&s->itu);
+            env->itu = &s->itu;
         }
         qemu_register_reset(main_cpu_reset, cpu);
     }
 
     cpu = MIPS_CPU(first_cpu);
     env = &cpu->env;
+    saar_present = (bool) env->saarp;
 
     /* Inter-Thread Communication Unit */
     if (itu_present) {
@@ -100,6 +103,11 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
 
         object_property_set_int(OBJECT(&s->itu), 16, "num-fifo", &err);
         object_property_set_int(OBJECT(&s->itu), 16, "num-semaphores", &err);
+        object_property_set_bool(OBJECT(&s->itu), saar_present, "saar-present",
+                                 &err);
+        if (saar_present) {
+            qdev_prop_set_ptr(DEVICE(&s->itu), "saar", (void *) &env->CP0_SAAR);
+        }
         object_property_set_bool(OBJECT(&s->itu), true, "realized", &err);
         if (err != NULL) {
             error_propagate(errp, err);
