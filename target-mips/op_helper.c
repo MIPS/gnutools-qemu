@@ -1458,6 +1458,27 @@ void helper_mtc0_count(CPUMIPSState *env, target_ulong arg1)
     cpu_mips_store_count(env, arg1);
 }
 
+void helper_mtc0_saar(CPUMIPSState *env, target_ulong arg1)
+{
+    if ((env->CP0_SAARI & 0x3f) == 0) {
+        env->CP0_SAAR = arg1;
+        if (env->itu) {
+            itc_reconfigure(env->itu);
+        }
+    }
+}
+
+void helper_mthc0_saar(CPUMIPSState *env, target_ulong arg1)
+{
+    if ((env->CP0_SAARI & 0x3f) == 0) {
+        env->CP0_SAAR = (((uint64_t) arg1 << 32) & 0x00000fff00000000ULL) |
+            (env->CP0_SAAR & 0x00000000ffffffffULL);
+        if (env->itu) {
+            itc_reconfigure(env->itu);
+        }
+    }
+}
+
 void helper_mtc0_entryhi(CPUMIPSState *env, target_ulong arg1)
 {
     target_ulong old, val, mask;

@@ -1438,6 +1438,7 @@ typedef struct DisasContext {
     bool pw;
     bool nan2008;
     bool abs2008;
+    bool saar;
 } DisasContext;
 
 enum {
@@ -4845,6 +4846,17 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             goto cp0_unimplemented;
         }
         break;
+    case 9:
+        switch (sel) {
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_SAAR), 0);
+            rn = "SAAR";
+            break;
+        default:
+            goto cp0_unimplemented;
+        }
+        break;
     case 17:
         switch (sel) {
         case 0:
@@ -4912,6 +4924,17 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             tcg_gen_andi_tl(arg, arg, mask);
             gen_mthc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
             rn = "EntryLo1";
+            break;
+        default:
+            goto cp0_unimplemented;
+        }
+        break;
+    case 9:
+        switch (sel) {
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mthc0_saar(cpu_env, arg);
+            rn = "SAAR";
             break;
         default:
             goto cp0_unimplemented;
@@ -5276,6 +5299,16 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                after reading count.  */
             ctx->bstate = BS_STOP;
             rn = "Count";
+            break;
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SAARI));
+            rn = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_SAAR));
+            rn = "SAAR";
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -5940,7 +5973,17 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_count(cpu_env, arg);
             rn = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            tcg_gen_andi_tl(arg, arg, 0x3f);
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SAARI));
+            rn = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saar(cpu_env, arg);
+            rn = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -7280,7 +7323,17 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mtc0_count(cpu_env, arg);
             rn = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            tcg_gen_andi_tl(arg, arg, 0x3f);
+            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SAARI));
+            rn = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saar(cpu_env, arg);
+            rn = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -20032,6 +20085,8 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
         ctx.mem_idx = MIPS_HFLAG_UM;
 #else
         ctx.mem_idx = ctx.hflags & MIPS_HFLAG_KSU;
+
+        ctx.saar = cpu_mips_saar_supported(env);
 #endif
     ctx.default_tcg_memop_mask = (ctx.insn_flags & ISA_MIPS32R6) ?
                                  MO_UNALN : MO_ALIGN;

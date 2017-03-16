@@ -227,6 +227,7 @@ struct TCState {
     float_status msa_fp_status;
 };
 
+struct MIPSITUState;
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
@@ -368,6 +369,12 @@ struct CPUMIPSState {
     uint32_t CP0_BadInstr;
     uint32_t CP0_BadInstrP;
     int32_t CP0_Count;
+#define CP0SAARI_IDX    0
+    uint32_t CP0_SAARI;
+#define CP0SAAR_BASE    12
+#define CP0SAAR_SIZE    1
+#define CP0SAAR_EN      0
+    uint64_t CP0_SAAR;
     target_ulong CP0_EntryHi;
 #define CP0EnHi_EHINV 10
     target_ulong CP0_EntryHi_ASID_mask;
@@ -650,6 +657,7 @@ struct CPUMIPSState {
     const mips_def_t *cpu_model;
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
+    struct MIPSITUState *itu;
     MemoryRegion *itc_tag; /* ITC Configuration Tags */
     target_ulong exception_base; /* ExceptionBase input to the core */
 };
@@ -859,6 +867,12 @@ void cpu_mips_stop_count(CPUMIPSState *env);
 
 /* mips_int.c */
 void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level);
+
+/* cps.c */
+bool cpu_mips_saar_supported(CPUMIPSState *env);
+
+/* mips_itu.c */
+void itc_reconfigure(struct MIPSITUState *tag);
 
 /* helper.c */
 int mips_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
