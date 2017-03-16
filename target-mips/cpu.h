@@ -368,6 +368,12 @@ struct CPUMIPSState {
     uint32_t CP0_BadInstr;
     uint32_t CP0_BadInstrP;
     int32_t CP0_Count;
+#define CP0SAARI_IDX    0
+    uint32_t CP0_SAARI;
+#define CP0SAAR_BASE    12
+#define CP0SAAR_SIZE    1
+#define CP0SAAR_EN      0
+    uint64_t CP0_SAAR[2];
     target_ulong CP0_EntryHi;
 #define CP0EnHi_EHINV 10
     target_ulong CP0_EntryHi_ASID_mask;
@@ -634,6 +640,7 @@ struct CPUMIPSState {
     uint32_t CP0_Status_rw_bitmask; /* Read/write bits in CP0_Status */
     uint32_t CP0_TCStatus_rw_bitmask; /* Read/write bits in CP0_TCStatus */
     int insn_flags; /* Supported instruction set */
+    int saarp;
 
     CPU_COMMON
 
