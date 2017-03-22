@@ -62,7 +62,7 @@ typedef struct ResetData {
  *  Use -initrd to load second MIPS 'hex' file (normally a binary image)
  *  Leave the starting point as the reset vector
  */
-static long load_mips_hex(const char *filename)
+long load_mips_hex(const char *filename)
 {
 #ifdef TARGET_WORDS_BIGENDIAN
     const int big_endian = 1;

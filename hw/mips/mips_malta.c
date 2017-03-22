@@ -791,6 +791,10 @@ static void GCC_FMT_ATTR(3, 4) prom_set(uint32_t* prom_buf, int index,
     va_end(ap);
 }
 
+#ifdef MIPSSIM_COMPAT
+long load_mips_hex(const char *filename);
+#endif
+
 /* Kernel */
 static int64_t load_kernel (void)
 {
@@ -840,6 +844,10 @@ static int64_t load_kernel (void)
     initrd_size = 0;
     initrd_offset = 0;
     if (loaderparams.initrd_filename) {
+#ifdef MIPSSIM_COMPAT
+        initrd_size = load_mips_hex(loaderparams.initrd_filename);
+        (void)initrd_offset;
+#else
         initrd_size = get_image_size (loaderparams.initrd_filename);
         if (initrd_size > 0) {
             initrd_offset = (kernel_high + ~INITRD_PAGE_MASK) & INITRD_PAGE_MASK;
@@ -853,6 +861,7 @@ static int64_t load_kernel (void)
                                               initrd_offset,
                                               ram_size - initrd_offset);
         }
+#endif
         if (initrd_size == (target_ulong) -1) {
             fprintf(stderr, "qemu: could not load initial ram disk '%s'\n",
                     loaderparams.initrd_filename);
@@ -1225,6 +1234,7 @@ void mips_malta_init(MachineState *machine)
                 bios_name = BIOS_FILENAME;
             }
             filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+#if defined(MIPSSIM_COMPAT)
             if (filename) {
                 bios_size = load_image_targphys(filename, FLASH_ADDRESS,
                                                 BIOS_SIZE);
@@ -1238,7 +1248,9 @@ void mips_malta_init(MachineState *machine)
                              "-kernel argument was specified", bios_name);
                 exit(1);
             }
+#endif
         }
+#if !defined(MIPSSIM_COMPAT)
         /* In little endian mode the 32bit words in the bios are swapped,
            a neat trick which allows bi-endian firmware. */
 #ifndef TARGET_WORDS_BIGENDIAN
@@ -1253,6 +1265,7 @@ void mips_malta_init(MachineState *machine)
                 addr++;
             }
         }
+#endif
 #endif
     }
 
@@ -1271,6 +1284,13 @@ void mips_malta_init(MachineState *machine)
     }
     memory_region_set_readonly(bios_copy, true);
     memory_region_add_subregion(system_memory, RESET_ADDRESS, bios_copy);
+
+#if defined(MIPSSIM_COMPAT)
+    if (!kernel_filename && bios_name) {
+        /* Use -bios to load test.hex for SV against IASim */
+        bios_size = load_mips_hex(bios_name);
+    }
+#endif
 
     /* Board ID = 0x420 (Malta Board with CoreLV) */
     stl_p(memory_region_get_ram_ptr(bios_copy) + 0x10, 0x00000420);

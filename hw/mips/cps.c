@@ -145,7 +145,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    memory_region_add_subregion(&s->container, 0,
+    memory_region_add_subregion(&s->container, GIC_BASE_ADDR,
                             sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->gic), 0));
 
     /* Global Configuration Registers */

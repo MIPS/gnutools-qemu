@@ -179,6 +179,8 @@ static void mips_gcr_init(Object *obj)
     memory_region_init_io(&s->iomem, OBJECT(s), &gcr_ops, s,
                           "mips-gcr", GCR_ADDRSPACE_SZ);
     sysbus_init_mmio(sbd, &s->iomem);
+
+    update_gic_base(s, GIC_BASE_ADDR);
 }
 
 static void mips_gcr_reset(DeviceState *dev)
@@ -186,7 +188,7 @@ static void mips_gcr_reset(DeviceState *dev)
     MIPSGCRState *s = MIPS_GCR(dev);
     int i;
 
-    update_gic_base(s, 0);
+    update_gic_base(s, GIC_BASE_ADDR);
     update_cpc_base(s, 0);
 
     for (i = 0; i < s->num_vps; i++) {

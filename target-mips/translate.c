@@ -21049,6 +21049,7 @@ void cpu_state_reset(CPUMIPSState *env)
     PRINT_CFG_VAL("MaxPageSizeInKB", 256*1024);
     PRINT_CFG_VAL("SEGBITS", env->SEGBITS);
     PRINT_CFG_VAL("PABITS", env->cpu_model->PABITS);
+    PRINT_CFG_VAL("CMP_NUM_CORES", 1);
     PRINT_CFG_VAL("C0CONFIG", env->CP0_Config0);
     PRINT_CFG_VAL("C0CONFIG1", env->CP0_Config1);
     PRINT_CFG_VAL("C0CONFIG2", env->CP0_Config2);

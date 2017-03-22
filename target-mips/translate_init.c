@@ -758,6 +758,7 @@ static const mips_def_t mips_defs[] =
         .CP0_Config5_rw_bitmask = (1 << CP0C5_MSAEn) | (1 << CP0C5_MI) |
                                   (1 << CP0C5_SBRI) | (1 << CP0C5_FRE) |
                                   (1 << CP0C5_UFE),
+        .CP0_Config7 = (1 << 31),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 64,
