@@ -143,7 +143,7 @@ static void mips_timer_cb (void *opaque)
     CPUMIPSState *env;
 
     env = opaque;
-#if 0 || defined(MIPSSIM_COMPAT)
+#if 0
     qemu_log("%s\n", __func__);
 #endif
 
