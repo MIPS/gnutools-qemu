@@ -20680,14 +20680,14 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
     CHK_CP0_REG_ULONG(CP0_WatchLo[7],            "WatchLo7  ");
 
     //19
-    CHK_CP0_REG(CP0_WatchHi[0],                  "WatchHi     ");
-    CHK_CP0_REG(CP0_WatchHi[1],                  "WatchHi1    ");
-    CHK_CP0_REG(CP0_WatchHi[2],                  "WatchHi2    ");
-    CHK_CP0_REG(CP0_WatchHi[3],                  "WatchHi3    ");
-    CHK_CP0_REG(CP0_WatchHi[4],                  "WatchHi4    ");
-    CHK_CP0_REG(CP0_WatchHi[5],                  "WatchHi5    ");
-    CHK_CP0_REG(CP0_WatchHi[6],                  "WatchHi6    ");
-    CHK_CP0_REG(CP0_WatchHi[7],                  "WatchHi7    ");
+    CHK_CP0_REG64(CP0_WatchHi[0],                "WatchHi     ");
+    CHK_CP0_REG64(CP0_WatchHi[1],                "WatchHi1    ");
+    CHK_CP0_REG64(CP0_WatchHi[2],                "WatchHi2    ");
+    CHK_CP0_REG64(CP0_WatchHi[3],                "WatchHi3    ");
+    CHK_CP0_REG64(CP0_WatchHi[4],                "WatchHi4    ");
+    CHK_CP0_REG64(CP0_WatchHi[5],                "WatchHi5    ");
+    CHK_CP0_REG64(CP0_WatchHi[6],                "WatchHi6    ");
+    CHK_CP0_REG64(CP0_WatchHi[7],                "WatchHi7    ");
 
     //20 for 64bit
     CHK_CP0_REG_ULONG(CP0_XContext,              "XContext    ");
