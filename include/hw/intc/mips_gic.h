@@ -12,6 +12,7 @@
 #define MIPS_GIC_H
 
 #include "hw/timer/mips_gictimer.h"
+#include "hw/timer/mips_gicwdtimer.h"
 #include "cpu.h"
 /*
  * GIC Specific definitions
@@ -190,6 +191,7 @@ struct MIPSGICVPState {
     uint32_t ctl;
     uint32_t pend;
     uint32_t mask;
+    uint32_t watchdog_map;
     uint32_t compare_map;
     uint32_t other_addr;
     CPUMIPSState *env;
@@ -208,6 +210,9 @@ struct MIPSGICState {
 
     /* GIC VP Timer */
     MIPSGICTimerState *gic_timer;
+
+    /* GIC WD Timer */
+    MIPSGICWDTimerState *gic_wdtimer;
 
     int32_t num_vps;
     int32_t num_irq;
