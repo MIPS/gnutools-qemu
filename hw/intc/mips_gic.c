@@ -95,12 +95,18 @@ static uint64_t gic_read_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         return gic->vps[vp_index].pend;
     case GIC_VP_MASK_OFS:
         return gic->vps[vp_index].mask;
+    case GIC_VP_WD_MAP_OFS:
+        return gic->vps[vp_index].watchdog_map;
     case GIC_VP_COMPARE_MAP_OFS:
         return gic->vps[vp_index].compare_map;
     case GIC_VP_OTHER_ADDR_OFS:
         return gic->vps[vp_index].other_addr;
     case GIC_VP_IDENT_OFS:
         return vp_index;
+    case GIC_VP_WD_CONFIG0_OFS:
+        return mips_gicwdtimer_get_config(gic->gic_wdtimer, vp_index);
+    case GIC_VP_WD_COUNT0_OFS:
+        return mips_gicwdtimer_get_vp_count(gic->gic_wdtimer, vp_index);
     case GIC_VP_COMPARE_LO_OFS:
         return mips_gictimer_get_vp_compare(gic->gic_timer, vp_index);
     case GIC_VP_COMPARE_HI_OFS:
@@ -218,6 +224,34 @@ static void gic_timer_store_vp_compare(MIPSGICState *gic, uint32_t vp_index,
     mips_gictimer_store_vp_compare(gic->gic_timer, vp_index, compare);
 }
 
+
+static void gic_wdtimer_expire_cb(void *opaque, uint32_t vp_index)
+{
+    MIPSGICState *gic = opaque;
+
+    gic->vps[vp_index].pend |= (1 << GIC_LOCAL_INT_WD);
+    if (gic->vps[vp_index].pend &
+            (gic->vps[vp_index].mask & GIC_VP_MASK_WD_MSK)) {
+        if (gic->vps[vp_index].watchdog_map & GIC_MAP_TO_PIN_MSK) {
+            /* it is safe to set the irq high regardless of other GIC IRQs */
+            uint32_t pin = (gic->vps[vp_index].watchdog_map & GIC_MAP_MSK);
+            qemu_irq_raise(gic->vps[vp_index].env->irq
+                           [pin + GIC_CPU_PIN_OFFSET]);
+        }
+    }
+}
+
+static void gic_wdtimer_store_config(MIPSGICState *gic, uint32_t vp_index,
+                                       uint64_t data)
+{
+    gic->vps[vp_index].pend &= ~(1 << GIC_LOCAL_INT_WD);
+    if (gic->vps[vp_index].watchdog_map & GIC_MAP_TO_PIN_MSK) {
+        uint32_t pin = (gic->vps[vp_index].watchdog_map & GIC_MAP_MSK);
+        mips_gic_set_vp_irq(gic, vp_index, pin);
+    }
+    mips_gicwdtimer_store_config(gic->gic_wdtimer, vp_index, data);
+}
+
 /* GIC Write VP Local/Other Registers */
 static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
                               uint64_t data, unsigned size)
@@ -233,6 +267,10 @@ static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
     case GIC_VP_SMASK_OFS:
         gic->vps[vp_index].mask |= data & GIC_VP_SET_RESET_MSK;
         break;
+    case GIC_VP_WD_MAP_OFS:
+        OFFSET_CHECK((data & GIC_MAP_MSK) <= GIC_CPU_INT_MAX);
+        gic->vps[vp_index].watchdog_map = data & GIC_MAP_TO_PIN_REG_MSK;
+        break;
     case GIC_VP_COMPARE_MAP_OFS:
         /* EIC isn't supported */
         OFFSET_CHECK((data & GIC_MAP_MSK) <= GIC_CPU_INT_MAX);
@@ -242,6 +280,14 @@ static void gic_write_vp(MIPSGICState *gic, uint32_t vp_index, hwaddr addr,
         OFFSET_CHECK(data < gic->num_vps);
         gic->vps[vp_index].other_addr = data;
         break;
+
+    case GIC_VP_WD_CONFIG0_OFS:
+        gic_wdtimer_store_config(gic, vp_index, data);
+        break;
+    case GIC_VP_WD_INITIAL0_OFS:
+        mips_gicwdtimer_store_vp_startcount(gic->gic_wdtimer, vp_index, data);
+        break;
+
     case GIC_VP_COMPARE_LO_OFS:
         gic_timer_store_vp_compare(gic, vp_index, data);
         break;
@@ -430,6 +476,7 @@ static void mips_gic_realize(DeviceState *dev, Error **errp)
         }
     }
     s->gic_timer = mips_gictimer_init(s, s->num_vps, gic_timer_expire_cb);
+    s->gic_wdtimer = mips_gicwdtimer_init(s, s->num_vps, gic_wdtimer_expire_cb);
     qdev_init_gpio_in(dev, gic_set_irq, s->num_irq);
     for (i = 0; i < s->num_irq; i++) {
         s->irq_state[i].irq = qdev_get_gpio_in(dev, i);
