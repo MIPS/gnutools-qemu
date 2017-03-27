@@ -428,6 +428,7 @@ enum {
     OPC_DEXTR_W_DSP    = 0x3C | OPC_SPECIAL3,
 
     /* R6 */
+    OPC_CRC            = 0x0F | OPC_SPECIAL3,
     R6_OPC_PREF        = 0x35 | OPC_SPECIAL3,
     R6_OPC_CACHE       = 0x25 | OPC_SPECIAL3,
     R6_OPC_LL          = 0x36 | OPC_SPECIAL3,
@@ -1442,6 +1443,7 @@ typedef struct DisasContext {
     bool saar;
     int gi;
     bool mi;
+    bool crcp;
 } DisasContext;
 
 enum {
@@ -17605,6 +17607,31 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
+static void gen_crc(DisasContext *ctx, int rd, int rs, int rt, int sz,
+                    int castagnoli)
+{
+    TCGv t0;
+    TCGv t1;
+    TCGv_i32 tsz = tcg_const_i32(sz);
+    TCGv_i32 tca = tcg_const_i32(castagnoli);
+    if (rd == 0) {
+        /* Treat as NOP. */
+        return;
+    }
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    gen_load_gpr(t0, rt);
+    gen_load_gpr(t1, rs);
+
+    gen_helper_crc(cpu_gpr[rd], t0, t1, tsz, tca);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    tcg_temp_free_i32(tsz);
+    tcg_temp_free_i32(tca);
+}
+
 static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd, sa;
@@ -17619,6 +17646,16 @@ static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
 
     op1 = MASK_SPECIAL3(ctx->opcode);
     switch (op1) {
+    case OPC_CRC:
+        if (unlikely(!ctx->crcp) ||
+            ((((ctx->opcode >> 6) & 3) == 3) &&
+                unlikely(!(ctx->hflags & MIPS_HFLAG_64)))) {
+            generate_exception_end(ctx, EXCP_RI);
+        }
+        gen_crc(ctx, rt, rs, rt,
+                extract32(ctx->opcode, 6, 2),
+                extract32(ctx->opcode, 8, 3));
+        break;
     case R6_OPC_PREF:
         if (rt >= 24) {
             /* hint codes 24-31 are reserved and signal RI */
@@ -20151,6 +20188,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
     ctx.saar = (bool) env->saarp;
     ctx.gi = (env->CP0_Config5 >> CP0C5_GI) & 3;
     ctx.mi = (env->CP0_Config5 >> CP0C5_MI) & 1;
+    ctx.crcp = (env->CP0_Config5 >> CP0C5_CRCP) & 1;
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
