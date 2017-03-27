@@ -750,9 +750,9 @@ static const mips_def_t mips_defs[] =
                        (1 << CP0C3_RXI) | (1 << CP0C3_LPA) | (1 << CP0C3_VInt),
         .CP0_Config4 = MIPS_CONFIG4 | (1U << CP0C4_M) | (3 << CP0C4_IE) |
                        (1 << CP0C4_AE) | (0xfc << CP0C4_KScrExist),
-        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_ULS) | (3 << CP0C5_GI) |
-                       (0 << CP0C5_XNP) | (1 << CP0C5_VP) | (1 << CP0C5_MVH) |
-                       (1 << CP0C5_LLB) | (1 << CP0C5_MRP),
+        .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_ULS) | (1 << CP0C5_CRCP) |
+                       (3 << CP0C5_GI) | (0 << CP0C5_XNP) | (1 << CP0C5_VP) |
+                       (1 << CP0C5_MVH) | (1 << CP0C5_LLB) | (1 << CP0C5_MRP),
         .CP0_Config5_rw_bitmask = (1 << CP0C5_MSAEn) | (1 << CP0C5_MI) |
                                   (1 << CP0C5_SBRI) | (1 << CP0C5_FRE) |
                                   (1 << CP0C5_UFE),

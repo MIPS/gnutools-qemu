@@ -265,6 +265,29 @@ target_ulong helper_bitswap(target_ulong rt)
     return (int32_t)bitswap(rt);
 }
 
+static inline target_ulong crc32(target_ulong v, target_ulong m,
+                                 uint32_t sz, uint32_t poly)
+{
+    int i;
+    target_ulong mask = ((sz * 8) == 64) ? -1ULL : ((1ULL << (sz * 8)) - 1);
+    v = (v & 0xffffffff) ^ (mask & m);
+    for (i = 0; i < sz * 8; i++) {
+        if (v & 1) {
+            v = (v >> 1) ^ poly;
+        } else {
+            v = (v >> 1);
+        }
+    }
+    return v;
+}
+
+target_ulong helper_crc(target_ulong rt, target_ulong rs, uint32_t sz,
+                        uint32_t castagnoli)
+{
+    return (int32_t) crc32(rt, rs, 1 << sz,
+                           castagnoli ? 0x82F63B78 : 0xEDB88320);
+}
+
 #ifndef CONFIG_USER_ONLY
 
 static inline hwaddr do_translate_address(CPUMIPSState *env,
