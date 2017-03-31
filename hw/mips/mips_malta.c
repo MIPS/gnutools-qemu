@@ -1292,8 +1292,10 @@ void mips_malta_init(MachineState *machine)
     }
 #endif
 
+#if !defined(MIPSSIM_COMPAT)
     /* Board ID = 0x420 (Malta Board with CoreLV) */
     stl_p(memory_region_get_ram_ptr(bios_copy) + 0x10, 0x00000420);
+#endif
 
     /*
      * We have a circular dependency problem: pci_bus depends on isa_irq,
