@@ -20609,6 +20609,7 @@ void mips_cpu_trace_state(CPUMIPSState *env, FILE *f, fprintf_function cpu_fprin
 
     //4
     CHK_CP0_REG_ULONG(CP0_Context,               "Context     ");
+    CHK_CP0_REG_ULONG(CP0_MemoryMapID,           "MemoryMapID ");
 
     //5
     CHK_CP0_REG(CP0_PageMask,                    "PageMask    ");

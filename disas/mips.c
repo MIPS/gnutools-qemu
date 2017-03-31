@@ -3814,6 +3814,7 @@ static const struct mips_cp0sel_name mips_cp0sel_names_iasim[] =
   {  4, 1, "ContextConfig" },
   {  4, 2, "UserLocal"     },
   {  4, 3, "XContextConfig"},
+  {  4, 5, "MemoryMapID"   },
   {  5, 1, "PageGrain"     },
   {  5, 2, "SegCtl0"       },
   {  5, 3, "SegCtl1"       },
