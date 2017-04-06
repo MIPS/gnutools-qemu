@@ -8797,10 +8797,18 @@ static void gen_cp1 (DisasContext *ctx, uint32_t opc, int rt, int fs)
         }
         break;
     case OPC_CFC1:
+        if (fs == 25 && (ctx->insn_flags & ISA_MIPS32R6)) {
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
         gen_helper_1e0i(cfc1, t0, fs);
         gen_store_gpr(t0, rt);
         break;
     case OPC_CTC1:
+        if (fs == 25 && (ctx->insn_flags & ISA_MIPS32R6)) {
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
         gen_load_gpr(t0, rt);
         save_cpu_state(ctx, 0);
         {
