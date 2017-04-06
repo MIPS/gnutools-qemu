@@ -758,7 +758,7 @@ static const mips_def_t mips_defs[] =
                                   (1 << CP0C5_UFE),
         .CP0_LLAddr_rw_bitmask = 0,
         .CP0_LLAddr_shift = 0,
-        .SYNCI_Step = 32,
+        .SYNCI_Step = 64,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x30D8FFFF,
         .CP0_PageGrain = (1 << CP0PG_IEC) | (1 << CP0PG_XIE) |
