@@ -1439,6 +1439,7 @@ typedef struct DisasContext {
     bool abs2008;
     bool nan2008;
     bool xnp;
+    bool has_isa_mode;
     bool umips_x7_dec;
 } DisasContext;
 
@@ -4569,7 +4570,7 @@ static void gen_compute_branch (DisasContext *ctx, uint32_t opc,
 
     if (blink > 0) {
         int post_delay = insn_bytes + delayslot_size;
-        int lowbit = !!(ctx->hflags & MIPS_HFLAG_M16);
+        int lowbit = ctx->has_isa_mode && !!(ctx->hflags & MIPS_HFLAG_M16);
 
         tcg_gen_movi_tl(cpu_gpr[blink], ctx->pc + post_delay + lowbit);
     }
@@ -10801,7 +10802,7 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
             break;
         case MIPS_HFLAG_BR:
             /* unconditional branch to register */
-            if (ctx->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS)) {
+            if (ctx->has_isa_mode && (ctx->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS))) {
                 TCGv t0 = tcg_temp_new();
                 TCGv_i32 t1 = tcg_temp_new_i32();
 
@@ -10813,6 +10814,9 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
                 tcg_gen_or_i32(hflags, hflags, t1);
                 tcg_temp_free_i32(t1);
 
+                tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
+	    } else if (!ctx->has_isa_mode) {
+	        /* TEMPORARY: avoids transitional ISA mode issues */
                 tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
             } else {
                 tcg_gen_mov_tl(cpu_PC, btarget);
@@ -10837,7 +10841,7 @@ static void gen_compute_compact_branch(DisasContext *ctx, uint32_t opc,
     int bcond_compute = 0;
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
-    int m16_lowbit = (ctx->hflags & MIPS_HFLAG_M16) != 0;
+    int m16_lowbit = ctx->has_isa_mode && ((ctx->hflags & MIPS_HFLAG_M16) != 0);
 
     if (ctx->hflags & MIPS_HFLAG_BMASK) {
 #ifdef MIPS_DEBUG_DISAS
@@ -12780,68 +12784,58 @@ enum {
 /* Major opcode */
 enum {
     P_ADDIU     = 0x00,
-    MOVE_BALC   = 0x02,
-    P16_MOVE    = 0x04,
-    P16_LB      = 0x05,
-    R7_BC16       = 0x06,
+    R7_ADDIUPC  = 0x01,
+    R7_MOVE_BALC = 0x02,
+    P16_MV      = 0x04,
+    R7_LW16     = 0x05,
+    R7_BC16     = 0x06,
     P16_SR      = 0x07,
 
     R7_POOL32A  = 0x08,
     P_BAL       = 0x0a,
     P16_SHIFT   = 0x0c,
-    P16_LH      = 0x0d,
-    BALC16     = 0x0e,
+    R7_LWSP16   = 0x0d,
+    R7_BALC16   = 0x0e,
+    P16_4X4     = 0x0f,
 
-    P_GPREL     = 0x10,
-    P_LS_GP     = 0x11,
+    P_GP_W      = 0x10,
+    P_GP_BH     = 0x11,
     P_J         = 0x12,
     R7_POOL16C  = 0x14,
-    LWSP        = 0x15,
+    R7_LWGP16   = 0x15,
+    P16_LB      = 0x17,
 
     POOL48I     = 0x18,
-    P16_ADDIU1  = 0x1c,
-    R7_LW16       = 0x1d,
+    P16_A1      = 0x1c,
+    R7_LW4X4    = 0x1d,
+    P16_LH      = 0x1f,
 
     P_U12       = 0x20,
     P_LS_U12    = 0x21,
     P_BR1       = 0x22,
-    P16_ADDIU2  = 0x24,
-    LW4X4       = 0x25,
-    R7_BEQZC16    = 0x26,
-    SW4X4       = 0x27,
+    P16_A2      = 0x24,
+    R7_SW16     = 0x25,
+    R7_BEQZC16  = 0x26,
 
     R7_POOL32F  = 0x28,
     P_LS_S9     = 0x29,
     P_BR2       = 0x2a,
+
     P16_ADDU    = 0x2c,
-    R7_LWGP16   = 0x2d,
+    R7_SWSP16   = 0x2d,
     R7_BNEZC16  = 0x2e,
     R7_MOVEP    = 0x2f,
 
     R7_POOL32S  = 0x30,
     P_BRI       = 0x32,
-    R7_LI16       = 0x34,
-    SWSP        = 0x35,
+    R7_LI16     = 0x34,
+    R7_SWGP16   = 0x35,
     P16_BR      = 0x36,
 
     P_LUI       = 0x38,
-    P_BZ        = 0x3a,
     R7_ANDI16   = 0x3c,
-    R7_SW16     = 0x3d,
-    MOVEPREV    = 0x3f
-};
-
-/* P16.LB instruction pool */
-enum {
-    LB16       = 0x00,
-    R7_SB16       = 0x01,
-    R7_LBU16      = 0x02
-};
-
-/* P16.SR instruction pool */
-enum {
-    P16_SR_W    = 0x00,
-    P16_SR_D    = 0x01
+    R7_SW4X4    = 0x3d,
+    R7_MOVEPREV = 0x3f
 };
 
 /* POOL32A instruction pool */
@@ -12854,114 +12848,107 @@ enum {
     POOL32A7    = 0x07
 };
 
+/* P.GP.W instruction pool */
+enum {
+    R7_ADDIUGP_W = 0x00,
+    R7_LWGP      = 0x02,
+    R7_SWGP      = 0x03
+};
+
+/* POOL48I instruction pool */
+enum {
+    R7_LI48        = 0x00,
+    R7_ADDIU48     = 0x01,
+    R7_ADDIUGP48   = 0x02,
+    R7_ADDIUPC48   = 0x03,
+    R7_LWPC48      = 0x0a,
+    R7_SWPC48      = 0x0f,
+};
+
+/* P.U12 instruction pool */
+enum {
+    R7_ORI      = 0x00,
+    R7_XORI     = 0x01,
+    R7_ANDI     = 0x02,
+    P_SR        = 0x03,
+    R7_SLTI     = 0x04,
+    R7_SLTIU    = 0x05,
+    R7_SEQI     = 0x06,
+    R7_ADDIUNEG = 0x08,
+    P_SHIFT     = 0x0c,
+    P_ROTX      = 0x0d,
+    P_INS       = 0x0e,
+    P_EXT       = 0x0f
+};
+
+/* POOL32F instruction pool */
+enum {
+    POOL32F_0   = 0x00,
+    POOL32F_3   = 0x03,
+    POOL32F_5   = 0x05
+};
+
+/* POOL32S instruction pool */
+enum {
+    POOL32S_0   = 0x00,
+    POOL32S_4   = 0x04
+};
+
+/* P.LUI instruction pool */
+enum {
+    R7_LUI      = 0x00,
+    R7_ALUIPC   = 0x01
+};
+
+/* P.GP.BH instruction pool */
+enum {
+    R7_LBGP      = 0x00,
+    R7_SBGP      = 0x01,
+    R7_LBUGP     = 0x02,
+    R7_ADDIUGP_B = 0x03,
+    P_GP_LH      = 0x04,
+    P_GP_SH      = 0x05,
+    P_GP_CP1     = 0x06,
+};
+
+/* P.LS.U12 instruction pool */
+enum {
+    R7_LB        = 0x00,
+    R7_SB        = 0x01,
+    R7_LBU       = 0x02,
+    R7_PREF	 = 0x03,
+    R7_LH        = 0x04,
+    R7_SH        = 0x05,
+    R7_LHU       = 0x06,
+    R7_LWU       = 0x07,
+    R7_LW        = 0x08,
+    R7_SW        = 0x09,
+    R7_LWC1      = 0x0a,
+    R7_SWC1      = 0x0b,
+    R7_LDC1      = 0x0e,
+    R7_SDC1      = 0x0f
+};
+
+/* P.LS.S9 instruction pool */
+enum {
+    P_LS_S0         = 0x00,
+    P_LS_S1         = 0x01,
+    P_LS_E0         = 0x02,
+    P_LS_WM         = 0x04,
+    P_LS_UAWM       = 0x05
+};
+
 /* P.BAL instruction pool */
 enum {
     R7_BC       = 0x00,
     R7_BALC     = 0x01
 };
 
-/* P16.SHIFT instruction pool */
-enum {
-    R7_SLL16      = 0x00,
-    R7_SRL16      = 0x01
-};
-
-/* P16.LH  instruction pool */
-enum {
-    LH16       = 0x00,
-    R7_SH16       = 0x01,
-    R7_LHU16      = 0x02
-};
-
-/* P.GPREL instruction pool */
-enum {
-    ADDIUGP     = 0x00,
-    P_GPREL_D   = 0x01,
-    LWGP        = 0x02,
-    SWGP        = 0x03
-};
-
-/* P.LS.GPL instruction pool */
-enum {
-    LBGP       = 0x00,
-    SBGP       = 0x01,
-    LBUGP      = 0x02,
-    P_LS_GP_CP1 = 0x03,
-    LHGP       = 0x04,
-    SHGP       = 0x05,
-    LHUGP      = 0x06,
-    P_LS_GP_M64 = 0x07
-};
-
 /* P.J instruction pool */
 enum {
     R7_JALRC    = 0x00,
     R7_JALRC_HB = 0x01,
-    P_BREG      = 0x08
-};
-
-/* P.BREG instruction pool */
-enum {
-    P_BALRC     = 0x00,
-    P_BALRSC    = 0x01
-};
-
-/* POOL16C instruction pool */
-enum {
-    POOL16C_0   = 0x00,
-    LWXS16     = 0x01
-};
-
-/* POOL48I instruction pool */
-enum {
-    LI48        = 0x00,
-    ADDIU48     = 0x01,
-    ADDIUGP48   = 0x02,
-    DADDIU48    = 0x11,
-    DADDIUGP48  = 0x12,
-    DLUI48      = 0x14
-};
-
-/* P16.ADDIU1 instruction pool */
-enum {
-    R7_ADDIUR1SP = 0x01
-};
-
-/* P.U12 instruction pool */
-enum {
-    ORI         = 0x00,
-    XORI        = 0x01,
-    ANDI        = 0x02,
-    P_SR        = 0x03,
-    SLTI        = 0x04,
-    SLTIU       = 0x05,
-    SEQI        = 0x06,
-    P_SR_F      = 0x07,
-    DAHI        = 0x08,
-    DATI        = 0x09,
-    P_SR_D      = 0x0b,
-    P_SHIFT     = 0x0c,
-    P_INS       = 0x0e,
-    P_EXT       = 0x0f
-};
-
-/* P.LS.U12 instruction pool */
-enum {
-    LB          = 0x00,
-    SB          = 0x01,
-    LBU         = 0x02,
-    LH          = 0x04,
-    SH          = 0x05,
-    LHU         = 0x06,
-    R7_LWU      = 0x07,
-    LW          = 0x08,
-    SW          = 0x09,
-    LWC1        = 0x0a,
-    SWC1        = 0x0b,
-    LD          = 0x0c,
-    SD          = 0x0d,
-    LDC1        = 0x0e,
-    SDC1        = 0x0f
+    P_BALRSC    = 0x08
 };
 
 /* P.BR1 instruction pool */
@@ -12972,33 +12959,46 @@ enum {
     R7_BGEUC    = 0x03
 };
 
-/* P16.ADDIU2 instruction pool */
-enum {
-    R7_ADDIUR2  = 0x00,
-    P_ADDIURS5  = 0x01
-};
-
-/* POOL32F instruction pool */
-enum {
-    POOL32F_0   = 0x00,
-    POOL32F_3   = 0x03,
-    POOL32F_5   = 0x05
-};
-
-/* P.LS.S9, P.LS.S and P.LS.E instruction pool */
-enum {
-    P_LS_S0         = 0x00,
-    P_LS_S1         = 0x01,
-    P_LS_E0         = 0x04,
-    P_LS_E1         = 0x05
-};
-
-
 /* P.BR2 instruction pool */
 enum {
     R7_BNEC     = 0x00,
     R7_BLTC     = 0x02,
     R7_BLTUC    = 0x03
+};
+
+/* P.BRI instruction pool */
+enum {
+    R7_BEQIC    = 0x00,
+    R7_BBEQZC   = 0x01,
+    R7_BGEIC    = 0x02,
+    R7_BGEIUC   = 0x03,
+    R7_BNEIC    = 0x04,
+    R7_BBNEZC   = 0x05,
+    R7_BLTIC    = 0x06,
+    R7_BLTIUC   = 0x07
+};
+
+/* P16.SHIFT instruction pool */
+enum {
+    R7_SLL16    = 0x00,
+    R7_SRL16    = 0x01
+};
+
+/* POOL16C instruction pool */
+enum {
+    POOL16C_0   = 0x00,
+    LWXS16     = 0x01
+};
+
+/* P16.A1 instruction pool */
+enum {
+    R7_ADDIUR1SP = 0x01
+};
+
+/* P16.A2 instruction pool */
+enum {
+    R7_ADDIUR2  = 0x00,
+    P_ADDIURS5  = 0x01
 };
 
 /* P16.ADDU instruction pool */
@@ -13007,112 +13007,370 @@ enum {
     R7_SUBU16     = 0x01
 };
 
-/* POOL32S instruction pool */
+/* P16.SR instruction pool */
 enum {
-    POOL32S_0   = 0x00,
-    POOL32S_4   = 0x04
+    R7_SAVE16        = 0x00,
+    R7_RESTORE_JRC16 = 0x01
 };
 
-/* P.BRI instruction pool */
+/* P16.4X4 instruction pool */
 enum {
-    BEQIC       = 0x00,
-    BGEIC       = 0x02,
-    BGEIUC      = 0x03,
-    BNEIC       = 0x04,
-    BLTIC       = 0x06,
-    BLTIUC      = 0x07
+    R7_ADDU4X4	    = 0x00,
+    R7_MUL4X4       = 0x01
 };
 
-/* P.LUI instruction pool */
+/* P16.LB instruction pool */
 enum {
-    LU20I       = 0x00,
-    P_AUIPC     = 0x01
+    R7_LB16       = 0x00,
+    R7_SB16       = 0x01,
+    R7_LBU16      = 0x02
 };
 
-/* P.BZ instruction pool */
+/* P16.LH  instruction pool */
 enum {
-    R7_BEQZC    = 0x00,
-    R7_BNEZC    = 0x01
+    R7_LH16     = 0x00,
+    R7_SH16     = 0x01,
+    R7_LHU16    = 0x02
 };
 
-/* P.RI instruction pool L shifted by 1*/
+/* P.RI instruction pool */
 enum {
     R7_SIGRIE   = 0x00,
-    P_SYSCALL   = 0x02,
-    R7_SYSCALL  = 0x02,
-    HYPCALL     = 0x03,
-    BREAK       = 0x04,
-    R7_SDBBP    = 0x06
-};
-
-/* PP.ADDIU instruction pool */
-enum {
-    ADDIU       = 0x00,
-    DADDIU      = 0x01
-};
-
-/* P16.RI instruction pool */
-enum {
-    P16_SYSCALL = 0x01,
-    R7_BREAK16    = 0x02,
-    R7_SDBBP16    = 0x03
-};
-
-/* P16.SR.W instruction pool */
-enum {
-    SAVE16     = 0x00,
-    P_RESTORE16 = 0x01
-};
-
-/* P16.SR.D instruction pool */
-enum {
-    DSAVE16    = 0x00,
-    DRESTORE16 = 0x01
+    P_SYSCALL   = 0x01,
+    R7_BREAK    = 0x02,
+    R7_SDBBP    = 0x03
 };
 
 /* POOL32A0 instruction pool */
 enum {
+    P_TRAP      = 0x00,
+    R7_SEB      = 0x01,
     R7_SLLV     = 0x02,
     R7_MUL      = 0x03,
     R7_MFC0     = 0x06,
-    MFHC0       = 0x07,
+    R7_MFHC0    = 0x07,
+    R7_SEH      = 0x09,
     R7_SRLV     = 0x0a,
     R7_MUH      = 0x0b,
     R7_MTC0     = 0x0e,
-    MTHC0       = 0x0f,
+    R7_MTHC0    = 0x0f,
     R7_SRAV     = 0x12,
     R7_MULU     = 0x13,
-    MFGC0       = 0x16,
-    MFHGC0      = 0x17,
+    R7_MFGC0    = 0x16,
+    R7_MFHGC0   = 0x17,
     R7_ROTRV    = 0x1a,
     R7_MUHU     = 0x1b,
-    MTGC0       = 0x1e,
-    MTHGC0      = 0x1f,
+    R7_MTGC0    = 0x1e,
+    R7_MTHGC0   = 0x1f,
     R7_ADD      = 0x22,
     R7_DIV      = 0x23,
-    DMFC0       = 0x26,
-    ADDU        = 0x2a,
+    R7_ADDU     = 0x2a,
     R7_MOD      = 0x2b,
-    DMTC0       = 0x2e,
     R7_SUB      = 0x32,
     R7_DIVU     = 0x33,
-    DMFGC0      = 0x36,
     R7_RDHWR    = 0x38,
-    SUBU        = 0x3a,
+    R7_SUBU     = 0x3a,
     R7_MODU     = 0x3b,
-    DMTGC0      = 0x3e,
     P_CMOVE     = 0x42,
+    R7_FORK     = 0x45,
+    R7_MFTR     = 0x46,
+    R7_MFHTR    = 0x47,
     R7_AND      = 0x4a,
-    OR          = 0x52,
+    R7_YIELD    = 0x4d,
+    R7_MTTR     = 0x4e,
+    R7_MTHTR    = 0x4f,
+    R7_OR       = 0x52,
     R7_NOR      = 0x5a,
-    XOR         = 0x62,
-    P_MT_VPE    = 0x67,
+    R7_XOR      = 0x62,
     R7_SLT      = 0x6a,
-    P_MFTR_MTTR = 0x6f,
     P_SLTU      = 0x72,
-    FORK        = 0x77,
-    SOV         = 0x7a,
-    YIELD       = 0x7f
+    R7_SOV      = 0x7a,
+};
+
+/* POOL32A7 instruction pool */
+enum {
+    P_LSX           = 0x00,
+    R7_LSA          = 0x01,
+    R7_EXTW         = 0x03,
+    R7_POOL32AXF    = 0x07
+};
+
+/* P.SR instruction pool */
+enum {
+    PP_SR           = 0x00,
+    P_SR_F          = 0x01
+};
+
+/* P.SHIFT instruction pool */
+enum {
+    P_SLL           = 0x00,
+    R7_SRL          = 0x02,
+    R7_SRA          = 0x04,
+    R7_ROTR         = 0x06,
+};
+
+/* P.ROTX instruction pool */
+enum {
+    R7_ROTX         = 0x00
+};
+
+/* P.INS instruction pool */
+enum {
+    R7_INS          = 0x00
+};
+
+/* P.EXT instruction pool */
+enum {
+    R7_EXT          = 0x00
+};
+
+/* POOL32F_0 (fmt) instruction pool */
+enum {
+    RINT_S              = 0x04,
+    RINT_D              = 0x44,
+    ADD_S               = 0x06,
+    SELEQZ_S            = 0x07,
+    SELEQZ_D            = 0x47,
+    CLASS_S             = 0x0c,
+    CLASS_D             = 0x4c,
+    SUB_S               = 0x0e,
+    SELNEZ_S            = 0x0f,
+    SELNEZ_D            = 0x4f,
+    MUL_S               = 0x16,
+    SEL_S               = 0x17,
+    SEL_D               = 0x57,
+    DIV_S               = 0x1e,
+    ADD_D               = 0x26,
+    SUB_D               = 0x2e,
+    MUL_D               = 0x36,
+    MADDF_S             = 0x37,
+    MADDF_D             = 0x77,
+    DIV_D               = 0x3e,
+    MSUBF_S             = 0x3f,
+    MSUBF_D             = 0x7f
+};
+
+/* POOL32F_3  instruction pool */
+enum {
+    R7_MIN_FMT         = 0x00,
+    R7_MAX_FMT         = 0x01,
+    R7_MINA_FMT        = 0x04,
+    R7_MAXA_FMT        = 0x05,
+    R7_POOL32FXF       = 0x07
+};
+
+/* POOL32F_5  instruction pool */
+enum {
+    R7_CMP_CONDN_S     = 0x00,
+    R7_CMP_CONDN_D     = 0x02
+};
+
+/* P.GP.LH instruction pool */
+enum {
+    R7_LHGP    = 0x00,
+    R7_LHUGP   = 0x01
+};
+
+/* P.GP.SH instruction pool */
+enum {
+    R7_SHGP    = 0x00
+};
+
+/* P.GP.CP1 instruction pool */
+enum {
+    R7_LWC1GP       = 0x00,
+    R7_SWC1GP       = 0x01,
+    R7_LDC1GP       = 0x02,
+    R7_SDC1GP       = 0x03
+};
+
+/* P.LS.S0 instruction pool */
+enum {
+    R7_LBS9     = 0x00,
+    R7_LHS9     = 0x04,
+    R7_LWS9     = 0x08,
+    R7_LDS9     = 0x0c,
+
+    R7_SBS9     = 0x01,
+    R7_SHS9     = 0x05,
+    R7_SWS9     = 0x09,
+    R7_SDS9     = 0x0d,
+
+    R7_LBUS9    = 0x02,
+    R7_LHUS9    = 0x06,
+    R7_LWC1S9   = 0x0a,
+    R7_LDC1S9   = 0x0e,
+
+    P_PREF      = 0x03,
+    R7_LWUS9    = 0x07,
+    R7_SWC1S9   = 0x0b,
+    R7_SDC1S9   = 0x0f
+};
+
+/* P.LS.S1 instruction pool */
+enum {
+    R7_ASET_ACLR = 0x02,
+    R7_UALH      = 0x04,
+    R7_UASH      = 0x05,
+    R7_CACHE     = 0x07,
+    P_LL         = 0x0c,
+    P_SC         = 0x0b,
+};
+
+/* P.LS.WM instruction pool */
+enum {
+    R7_LWM       = 0x00,
+    R7_SWM       = 0x01
+};
+
+/* P.LS.UAWM instruction pool */
+enum {
+    R7_UALWM       = 0x00,
+    R7_UASWM       = 0x01
+};
+
+/* P.BR3A instruction pool */
+enum {
+    R7_BC1EQZC          = 0x00,
+    R7_BC1NEZC          = 0x01,
+    R7_BC2EQZC          = 0x02,
+    R7_BC2NEZC          = 0x03,
+    BPOSGE32C           = 0x04
+};
+
+/* P16.RI instruction pool */
+enum {
+    P16_SYSCALL   = 0x01,
+    R7_BREAK16    = 0x02,
+    R7_SDBBP16    = 0x03
+};
+
+/* POOL16C_0 instruction pool */
+enum {
+    POOL16C_00      = 0x00
+};
+
+/* P16.JRC instruction pool */
+enum {
+    R7_JRC          = 0x00,
+    R7_JALRC16      = 0x01
+};
+
+/* P.SYSCALL instruction pool */
+enum {
+    R7_SYSCALL      = 0x00,
+    R7_HYPCALL      = 0x01
+};
+
+/* P.TRAP instruction pool */
+enum {
+    R7_TEQ          = 0x00,
+    R7_TNE          = 0x01
+};
+
+/* P.CMOVE instruction pool */
+enum {
+    R7_MOVZ            = 0x00,
+    R7_MOVN            = 0x01
+};
+
+/* POOL32Axf instruction pool */
+enum {
+    POOL32AXF_4 = 0x04,
+    POOL32AXF_5 = 0x05
+};
+
+/* PP.SR instruction pool */
+enum {
+    R7_SAVE         = 0x00,
+    R7_RESTORE      = 0x02,
+    R7_RESTORE_JRC  = 0x03
+};
+
+/* P.SR.F instruction pool */
+enum {
+    R7_SAVEF        = 0x00,
+    R7_RESTOREF     = 0x01,
+};
+
+/* P16.SYSCALL  instruction pool */
+enum {
+    R7_SYSCALL16     = 0x00,
+    R7_HYPCALL16     = 0x01
+};
+
+/* POOL16C_00 instruction pool */
+enum {
+    R7_NOT16           = 0x00,
+    R7_XOR16           = 0x01,
+    R7_AND16           = 0x02,
+    R7_OR16            = 0x03
+};
+
+/* PP.LSX and PP.LSXS instruction pool */
+enum {
+    R7_LBX      = 0x00,
+    R7_LHX      = 0x04,
+    R7_LWX      = 0x08,
+    R7_LDX      = 0x0c,
+
+    R7_SBX      = 0x01,
+    R7_SHX      = 0x05,
+    R7_SWX      = 0x09,
+    R7_SDX      = 0x0d,
+
+    R7_LBUX     = 0x02,
+    R7_LHUX     = 0x06,
+    R7_LWC1X    = 0x0a,
+    R7_LDC1X    = 0x0e,
+
+    R7_LWUX     = 0x07,
+    R7_SWC1X    = 0x0b,
+    R7_SDC1X    = 0x0f,
+
+    R7_LHXS     = 0x04,
+    R7_LWXS     = 0x08,
+    R7_LDXS     = 0x0c,
+
+    R7_SHXS     = 0x05,
+    R7_SWXS     = 0x09,
+    R7_SDXS     = 0x0d,
+
+    R7_LHUXS    = 0x06,
+    R7_LWC1XS   = 0x0a,
+    R7_LDC1XS   = 0x0e,
+
+    R7_LWUXS    = 0x07,
+    R7_SWC1XS   = 0x0b,
+    R7_SDC1XS   = 0x0f
+};
+
+/* POOL32Axf_{4, 5} instruction pool */
+enum {
+    R7_BITSWAP  = 0x05,
+    R7_CLO      = 0x25,
+    R7_CLZ      = 0x2d,
+    R7_WSBH     = 0x3d,
+
+    R7_TLBP     = 0x01,
+    R7_TLBR     = 0x09,
+    R7_TLBWI    = 0x11,
+    R7_TLBWR    = 0x19,
+    R7_TLBINV   = 0x03,
+    R7_TLBINVF  = 0x0b,
+    R7_DI       = 0x23,
+    R7_EI       = 0x2b,
+    R7_RDPGPR   = 0x70,
+    R7_WRPGPR   = 0x78,
+    R7_WAIT     = 0x61,
+    R7_DERET    = 0x71,
+    R7_ERETX    = 0x79
+};
+
+/* ERETx instruction pool */
+enum {
+    R7_ERET     = 0x00,
+    R7_ERETNC   = 0x01
 };
 
 /* POOL32A5 instruction pool */
@@ -13189,236 +13447,6 @@ enum {
     REPL_PH         = 0x07
 };
 
-/* POOL32A7 instruction pool */
-enum {
-    P_LSX           = 0x00,
-    R7_LSA          = 0x01,
-    R7_ALIGN        = 0x03,
-    R7_POOL32AXF    = 0x07
-};
-
-/* P.GPREL.D instruction pool */
-enum {
-    LD_GP           = 0x00,
-    SD_GP           = 0x01
-};
-
-/* P.LS.GP.CP1 instruction pool */
-enum {
-    LWC1_GP         = 0x00,
-    SWC1_GP         = 0x01,
-    LDC1_GP         = 0x02,
-    SDC1_GP         = 0x03
-};
-
-/* P.LS.GP.M64 instruction pool */
-enum {
-    LWU_GP          = 0x00
-};
-
-/* POOL16C_0 instruction pool */
-enum {
-    POOL16C_00      = 0x00
-};
-
-/* P.SR instruction pool */
-enum {
-    SAVE            = 0x00,
-    P_RESTORE       = 0x01
-};
-
-/* P.SR.F instruction pool */
-enum {
-    SAVEF           = 0x00,
-    RESTOREF        = 0x01
-};
-
-/* P.SR.D instruction pool */
-enum {
-    DSAVE           = 0x00,
-    DRESTORE        = 0x01
-};
-
-/* P.SHIFT instruction pool */
-enum {
-    P_SLL           = 0x00,
-    SRL             = 0x02,
-    R7_SRA          = 0x04,
-    R7_ROTR         = 0x06,
-    DSLL            = 0x08,
-    DSLL32          = 0x09,
-    DSRL            = 0x0a,
-    DSRL32          = 0x0b,
-    DSRA            = 0x0c,
-    DSRA32          = 0x0d,
-    DROTR           = 0x0e,
-    DROTR32         = 0x0f
-};
-
-/* P.INS instruction pool */
-enum {
-    R7_INS             = 0x00,
-    DINSU           = 0x01,
-    DINSM           = 0x02,
-    DINS            = 0x03
-};
-
-/* P.EXT instruction pool */
-enum {
-    R7_EXT          = 0x00,
-    DEXTU           = 0x01,
-    DEXTM           = 0x02,
-    DEXT            = 0x03
-};
-/* P.BR3A instruction pool */
-enum {
-    R7_BC1EQZC          = 0x00,
-    R7_BC1NEZC          = 0x01,
-    R7_BC2EQZC          = 0x02,
-    R7_BC2NEZC          = 0x03,
-    BPOSGE32C           = 0x04
-};
-
-/* POOL32F_0 (fmt) instruction pool */
-enum {
-    RINT_S              = 0x04,
-    RINT_D              = 0x44,
-    ADD_S               = 0x06,
-    SELEQZ_S            = 0x07,
-    SELEQZ_D            = 0x47,
-    CLASS_S             = 0x0c,
-    CLASS_D             = 0x4c,
-    SUB_S               = 0x0e,
-    SELNEZ_S            = 0x0f,
-    SELNEZ_D            = 0x4f,
-    MUL_S               = 0x16,
-    SEL_S               = 0x17,
-    SEL_D               = 0x57,
-    DIV_S               = 0x1e,
-    ADD_D               = 0x26,
-    SUB_D               = 0x2e,
-    MUL_D               = 0x36,
-    MADDF_S             = 0x37,
-    MADDF_D             = 0x77,
-    DIV_D               = 0x3e,
-    MSUBF_S             = 0x3f,
-    MSUBF_D             = 0x7f
-};
-
-/* POOL32F_3  instruction pool */
-enum {
-    R7_MIN_FMT         = 0x00,
-    R7_MAX_FMT         = 0x01,
-    R7_MINA_FMT        = 0x04,
-    R7_MAXA_FMT        = 0x05,
-    R7_POOL32FXF       = 0x07
-};
-
-/* POOL32F_5  instruction pool */
-enum {
-    R7_CMP_CONDN_S     = 0x00,
-    R7_CMP_CONDN_D     = 0x02
-};
-
-/* POOL32S_4  instruction pool */
-enum {
-    DALIGN          = 0x00,
-    DALIGN32        = 0x01,
-    POOL32SXF       = 0x07
-};
-
-/* P16.JRC  instruction pool */
-enum {
-    R7_JRC           = 0x00,
-    R7_JALRC16       = 0x01
-};
-
-/* P16.SYSCALL  instruction pool */
-enum {
-    SYSCALL16         = 0x00,
-    HYPCALL16         = 0x01
-};
-
-/* P.CMOVE instruction pool */
-enum {
-    R7_MOVZ            = 0x00,
-    R7_MOVN            = 0x01
-};
-
-/* P.MT_VPE and _P.MT_VPE instruction pool */
-enum {
-    P_D_MT_VPE          = 0x02,
-    P_E_MT_VPE          = 0x03
-};
-
-/* PP.LSX and PP.LSXS instruction pool */
-enum {
-    LBX         = 0x00,
-    LHX         = 0x08,
-    LWX         = 0x10,
-    LDX         = 0x18,
-
-    SBX         = 0x02,
-    SHX         = 0x0a,
-    SWX         = 0x12,
-    SDX         = 0x1a,
-
-    LBUX        = 0x04,
-    LHUX        = 0x0c,
-    LWC1X       = 0x14,
-    LDC1X       = 0x1c,
-
-    LWUX        = 0x0e,
-    SWC1X       = 0x16,
-    SDC1X       = 0x1e,
-
-    LHXS        = 0x09,
-    R7_LWXS     = 0x11,
-    LDXS        = 0x19,
-
-    SHXS        = 0x0b,
-    SWXS        = 0x13,
-    SDXS        = 0x1b,
-
-    LHUXS       = 0x0d,
-    LWC1XS      = 0x15,
-    LDC1XS      = 0x1d,
-
-    LWUXS       = 0x0f,
-    SWC1XS      = 0x17,
-    SDC1XS      = 0x1f
-};
-
-/* POOL32Axf instruction pool */
-enum {
-    POOL32AXF_4 = 0x04,
-    POOL32AXF_5 = 0x05
-};
-
-/* POOL32Axf_{4, 5} instruction pool */
-enum {
-    R7_BITSWAP  = 0x05,
-    R7_SEB      = 0x15,
-    R7_SEH      = 0x1d,
-    R7_CLO      = 0x25,
-    R7_CLZ      = 0x2d,
-    R7_WSBH     = 0x3d,
-
-    R7_TLBP     = 0x01,
-    R7_TLBR     = 0x09,
-    R7_TLBWI    = 0x11,
-    R7_TLBWR    = 0x19,
-    R7_TLBINV   = 0x03,
-    R7_TLBINVF  = 0x0b,
-    R7_DI       = 0x23,
-    R7_EI       = 0x2b,
-    R7_RDPGPR   = 0x70,
-    R7_WRPGPR   = 0x78,
-    R7_WAIT     = 0x61,
-    R7_DERET    = 0x71,
-    R7_ERETX    = 0x79
-};
-
 /* POOL32FxF_{0, 1} insturction pool */
 enum {
     R7_CFC1     = 0x40,
@@ -13478,87 +13506,23 @@ enum {
     CVT_S_L     = 0x16d
 };
 
-/* ERETx instruction pool */
-enum {
-    R7_ERET     = 0x00,
-    R7_ERETNC   = 0x01
-};
-
-// more here // tired
-
-/* POOL16C_00 instruction pool */
-enum {
-    R7_NOT16           = 0x00,
-    R7_XOR16           = 0x01,
-    R7_AND16           = 0x02,
-    R7_OR16            = 0x03
-};
-
-/* P.RESTORE instrcution pool */
-enum {
-    R7_RESTORE          = 0x00,
-    RESTORE_JRC         = 0x01
-};
-
-/* P.LS.S0 instruction pool */
-enum {
-    LBS9        = 0x00,
-    LHS9        = 0x04,
-    LWS9        = 0x08,
-    LDS9        = 0x0c,
-
-    SBS9        = 0x01,
-    SHS9        = 0x05,
-    SWS9        = 0x09,
-    SDS9        = 0x0d,
-
-    LBUS9       = 0x02,
-    LHUS9       = 0x06,
-    LWC1S9      = 0x0a,
-    LDC1S9      = 0x0e,
-
-    P_PREF      = 0x03,
-    LWUS9       = 0x07,
-    SWC1S9      = 0x0b,
-    SDC1S9      = 0x0f
-};
-
-/* P.LS.S1 instruction pool */
-enum {
-    UALW        = 0x00,
-    P_LL        = 0x08,
-    P_LLD       = 0x0c,
-
-    UASW        = 0x01,
-    P_SC        = 0x09,
-    P_SCD       = 0x0d,
-
-    ASET_ACLR   = 0x02,
-    R7_LWC2     = 0x0a,
-    LDC2        = 0x0e,
-
-    R7_CACHE    = 0x03,
-    R7_SWC2     = 0x0b,
-    SDC2        = 0x0f,
-};
-
 /* P.LL instruction pool */
 enum {
     R7_LL       = 0x00,
-    LLWP        = 0x01
+    R7_LLWP     = 0x01
 };
 
 /* P.SC instruction pool */
 enum {
     R7_SC       = 0x00,
-    SCWP        = 0x01
+    R7_SCWP     = 0x01
 };
 
 static int mmreg_r7(int r)
 {
     static const int map[] = { 16, 17, 18, 19, 4, 5, 6, 7 };
 
-    return map[r];
+    return map[r & 0x7];
 }
 
 /* Used for 16-bit store instructions.  */
@@ -13566,7 +13530,22 @@ static int mmreg2_r7(int r)
 {
     static const int map[] = { 0, 17, 18, 19, 4, 5, 6, 7 };
 
-    return map[r];
+    return map[r & 0x7];
+}
+
+static int mmreg4_r7(int r)
+{
+    static const int map[] = { 8, 9, 10, 11, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23 };
+
+    return map[r & 0xf];
+}
+
+/* Used for 16-bit store instructions.  */
+static int mmreg4z_r7(int r)
+{
+    static const int map[] = { 8, 9, 10, 0, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23 };
+
+    return map[r & 0xf];
 }
 
 static int mmreg (int r)
@@ -13652,27 +13631,22 @@ static void gen_andi16(DisasContext *ctx)
     gen_logic_imm(ctx, OPC_ANDI, rd, rs, decoded_imm[encoded]);
 }
 
-/* P.BREG type microMIPS R7 branches: BALRC, BALRSC, BRC and BRSC */
-static void gen_compute_r7_pbreg_branch(DisasContext *ctx, uint32_t opc,
-                                        int rs, int rt)
+/* P.BALRSC type microMIPS R7 branches: BALRSC and BRSC */
+static void gen_compute_r7_pbalrsc_branch(DisasContext *ctx, int rs, int rt)
 {
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
-    int m16_lowbit = (ctx->hflags & MIPS_HFLAG_M16) != 0;
 
     /* load rs */
     gen_load_gpr(t0, rs);
 
     /* link */
     if (rt != 0) {
-        tcg_gen_movi_tl(cpu_gpr[rt], ctx->pc + 4 + m16_lowbit);
+        tcg_gen_movi_tl(cpu_gpr[rt], ctx->pc + 4);
     }
 
     /* calculate btarget */
-    if (opc == P_BALRSC) {
-        tcg_gen_shli_tl(t0, t0, 1);
-        tcg_gen_ori_tl(t0, t0, m16_lowbit);
-    }
+    tcg_gen_shli_tl(t0, t0, 1);
     tcg_gen_movi_tl(t1, ctx->pc + 4);
     gen_op_addr_add(ctx, btarget, t1, t0);
 
@@ -14680,92 +14654,56 @@ static void gen_adjust_sp(DisasContext *ctx, int u)
     tcg_temp_free(tsp);
 }
 
-static void gen_save(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
-                     uint8_t fp, uint8_t gp, uint16_t u)
+static void gen_save(DisasContext *ctx, uint8_t rt, uint8_t count,
+                     uint8_t gp, uint16_t u)
 {
-    int num_pending = count;
-    TCGv taddr = tcg_temp_new();
+    int counter = 0;
+    TCGv va = tcg_temp_new();
     TCGv t0 = tcg_temp_new();
-    int gpr;
-    uint8_t fp_pending = fp || (count == 9 && !gp);
-    uint8_t gp_pending = gp;
+    fprintf(stderr, "save %d, %d, %d, %d\n", rt, count, gp, u);
 
-    /* store the first GPR */
-    gen_base_offset_addr(ctx, taddr, 29, -4);
-    gen_load_gpr(t0, first_gpr);
-    tcg_gen_qemu_st_tl(t0, taddr, ctx->mem_idx, MO_TEUL |
-                                  ctx->default_tcg_memop_mask);
-
-    while (num_pending > 0) {
-        if (fp_pending) {
-            gpr = 30;
-            fp_pending = 0;
-        } else if (gp_pending) {
-            gpr = 28;
-            gp_pending = 0;
-        } else {
-            gpr = 16 | (num_pending - 1);
-        }
-
-        tcg_gen_subi_tl(taddr, taddr, 4);
-        gen_load_gpr(t0, gpr);
-        tcg_gen_ext32s_tl(t0, t0);
-        tcg_gen_qemu_st_tl(t0, taddr, ctx->mem_idx, MO_TEUL |
-                                      ctx->default_tcg_memop_mask);
-        num_pending -= 1;
+    while (counter != count) {
+        bool use_gp = gp && (counter == count - 1);
+	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0xf);
+	int this_offset = -((counter + 1) << 2);
+        gen_base_offset_addr(ctx, va, 29, this_offset);
+        gen_load_gpr(t0, this_rt);
+        tcg_gen_qemu_st_tl(t0, va, ctx->mem_idx, MO_TEUL |
+                                   ctx->default_tcg_memop_mask);
+	counter++;
     }
 
     /* adjust stack pointer */
     gen_adjust_sp(ctx, -u);
 
     tcg_temp_free(t0);
-    tcg_temp_free(taddr);
+    tcg_temp_free(va);
 }
 
-static void gen_restore(DisasContext *ctx, uint8_t first_gpr, uint8_t count,
-                        uint8_t fp, uint8_t gp, uint16_t u)
+static void gen_restore(DisasContext *ctx, uint8_t rt, uint8_t count,
+                        uint8_t gp, uint16_t u)
 {
-    int num_pending = count;
-    TCGv taddr = tcg_temp_new();
+    int counter = 0;
+    TCGv va = tcg_temp_new();
     TCGv t0 = tcg_temp_new();
-    int gpr;
-    uint8_t fp_pending = fp || (count == 9 && !gp);
-    uint8_t gp_pending = gp;
 
-    gen_base_offset_addr(ctx, taddr, 29, u);
-
-    /* restore the first GPR */
-    tcg_gen_subi_tl(taddr, taddr, 4);
-    tcg_gen_qemu_ld_tl(t0, taddr, ctx->mem_idx, MO_TESL |
-                       ctx->default_tcg_memop_mask);
-    tcg_gen_ext32s_tl(t0, t0);
-    gen_store_gpr(t0, first_gpr);
-
-    while (num_pending > 0) {
-        if (fp_pending) {
-            gpr = 30;
-            fp_pending = 0;
-        } else if (gp_pending) {
-            gpr = 28;
-            gp_pending = 0;
-        } else {
-            gpr = 16 | (num_pending - 1);
-        }
-
-        tcg_gen_subi_tl(taddr, taddr, 4);
-        tcg_gen_qemu_ld_tl(t0, taddr, ctx->mem_idx, MO_TESL |
-                                      ctx->default_tcg_memop_mask);
+    while (counter != count) {
+        bool use_gp = gp && (counter == count - 1);
+	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0xf);
+	int this_offset = u - ((counter + 1) << 2);
+        gen_base_offset_addr(ctx, va, 29, this_offset);
+        tcg_gen_qemu_ld_tl(t0, va, ctx->mem_idx, MO_TESL |
+				   ctx->default_tcg_memop_mask);
         tcg_gen_ext32s_tl(t0, t0);
-        gen_store_gpr(t0, gpr);
-        num_pending -= 1;
-
+        gen_store_gpr(t0, this_rt);
+	counter++;
     }
 
     /* adjust stack pointer */
     gen_adjust_sp(ctx, u);
 
     tcg_temp_free(t0);
-    tcg_temp_free(taddr);
+    tcg_temp_free(va);
 }
 
 static void decode_micromips32_opc(CPUMIPSState *env, DisasContext *ctx)
@@ -16120,13 +16058,21 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_pool16c_insn(ctx);
         }
         break;
-    case LWGP16:
+    case R7_SWGP16:
         {
-            int rd = mmreg(uMIPS_RD(ctx->opcode));
-            int rb = 28;            /* GP */
-            int16_t offset = SIMM(ctx->opcode, 0, 7) << 2;
+            int rt = mmreg(uMIPS_RD(ctx->opcode));
+            int16_t offset = ZIMM(ctx->opcode, 0, 7) << 2;
 
-            gen_ld(ctx, OPC_LW, rd, rb, offset);
+            gen_st(ctx, OPC_SW, rt, 28, offset);
+        }
+        break;
+    case R7_LWGP16:
+        {
+            int rt = mmreg(uMIPS_RD(ctx->opcode));
+            int rb = 28;            /* GP */
+            int16_t offset = ZIMM(ctx->opcode, 0, 7) << 2;
+
+            gen_ld(ctx, OPC_LW, rt, rb, offset);
         }
         break;
     case POOL16F:
@@ -16280,30 +16226,6 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
     return 2;
 }
 
-static void gen_r7_align(DisasContext *ctx, int rd, int rs, int rt, int shift)
-{
-    TCGv t0;
-    if (rd == 0) {
-        /* Treat as NOP. */
-        return;
-    }
-    t0 = tcg_temp_new();
-    gen_load_gpr(t0, rs);
-    if (shift == 0) {
-        tcg_gen_ext32s_tl(cpu_gpr[rd], t0);
-    } else {
-        TCGv t1 = tcg_temp_new();
-        gen_load_gpr(t1, rt);
-        TCGv_i64 t2 = tcg_temp_new_i64();
-        tcg_gen_concat_tl_i64(t2, t0, t1);
-        tcg_gen_shri_i64(t2, t2, shift);
-        gen_move_low32(cpu_gpr[rd], t2);
-        tcg_temp_free_i64(t2);
-        tcg_temp_free(t1);
-    }
-    tcg_temp_free(t0);
-}
-
 static void gen_pool16c_r7_insn(DisasContext *ctx)
 {
     int rt = mmreg_r7(uMIPS_RD(ctx->opcode));
@@ -16337,8 +16259,24 @@ static void gen_pool32a0_r7_insn(DisasContext *ctx)
     int rd = (ctx->opcode >> 11) & 0x1f;
 
     switch ((ctx->opcode >> 3) & 0x7f) {
+    case P_TRAP:
+	switch ((ctx->opcode >> 10) & 0x1) {
+        case R7_TEQ:
+	    gen_trap(ctx, OPC_TEQ, rs, rt, -1);
+	    break;
+        case R7_TNE:
+	    gen_trap(ctx, OPC_TNE, rs, rt, -1);
+	    break;
+        }
+	break;
     case R7_RDHWR:
         gen_rdhwr(ctx, rt, rs, extract32(ctx->opcode, 11, 3));
+        break;
+    case R7_SEB:
+        gen_bshfl(ctx, OPC_SEB, rs, rt);
+        break;
+    case R7_SEH:
+        gen_bshfl(ctx, OPC_SEH, rs, rt);
         break;
     case R7_SLLV:
         gen_shift(ctx, OPC_SLLV, rd, rt, rs);
@@ -16355,13 +16293,13 @@ static void gen_pool32a0_r7_insn(DisasContext *ctx)
     case R7_ADD:
         gen_arith(ctx, OPC_ADD, rd, rs, rt);
         break;
-    case ADDU:
+    case R7_ADDU:
         gen_arith(ctx, OPC_ADDU, rd, rs, rt);
         break;
     case R7_SUB:
         gen_arith(ctx, OPC_SUB, rd, rs, rt);
         break;
-    case SUBU:
+    case R7_SUBU:
         gen_arith(ctx, OPC_SUBU, rd, rs, rt);
         break;
     case P_CMOVE:
@@ -16377,22 +16315,26 @@ static void gen_pool32a0_r7_insn(DisasContext *ctx)
     case R7_AND:
         gen_logic(ctx, OPC_AND, rd, rs, rt);
         break;
-    case OR:
+    case R7_OR:
         gen_logic(ctx, OPC_OR, rd, rs, rt);
         break;
     case R7_NOR:
         gen_logic(ctx, OPC_NOR, rd, rs, rt);
         break;
-    case XOR:
+    case R7_XOR:
         gen_logic(ctx, OPC_XOR, rd, rs, rt);
         break;
     case R7_SLT:
         gen_slt(ctx, OPC_SLT, rd, rs, rt);
         break;
     case P_SLTU:
-        gen_slt(ctx, OPC_SLTU, rd, rs, rt);
+	if (rd == 0) {
+          generate_exception_end(ctx, EXCP_RI);
+	} else {
+          gen_slt(ctx, OPC_SLTU, rd, rs, rt);
+	}
         break;
-    case SOV:
+    case R7_SOV:
         {
             TCGv t0 = tcg_temp_local_new();
             TCGv t1 = tcg_temp_new();
@@ -16482,13 +16424,7 @@ static void gen_pool32axf_r7_insn(CPUMIPSState *env, DisasContext *ctx)
         case R7_BITSWAP:
             gen_bitswap(ctx, OPC_BITSWAP, rt, rs);
             break;
-        case R7_SEB:
-            gen_bshfl(ctx, OPC_SEB, rs, rt);
-            break;
-        case R7_SEH:
-            gen_bshfl(ctx, OPC_SEH, rs, rt);
-            break;
-        case R7_CLO:
+       case R7_CLO:
             gen_cl(ctx, OPC_CLO, rt, rs);
             break;
         case R7_CLZ:
@@ -16593,7 +16529,7 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
 
     /* Load needed operands and calculate btarget */
     switch (opc) {
-    case BEQIC:
+    case R7_BEQIC:
         if (rt == 0 && imm == 0) {
             /* Unconditional branch */
         } else if (rt == 0 && imm != 0) {
@@ -16603,7 +16539,7 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
             bcond_compute = 1;
         }
         break;
-    case BNEIC:
+    case R7_BNEIC:
         if (rt == 0 && imm == 0) {
             /* Treat as NOP */
             goto out;
@@ -16613,24 +16549,24 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
             bcond_compute = 1;
         }
         break;
-    case BGEIC:
+    case R7_BGEIC:
         if (rt == 0 && imm == 0) {
             /* Unconditional branch */
         } else  {
             bcond_compute = 1;
         }
         break;
-    case BLTIC:
+    case R7_BLTIC:
         bcond_compute = 1;
         break;
-    case BGEIUC:
+    case R7_BGEIUC:
         if (rt == 0 && imm == 0) {
             /* Unconditional branch */
         } else  {
             bcond_compute = 1;
         }
         break;
-    case BLTIUC:
+    case R7_BLTIUC:
         bcond_compute = 1;
         break;
     default:
@@ -16650,22 +16586,22 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
         save_cpu_state(ctx, 0);
 
         switch (opc) {
-        case BEQIC:
+        case R7_BEQIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_EQ), t0, t1, fs);
             break;
-        case BNEIC:
+        case R7_BNEIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_NE), t0, t1, fs);
             break;
-        case BGEIC:
+        case R7_BGEIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_GE), t0, t1, fs);
             break;
-        case BLTIC:
+        case R7_BLTIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LT), t0, t1, fs);
             break;
-        case BGEIUC:
+        case R7_BGEIUC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_GEU), t0, t1, fs);
             break;
-        case BLTIUC:
+        case R7_BLTIUC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_LTU), t0, t1, fs);
             break;
         }
@@ -16700,97 +16636,97 @@ static void gen_p_lsx(DisasContext *ctx, int rd, int rs, int rt)
     }
     if (((ctx->opcode >> 6) & 1) == 1) {
         /* PP.LSXS instructions require shifting */
-        switch ((ctx->opcode >> 6) & 0x1f) {
-            case LHXS:
-            case SHXS:
-            case LHUXS:
+        switch ((ctx->opcode >> 7) & 0xf) {
+            case R7_LHXS:
+            case R7_SHXS:
+            case R7_LHUXS:
                 tcg_gen_shli_tl(t0, t0, 1);
                 break;
             case R7_LWXS:
-            case SWXS:
-            case LWC1XS:
-            case SWC1XS:
+            case R7_SWXS:
+            case R7_LWC1XS:
+            case R7_SWC1XS:
                 tcg_gen_shli_tl(t0, t0, 2);
                 break;
-            case LDC1XS:
-            case SDC1XS:
+            case R7_LDC1XS:
+            case R7_SDC1XS:
                 tcg_gen_shli_tl(t0, t0, 3);
                 break;
         }
     }
     gen_op_addr_add(ctx, t0, t0, t1);
 
-    switch ((ctx->opcode >> 6) & 0x1f) {
-        case LBX:
+    switch ((ctx->opcode >> 7) & 0xf) {
+        case R7_LBX:
             tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
                                MO_SB);
             gen_store_gpr(t0, rd);
             break;
-        case LHX:
-        case LHXS:
+        case R7_LHX:
+        /*case R7_LHXS:*/
             tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
                                MO_TESW);
             gen_store_gpr(t0, rd);
             break;
-        case LWX:
-        case R7_LWXS:
+        case R7_LWX:
+        /*case R7_LWXS:*/
             tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
                                MO_TESL);
             gen_store_gpr(t0, rd);
             break;
-        case LBUX:
+        case R7_LBUX:
             tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
                                MO_UB);
             gen_store_gpr(t0, rd);
             break;
-        case LHUX:
-        case LHUXS:
+        case R7_LHUX:
+        /*case R7_LHUXS:*/
             tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx,
                                MO_TEUW);
             gen_store_gpr(t0, rd);
             break;
-        case SBX:
+        case R7_SBX:
             gen_load_gpr(t1, rd);
             tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
                                MO_8);
             break;
-        case SHX:
-        case SHXS:
+        case R7_SHX:
+        /*case R7_SHXS:*/
             gen_load_gpr(t1, rd);
             tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
                                MO_TEUW);
             break;
-        case SWX:
-        case SWXS:
+        case R7_SWX:
+        /*case R7_SWXS:*/
             gen_load_gpr(t1, rd);
             tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx,
                                MO_TEUL);
             break;
-        case LWC1X:
-        case LWC1XS:
-        case LDC1X:
-        case LDC1XS:
-        case SWC1X:
-        case SWC1XS:
-        case SDC1X:
-        case SDC1XS:
+        case R7_LWC1X:
+        /*case R7_LWC1XS:*/
+        case R7_LDC1X:
+        /*case R7_LDC1XS:*/
+        case R7_SWC1X:
+        /*case R7_SWC1XS:*/
+        case R7_SDC1X:
+        /*case R7_SDC1XS:*/
             if (ctx->CP0_Config1 & (1 << CP0C1_FP)) {
                 check_cp1_enabled(ctx);
-                switch ((ctx->opcode >> 6) & 0x1f) {
-                    case LWC1X:
-                    case LWC1XS:
+                switch ((ctx->opcode >> 7) & 0xf) {
+                    case R7_LWC1X:
+                    /*case R7_LWC1XS:*/
                         gen_flt_ldst(ctx, OPC_LWC1, rd, t0);
                         break;
-                    case LDC1X:
-                    case LDC1XS:
+                    case R7_LDC1X:
+                    /*case R7_LDC1XS:*/
                         gen_flt_ldst(ctx, OPC_LDC1, rd, t0);
                         break;
-                    case SWC1X:
-                    case SWC1XS:
+                    case R7_SWC1X:
+                    /*case R7_SWC1XS:*/
                         gen_flt_ldst(ctx, OPC_SWC1, rd, t0);
                         break;
-                    case SDC1X:
-                    case SDC1XS:
+                    case R7_SDC1X:
+                    /*case R7_SDC1XS:*/
                         gen_flt_ldst(ctx, OPC_SDC1, rd, t0);
                         break;
                 }
@@ -16824,19 +16760,23 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
     switch (op) {
     case P_ADDIU:
         if (rt == 0) {
-            /* P.RI and P.SYSCALL */
-            switch ((ctx->opcode >> 18) & 0x07) {
-            case R7_SIGRIE ... (R7_SIGRIE + 1):
+            /* P.RI */
+            switch ((ctx->opcode >> 19) & 0x03) {
+            case R7_SIGRIE:
             default:
                 generate_exception_end(ctx, EXCP_RI);
                 break;
-            case R7_SYSCALL:
-                generate_exception_end(ctx, EXCP_SYSCALL);
+            case P_SYSCALL:
+		if (((ctx->opcode >> 18) & 0x01) == R7_SYSCALL) {
+                    generate_exception_end(ctx, EXCP_SYSCALL);
+                } else {
+                    generate_exception_end(ctx, EXCP_RI);
+		}
                 break;
-            case BREAK ... (BREAK + 1):
+            case R7_BREAK:
                 generate_exception_end(ctx, EXCP_BREAK);
                 break;
-            case R7_SDBBP ... (R7_SDBBP + 1):
+            case R7_SDBBP:
                 if (is_uhi(extract32(ctx->opcode, 0, 19))) {
                     gen_helper_do_semihosting(cpu_env);
                 } else {
@@ -16849,21 +16789,18 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 break;
             }
         } else {
-            /* PP.ADDIU */
-            switch ((ctx->opcode >> 13) & 0x03) {
-            case ADDIU:
-                {
-                    int16_t imm;
-                    imm = (int16_t) ((sextract32(ctx->opcode, 15, 1) << 13) |
-                                     (extract32(ctx->opcode, 0, 13)));
-                    gen_arith_imm(ctx, OPC_ADDIU, rt, rs, imm);
-                }
-                break;
-            default:
-                generate_exception_end(ctx, EXCP_RI);
-                break;
-            }
+          int16_t imm;
+          imm = (int16_t) extract32(ctx->opcode, 0, 16);
+          gen_arith_imm(ctx, OPC_ADDIU, rt, rs, imm);
         }
+        break;
+    case R7_ADDIUPC:
+	if (rt != 0) {
+	    int32_t offset = sextract32(ctx->opcode,0,1) << 21 | extract32(ctx->opcode, 1, 20) << 1;
+	    target_long addr = addr_add(ctx, ctx->pc + 4, offset);
+	    tcg_gen_movi_tl(cpu_gpr[rt], addr);
+            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+	}
         break;
     case R7_POOL32A:
         switch (ctx->opcode & 0x07) {
@@ -16883,9 +16820,6 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     gen_lsa(ctx, OPC_LSA, rd, rs, rt,
                             extract32(ctx->opcode, 9, 2) - 1);
                     break;
-                case R7_ALIGN:
-                    gen_r7_align(ctx, rd, rs, rt, extract32(ctx->opcode, 6, 5));
-                    break;
                 case R7_POOL32AXF:
                     gen_pool32axf_r7_insn(env, ctx);
                     break;
@@ -16897,9 +16831,9 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
-    case P_GPREL:
+    case P_GP_W:
         switch (ctx->opcode & 0x03) {
-        case ADDIUGP:
+        case R7_ADDIUGP_W:
             if (rt != 0) {
                 uint32_t offset = extract32(ctx->opcode, 0, 21);
                 if (offset == 0) {
@@ -16913,10 +16847,10 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 }
             }
             break;
-        case LWGP:
+        case R7_LWGP:
             gen_ld(ctx, OPC_LW, rt, 28, extract32(ctx->opcode, 2, 19) << 2);
             break;
-        case SWGP:
+        case R7_SWGP:
             gen_st(ctx, OPC_SW, rt, 28, extract32(ctx->opcode, 2, 19) << 2);
             break;
         default:
@@ -16927,21 +16861,58 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
     case POOL48I:
         insn = cpu_lduw_code(env, ctx->pc + 4);
         switch ((ctx->opcode >> 16) & 0x1f) {
-        case LI48:
+        case R7_LI48:
             if (rt != 0) {
                 tcg_gen_movi_tl(cpu_gpr[rt],
-                                extract32(ctx->opcode, 0, 16) << 16 | insn);
+                                extract32(ctx->opcode, 0, 16) | insn << 16);
             }
             break;
-        case ADDIU48:
-            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rt],
-                            extract32(ctx->opcode, 0, 16) << 16 | insn);
-            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+        case R7_ADDIU48:
+	    if (rt != 0) {
+                tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rt],
+                                extract32(ctx->opcode, 0, 16) | insn << 16);
+                tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+	    }
             break;
-        case ADDIUGP48:
-            tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[28],
-                            extract32(ctx->opcode, 0, 16) << 16 | insn);
-            tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+        case R7_ADDIUGP48:
+	    if (rt != 0) {
+                tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[28],
+                                extract32(ctx->opcode, 0, 16) | insn << 16);
+                tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+	    }
+            break;
+        case R7_ADDIUPC48:
+	    if (rt != 0) {
+		int32_t offset = extract32(ctx->opcode, 0, 16) | insn << 16;
+		target_long addr = addr_add(ctx, ctx->pc + 6, offset);
+		tcg_gen_movi_tl(cpu_gpr[rt], addr);
+                tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+	    }
+            break;
+        case R7_LWPC48:
+	    if (rt != 0) {
+		TCGv t0;
+		t0 = tcg_temp_new();
+		int32_t offset = extract32(ctx->opcode, 0, 16) | insn << 16;
+		target_long addr = addr_add(ctx, ctx->pc + 6, offset);
+		tcg_gen_movi_tl(t0, addr);
+                tcg_gen_qemu_ld_tl(cpu_gpr[rt], t0, ctx->mem_idx, MO_TESL);
+		tcg_temp_free(t0);
+	    }
+            break;
+        case R7_SWPC48:
+	    {
+		TCGv t0, t1;
+		t0 = tcg_temp_new();
+		t1 = tcg_temp_new();
+		int32_t offset = extract32(ctx->opcode, 0, 16) | insn << 16;
+		target_long addr = addr_add(ctx, ctx->pc + 6, offset);
+		tcg_gen_movi_tl(t0, addr);
+                gen_load_gpr(t1, rt);
+                tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL);
+		tcg_temp_free(t0);
+		tcg_temp_free(t1);
+	    }
             break;
         default:
             generate_exception_end(ctx, EXCP_RI);
@@ -16950,41 +16921,47 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         return 6;
     case P_U12:
         switch ((ctx->opcode >> 12) & 0x0f) {
-        case ORI:
+        case R7_ORI:
             gen_logic_imm(ctx, OPC_ORI, rt, rs, extract32(ctx->opcode, 0, 12));
             break;
-        case XORI:
+        case R7_XORI:
             gen_logic_imm(ctx, OPC_XORI, rt, rs, extract32(ctx->opcode, 0, 12));
             break;
-        case ANDI:
+        case R7_ANDI:
             gen_logic_imm(ctx, OPC_ANDI, rt, rs, extract32(ctx->opcode, 0, 12));
             break;
         case P_SR:
-            switch ((ctx->opcode >> 16) & 1) {
-            case SAVE:
-                gen_save(ctx, rt, extract32(ctx->opcode, 17, 4),
-                         (ctx->opcode >> 1) & 1,
-                         ctx->opcode & 1,
-                         extract32(ctx->opcode, 3, 9) << 3);
-                break;
-            case P_RESTORE:
-                gen_restore(ctx, rt, extract32(ctx->opcode, 17, 4),
-                            (ctx->opcode >> 1) & 1,
-                            ctx->opcode & 1,
-                            extract32(ctx->opcode, 3, 9) << 3);
-                if (((ctx->opcode >> 2) & 1) == RESTORE_JRC) {
-                    gen_compute_branch(ctx, OPC_JR, 2, 31, 0, 0, 0);
+            switch ((ctx->opcode >> 20) & 1) {
+	    case PP_SR:
+	        switch (ctx->opcode & 3) {
+                case R7_SAVE:
+                    gen_save(ctx, rt, extract32(ctx->opcode, 16, 4),
+                             (ctx->opcode >> 2) & 1,
+                             extract32(ctx->opcode, 3, 9) << 3);
+                    break;
+                case R7_RESTORE:
+                case R7_RESTORE_JRC:
+                    gen_restore(ctx, rt, extract32(ctx->opcode, 16, 4),
+                                (ctx->opcode >> 2) & 1,
+                                extract32(ctx->opcode, 3, 9) << 3);
+                    if ((ctx->opcode & 3) == R7_RESTORE_JRC) {
+                        gen_compute_branch(ctx, OPC_JR, 2, 31, 0, 0, 0);
+                    }
+                    break;
                 }
-                break;
-            }
+		break;
+	    case P_SR_F:
+                generate_exception_end(ctx, EXCP_RI);
+		break;
+	    }
             break;
-        case SLTI:
+        case R7_SLTI:
             gen_slt_imm(ctx, OPC_SLTI, rt, rs, extract32(ctx->opcode, 0, 12));
             break;
-        case SLTIU:
+        case R7_SLTIU:
             gen_slt_imm(ctx, OPC_SLTIU, rt, rs, extract32(ctx->opcode, 0, 12));
             break;
-        case SEQI:
+        case R7_SEQI:
             {
                 TCGv t0 = tcg_temp_new();
                 TCGv t1 = tcg_temp_new();
@@ -17003,6 +16980,13 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 tcg_temp_free(t2);
             }
             break;
+        case R7_ADDIUNEG:
+	    {
+	        int16_t imm;
+                imm = (int16_t) extract32(ctx->opcode, 0, 12);
+                gen_arith_imm(ctx, OPC_ADDIU, rt, rs, -imm);
+	    }
+	    break;
         case P_SHIFT:
             {
                 int shift = extract32(ctx->opcode, 0, 5);
@@ -17027,7 +17011,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                                       extract32(ctx->opcode, 0, 5));
                     }
                     break;
-                case SRL:
+                case R7_SRL:
                     gen_shift_imm(ctx, OPC_SRL, rt, rs,
                                   extract32(ctx->opcode, 0, 5));
                     break;
@@ -17042,6 +17026,20 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 }
             }
             break;
+	case P_ROTX:
+	    if (rt != 0) {
+	      TCGv t0 = tcg_temp_new();
+              TCGv_i32 shift = tcg_const_i32(extract32(ctx->opcode, 10, 4) << 1);
+	      TCGv_i32 shiftx = tcg_const_i32(extract32(ctx->opcode, 0, 4));
+	      TCGv_i32 stripe = tcg_const_i32((ctx->opcode >> 6) & 1);
+	      gen_load_gpr(t0, rs);
+	      gen_helper_rotx(cpu_gpr[rt], t0, shift, shiftx, stripe);
+	      tcg_temp_free(t0);
+              tcg_temp_free_i32(shift);
+              tcg_temp_free_i32(shiftx);
+              tcg_temp_free_i32(stripe);
+	    }
+	    break;
         case P_INS:
             switch (((ctx->opcode >> 10) & 2) | ((ctx->opcode >> 5) & 1)) {
             case R7_INS:
@@ -17361,65 +17359,77 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case P_LUI:
         switch ((ctx->opcode >> 1) & 1) {
-        case LU20I:
-            tcg_gen_movi_tl(cpu_gpr[rt], sextract32(ctx->opcode, 0, 1) << 31 |
-                            extract32(ctx->opcode, 2, 10) << 21 |
-                            extract32(ctx->opcode, 12, 9) << 12);
+        case R7_LUI:
+	    if (rt != 0) {
+                tcg_gen_movi_tl(cpu_gpr[rt], sextract32(ctx->opcode, 0, 1) << 31 |
+                                extract32(ctx->opcode, 2, 10) << 21 |
+                                extract32(ctx->opcode, 12, 9) << 12);
+	    }
             break;
-        case P_AUIPC:
-            {
+        case R7_ALUIPC:
+            if (rt != 0) {
                 int offset = sextract32(ctx->opcode, 0, 1) << 31 |
                              extract32(ctx->opcode, 2, 10) << 21 |
                              extract32(ctx->opcode, 12, 9) << 12;
                 target_long addr;
-                if (rt == 0) {
-                    /* ALU20IPCGP* */
-                    addr = ~0xFFF & addr_add(ctx, ctx->pc + 4, offset);
-                    tcg_gen_movi_tl(cpu_gpr[28], addr);
-                } else {
-                    /* AU20IPC */
-                    addr = addr_add(ctx, ctx->pc + 4, offset);
-                    tcg_gen_movi_tl(cpu_gpr[rt], addr);
-                }
+                addr = ~0xFFF & addr_add(ctx, ctx->pc + 4, offset);
+                tcg_gen_movi_tl(cpu_gpr[rt], addr);
             }
             break;
         }
         break;
-    case P_LS_GP:
+    case P_GP_BH:
         {
             uint32_t u = extract32(ctx->opcode, 0, 18);
             switch ((ctx->opcode >> 18) & 0x7) {
-            case LBGP:
+            case R7_LBGP:
                 gen_ld(ctx, OPC_LB, rt, 28, u);
                 break;
-            case LHGP:
-                gen_ld(ctx, OPC_LH, rt, 28, u);
-                break;
-            case LBUGP:
-                gen_ld(ctx, OPC_LBU, rt, 28, u);
-                break;
-            case LHUGP:
-                gen_ld(ctx, OPC_LHU, rt, 28, u);
-                break;
-            case SBGP:
+            case R7_SBGP:
                 gen_st(ctx, OPC_SB, rt, 28, u);
                 break;
-            case SHGP:
-                gen_st(ctx, OPC_SH, rt, 28, u);
+            case R7_LBUGP:
+                gen_ld(ctx, OPC_LBU, rt, 28, u);
                 break;
-            case P_LS_GP_CP1:
+	    case R7_ADDIUGP_B:
+                gen_arith_imm(ctx, OPC_ADDIU, rt, 28, u);
+                break;
+	    case P_GP_LH:
+		u &= ~1;
+		switch (ctx->opcode & 1) {
+                case R7_LHGP:
+                    gen_ld(ctx, OPC_LH, rt, 28, u);
+                    break;
+                case R7_LHUGP:
+                    gen_ld(ctx, OPC_LHU, rt, 28, u);
+                    break;
+		}
+		break;
+	    case P_GP_SH:
+		u &= ~1;
+		switch (ctx->opcode & 1) {
+                case R7_SHGP:
+                    gen_st(ctx, OPC_SH, rt, 28, u);
+                    break;
+	        default:
+                    generate_exception_end(ctx, EXCP_RI);
+		    break;
+		}
+		break;
+
+            case P_GP_CP1:
                 u &= ~ 0x3;
                 switch ((ctx->opcode & 0x3)) {
-                    case LWC1_GP:
+                    case R7_LWC1GP:
                         gen_cop1_ldst(ctx, OPC_LWC1, rt, 28, u);
                         break;
-                    case LDC1_GP:
+                    case R7_LDC1GP:
                         gen_cop1_ldst(ctx, OPC_LDC1, rt, 28, u);
                         break;
-                    case SWC1_GP:
+                    case R7_SWC1GP:
                         gen_cop1_ldst(ctx, OPC_SWC1, rt, 28, u);
                         break;
-                    case SDC1_GP:
+                    case R7_SDC1GP:
                         gen_cop1_ldst(ctx, OPC_SDC1, rt, 28, u);
                         break;
                 }
@@ -17434,40 +17444,43 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         {
             uint32_t u = extract32(ctx->opcode, 0, 12);
             switch ((ctx->opcode >> 12) & 0x0f) {
-            case LB:
+            case R7_PREF:
+	        /* treat as NOP */
+                break;
+            case R7_LB:
                 gen_ld(ctx, OPC_LB, rt, rs, u);
                 break;
-            case LH:
+            case R7_LH:
                 gen_ld(ctx, OPC_LH, rt, rs, u);
                 break;
-            case LW:
+            case R7_LW:
                 gen_ld(ctx, OPC_LW, rt, rs, u);
                 break;
-            case LBU:
+            case R7_LBU:
                 gen_ld(ctx, OPC_LBU, rt, rs, u);
                 break;
-            case LHU:
+            case R7_LHU:
                 gen_ld(ctx, OPC_LHU, rt, rs, u);
                 break;
-            case SB:
+            case R7_SB:
                 gen_st(ctx, OPC_SB, rt, rs, u);
                 break;
-            case SH:
+            case R7_SH:
                 gen_st(ctx, OPC_SH, rt, rs, u);
                 break;
-            case SW:
+            case R7_SW:
                 gen_st(ctx, OPC_SW, rt, rs, u);
                 break;
-            case LWC1:
+            case R7_LWC1:
                 gen_cop1_ldst(ctx, OPC_LWC1, rt, rs, u);
                 break;
-            case LDC1:
+            case R7_LDC1:
                 gen_cop1_ldst(ctx, OPC_LDC1, rt, rs, u);
                 break;
-            case SWC1:
+            case R7_SWC1:
                 gen_cop1_ldst(ctx, OPC_SWC1, rt, rs, u);
                 break;
-            case SDC1:
+            case R7_SDC1:
                 gen_cop1_ldst(ctx, OPC_SDC1, rt, rs, u);
                 break;
             default:
@@ -17483,40 +17496,40 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
             switch ((ctx->opcode >> 8) & 0x07) {
             case P_LS_S0:
                 switch ((ctx->opcode >> 11) & 0x0f) {
-                case LBS9:
+                case R7_LBS9:
                     gen_ld(ctx, OPC_LB, rt, rs, s);
                     break;
-                case LHS9:
+                case R7_LHS9:
                     gen_ld(ctx, OPC_LH, rt, rs, s);
                     break;
-                case LWS9:
+                case R7_LWS9:
                     gen_ld(ctx, OPC_LW, rt, rs, s);
                     break;
-                case LBUS9:
+                case R7_LBUS9:
                     gen_ld(ctx, OPC_LBU, rt, rs, s);
                     break;
-                case LHUS9:
+                case R7_LHUS9:
                     gen_ld(ctx, OPC_LHU, rt, rs, s);
                     break;
-                case SBS9:
+                case R7_SBS9:
                     gen_st(ctx, OPC_SB, rt, rs, s);
                     break;
-                case SHS9:
+                case R7_SHS9:
                     gen_st(ctx, OPC_SH, rt, rs, s);
                     break;
-                case SWS9:
+                case R7_SWS9:
                     gen_st(ctx, OPC_SW, rt, rs, s);
                     break;
-                case LWC1S9:
+                case R7_LWC1S9:
                     gen_cop1_ldst(ctx, OPC_LWC1, rt, rs, s);
                     break;
-                case LDC1S9:
+                case R7_LDC1S9:
                     gen_cop1_ldst(ctx, OPC_LDC1, rt, rs, s);
                     break;
-                case SWC1S9:
+                case R7_SWC1S9:
                     gen_cop1_ldst(ctx, OPC_SWC1, rt, rs, s);
                     break;
-                case SDC1S9:
+                case R7_SDC1S9:
                     gen_cop1_ldst(ctx, OPC_SDC1, rt, rs, s);
                     break;
                 case P_PREF:
@@ -17537,8 +17550,8 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 break;
             case P_LS_S1:
                 switch ((ctx->opcode >> 11) & 0x0f) {
-                case UALW:
-                case UASW:
+                case R7_UALH:
+                case R7_UASH:
                     // FIXME gen_ld() and gen_st() to add MO_UNALN
                     {
                         TCGv t0 = tcg_temp_new();
@@ -17547,14 +17560,14 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                         gen_base_offset_addr(ctx, t0, rs, s);
 
                         switch ((ctx->opcode >> 11) & 0x0f) {
-                        case UALW:
-                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESL |
+                        case R7_UALH:
+                            tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TESW |
                                                MO_UNALN);
                             gen_store_gpr(t0, rt);
                             break;
-                        case UASW:
+                        case R7_UASH:
                             gen_load_gpr(t1, rt);
-                            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL |
+                            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUW |
                                                MO_UNALN);
                             break;
                         }
@@ -17567,7 +17580,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     case R7_LL:
                         gen_ld(ctx, OPC_LL, rt, rs, s);
                         break;
-                    case LLWP:
+                    case R7_LLWP:
                         if (ctx->xnp) {
                             generate_exception_end(ctx, EXCP_RI);
                         } else {
@@ -17582,7 +17595,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     case R7_SC:
                         gen_st_cond(ctx, OPC_SC, rt, rs, s);
                         break;
-                    case SCWP:
+                    case R7_SCWP:
                         if (ctx->xnp) {
                             generate_exception_end(ctx, EXCP_RI);
                         } else {
@@ -17600,22 +17613,58 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     break;
                 }
                 break;
+	    case P_LS_WM:
+	    case P_LS_UAWM:
+		{
+		  int32_t offset = sextract32(ctx->opcode, 15, 1) << 8 |
+				   extract32(ctx->opcode, 0, 8);
+		  int count = extract32(ctx->opcode, 12, 3);
+		  int counter = 0;
+                  TCGv va = tcg_temp_new();
+                  TCGv t1 = tcg_temp_new();
+		  TCGMemOp memop = ((ctx->opcode >> 8) & 0x07) == P_LS_UAWM ? MO_UNALN : 0;
+
+		  count = (count == 0) ? 8 : count;
+		  while (counter != count) {
+		      int this_rt = ((rt + counter) & 0x1f);
+		      int32_t this_offset = offset + (counter << 2);
+
+                      gen_base_offset_addr(ctx, va, rs, this_offset);
+
+                      switch (extract32(ctx->opcode, 11, 1)) {
+                      case R7_LWM:
+                          tcg_gen_qemu_ld_tl(t1, va, ctx->mem_idx, memop | MO_TESL);
+                          gen_store_gpr(t1, this_rt);
+                          break;
+                      case R7_SWM:
+                          gen_load_gpr(t1, this_rt);
+                          tcg_gen_qemu_st_tl(t1, va, ctx->mem_idx, memop | MO_TEUL);
+                          break;
+                      }
+		      counter++;
+		  }
+                  tcg_temp_free(va);
+                  tcg_temp_free(t1);
+		}
+                break;
             default:
                 generate_exception_end(ctx, EXCP_RI);
                 break;
             }
         }
         break;
-    case MOVE_BALC:
+    case R7_MOVE_BALC:
         {
+	    TCGv t0 = tcg_temp_new();
             int32_t s = sextract32(ctx->opcode, 0, 1) << 21 |
                         extract32(ctx->opcode, 1, 20) << 1;
             rd = ((ctx->opcode >> 24) & 1) == 0 ? 4 : 5;
-            rt = extract32(ctx->opcode, 25, 1) << 4 |
-                 extract32(ctx->opcode, 21, 3);
-
-            tcg_gen_mov_tl(cpu_gpr[rd], cpu_gpr[rt]);
+            rt = mmreg4z_r7(extract32(ctx->opcode, 25, 1) << 3 |
+                            extract32(ctx->opcode, 21, 3));
+            gen_load_gpr(t0, rt);
+            tcg_gen_mov_tl(cpu_gpr[rd], t0);
             gen_compute_branch(ctx, OPC_BGEZAL, 4, 0, 0, s, 0);
+	    tcg_temp_free(t0);
         }
         break;
     case P_BAL:
@@ -17638,10 +17687,8 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         case R7_JALRC_HB:
             gen_compute_branch(ctx, OPC_JALR, 4, rs, rt, 0, 0);
             break;
-        case P_BREG:
-            gen_compute_r7_pbreg_branch(ctx, extract32(ctx->opcode, 9, 1),
-                                        extract32(ctx->opcode, 16, 5),
-                                        extract32(ctx->opcode, 21, 5));
+        case P_BALRSC:
+            gen_compute_r7_pbalrsc_branch(ctx, rs, rt);
             break;
         default:
             generate_exception_end(ctx, EXCP_RI);
@@ -17733,20 +17780,6 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                                    rt, u, s);
         }
         break;
-    case P_BZ:
-        {
-            int32_t s = sextract32(ctx->opcode, 0, 1) << 20 |
-                        extract32(ctx->opcode, 1, 19) << 1;
-            switch ((ctx->opcode >> 20) & 1) {
-            case R7_BEQZC:
-                gen_compute_branch(ctx, OPC_BEQ, 4, rt, 0, s, 0);
-                break;
-            case R7_BNEZC:
-                gen_compute_branch(ctx, OPC_BNE, 4, rt, 0, s, 0);
-                break;
-            }
-        }
-        break;
     default:
         generate_exception_end(ctx, EXCP_RI);
         break;
@@ -17779,9 +17812,8 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
     if (ctx->hflags & MIPS_HFLAG_BDS_STRICT) {
         /* FIXME do it latter */
     }
-
     switch (op) {
-    case P16_MOVE:
+    case P16_MV:
         {
             int rt = uMIPS_RD5(ctx->opcode);
             if (rt != 0) {
@@ -17842,7 +17874,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
-    case P16_ADDIU1:
+    case P16_A1:
         switch ((ctx->opcode >> 6) & 1) {
         case R7_ADDIUR1SP:
             gen_arith_imm(ctx, OPC_ADDIU, rt, 29,
@@ -17853,7 +17885,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
-    case P16_ADDIU2:
+    case P16_A2:
         switch ((ctx->opcode >> 3) & 1) {
         case R7_ADDIUR2:
             {
@@ -17884,6 +17916,27 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         }
         break;
+    case P16_4X4:
+	{
+            int rt = (extract32(ctx->opcode, 9, 1) << 3) |
+                      extract32(ctx->opcode, 5, 3);
+            int rs = (extract32(ctx->opcode, 4, 1) << 3) |
+                      extract32(ctx->opcode, 0, 3);
+	    rt = mmreg4_r7(rt);
+	    rs = mmreg4_r7(rs);
+
+            switch (((ctx->opcode >> 7) & 0x2) | ((ctx->opcode >> 3) & 0x1)) {
+            case R7_ADDU4X4:
+                gen_arith(ctx, OPC_ADDU, rt, rs, rt);
+	        break;
+            case R7_MUL4X4:
+	        gen_r6_muldiv(ctx, R6_OPC_MUL, rt, rs, rt);
+	        break;
+            default:
+                generate_exception_end(ctx, EXCP_RI);
+                break;
+	    }
+        }
     case R7_LI16:
         {
             int imm = extract32(ctx->opcode, 0, 7);
@@ -17905,7 +17958,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
         {
             uint32_t u = extract32(ctx->opcode, 0, 2);
             switch (((ctx->opcode) >> 2) & 0x03) {
-            case LB16:
+            case R7_LB16:
                 gen_ld(ctx, OPC_LB, rt, rs, u);
                 break;
             case R7_SB16:
@@ -17930,7 +17983,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
         {
             uint32_t u = extract32(ctx->opcode, 1, 2) << 1;
             switch ((((ctx->opcode >> 3) & 1) << 1) | (ctx->opcode & 1)) {
-            case LH16:
+            case R7_LH16:
                 gen_ld(ctx, OPC_LH, rt, rs, u);
                 break;
             case R7_SH16:
@@ -17957,7 +18010,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_ld(ctx, OPC_LW, rt, rs, u);
         }
         break;
-    case LWSP:
+    case R7_LWSP16:
         {
             int rt = uMIPS_RD5(ctx->opcode);
             int u = extract32(ctx->opcode, 0, 5) << 2;
@@ -17965,25 +18018,29 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_ld(ctx, OPC_LW, rt, 29, u);
         }
         break;
-    case LW4X4:
+    case R7_LW4X4:
         {
-            int rt = (extract32(ctx->opcode, 9, 1) << 4) |
+            int rt = (extract32(ctx->opcode, 9, 1) << 3) |
                      extract32(ctx->opcode, 5, 3);
-            int rs = (extract32(ctx->opcode, 4, 1) << 4) |
+            int rs = (extract32(ctx->opcode, 4, 1) << 3) |
                      extract32(ctx->opcode, 0, 3);
             int u = (extract32(ctx->opcode, 3, 1) << 3) |
                     (extract32(ctx->opcode, 8, 1) << 2);
+	    rt = mmreg4_r7(rt);
+	    rs = mmreg4_r7(rs);
             gen_ld(ctx, OPC_LW, rt, rs, u);
         }
         break;
-    case SW4X4:
+    case R7_SW4X4:
         {
-            int rt = (extract32(ctx->opcode, 9, 1) << 4) |
+            int rt = (extract32(ctx->opcode, 9, 1) << 3) |
                      extract32(ctx->opcode, 5, 3);
-            int rs = (extract32(ctx->opcode, 4, 1) << 4) |
+            int rs = (extract32(ctx->opcode, 4, 1) << 3) |
                      extract32(ctx->opcode, 0, 3);
             int u = (extract32(ctx->opcode, 3, 1) << 3) |
                     (extract32(ctx->opcode, 8, 1) << 2);
+	    rt = mmreg4_r7(rt);
+	    rs = mmreg4_r7(rs);
             gen_st(ctx, OPC_SW, rt, rs, u);
         }
         break;
@@ -17993,7 +18050,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_ld(ctx, OPC_LW, rt, 28, u);
         }
         break;
-    case SWSP:
+    case R7_SWSP16:
         {
             int rt = uMIPS_RD5(ctx->opcode);
             int u = extract32(ctx->opcode, 0, 5) << 2;
@@ -18020,7 +18077,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                                (extract32(ctx->opcode, 1, 9) << 1),
                            0);
         break;
-    case BALC16:
+    case R7_BALC16:
         gen_compute_branch(ctx, OPC_BGEZAL, 2, 0, 0,
                            (sextract32(ctx->opcode, 0, 1) << 10) |
                                (extract32(ctx->opcode, 1, 9) << 1),
@@ -18064,45 +18121,23 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case P16_SR:
-        switch (ctx->opcode & 1) {
-        case P16_SR_W:
-            {
-                int count = extract32(ctx->opcode, 6, 4);
-                int u = extract32(ctx->opcode, 1, 4) << 3;
-
-                switch ((ctx->opcode >> 5) & 1) {
-                case SAVE16:
-                    {
-                        if (count == 14 || count == 15) {
-                            gen_adjust_sp(ctx, -u);
-                        } else {
-                            gen_save(ctx, 31, count, 0, 0, u);
-                        }
-                    }
-                    break;
-                case P_RESTORE16:
-                    if (count != 15) {
-                        /* RESTORE.JRC[16] */
-                        if (count == 14) {
-                            gen_adjust_sp(ctx, u);
-                        } else {
-                            gen_restore(ctx, 31, count, 0, 0, u);
-                        }
-                        gen_compute_branch(ctx, OPC_JR, 2, 31, 0, 0, 0);
-                    } else {
-                        /* RESTORE[16] */
-                        gen_adjust_sp(ctx, u);
-                    }
-                    break;
-                }
+	{
+            int count = extract32(ctx->opcode, 0, 4);
+            int u = extract32(ctx->opcode, 4, 4) << 4;
+	    int rt = 30 + ((ctx->opcode >> 9) & 1);
+            switch ((ctx->opcode >> 8) & 1) {
+            case R7_SAVE16:
+                gen_save(ctx, rt, count, 0, u);
+                break;
+            case R7_RESTORE_JRC16:
+                gen_restore(ctx, rt, count, 0, u);
+                gen_compute_branch(ctx, OPC_JR, 2, 31, 0, 0, 0);
+                break;
             }
-            break;
-        case P16_SR_D:
-            break;
-        }
+	}
         break;
     case R7_MOVEP:
-    case MOVEPREV:
+    case R7_MOVEPREV:
         {
             static const int gpr2reg1[] = {4, 5, 6, 7};
             static const int gpr2reg2[] = {5, 6, 7, 8};
@@ -18111,20 +18146,20 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                       extract32(ctx->opcode, 8, 1);
             int r1 = gpr2reg1[rd2];
             int r2 = gpr2reg2[rd2];
-            int r3 = extract32(ctx->opcode, 4, 1) << 4 |
+            int r3 = extract32(ctx->opcode, 4, 1) << 3 |
                      extract32(ctx->opcode, 0, 3);
-            int r4 = extract32(ctx->opcode, 9, 1) << 4 |
+            int r4 = extract32(ctx->opcode, 9, 1) << 3 |
                      extract32(ctx->opcode, 5, 3);
             TCGv t0 = tcg_temp_new();
             TCGv t1 = tcg_temp_new();
             if(op == R7_MOVEP) {
                 rd = r1;
                 re = r2;
-                rs = r3;
-                rt = r4;
+                rs = mmreg4z_r7(r3);
+                rt = mmreg4z_r7(r4);
             } else {
-                rd = r3;
-                re = r4;
+                rd = mmreg4_r7(r3);
+                re = mmreg4_r7(r4);
                 rs = r1;
                 rt = r2;
             }
@@ -22799,6 +22834,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
     ctx.nan2008 = (env->active_fpu.fcr31 >> FCR31_NAN2008) & 1;
     ctx.abs2008 = (env->active_fpu.fcr31 >> FCR31_ABS2008) & 1;
     ctx.xnp = (env->CP0_Config5 >> CP0C5_XNP) & 1;
+    ctx.has_isa_mode = ((env->CP0_Config3 >> CP0C3_MMAR) & 0x7) != 3;
     ctx.umips_x7_dec = !!(env->insn_flags & UMIPS_DEC_X7);
     restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
@@ -22816,7 +22852,6 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
     if (max_insns > TCG_MAX_INSNS) {
         max_insns = TCG_MAX_INSNS;
     }
-
     LOG_DISAS("\ntb %p idx %d hflags %04x\n", tb, ctx.mem_idx, ctx.hflags);
     gen_tb_start(tb);
     while (ctx.bstate == BS_NONE) {
@@ -22840,7 +22875,7 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
         }
 
         is_slot = ctx.hflags & MIPS_HFLAG_BMASK;
-        if (!(ctx.hflags & MIPS_HFLAG_M16)) {
+        if (ctx.has_isa_mode && !(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
             decode_opc(env, &ctx);
@@ -22866,7 +22901,8 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
                    forbidden slot */
                 is_slot = 1;
             }
-            if ((ctx.hflags & MIPS_HFLAG_M16) &&
+	    /* No ISA mode == nanoMIPS === no slots */
+            if ((!ctx.has_isa_mode || (ctx.hflags & MIPS_HFLAG_M16)) &&
                 (ctx.hflags & MIPS_HFLAG_FBNSLOT)) {
                 /* Force to generate branch as microMIPS R6 doesn't restrict
                    branches in the forbidden slot. */
