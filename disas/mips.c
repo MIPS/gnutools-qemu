@@ -6046,337 +6046,14 @@ static const unsigned int umips_decode_gpr3_src_store[] = {
 #define umips_decode_gpr3_src_store_reg_names(rn) \
     mips_gpr_names[umips_decode_gpr3_src_store[rn]]
 
-static void print_moveprev_args(const char **s, uint64_t insn,
-                                struct disassemble_info *info)
-{
-    int rd, re, rs, rt;
-    switch (**s) {
-    case 'P': /* movep */
-        rd = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 4;
-        re = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 5;
-        rs = (extract32(insn, 4, 1) << 4) | extract32(insn, 0, 3);
-        rt = (extract32(insn, 9, 1) << 4) | extract32(insn, 5, 3);
-        break;
-    case 'V': /* moveprev */
-        rd = (extract32(insn, 4, 1) << 4) | extract32(insn, 0, 3);
-        re = (extract32(insn, 9, 1) << 4) | extract32(insn, 5, 3);
-        rs = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 4;
-        rt = ((extract32(insn, 3, 1) << 1) | extract32(insn, 8, 1)) + 5;
-        break;
-    }
-    (*info->fprintf_func) (info->stream, "%s ",
-        mips_gpr_names[rd]);
-
-    (*info->fprintf_func) (info->stream, "%s ",
-        mips_gpr_names[re]);
-
-    (*info->fprintf_func) (info->stream, "%s ",
-        mips_gpr_names[rs]);
-
-    (*info->fprintf_func) (info->stream, "%s ",
-        mips_gpr_names[rt]);
-}
-
-static int print_umips_insn_args(const char **s, uint64_t insn,
-                                  bfd_vma pc, struct disassemble_info *info,
-                                  int length)
-{
-    int offset;
-    switch (**s) {
-    /* 16 bit instructions */
-    case 't': /* rt3 */
-        (*info->fprintf_func) (info->stream, "%s",
-            umips_decode_gpr3_reg_names(extract32(insn, 7, 3)));
-        break;
-    case 's': /* rs3 */
-        (*info->fprintf_func) (info->stream, "%s",
-            umips_decode_gpr3_reg_names(extract32(insn, 4, 3)));
-        break;
-    case 'd': /* rd3 */
-        (*info->fprintf_func) (info->stream, "%s",
-            umips_decode_gpr3_reg_names(extract32(insn, 1, 3)));
-        break;
-    case 'T': /* rtz3 */
-        (*info->fprintf_func) (info->stream, "%s",
-            umips_decode_gpr3_src_store_reg_names(extract32(insn, 7, 3)));
-        break;
-
-    case '5':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[extract32(insn, 5, 5)]);
-        break;
-    case '0':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[extract32(insn, 0, 5)]);
-        break;
-    case '3':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_hwr_names[extract32(insn, 3, 5)]);
-        break;
-    case '8':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[28]);
-        break;
-    case '9':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[29]);
-        break;
-    case 'g':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_hwr_names[extract32(insn, 16, 5)]);
-        break;
-    case 'G':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_cp0_names[extract32(insn, 16, 5)]);
-        break;
-    case 'D':
-        print_cp0_sel_name(info, extract32(insn, 16, 5),
-                           extract32(insn, 11, 3));
-        break;
-    case 'u':
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[extract32(insn, 3, 5)]);
-        break;
-
-    case 'o': /* bit 24 */
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[extract32(insn, 24, 1) + 4]);
-        break;
-    case 'l': /* bit 25, 23..(21) */
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[(extract32(insn, 25, 1) << 4) |
-                           extract32(insn, 21, 3)]);
-        break;
-    case '(': /* rt4[9], rt2..0[7..5] */
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[(extract32(insn, 9, 1) << 4) |
-                           extract32(insn, 5, 3)]);
-        break;
-    case '$': /* rs4[4], rs2..0[2..0] */
-        (*info->fprintf_func) (info->stream, "%s",
-            mips_gpr_names[(extract32(insn, 4, 1) << 4) |
-                           extract32(insn, 0, 3)]);
-        break;
-
-        /* movep, moveprev */
-    case 'P':
-    case 'V':
-        print_moveprev_args(s, insn, info);
-        break;
-
-        /* b{eq|ne}c */
-    case 'Q':
-        (*info->fprintf_func) (info->stream, "%s",
-            (extract32(insn, 4, 3) < extract32(insn, 7, 3)) ? "BEQC" : "BNEC");
-        break;
-
-        /* immediate field */
-    case 'i':
-        ++(*s);
-        switch (**s) {
-
-        /* signed unsigned immediate fields */
-        case '1':
-            (*info->fprintf_func) (info->stream, "0x%x", extract32(insn, 0, 2));
-            break;
-        case '2':
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 3));
-            break;
-        case '@':
-            (*info->fprintf_func) (info->stream, "0x%x",
-                extract32(insn, 1, 2) << 1);
-            break;
-        case '3':
-            (*info->fprintf_func) (info->stream, "%d",
-                ((sextract32(insn, 4, 1)) << 3) | extract32(insn, 0, 3));
-            break;
-        case '4':
-            (*info->fprintf_func) (info->stream, "0x%x",
-                extract32(insn, 0, 3) << 2);
-            break;
-        case '5':
-            (*info->fprintf_func) (info->stream, "0x%x", extract32(insn, 0, 5));
-            break;
-        case '%':
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 0, 4) << 2);
-            break;
-        case '6':
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 0, 5) << 2);
-            break;
-        case '^':
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 1, 4) << 3);
-            break;
-        case '7':
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 0, 6) << 2);
-            break;
-        case '8': /* s8 */
-            (*info->fprintf_func) (info->stream, "%d",
-                ((sextract32(insn, 15, 1)) << 8) | extract32(insn, 0, 8));
-            break;
-        case 'b':
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 3, 9) << 3);
-            break;
-        case 'c':
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 12));
-            break;
-        case 'C':
-            (*info->fprintf_func) (info->stream, "0x%x",
-                extract32(insn, 0, 12));
-            break;
-        case 'd':
-            (*info->fprintf_func) (info->stream, "%d",
-                (sextract32(insn, 15, 1) << 13) | extract32(insn, 0, 13));
-            break;
-        case 'i':
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 18));
-            break;
-        case 'j':
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 0, 19));
-            break;
-        case 'k': /* u20 */
-            (*info->fprintf_func) (info->stream, "%d",
-                extract32(insn, 2, 19) << 2);
-            break;
-        case 'v': /* s31 */
-            (*info->fprintf_func) (info->stream, "0x%x",
-                (extract32(insn, 0, 1) << 19) |
-                (extract32(insn, 2, 10) << 9) |
-                (extract32(insn, 12, 9)));
-            break;
-        case 'w': /* u32 */
-            {
-                int status;
-                uint32_t val;
-                bfd_byte buffer[2];
-
-                status = (*info->read_memory_func) ((bfd_vma) pc + 4,
-                    buffer, 2, info);
-                if (status != 0) {
-                    (*info->fprintf_func) (info->stream, "48bit instruction");
-                    (*info->memory_error_func) (status, pc + 4, info);
-                    return -1;
-                }
-
-                if (info->endian == BFD_ENDIAN_BIG) {
-                    val = bfd_getb16(buffer) << 16;
-                    val |= extract32(insn, 0, 16);
-                } else {
-                    val = bfd_getl16(buffer);
-                    val |= (extract32(insn, 0, 16) << 16);
-                }
-
-                (*info->fprintf_func) (info->stream, "0x%x", val);
-            }
-            break;
-
-            /* bits extraction */
-        case '0':
-            {
-                int eu = extract32(insn, 0, 4);
-                eu = (eu == 12) ? 0xff : (eu == 13) ? 0xffff : eu;
-                (*info->fprintf_func) (info->stream, "0x%x", eu);
-            }
-            break;
-        case ')':
-            {
-                int eu = extract32(insn, 0, 7);
-                eu = (eu == 127) ? -1 : eu;
-                (*info->fprintf_func) (info->stream, "%d", eu);
-            }
-            break;
-        case 'L': /* bit 25..(21) */
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 21, 5));
-            break;
-        case '(': /* bit 17..(9) */
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 9, 2));
-            break;
-        case 'B': /* bit 17..(11) */
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 11, 7));
-            break;
-        case 'G': /* bit 25..16 */
-            (*info->fprintf_func) (info->stream, "%d", extract32(insn, 16, 5));
-            break;
-        case '#': /* bit 3, bit 8 */
-            (*info->fprintf_func) (info->stream, "%d",
-                (extract32(insn, 3, 1) << 3) |
-                (extract32(insn, 8, 1) << 2));
-            break;
-
-            /* special cases for ext and ins */
-        case 'z': /* esi(z)e */
-            (*info->fprintf_func) (info->stream, "0x%x",
-                extract32(insn, 6, 5) + 1);
-            break;
-        case 'Z': /* isi(Z)e */
-            (*info->fprintf_func) (info->stream, "0x%x",
-                1 + extract32(insn, 6, 5) - extract32(insn, 0, 5));
-            break;
-        }
-        break;
-
-    /* address */
-    case 'a':
-        ++(*s);
-        switch (**s) {
-        case '4':
-            offset = extract32(insn, 0, 4) << 1;
-            info->target = pc + length + offset;
-            break;
-        case '7':
-            offset = (sextract32(insn, 0, 1) << 7) |
-                     (extract32(insn, 1, 6) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'a':
-            offset = (sextract32(insn, 0, 1) << 10) |
-                     (extract32(insn, 1, 9) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'b':
-            offset = (sextract32(insn, 0, 1) << 11) |
-                     (extract32(insn, 1, 10) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'e':
-            offset = (sextract32(insn, 0, 1) << 14) |
-                     (extract32(insn, 1, 13) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'k':
-            offset = (sextract32(insn, 0, 1) << 20) |
-                     (extract32(insn, 1, 19) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'l':
-            offset = (sextract32(insn, 0, 1) << 21) |
-                     (extract32(insn, 1, 20) << 1);
-            info->target = pc + length + offset;
-            break;
-        case 'p':
-            offset = (sextract32(insn, 0, 1) << 25) |
-                     (extract32(insn, 1, 24) << 1);
-            info->target = pc + length + offset;
-            break;
-        }
-        (*info->print_address_func) (info->target, info);
-        break;
-    }
-    return 0;
-}
+int nanomips_dis (char* buf, unsigned address, unsigned short one, unsigned short two, unsigned short three);
 
 int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
 {
     int status;
     bfd_byte buffer[2];
-    int length;
-    uint64_t insn;
-    int extend = 0;
-    const struct mips_opcode *op, *opend;
+    uint16_t insn1 = 0, insn2 = 0, insn3 = 0;
+    char buf[200];
 
     info->bytes_per_chunk = 2;
     info->display_endian = info->endian;
@@ -6397,86 +6074,52 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
         return -1;
     }
 
-    length = 2;
-
     if (info->endian == BFD_ENDIAN_BIG)
-        insn = bfd_getb16 (buffer);
+        insn1 = bfd_getb16 (buffer);
     else
-        insn = bfd_getl16 (buffer);
+        insn1 = bfd_getl16 (buffer);
 
-    /* Handle the extend opcode specially.  */
-    if ((insn & 0x1000) == 0)
+    /* Handle 32-bit opcodes.  */
+    if ((insn1 & 0x1000) == 0)
     {
-        extend = insn;
-
         status = (*info->read_memory_func) (memaddr + 2, buffer, 2, info);
         if (status != 0)
         {
-            (*info->fprintf_func) (info->stream, "extend 0x%x",
-                (unsigned int) extend);
             (*info->memory_error_func) (status, memaddr + 2, info);
             return -1;
         }
 
         if (info->endian == BFD_ENDIAN_BIG)
-            insn = bfd_getb16 (buffer);
+            insn2 = bfd_getb16 (buffer);
         else
-            insn = bfd_getl16 (buffer);
-
-        insn |= extend << 16;
-        length += 2;
+            insn2 = bfd_getl16 (buffer);
     }
+    /* Handle 48-bit opcodes.  */
+    if ((insn1 >> 26) == 0x18)
+    {
+        status = (*info->read_memory_func) (memaddr + 4, buffer, 2, info);
+        if (status != 0)
+        {
+            (*info->memory_error_func) (status, memaddr + 4, info);
+            return -1;
+        }
+
+        if (info->endian == BFD_ENDIAN_BIG)
+            insn3 = bfd_getb16 (buffer);
+        else
+            insn3 = bfd_getl16 (buffer);
+
+    }
+
+    int length = nanomips_dis(buf, memaddr, insn1, insn2, insn3);
 
     /* FIXME: Should probably use a hash table on the major opcode here.  */
 
-    opend = micromips_opcodes + bfd_micromips_num_opcodes;
-    for (op = micromips_opcodes; op < opend; op++)
-    {
-        if (op->pinfo != INSN_MACRO
-            && !(no_aliases && (op->pinfo2 & INSN2_ALIAS))
-            && (insn & op->mask) == op->match
-            && ( ((length == 2) ^ ((op->mask >> 16) != 0))))
-        {
-            const char *s;
+    (*info->fprintf_func) (info->stream, "nanoMIPS %s %d\n", buf, length);
+    if (length > 0)
+        return length / 8;
 
-            (*info->fprintf_func) (info->stream, "micromips %s", op->name);
-
-            if (op->args[0] != '\0') {
-                (*info->fprintf_func) (info->stream, "\t");
-            }
-            for (s = op->args; *s != '\0'; s++) {
-                char tmp[] = {'\0', '\0'};
-                if (*s == ',') {
-                    /* Skip the comma.  */
-#ifdef MIPSSIM_COMPAT
-                    (*info->fprintf_func) (info->stream, "%c ", *s);
-#endif
-                    continue;
-                }
-                if (*s == 'm') {
-                    /* microMIPS specific */
-                    ++s;
-                    print_umips_insn_args(&s, insn, memaddr, info, length);
-                } else {
-                    /* reuse MIPS32/64 */
-                    tmp[0] = *s;
-                    print_insn_args (tmp, insn, memaddr, info, op);
-                }
-            }
-
-            if ((op->pinfo & INSN_UNCOND_BRANCH_DELAY) != 0)
-            {
-                info->branch_delay_insns = 1;
-                if (info->insn_type != dis_jsr)
-                    info->insn_type = dis_branch;
-            }
-
-            return length;
-        }
-    }
-
-    (*info->fprintf_func) (info->stream, "0x%x", (uint32_t) insn);
     info->insn_type = dis_noninsn;
 
-    return length;
+    return insn3 ? 6 : insn2 ? 4 : 2;
 }
