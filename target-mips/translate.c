@@ -16842,9 +16842,14 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 break;
             }
         } else {
-          uint16_t imm;
-          imm = (uint16_t) extract32(ctx->opcode, 0, 16);
-          gen_arith_imm(ctx, OPC_ADDIU, rt, rs, imm);
+            uint16_t imm;
+            imm = (uint16_t) extract32(ctx->opcode, 0, 16);
+            if (rs != 0) {
+                tcg_gen_addi_tl(cpu_gpr[rt], cpu_gpr[rs], imm);
+                tcg_gen_ext32s_tl(cpu_gpr[rt], cpu_gpr[rt]);
+            } else {
+                tcg_gen_movi_tl(cpu_gpr[rt], imm);
+            }
         }
         break;
     case R7_ADDIUPC:
