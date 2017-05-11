@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <sstream>
 
-#if CODESCAPE_HEADERS
+#ifdef CODESCAPE_HEADERS
 #include "imgleeds/imgleeds/format.h"
 #include "imgleeds/imgleeds/address.h"
 #else
@@ -12444,7 +12444,7 @@ int nanomips_dis (char* buf, unsigned address, unsigned short one, unsigned shor
   return size;
 }
 }
-#if RELEASE
+#ifdef RELEASE
 #include <stdlib.h>
 #include <string.h>
 
@@ -12503,7 +12503,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-#elif UNIT_TEST
+#elif defined(UNIT_TEST)
 
 //
 // simple test code feeds in a byte stream, expected instruction size and expected disassembly string and check the result
