@@ -14664,7 +14664,7 @@ static void gen_save(DisasContext *ctx, uint8_t rt, uint8_t count,
 
     while (counter != count) {
         bool use_gp = gp && (counter == count - 1);
-	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0xf);
+	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0x1f);
 	int this_offset = -((counter + 1) << 2);
         gen_base_offset_addr(ctx, va, 29, this_offset);
         gen_load_gpr(t0, this_rt);
@@ -14689,7 +14689,7 @@ static void gen_restore(DisasContext *ctx, uint8_t rt, uint8_t count,
 
     while (counter != count) {
         bool use_gp = gp && (counter == count - 1);
-	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0xf);
+	int this_rt = use_gp ? 28 : (rt & 0x10) | ((rt + counter) & 0x1f);
 	int this_offset = u - ((counter + 1) << 2);
         gen_base_offset_addr(ctx, va, 29, this_offset);
         tcg_gen_qemu_ld_tl(t0, va, ctx->mem_idx, MO_TESL |
@@ -17626,7 +17626,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
 
 		  count = (count == 0) ? 8 : count;
 		  while (counter != count) {
-		      int this_rt = ((rt + counter) & 0x1f);
+		      int this_rt = ((rt + counter) & 0x1f) | (rt & 0x10);
 		      int32_t this_offset = offset + (counter << 2);
 
                       gen_base_offset_addr(ctx, va, rs, this_offset);
