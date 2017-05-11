@@ -17995,6 +17995,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                 break;
 	    }
         }
+        break;
     case R7_LI16:
         {
             int imm = extract32(ctx->opcode, 0, 7);
