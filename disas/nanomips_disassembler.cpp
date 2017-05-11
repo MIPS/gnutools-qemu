@@ -54,7 +54,7 @@ namespace img
 std::string to_string(img::address a)
 {
     char buffer[256];
-    sprintf(buffer, "0x%08x", a);
+    sprintf(buffer, "0x%08llx", a);
     return buffer;
 }
 
