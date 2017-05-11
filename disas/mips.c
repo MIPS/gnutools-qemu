@@ -6095,7 +6095,7 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             insn2 = bfd_getl16 (buffer);
     }
     /* Handle 48-bit opcodes.  */
-    if ((insn1 >> 26) == 0x18)
+    if ((insn1 >> 10) == 0x18)
     {
         status = (*info->read_memory_func) (memaddr + 4, buffer, 2, info);
         if (status != 0)
