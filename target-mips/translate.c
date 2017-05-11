@@ -16842,8 +16842,8 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 break;
             }
         } else {
-          int16_t imm;
-          imm = (int16_t) extract32(ctx->opcode, 0, 16);
+          uint16_t imm;
+          imm = (uint16_t) extract32(ctx->opcode, 0, 16);
           gen_arith_imm(ctx, OPC_ADDIU, rt, rs, imm);
         }
         break;
