@@ -13294,7 +13294,7 @@ enum {
     R7_UALH      = 0x04,
     R7_UASH      = 0x05,
     R7_CACHE     = 0x07,
-    P_LL         = 0x0c,
+    P_LL         = 0x0a,
     P_SC         = 0x0b,
 };
 
