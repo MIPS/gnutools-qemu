@@ -6078,6 +6078,7 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
         insn1 = bfd_getb16 (buffer);
     else
         insn1 = bfd_getl16 (buffer);
+    (*info->fprintf_func) (info->stream, "%04x ", insn1);
 
     /* Handle 32-bit opcodes.  */
     if ((insn1 & 0x1000) == 0)
@@ -6093,6 +6094,11 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             insn2 = bfd_getb16 (buffer);
         else
             insn2 = bfd_getl16 (buffer);
+        (*info->fprintf_func) (info->stream, "%04x ", insn2);
+    }
+    else
+    {
+        (*info->fprintf_func) (info->stream, "     ");
     }
     /* Handle 48-bit opcodes.  */
     if ((insn1 >> 10) == 0x18)
@@ -6108,14 +6114,18 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             insn3 = bfd_getb16 (buffer);
         else
             insn3 = bfd_getl16 (buffer);
-
+        (*info->fprintf_func) (info->stream, "%04x ", insn3);
+    }
+    else
+    {
+        (*info->fprintf_func) (info->stream, "     ");
     }
 
     int length = nanomips_dis(buf, memaddr, insn1, insn2, insn3);
 
     /* FIXME: Should probably use a hash table on the major opcode here.  */
 
-    (*info->fprintf_func) (info->stream, "nanoMIPS %s %d\n", buf, length);
+    (*info->fprintf_func) (info->stream, "%s", buf);
     if (length > 0)
         return length / 8;
 
