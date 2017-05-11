@@ -247,9 +247,10 @@ target_ulong helper_bitswap(target_ulong rt)
 target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint32_t stripe)
 {
   int i;
-  uint64_t tmp0 = ((uint64_t)rs) << 32 | (uint64_t)rs;
+  uint64_t tmp0 = ((uint64_t)rs) << 32 | ((uint64_t)rs & 0xffffffff);
 
   uint64_t tmp1 = tmp0;
+
   for (i = 0; i <=46; i++) {
     int s;
 
@@ -262,10 +263,10 @@ target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint3
       s = ~s;
 
     if (s & 0x10) {
-      if (tmp0 & (1 << (i + 16)))
-        tmp1 |= 1 << i;
+      if (tmp0 & (1LL << (i + 16)))
+        tmp1 |= 1LL << i;
       else
-        tmp1 &= ~(1 << i);
+        tmp1 &= ~(1LL << i);
     }
   }
 
@@ -279,10 +280,10 @@ target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint3
       s = shiftx;
 
     if (s & 0x8) {
-      if (tmp1 & (1 << (i + 8)))
-        tmp2 |= 1 << i;
+      if (tmp1 & (1LL << (i + 8)))
+        tmp2 |= 1LL << i;
       else
-        tmp2 &= ~(1 << i);
+        tmp2 &= ~(1LL << i);
     }
   }
 
@@ -296,10 +297,10 @@ target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint3
       s = shiftx;
 
     if (s & 0x4) {
-      if (tmp2 & (1 << (i + 4)))
-        tmp3 |= 1 << i;
+      if (tmp2 & (1LL << (i + 4)))
+        tmp3 |= 1LL << i;
       else
-        tmp3 &= ~(1 << i);
+        tmp3 &= ~(1LL << i);
     }
   }
 
@@ -313,10 +314,10 @@ target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint3
       s = shiftx;
 
     if (s & 0x2) {
-      if (tmp3 & (1 << (i + 2)))
-        tmp4 |= 1 << i;
+      if (tmp3 & (1LL << (i + 2)))
+        tmp4 |= 1LL << i;
       else
-        tmp4 &= ~(1 << i);
+        tmp4 &= ~(1LL << i);
     }
   }
 
@@ -327,14 +328,14 @@ target_ulong helper_rotx(target_ulong rs, uint32_t shift, uint32_t shiftx, uint3
     s = shift;
 
     if (s & 0x1) {
-      if (tmp4 & (1 << (i + 1)))
-        tmp5 |= 1 << i;
+      if (tmp4 & (1LL << (i + 1)))
+        tmp5 |= 1LL << i;
       else
-        tmp5 &= ~(1 << i);
+        tmp5 &= ~(1LL << i);
     }
   }
 
-  return tmp5;
+  return (int64_t)(int32_t)(uint32_t)tmp5;
 }
 
 #ifndef CONFIG_USER_ONLY
