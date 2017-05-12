@@ -18045,7 +18045,7 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                      extract32(ctx->opcode, 0, 3);
             int u = (extract32(ctx->opcode, 3, 1) << 3) |
                     (extract32(ctx->opcode, 8, 1) << 2);
-	    rt = mmreg4_r7(rt);
+	    rt = mmreg4z_r7(rt);
 	    rs = mmreg4_r7(rs);
             gen_st(ctx, OPC_SW, rt, rs, u);
         }
