@@ -14660,7 +14660,7 @@ static void gen_save(DisasContext *ctx, uint8_t rt, uint8_t count,
     int counter = 0;
     TCGv va = tcg_temp_new();
     TCGv t0 = tcg_temp_new();
-    fprintf(stderr, "save %d, %d, %d, %d\n", rt, count, gp, u);
+    /* fprintf(stderr, "save %d, %d, %d, %d\n", rt, count, gp, u); */
 
     while (counter != count) {
         bool use_gp = gp && (counter == count - 1);
