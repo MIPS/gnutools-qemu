@@ -23,6 +23,7 @@
 #include "hw/mips/mips.h"
 #include "hw/mips/cpudevs.h"
 #include "sysemu/kvm.h"
+#include "cpu.h"
 
 qemu_irq get_cps_irq(MIPSCPSState *s, int pin_number)
 {
@@ -147,7 +148,7 @@ static void mips_cps_realize(DeviceState *dev, Error **errp)
     qdev_set_parent_bus(DEVICE(&s->gcr), sysbus_get_default());
 
     object_property_set_int(OBJECT(&s->gcr), s->num_vp, "num-vp", &err);
-    object_property_set_int(OBJECT(&s->gcr), 0x800, "gcr-rev", &err);
+    object_property_set_int(OBJECT(&s->gcr), (int64_t)env->cpu_model->cm_rev, "gcr-rev", &err);
     object_property_set_int(OBJECT(&s->gcr), gcr_base, "gcr-base", &err);
     object_property_set_link(OBJECT(&s->gcr), OBJECT(&s->gic.mr), "gic", &err);
     object_property_set_link(OBJECT(&s->gcr), OBJECT(&s->cpc.mr), "cpc", &err);
