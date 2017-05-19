@@ -270,6 +270,99 @@ static void boston_register_types(void)
 }
 type_init(boston_register_types)
 
+static void gen_firmware_nanomips(uint16_t *p, hwaddr kernel_entry, hwaddr fdt_addr,
+                         bool is_64b)
+{
+    const uint32_t cm_base = 0x16100000;
+    const uint32_t gic_base = 0x16120000;
+    const uint32_t cpc_base = 0x16200000;
+
+    /* Move CM GCRs */
+    stl_p(p++, 0x210f);                 /* mfc0 $8, CMGCRBase */
+    stl_p(p++, 0x1830);                 /* mfc0 $8, CMGCRBase */
+
+    stl_p(p++, 0x8108);                 /* sll  $8, $8, 4 */
+    stl_p(p++, 0xc004);                 /* sll  $8, $8, 4 */
+
+    stl_p(p++, 0xe120);                     /* lui  $9, 0xa000 */
+    stl_p(p++, 0x0401);                     /* lui  $9, 0xa000 */
+
+    stl_p(p++, 0x2128);                     	/* or   $8, $9 */
+    stl_p(p++, 0x4290);                     	/* or   $8, $9 */
+
+    /* lui  $10, cm_base >> 16 */
+    stl_p(p++, 0xe140 | ((cm_base & 0x001f0000) >> 16));
+    stl_p(p++, 0x0000 | ((cm_base & 0x0000f000)) | ((cm_base & 0x7fe00000) >> 19)
+		      | ((cm_base & 0x80000000) >> 31));
+
+    stl_p(p++, 0xf448);                 /* sw   $10, 0x8($8) */
+
+    stl_p(p++, 0x2149);                     /* or   $8, $9, $10 */
+    stl_p(p++, 0x4290);                     /* or   $8, $9, $10 */
+
+    /* Move & enable GIC GCRs */
+    /* lui  $9, gic_base >> 16 */
+    stl_p(p++, 0xe120 | ((gic_base & 0x001f0000) >> 16));
+    stl_p(p++, 0x0000 | ((gic_base & 0x0000f000)) | ((gic_base & 0x7fe00000) >> 19)
+		      | ((gic_base & 0x80000000) >> 31));
+
+    stl_p(p++, 0x8192);                     /* ori  $9, 0x1 */
+    stl_p(p++, 0x0001);                     /* ori  $9, 0x1 */
+
+    stl_p(p++, 0x8528);                 /* sw   $9, 0x80($8) */
+    stl_p(p++, 0x9080);                 /* sw   $9, 0x80($8) */
+
+    /* Move & enable CPC GCRs */
+    /* lui  $9, cpc_base >> 16 */
+    stl_p(p++, 0xe120 | ((cpc_base & 0x001f0000) >> 16));
+    stl_p(p++, 0x0000 | ((cpc_base & 0x0000f000)) | ((cpc_base & 0x7fe00000) >> 19)
+		      | ((cpc_base & 0x80000000) >> 31));
+
+    stl_p(p++, 0x8129);                     /* ori  $9, 0x1 */
+    stl_p(p++, 0x0001);                     /* ori  $9, 0x1 */
+
+    stl_p(p++, 0x8528);                 /* sw   $9, 0x88($8) */
+    stl_p(p++, 0x9088);                 /* sw   $9, 0x88($8) */
+
+    /*
+     * Setup argument registers to follow the UHI boot protocol:
+     *
+     * a0/$4 = -2
+     * a1/$5 = virtual address of FDT
+     * a2/$6 = 0
+     * a3/$7 = 0
+     */
+    stl_p(p++, 0x8080);                     /* li   $4, -2 */
+    stl_p(p++, 0x8002);                     /* li   $4, -2 */
+
+    /* lui  $5, hi(fdt_addr) */
+    stl_p(p++, 0xe0a0 | ((fdt_addr & 0x001f0000) >> 16));
+    stl_p(p++, 0x0000 | ((fdt_addr & 0x0000f000)) | ((fdt_addr & 0x7fe00000) >> 19)
+		      | ((fdt_addr & 0x80000000) >> 31));
+
+
+    if (fdt_addr & 0x0fff) {
+	/* ori  $5, lo(fdt_addr) */
+        stl_p(p++, 0x80a5);
+	stl_p(p++, 0x0000 | (fdt_addr & 0x00000fff));
+    }
+
+    stl_p(p++, 0xd300);                     /* li   $6, 0 */
+    stl_p(p++, 0xd380);                     /* li   $7, 0 */
+
+    /* Load kernel entry address & jump to it */
+    /* lui  $25, hi(kernel_entry) */
+    stl_p(p++, 0xe320  | ((kernel_entry & 0x001f0000) >> 16) );
+    stl_p(p++, 0x0000  | ((kernel_entry & 0x0000f000)) | ((kernel_entry & 0x7fe00000) >> 19)
+		       | ((kernel_entry & 0x80000000) >> 31));
+
+    /* ori  $25, lo(kernel_entry) */
+    stl_p(p++, 0x8339);
+    stl_p(p++, 0x0000 | (kernel_entry & 0x00000fff));
+
+    stl_p(p++, 0xdb20);                     /* jr   $25 */
+}
+
 static void gen_firmware(uint32_t *p, hwaddr kernel_entry, hwaddr fdt_addr,
                          bool is_64b)
 {
@@ -557,8 +650,13 @@ static void boston_mach_init(MachineState *machine)
             exit(1);
         }
 
-        gen_firmware(memory_region_get_ram_ptr(flash) + 0x7c00000,
-                     s->kernel_entry, s->fdt_base, is_64b);
+	if(cpu_supports_isa(cpu_model, ISA_MIPS32R7)) {
+		gen_firmware_nanomips(memory_region_get_ram_ptr(flash) + 0x7c00000,
+			s->kernel_entry, s->fdt_base, is_64b);
+	} else {
+		gen_firmware(memory_region_get_ram_ptr(flash) + 0x7c00000,
+			s->kernel_entry, s->fdt_base, is_64b);
+	}
     } else if (!qtest_enabled()) {
         error_printf("Please provide either a -kernel or -bios argument\n");
         exit(1);
