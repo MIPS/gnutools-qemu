@@ -23169,7 +23169,10 @@ bool cpu_supports_cps_smp(const char *cpu_model)
         return false;
     }
 
-    return (def->CP0_Config3 & (1 << CP0C3_CMGCR)) != 0;
+    if (def->cm_rev < GCR_REV_CM2_5)
+	    return false;
+    else
+	    return true;
 }
 
 bool cpu_supports_isa(const char *cpu_model, unsigned int isa)
