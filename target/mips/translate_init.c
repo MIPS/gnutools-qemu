@@ -464,7 +464,7 @@ static const mips_def_t mips_defs[] =
                        (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
         .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_BP) | (1 << CP0C3_BI) |
-                       (3 << CP0C3_MMAR) | (1 << CP0C3_ISA_ON_EXC) |
+                       (1 << CP0C3_CMGCR) | (3 << CP0C3_MMAR) | (1 << CP0C3_ISA_ON_EXC) |
                        (3 << CP0C3_ISA) | (1 << CP0C3_ULRI) |
                        (1 << CP0C3_RXI) | (1 << CP0C3_VInt) |
                        (1U << CP0C3_M),
