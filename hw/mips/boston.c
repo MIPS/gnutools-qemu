@@ -293,7 +293,7 @@ static void gen_firmware(uint32_t *p, hwaddr kernel_entry, hwaddr fdt_addr,
     } else {
         stl_p(p++, 0xad0a0008);                 /* sw   $10, 0x8($8) */
     }
-    stl_p(p++, 0x012a4025);                     /* or   $8, $10 */
+    stl_p(p++, 0x012a4025);                     /* or   $8, $9, $10 */
 
     /* Move & enable GIC GCRs */
     stl_p(p++, 0x3c090000 | (gic_base >> 16));  /* lui  $9, gic_base >> 16 */
