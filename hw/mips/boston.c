@@ -40,6 +40,9 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/qtest.h"
 
+#include "elf.h"
+
+
 #include <libfdt.h>
 
 #define TYPE_MIPS_BOSTON "mips-boston"
@@ -533,12 +536,20 @@ static void boston_mach_init(MachineState *machine)
     const char *cpu_model;
     MemoryRegion *flash, *ddr, *ddr_low_alias, *lcd, *platreg;
     MemoryRegion *sys_mem = get_system_memory();
+    int64_t  kernel_high;
     XilinxPCIEHost *pcie2;
     PCIDevice *ahci;
     DriveInfo *hd[6];
     Chardev *chr;
-    int fw_size, fit_err;
+    int fw_size, load_err;
     bool is_64b;
+    int big_endian;
+
+#ifdef TARGET_WORDS_BIGENDIAN
+    big_endian = 1;
+#else
+    big_endian = 0;
+#endif
 
     if ((machine->ram_size % G_BYTE) ||
         (machine->ram_size > (2 * G_BYTE))) {
@@ -644,11 +655,24 @@ static void boston_mach_init(MachineState *machine)
             exit(1);
         }
     } else if (machine->kernel_filename) {
-        fit_err = load_fit(&boston_fit_loader, machine->kernel_filename, s);
-        if (fit_err) {
-            error_printf("unable to load FIT image\n");
-            exit(1);
+        load_err = load_fit(&boston_fit_loader, machine->kernel_filename, s);
+        if (load_err) {
+		load_err = load_elf(machine->kernel_filename, cpu_mips_kseg0_to_phys, NULL,
+			   (uint64_t *)&s->kernel_entry, NULL, (uint64_t *)&kernel_high,
+			   big_endian, EM_MIPS, 1, 0);
+	}
+
+	if (load_err < 0) {
+		load_err = load_elf(machine->kernel_filename, cpu_mips_kseg0_to_phys, NULL,
+			   (uint64_t *)&s->kernel_entry, NULL, (uint64_t *)&kernel_high,
+			   big_endian, 0x5237, 1, 0);
+	}
+
+	if (load_err < 0) {
+		error_printf("unable to load FIT/ELF image\n");
+		exit(1);
         }
+
 
 	if(cpu_supports_isa(cpu_model, ISA_MIPS32R7)) {
 		gen_firmware_nanomips(memory_region_get_ram_ptr(flash) + 0x7c00000,
