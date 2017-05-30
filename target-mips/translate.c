@@ -16126,21 +16126,13 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx)
             gen_pool16c_insn(ctx);
         }
         break;
-    case R7_SWGP16:
+    case LWGP16:
         {
-            int rt = mmreg(uMIPS_RD(ctx->opcode));
-            int16_t offset = ZIMM(ctx->opcode, 0, 7) << 2;
-
-            gen_st(ctx, OPC_SW, rt, 28, offset);
-        }
-        break;
-    case R7_LWGP16:
-        {
-            int rt = mmreg(uMIPS_RD(ctx->opcode));
+            int rd = mmreg(uMIPS_RD(ctx->opcode));
             int rb = 28;            /* GP */
-            int16_t offset = ZIMM(ctx->opcode, 0, 7) << 2;
+            int16_t offset = SIMM(ctx->opcode, 0, 7) << 2;
 
-            gen_ld(ctx, OPC_LW, rt, rb, offset);
+            gen_ld(ctx, OPC_LW, rd, rb, offset);
         }
         break;
     case POOL16F:
@@ -18146,6 +18138,17 @@ static int decode_micromips_r7_opc (CPUMIPSState *env, DisasContext *ctx)
                 rs = mmreg(uMIPS_RS(ctx->opcode));
             }
             gen_st(ctx, OPC_SW, rt, rs, u);
+        }
+        break;
+    case R7_SWGP16:
+        {
+            int rt = mmreg2_r7(uMIPS_RD(ctx->opcode));
+            int u = extract32(ctx->opcode, 0, 7) << 2;
+
+            if (ctx->umips_x7_dec) {
+                rt = mmreg2(uMIPS_RD(ctx->opcode));
+            }
+            gen_st(ctx, OPC_SW, rt, 28, u);
         }
         break;
     case R7_BC16:
