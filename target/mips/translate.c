@@ -2538,7 +2538,7 @@ static void gen_cop1_ldst(DisasContext *ctx, uint32_t op, int rt,
 
 /* Arithmetic with immediate operand */
 static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
-                          int rt, int rs, int16_t imm)
+                          int rt, int rs, int32_t imm)
 {
     target_ulong uimm = (target_long)imm; /* Sign extend to 32/64 bits */
 
