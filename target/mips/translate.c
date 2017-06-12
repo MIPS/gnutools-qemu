@@ -16546,6 +16546,23 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
             bcond_compute = 1;
         }
         break;
+    case R7_BBEQZC:
+    case R7_BBNEZC:
+        if (imm >= 32 && !(ctx->hflags & MIPS_HFLAG_64)) {
+            generate_exception_end(ctx, EXCP_RI);
+            goto out;
+        } else if (rt == 0 && opc == R7_BBEQZC) {
+            /* Unconditional branch */
+        } else if (rt == 0 && opc == R7_BBNEZC) {
+            /* Treat as NOP */
+            goto out;
+        } else {
+            tcg_gen_shri_tl(t0, t0, imm);
+            tcg_gen_andi_tl(t0, t0, 1);
+            tcg_gen_movi_tl(t1, 0);
+            bcond_compute = 1;
+        }
+        break;
     case R7_BNEIC:
         if (rt == 0 && imm == 0) {
             /* Treat as NOP */
@@ -16596,7 +16613,13 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
         case R7_BEQIC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_EQ), t0, t1, fs);
             break;
+        case R7_BBEQZC:
+            tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_EQ), t0, t1, fs);
+            break;
         case R7_BNEIC:
+            tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_NE), t0, t1, fs);
+            break;
+        case R7_BBNEZC:
             tcg_gen_brcond_tl(tcg_invert_cond(TCG_COND_NE), t0, t1, fs);
             break;
         case R7_BGEIC:
