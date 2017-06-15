@@ -17716,39 +17716,42 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                     break;
                 }
                 break;
-	    case P_LS_WM:
-	    case P_LS_UAWM:
-		{
-		  int32_t offset = sextract32(ctx->opcode, 15, 1) << 8 |
-				   extract32(ctx->opcode, 0, 8);
-		  int count = extract32(ctx->opcode, 12, 3);
-		  int counter = 0;
-                  TCGv va = tcg_temp_new();
-                  TCGv t1 = tcg_temp_new();
-		  TCGMemOp memop = ((ctx->opcode >> 8) & 0x07) == P_LS_UAWM ? MO_UNALN : 0;
+            case P_LS_WM:
+            case P_LS_UAWM:
+                {
+                    int32_t offset = sextract32(ctx->opcode, 15, 1) << 8 |
+                                    extract32(ctx->opcode, 0, 8);
+                    int count = extract32(ctx->opcode, 12, 3);
+                    int counter = 0;
+                    TCGv va = tcg_temp_new();
+                    TCGv t1 = tcg_temp_new();
+                    TCGMemOp memop = ((ctx->opcode >> 8) & 0x07) == P_LS_UAWM ?
+                                    MO_UNALN : 0;
 
-		  count = (count == 0) ? 8 : count;
-		  while (counter != count) {
-		      int this_rt = ((rt + counter) & 0x1f) | (rt & 0x10);
-		      int32_t this_offset = offset + (counter << 2);
+                    count = (count == 0) ? 8 : count;
+                    while (counter != count) {
+                        int this_rt = ((rt + counter) & 0x1f) | (rt & 0x10);
+                        int32_t this_offset = offset + (counter << 2);
 
-                      gen_base_offset_addr(ctx, va, rs, this_offset);
+                        gen_base_offset_addr(ctx, va, rs, this_offset);
 
-                      switch (extract32(ctx->opcode, 11, 1)) {
-                      case R7_LWM:
-                          tcg_gen_qemu_ld_tl(t1, va, ctx->mem_idx, memop | MO_TESL);
-                          gen_store_gpr(t1, this_rt);
-                          break;
-                      case R7_SWM:
-                          gen_load_gpr(t1, this_rt);
-                          tcg_gen_qemu_st_tl(t1, va, ctx->mem_idx, memop | MO_TEUL);
-                          break;
-                      }
-		      counter++;
-		  }
-                  tcg_temp_free(va);
-                  tcg_temp_free(t1);
-		}
+                        switch (extract32(ctx->opcode, 11, 1)) {
+                        case R7_LWM:
+                            tcg_gen_qemu_ld_tl(t1, va, ctx->mem_idx,
+                                               memop | MO_TESL);
+                            gen_store_gpr(t1, this_rt);
+                            break;
+                        case R7_SWM:
+                            gen_load_gpr(t1, this_rt);
+                            tcg_gen_qemu_st_tl(t1, va, ctx->mem_idx,
+                                               memop | MO_TEUL);
+                            break;
+                        }
+                        counter++;
+                    }
+                    tcg_temp_free(va);
+                    tcg_temp_free(t1);
+                }
                 break;
             default:
                 generate_exception_end(ctx, EXCP_RI);
