@@ -17687,8 +17687,13 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                             tcg_gen_qemu_ld_tl(t1, va, ctx->mem_idx,
                                                memop | MO_TESL);
                             gen_store_gpr(t1, this_rt);
+                            if ((this_rt == rs) &&
+                                (counter != (count - 1))) {
+                                /* UNPREDICTABLE */
+                            }
                             break;
                         case R7_SWM:
+                            this_rt = (rt == 0) ? 0 : this_rt;
                             gen_load_gpr(t1, this_rt);
                             tcg_gen_qemu_st_tl(t1, va, ctx->mem_idx,
                                                memop | MO_TEUL);
