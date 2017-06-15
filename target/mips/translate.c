@@ -12889,7 +12889,7 @@ enum {
     R7_ADDIU48     = 0x01,
     R7_ADDIUGP48   = 0x02,
     R7_ADDIUPC48   = 0x03,
-    R7_LWPC48      = 0x0a,
+    R7_LWPC48      = 0x0b,
     R7_SWPC48      = 0x0f,
 };
 
