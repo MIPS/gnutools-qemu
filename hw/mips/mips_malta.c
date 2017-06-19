@@ -1203,8 +1203,13 @@ void mips_malta_init(MachineState *machine)
         loaderparams.initrd_filename = initrd_filename;
         kernel_entry = load_kernel();
 
-        write_bootloader_nanomips(memory_region_get_ram_ptr(bios),
-                                  bootloader_run_addr, kernel_entry);
+        if (cpu_supports_nanomips(machine->cpu_model)) {
+            write_bootloader_nanomips(memory_region_get_ram_ptr(bios),
+                                      bootloader_run_addr, kernel_entry);
+        } else {
+            write_bootloader(memory_region_get_ram_ptr(bios),
+                             bootloader_run_addr, kernel_entry);
+        }
         if (kvm_enabled()) {
             /* Write the bootloader code @ the end of RAM, 1MB reserved */
             write_bootloader(memory_region_get_ram_ptr(ram_low_preio) +

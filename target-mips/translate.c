@@ -23241,6 +23241,18 @@ bool cpu_supports_cps_smp(const char *cpu_model)
     return (def->CP0_Config3 & (1 << CP0C3_CMGCR)) != 0;
 }
 
+bool cpu_supports_nanomips(const char *cpu_model)
+{
+    const mips_def_t *def = cpu_mips_find_by_name(cpu_model);
+    if (!def) {
+        return false;
+    }
+
+    return ((((def->CP0_Config0 >> CP0C0_AR) & 7) == 2) &&
+        (((def->CP0_Config3 >> CP0C3_MMAR) & 7) == 3) &&
+        (((def->CP0_Config3 >> CP0C3_ISA) & 3) == 1));
+}
+
 void cpu_state_reset(CPUMIPSState *env)
 {
     MIPSCPU *cpu = mips_env_get_cpu(env);
