@@ -557,7 +557,12 @@ static void boston_mach_init(MachineState *machine)
         exit(1);
     }
 
-    cpu_model = machine->cpu_model ?: "I6400";
+    cpu_model = machine->cpu_model ?:
+#ifdef TARGET_MIPS64
+        "I6400";
+#else
+        "nanomips-generic";
+#endif
 
     dev = qdev_create(NULL, TYPE_MIPS_BOSTON);
     qdev_init_nofail(dev);
