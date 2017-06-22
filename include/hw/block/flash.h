@@ -4,6 +4,7 @@
 /* NOR flash devices */
 
 #include "exec/memory.h"
+#include "migration/vmstate.h"
 
 #define TYPE_CFI_PFLASH01 "cfi.pflash01"
 #define TYPE_CFI_PFLASH02 "cfi.pflash02"
