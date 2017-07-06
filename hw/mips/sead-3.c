@@ -41,6 +41,8 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/qtest.h"
 
+#include "elf.h"
+
 #include <libfdt.h>
 
 #define TYPE_MIPS_SEAD3 "mips-sead-3"
@@ -391,10 +393,11 @@ static void sead3_mach_init(MachineState *machine)
 {
     MemoryRegion *mem, *sys_mem = get_system_memory();
     const char *cpu_model;
-    int fw_size, fit_err;
+    int fw_size, load_err;
     DeviceState *dev;
     DriveInfo *dinfo;
     bool big_endian;
+    int64_t  kernel_high;
     void *board_id;
     SEAD3State *s;
     MIPSCPU *cpu;
@@ -506,10 +509,22 @@ static void sead3_mach_init(MachineState *machine)
 
         board_id = rom_ptr(0x1fc00010);
     } else if (machine->kernel_filename) {
-        fit_err = load_fit(&sead3_fit_loader, machine->kernel_filename, s);
-        if (fit_err) {
-            error_printf("unable to load FIT image\n");
-            exit(1);
+        load_err = load_fit(&sead3_fit_loader, machine->kernel_filename, s);
+        if (load_err) {
+		load_err = load_elf(machine->kernel_filename, cpu_mips_kseg0_to_phys, NULL,
+			   (uint64_t *)&s->reset_pc, NULL, (uint64_t *)&kernel_high,
+			   big_endian, EM_MIPS, 1, 0);
+	}
+
+	if (load_err < 0) {
+		load_err = load_elf(machine->kernel_filename, cpu_mips_kseg0_to_phys, NULL,
+			   (uint64_t *)&s->reset_pc, NULL, (uint64_t *)&kernel_high,
+			   big_endian, 0x5237, 1, 0);
+	}
+
+	if (load_err < 0) {
+		error_printf("unable to load FIT/ELF image\n");
+		exit(1);
         }
 
         board_id = g_malloc(4);
