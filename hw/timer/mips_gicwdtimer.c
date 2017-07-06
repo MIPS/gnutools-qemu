@@ -52,7 +52,7 @@ static void gic_vpwdtimer_cb(void *opaque)
             if (vpwdtimer->config & GIC_WDT_CONFIG_WDINTR) {
                 /* Previous interrupt went unacknowledged - reset! */
                 vpwdtimer->config |= GIC_WDT_CONFIG_RESET;
-                qemu_system_reset_request();
+                qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
             }
             /* Fall through */
         case GIC_WDT_CONFIG_PIT:
