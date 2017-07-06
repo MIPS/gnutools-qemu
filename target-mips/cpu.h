@@ -648,6 +648,7 @@ struct CPUMIPSState {
     uint32_t CP0_TCStatus_rw_bitmask; /* Read/write bits in CP0_TCStatus */
     int insn_flags; /* Supported instruction set */
     int saarp;
+    int dspramp;
 
     CPU_COMMON
 
@@ -662,6 +663,7 @@ struct CPUMIPSState {
     QEMUTimer *timer; /* Internal timer */
     struct MIPSITUState *itu;
     MemoryRegion *itc_tag; /* ITC Configuration Tags */
+    struct MIPSDSPRAMState *dspram;
     target_ulong exception_base; /* ExceptionBase input to the core */
 };
 
@@ -881,6 +883,9 @@ void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level);
 
 /* mips_itu.c */
 void itc_reconfigure(struct MIPSITUState *tag);
+
+/* mips_dspram.c */
+void dspram_reconfigure(struct MIPSDSPRAMState *dspram);
 
 /* helper.c */
 int mips_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
