@@ -20558,6 +20558,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->msair = env->cpu_model->MSAIR;
     env->insn_flags = env->cpu_model->insn_flags;
     env->saarp = env->cpu_model->SAARP;
+    env->dspramp = env->cpu_model->DSPRAMP;
 
 #if defined(CONFIG_USER_ONLY)
     env->CP0_Status = (MIPS_HFLAG_UM << CP0St_KSU);
@@ -20675,6 +20676,12 @@ void cpu_state_reset(CPUMIPSState *env)
         /* MSA access enabled */
         env->CP0_Config5 |= 1 << CP0C5_MSAEn;
 #endif
+    }
+
+    /* DSPRAM */
+    if (env->dspramp) {
+        /* Fixed DSPRAM size with Default Value */
+        env->CP0_SAAR[1] = 0x10 << 1;
     }
 
     compute_hflags(env);
