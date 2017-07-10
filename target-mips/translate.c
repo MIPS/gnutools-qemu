@@ -5344,7 +5344,6 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             gen_helper_mfc0_saar(arg, cpu_env);
             rn = "SAAR";
             break;
-        /* 6,7 are implementation dependent */
         default:
             goto cp0_unimplemented;
         }
@@ -6014,8 +6013,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         case 6:
             CP0_CHECK(ctx->saar);
-            tcg_gen_andi_tl(arg, arg, 0x3f);
-            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SAARI));
+            gen_helper_mtc0_saari(cpu_env, arg);
             rn = "SAARI";
             break;
         case 7:
@@ -6720,7 +6718,16 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             ctx->bstate = BS_STOP;
             rn = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SAARI));
+            rn = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_dmfc0_saar(arg, cpu_env);
+            rn = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
@@ -7374,8 +7381,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             break;
         case 6:
             CP0_CHECK(ctx->saar);
-            tcg_gen_andi_tl(arg, arg, 0x3f);
-            tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SAARI));
+            gen_helper_mtc0_saari(cpu_env, arg);
             rn = "SAARI";
             break;
         case 7:

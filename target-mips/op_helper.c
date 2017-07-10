@@ -1022,6 +1022,15 @@ target_ulong helper_dmfc0_watchhi(CPUMIPSState *env, uint32_t sel)
 {
     return env->CP0_WatchHi[sel];
 }
+
+target_ulong helper_dmfc0_saar(CPUMIPSState *env)
+{
+    if ((env->CP0_SAARI & 0x3f) < 2) {
+        return env->CP0_SAAR[env->CP0_SAARI & 0x3f];
+    }
+    return 0;
+}
+
 #endif /* TARGET_MIPS64 */
 
 void helper_mtc0_index(CPUMIPSState *env, target_ulong arg1)
@@ -1518,18 +1527,28 @@ void helper_mtc0_count(CPUMIPSState *env, target_ulong arg1)
     cpu_mips_store_count(env, arg1);
 }
 
+void helper_mtc0_saari(CPUMIPSState *env, target_ulong arg1)
+{
+    uint32_t target = arg1 & 0x3f;
+    if (target <= 1) {
+        env->CP0_SAARI = target;
+    }
+}
+
 void helper_mtc0_saar(CPUMIPSState *env, target_ulong arg1)
 {
     uint32_t target = env->CP0_SAARI & 0x3f;
     if (target < 2) {
-        env->CP0_SAAR[target] = arg1 & 0x00000ffffffff03fULL;
         switch (target) {
         case 0:
+            env->CP0_SAAR[target] = arg1 & 0x00000fffffffe03fULL;
             if (env->itu) {
                 itc_reconfigure(env->itu);
             }
             break;
         case 1:
+            env->CP0_SAAR[target] = (arg1 & 0x00000ffffffff001ULL) |
+                                    (env->CP0_SAAR[target] & 0x3eULL);
             if (env->dspram) {
                 dspram_reconfigure(env->dspram);
             }
