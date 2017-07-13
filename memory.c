@@ -1193,6 +1193,16 @@ static const MemoryRegionOps ram_device_mem_ops = {
     },
 };
 
+bool memory_region_unaligned_access_valid(MemoryRegion *mr,
+                                          hwaddr addr,
+                                          unsigned size)
+{
+    if (!mr->ops->valid.unaligned && (addr & (size - 1))) {
+        return false;
+    }
+    return true;
+}
+
 bool memory_region_access_valid(MemoryRegion *mr,
                                 hwaddr addr,
                                 unsigned size,

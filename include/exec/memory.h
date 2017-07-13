@@ -1204,6 +1204,19 @@ MemoryRegionSection memory_region_find(MemoryRegion *mr,
                                        hwaddr addr, uint64_t size);
 
 /**
+ * memory_region_unaligned_access_valid: checks if an address of a MemoryRegion
+ * is supported for unaligned accesses.
+ *
+ * @mr: a MemoryRegion which should be checked if it's supporting unaligned
+ *      accesses
+ * @addr: address to be checked
+ * @size: size of the access
+ */
+bool memory_region_unaligned_access_valid(MemoryRegion *mr,
+                                          hwaddr addr,
+                                          unsigned size);
+
+/**
  * memory_global_dirty_log_sync: synchronize the dirty log for all memory
  *
  * Synchronizes the dirty page log for all address spaces.

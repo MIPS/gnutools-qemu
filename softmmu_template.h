@@ -133,6 +133,12 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr,
     /* Handle an IO access.  */
     if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
         if ((addr & (DATA_SIZE - 1)) != 0) {
+            /* check if an unaligned access is supported for IO */
+            if (!io_unaligned_access_valid(env, &env->iotlb[mmu_idx][index],
+                                           addr, DATA_SIZE)) {
+                cpu_unaligned_access(ENV_GET_CPU(env), addr, READ_ACCESS_TYPE,
+                                     mmu_idx, retaddr);
+            }
             goto do_unaligned_access;
         }
 
@@ -200,6 +206,12 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr,
     /* Handle an IO access.  */
     if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
         if ((addr & (DATA_SIZE - 1)) != 0) {
+            /* check if an unaligned access is supported for IO */
+            if (!io_unaligned_access_valid(env, &env->iotlb[mmu_idx][index],
+                                           addr, DATA_SIZE)) {
+                cpu_unaligned_access(ENV_GET_CPU(env), addr, READ_ACCESS_TYPE,
+                                     mmu_idx, retaddr);
+            }
             goto do_unaligned_access;
         }
 
@@ -291,6 +303,12 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
     /* Handle an IO access.  */
     if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
         if ((addr & (DATA_SIZE - 1)) != 0) {
+            /* check if an unaligned access is supported for IO */
+            if (!io_unaligned_access_valid(env, &env->iotlb[mmu_idx][index],
+                                           addr, DATA_SIZE)) {
+                cpu_unaligned_access(ENV_GET_CPU(env), addr, MMU_DATA_STORE,
+                                     mmu_idx, retaddr);
+            }
             goto do_unaligned_access;
         }
 
@@ -367,6 +385,12 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
     /* Handle an IO access.  */
     if (unlikely(tlb_addr & ~TARGET_PAGE_MASK)) {
         if ((addr & (DATA_SIZE - 1)) != 0) {
+            /* check if an unaligned access is supported for IO */
+            if (!io_unaligned_access_valid(env, &env->iotlb[mmu_idx][index],
+                                           addr, DATA_SIZE)) {
+                cpu_unaligned_access(ENV_GET_CPU(env), addr, MMU_DATA_STORE,
+                                     mmu_idx, retaddr);
+            }
             goto do_unaligned_access;
         }
 

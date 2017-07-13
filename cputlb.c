@@ -497,6 +497,16 @@ tb_page_addr_t get_page_addr_code(CPUArchState *env1, target_ulong addr)
     return qemu_ram_addr_from_host_nofail(p);
 }
 
+static bool io_unaligned_access_valid(CPUArchState *env,
+                                      CPUIOTLBEntry *iotlbentry,
+                                      target_ulong addr, int size)
+{
+    CPUState *cpu = ENV_GET_CPU(env);
+    hwaddr physaddr = iotlbentry->addr;
+    MemoryRegion *mr = iotlb_to_region(cpu, physaddr, iotlbentry->attrs);
+    return memory_region_unaligned_access_valid(mr, addr, size);
+}
+
 static uint64_t io_readx(CPUArchState *env, CPUIOTLBEntry *iotlbentry,
                          target_ulong addr, uintptr_t retaddr, int size)
 {
