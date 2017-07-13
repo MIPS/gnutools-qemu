@@ -283,7 +283,10 @@ typedef enum TCGMemOp {
     MO_TE    = MO_LE,
 #endif
 
-    /* MO_UNALN accesses are never checked for alignment.
+    /* MO_UNALN accesses are never checked for alignment for memory. However
+     * MMIO accesses will be checked by the device's MemoryRegion configuration
+     * if the address is not aligned. Unsupported MMIO unaligned accesses are
+     * result in a call to the CPU's do_unaligned_access hook.
      * MO_ALIGN accesses will result in a call to the CPU's
      * do_unaligned_access hook if the guest address is not aligned.
      * The default depends on whether the target CPU defines ALIGNED_ONLY.
