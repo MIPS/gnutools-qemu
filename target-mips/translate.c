@@ -430,7 +430,7 @@ enum {
     OPC_DEXTR_W_DSP    = 0x3C | OPC_SPECIAL3,
 
     /* R6 */
-    OPC_CRC            = 0x0F | OPC_SPECIAL3,
+    OPC_CRC32          = 0x0F | OPC_SPECIAL3,
     R6_OPC_PREF        = 0x35 | OPC_SPECIAL3,
     R6_OPC_CACHE       = 0x25 | OPC_SPECIAL3,
     R6_OPC_LL          = 0x36 | OPC_SPECIAL3,
@@ -17729,13 +17729,12 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void gen_crc(DisasContext *ctx, int rd, int rs, int rt, int sz,
-                    int castagnoli)
+static void gen_crc32(DisasContext *ctx, int rd, int rs, int rt, int sz,
+                      int crc32c)
 {
     TCGv t0;
     TCGv t1;
-    TCGv_i32 tsz = tcg_const_i32(sz);
-    TCGv_i32 tca = tcg_const_i32(castagnoli);
+    TCGv_i32 tsz = tcg_const_i32(1 << sz);
     if (rd == 0) {
         /* Treat as NOP. */
         return;
@@ -17746,12 +17745,15 @@ static void gen_crc(DisasContext *ctx, int rd, int rs, int rt, int sz,
     gen_load_gpr(t0, rt);
     gen_load_gpr(t1, rs);
 
-    gen_helper_crc(cpu_gpr[rd], t0, t1, tsz, tca);
+    if (crc32c) {
+        gen_helper_crc32c(cpu_gpr[rd], t0, t1, tsz);
+    } else {
+        gen_helper_crc32(cpu_gpr[rd], t0, t1, tsz);
+    }
 
     tcg_temp_free(t0);
     tcg_temp_free(t1);
     tcg_temp_free_i32(tsz);
-    tcg_temp_free_i32(tca);
 }
 
 static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
@@ -17768,15 +17770,16 @@ static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
 
     op1 = MASK_SPECIAL3(ctx->opcode);
     switch (op1) {
-    case OPC_CRC:
+    case OPC_CRC32:
         if (unlikely(!ctx->crcp) ||
-            ((((ctx->opcode >> 6) & 3) == 3) &&
-                unlikely(!(ctx->hflags & MIPS_HFLAG_64)))) {
+            unlikely((extract32(ctx->opcode, 6, 2) == 3) &&
+                     (!(ctx->hflags & MIPS_HFLAG_64))) ||
+            unlikely((extract32(ctx->opcode, 8, 3) >= 2))) {
             generate_exception_end(ctx, EXCP_RI);
         }
-        gen_crc(ctx, rt, rs, rt,
-                extract32(ctx->opcode, 6, 2),
-                extract32(ctx->opcode, 8, 3));
+        gen_crc32(ctx, rt, rs, rt,
+                  extract32(ctx->opcode, 6, 2),
+                  extract32(ctx->opcode, 8, 3));
         break;
     case R6_OPC_PREF:
         if (rt >= 24) {
