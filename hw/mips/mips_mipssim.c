@@ -70,6 +70,14 @@ static int64_t load_kernel(void)
                            NULL, (uint64_t *)&entry, NULL,
                            (uint64_t *)&kernel_high, big_endian,
                            EM_MIPS, 1);
+    /* try loading nanomips */
+    if (kernel_size < 0) {
+        kernel_size = load_elf(loaderparams.kernel_filename,
+                               cpu_mips_kseg0_to_phys,
+                               NULL, (uint64_t *) &entry, NULL,
+                               (uint64_t *) &kernel_high, big_endian,
+                               EM_NANOMIPS, 1);
+    }
     if (kernel_size >= 0) {
         if ((entry & ~0x7fffffffULL) == 0x80000000)
             entry = (int32_t)entry;
