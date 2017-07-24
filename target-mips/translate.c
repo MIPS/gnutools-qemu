@@ -13024,7 +13024,7 @@ enum {
     R7_LB        = 0x00,
     R7_SB        = 0x01,
     R7_LBU       = 0x02,
-    R7_PREF	 = 0x03,
+    R7_P_PREFU12 = 0x03,
     R7_LH        = 0x04,
     R7_SH        = 0x05,
     R7_LHU       = 0x06,
@@ -13309,7 +13309,7 @@ enum {
     R7_LWC1S9   = 0x0a,
     R7_LDC1S9   = 0x0e,
 
-    P_PREF      = 0x03,
+    R7_P_PREFS9 = 0x03,
     R7_LWUS9    = 0x07,
     R7_SWC1S9   = 0x0b,
     R7_SDC1S9   = 0x0f
@@ -17541,8 +17541,16 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
         {
             uint32_t u = extract32(ctx->opcode, 0, 12);
             switch ((ctx->opcode >> 12) & 0x0f) {
-            case R7_PREF:
-	        /* treat as NOP */
+            case R7_P_PREFU12:
+                if (rt == 31) {
+                    /* SYNCI */
+                    /* Break the TB to be able to sync copied instructions
+                       immediately */
+                    ctx->bstate = BS_STOP;
+                } else {
+                    /* PREF */
+                    /* Treat as NOP. */
+                }
                 break;
             case R7_LB:
                 gen_ld(ctx, OPC_LB, rt, rs, u);
@@ -17629,7 +17637,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
                 case R7_SDC1S9:
                     gen_cop1_ldst(ctx, OPC_SDC1, rt, rs, s);
                     break;
-                case P_PREF:
+                case R7_P_PREFS9:
                     if (rt == 31) {
                         /* SYNCI */
                         /* Break the TB to be able to sync copied instructions
