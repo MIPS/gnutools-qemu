@@ -10923,9 +10923,6 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
                 tcg_temp_free_i32(t1);
 
                 tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
-	    } else if (!ctx->has_isa_mode) {
-	        /* TEMPORARY: avoids transitional ISA mode issues */
-                tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
             } else {
                 tcg_gen_mov_tl(cpu_PC, btarget);
             }
