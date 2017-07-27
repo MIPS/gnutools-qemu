@@ -6276,7 +6276,6 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
         insn1 = bfd_getb16 (buffer);
     else
         insn1 = bfd_getl16 (buffer);
-    (*info->fprintf_func) (info->stream, "%04x ", insn1);
 
     /* Handle 32-bit opcodes.  */
     if ((insn1 & 0x1000) == 0)
@@ -6292,7 +6291,6 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             insn2 = bfd_getb16 (buffer);
         else
             insn2 = bfd_getl16 (buffer);
-        (*info->fprintf_func) (info->stream, "%04x ", insn2);
     }
     else
     {
@@ -6312,7 +6310,6 @@ int print_insn_micromips(bfd_vma memaddr, struct disassemble_info *info)
             insn3 = bfd_getb16 (buffer);
         else
             insn3 = bfd_getl16 (buffer);
-        (*info->fprintf_func) (info->stream, "%04x ", insn3);
     }
     else
     {
