@@ -13545,6 +13545,12 @@ enum {
     R7_SCWP     = 0x01
 };
 
+/* P.DVP instruction pool */
+enum {
+    R7_DVP      = 0x00,
+    R7_EVP      = 0x01
+};
+
 static int mmreg_r7(int r)
 {
     static const int map[] = { 16, 17, 18, 19, 4, 5, 6, 7 };
@@ -16341,11 +16347,31 @@ static void gen_pool32a0_r7_insn(DisasContext *ctx)
         gen_slt(ctx, OPC_SLT, rd, rs, rt);
         break;
     case P_SLTU:
-	if (rd == 0) {
-          generate_exception_end(ctx, EXCP_RI);
-	} else {
-          gen_slt(ctx, OPC_SLTU, rd, rs, rt);
-	}
+        if (rd == 0) {
+            /* P_DVP */
+#ifndef CONFIG_USER_ONLY
+            TCGv t0 = tcg_temp_new();
+            switch ((ctx->opcode >> 10) & 1) {
+            case R7_DVP:
+                if (ctx->vp) {
+                    check_cp0_enabled(ctx);
+                    gen_helper_dvp(t0, cpu_env);
+                    gen_store_gpr(t0, rt);
+                }
+                break;
+            case R7_EVP:
+                if (ctx->vp) {
+                    check_cp0_enabled(ctx);
+                    gen_helper_evp(t0, cpu_env);
+                    gen_store_gpr(t0, rt);
+                }
+                break;
+            }
+            tcg_temp_free(t0);
+#endif
+        } else {
+            gen_slt(ctx, OPC_SLTU, rd, rs, rt);
+        }
         break;
     case R7_SOV:
         {
