@@ -18,8 +18,8 @@
  *  Copyright (C) 2008, IBM, Muli Ben-Yehuda (muli@il.ibm.com)
  */
 
-#include <linux/vfio.h>
 #include <sys/ioctl.h>
+#include <linux/vfio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
