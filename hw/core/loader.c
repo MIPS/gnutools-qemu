@@ -939,7 +939,7 @@ int rom_check_and_register_reset(void)
     Rom *rom;
 
     QTAILQ_FOREACH(rom, &roms, next) {
-        if (rom->fw_file) {
+        if (rom->fw_file || rom->romsize == 0) {
             continue;
         }
         if (addr > rom->addr) {
