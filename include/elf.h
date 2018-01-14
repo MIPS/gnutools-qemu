@@ -97,7 +97,6 @@ enum {
 #define EM_860   7
 
 #define EM_MIPS		8	/* MIPS R3000 (officially, big-endian only) */
-#define EM_NANOMIPS    0x5237  /* nanomips */
 
 #define EM_MIPS_RS4_BE 10	/* MIPS R4000 big-endian */
 
@@ -133,6 +132,7 @@ enum {
 #define EM_OPENRISC     92        /* OpenCores OpenRISC */
 
 #define EM_UNICORE32    110     /* UniCore32 */
+#define EM_NANOMIPS	249	/* MIPS Tech nanoMIPS */
 
 /*
  * This is an interim value that we will use until the committee comes

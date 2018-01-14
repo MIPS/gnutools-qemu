@@ -893,7 +893,7 @@ static int64_t load_kernel (void)
                  big_endian, EM_MIPS, 1) < 0) {
         if (load_elf(loaderparams.kernel_filename, cpu_mips_kseg0_to_phys, NULL,
 		     (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
-		     big_endian, 0x5237, 1) < 0) {
+		     big_endian, EM_NANOMIPS, 1) < 0) {
             fprintf(stderr, "qemu: could not load kernel '%s'\n",
                     loaderparams.kernel_filename);
             exit(1);
