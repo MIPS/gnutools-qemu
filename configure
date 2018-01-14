@@ -558,6 +558,9 @@ case "$cpu" in
   mips*)
     cpu="mips"
   ;;
+  nanomips*)
+    cpu="mips"
+  ;;
   sparc|sun4[cdmuv])
     cpu="sparc"
   ;;
@@ -5589,6 +5592,10 @@ case "$target_name" in
     TARGET_ARCH=mips
     echo "TARGET_ABI_MIPSO32=y" >> $config_target_mak
   ;;
+  nanomips|nanomipseb)
+    TARGET_ARCH=mips
+    echo "TARGET_ABI_MIPSO32=y" >> $config_target_mak
+  ;;
   mipsn32|mipsn32el)
     TARGET_ARCH=mips64
     TARGET_BASE_ARCH=mips
@@ -5793,6 +5800,9 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
     disas_config "MICROBLAZE"
   ;;
   mips*)
+    disas_config "MIPS"
+  ;;
+  nanomips*)
     disas_config "MIPS"
   ;;
   moxie*)
