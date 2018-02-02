@@ -486,11 +486,11 @@ static const mips_def_t mips_defs[] =
                        (4 << CP0C1_DL) | (3 << CP0C1_DA) | (1 << CP0C1_PC) |
                        (1 << CP0C1_WR) | (1 << CP0C1_EP),
         .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_BP) | (1 << CP0C3_BI) |
+        .CP0_Config3 = MIPS_CONFIG3 | (1 << CP0C3_CMGCR) | (1 << CP0C3_BI) |
                        (3 << CP0C3_MMAR) | (1 << CP0C3_ISA_ON_EXC) |
                        (1 << CP0C3_ISA) | (1 << CP0C3_ULRI) |
-                       (1 << CP0C3_RXI) | (1 << CP0C3_VInt) |
-                       (1U << CP0C3_M),
+                       (1 << CP0C3_RXI) | (1 << CP0C3_DSP2P) | (1 << CP0C3_DSPP) |
+                       (1 << CP0C3_VInt) | (1U << CP0C3_M) | (1 << CP0C3_MT),
         .CP0_Config4 = MIPS_CONFIG4 | (0xfc << CP0C4_KScrExist) |
                        (2 << CP0C4_IE) | (1U << CP0C4_M),
         .CP0_Config5 = MIPS_CONFIG5 | (1 << CP0C5_XNP) | (1 << CP0C5_LLB),
