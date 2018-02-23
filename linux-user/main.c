@@ -2478,7 +2478,7 @@ void cpu_loop(CPUMIPSState *env)
                                  arg5, arg6, arg7, arg8);
             }
 done_syscall:
-# else
+# else /* N32/N64 and P32 */
             ret = do_syscall(env, env->active_tc.gpr[2],
                              env->active_tc.gpr[4], env->active_tc.gpr[5],
                              env->active_tc.gpr[6], env->active_tc.gpr[7],
@@ -2490,6 +2490,7 @@ done_syscall:
                    Avoid clobbering register state.  */
                 break;
             }
+#if !defined(TARGET_ABI_MIPSP32)
             if ((abi_ulong)ret >= (abi_ulong)-1133) {
                 env->active_tc.gpr[7] = 1; /* error flag */
                 ret = -ret;
@@ -2497,6 +2498,9 @@ done_syscall:
                 env->active_tc.gpr[7] = 0; /* error flag */
             }
             env->active_tc.gpr[2] = ret;
+#else
+            env->active_tc.gpr[4] = ret;
+#endif
             break;
         case EXCP_TLBL:
         case EXCP_TLBS:
@@ -4185,6 +4189,8 @@ int main(int argc, char **argv, char **envp)
 #elif defined(TARGET_MIPS)
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64)
         cpu_model = "5KEf";
+#elif defined(TARGET_NANOMIPS)
+        cpu_model = "nanomips-generic";
 #else
         cpu_model = "24Kf";
 #endif
@@ -4614,12 +4620,14 @@ int main(int argc, char **argv, char **envp)
 
 #ifdef TARGET_ABI_MIPSO32
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_64A
+#elif defined(TARGET_NANOMIPS)
+# define MAX_FP_ABI Val_GNU_NANOMIPS_ABI_FP_SOFT
 #else
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_SOFT
 #endif
 
-        if ((info->fp_abi > Val_GNU_MIPS_ABI_FP_64A && info->fp_abi != -1)
-            || (info->interp_fp_abi > Val_GNU_MIPS_ABI_FP_64A &&
+        if ((info->fp_abi > MAX_FP_ABI && info->fp_abi != -1)
+            || (info->interp_fp_abi > MAX_FP_ABI &&
                 info->interp_fp_abi != -1)) {
             fprintf(stderr, "qemu: Program and interpreter have "
                             "unexpected FPU modes\n");

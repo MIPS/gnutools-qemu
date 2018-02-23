@@ -689,7 +689,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
     if (oact) {
         __put_user(k->_sa_handler, &oact->_sa_handler);
         __put_user(k->sa_flags, &oact->sa_flags);
-#if !defined(TARGET_MIPS)
+#if !defined(TARGET_MIPS) || defined(TARGET_NANOMIPS)
         __put_user(k->sa_restorer, &oact->sa_restorer);
 #endif
         /* Not swapped.  */
@@ -699,7 +699,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
         /* FIXME: This is not threadsafe.  */
         __get_user(k->_sa_handler, &act->_sa_handler);
         __get_user(k->sa_flags, &act->sa_flags);
-#if !defined(TARGET_MIPS)
+#if !defined(TARGET_MIPS) || defined(TARGET_NANOMIPS)
         __get_user(k->sa_restorer, &act->sa_restorer);
 #endif
         /* To be swapped in target_to_host_sigset.  */
@@ -2730,6 +2730,15 @@ struct target_sigcontext {
     target_ulong   sc_hi3;
     target_ulong   sc_lo3;
 };
+#define TARGET_ALMASK  (~7)
+# elif defined(TARGET_ABI_MIPSP32)
+struct target_sigcontext {
+    uint64_t sc_regs[32];
+    uint64_t sc_pc;
+    uint32_t sc_used_math;
+    uint32_t sc_reserved;
+};
+#define TARGET_ALMASK  (~15)
 # else /* N32 || N64 */
 struct target_sigcontext {
     uint64_t sc_regs[32];
@@ -2748,6 +2757,7 @@ struct target_sigcontext {
     uint32_t sc_dsp;
     uint32_t sc_reserved;
 };
+#define TARGET_ALMASK  (~15)
 # endif /* O32 */
 
 struct sigframe {
@@ -2778,6 +2788,17 @@ static inline int install_sigtramp(unsigned int *tramp,   unsigned int syscall)
 {
     int err = 0;
 
+#if defined(TARGET_NANOMIPS)
+    uint16_t *tramp16 = (uint16_t *)tramp;
+    /*
+     *         li $2, __NR__foo_sigreturn
+     *         syscall 0
+     */
+     __put_user(0x6040 , tramp16 + 0);
+     __put_user(syscall, tramp16 + 1);
+     __put_user(0      , tramp16 + 2);
+     __put_user(0x1008 , tramp16 + 3);
+#else
     /*
      * Set up the return code ...
      *
@@ -2787,6 +2808,7 @@ static inline int install_sigtramp(unsigned int *tramp,   unsigned int syscall)
 
     __put_user(0x24020000 + syscall, tramp + 0);
     __put_user(0x0000000c          , tramp + 1);
+#endif
     return err;
 }
 
@@ -2803,6 +2825,7 @@ static inline void setup_sigcontext(CPUMIPSState *regs,
         __put_user(regs->active_tc.gpr[i], &sc->sc_regs[i]);
     }
 
+#if !defined(TARGET_NANOMIPS)
     __put_user(regs->active_tc.HI[0], &sc->sc_mdhi);
     __put_user(regs->active_tc.LO[0], &sc->sc_mdlo);
 
@@ -2824,6 +2847,7 @@ static inline void setup_sigcontext(CPUMIPSState *regs,
     for (i = 0; i < 32; ++i) {
         __put_user(regs->active_fpu.fpr[i].d, &sc->sc_fpregs[i]);
     }
+#endif
 }
 
 static inline void
@@ -2833,12 +2857,13 @@ restore_sigcontext(CPUMIPSState *regs, struct target_sigcontext *sc)
 
     __get_user(regs->CP0_EPC, &sc->sc_pc);
 
-    __get_user(regs->active_tc.HI[0], &sc->sc_mdhi);
-    __get_user(regs->active_tc.LO[0], &sc->sc_mdlo);
-
     for (i = 1; i < 32; ++i) {
         __get_user(regs->active_tc.gpr[i], &sc->sc_regs[i]);
     }
+
+#if !defined(TARGET_NANOMIPS)
+    __get_user(regs->active_tc.HI[0], &sc->sc_mdhi);
+    __get_user(regs->active_tc.LO[0], &sc->sc_mdlo);
 
     __get_user(regs->active_tc.HI[1], &sc->sc_hi1);
     __get_user(regs->active_tc.HI[2], &sc->sc_hi2);
@@ -2855,6 +2880,7 @@ restore_sigcontext(CPUMIPSState *regs, struct target_sigcontext *sc)
     for (i = 0; i < 32; ++i) {
         __get_user(regs->active_fpu.fpr[i].d, &sc->sc_fpregs[i]);
     }
+#endif
 }
 
 /*
@@ -2880,7 +2906,7 @@ get_sigframe(struct target_sigaction *ka, CPUMIPSState *regs, size_t frame_size)
         sp = target_sigaltstack_used.ss_sp + target_sigaltstack_used.ss_size;
     }
 
-    return (sp - frame_size) & ~7;
+    return (sp - frame_size) & TARGET_ALMASK;
 }
 
 static void mips_set_hflags_isa_mode_from_pc(CPUMIPSState *env)
@@ -5814,7 +5840,8 @@ void process_pending_signals(CPUArchState *cpu_env)
 #endif
         /* prepare the stack frame of the virtual CPU */
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64) \
-    || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
+    || defined(TARGET_NANOMIPS) || defined(TARGET_OPENRISC) \
+    || defined(TARGET_TILEGX) \
         /* These targets do not have traditional signals.  */
         setup_rt_frame(sig, sa, &q->info, &target_old_set, cpu_env);
 #else

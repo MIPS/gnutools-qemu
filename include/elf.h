@@ -40,6 +40,22 @@ enum {
     Val_GNU_MIPS_ABI_FP_64A = 7
 };
 
+enum {
+    /* Values defined for Tag_GNU_NANOMIPS_ABI_FP.  */
+    /* Not tagged or not using any ABIs affected by the differences.  */
+    Val_GNU_NANOMIPS_ABI_FP_ANY = 0,
+    /* Using hard-float -mdouble-float.  */
+    Val_GNU_NANOMIPS_ABI_FP_DOUBLE = 1,
+    /* Using hard-float -msingle-float.  */
+    Val_GNU_NANOMIPS_ABI_FP_SINGLE = 2,
+    /* Using soft-float.  */
+    Val_GNU_NANOMIPS_ABI_FP_SOFT = 3,
+    /* Not tagged or not using any ABIs affected by the differences.  */
+    Val_GNU_NANOMIPS_ABI_MSA_ANY = 0,
+    /* Using 128-bit MSA.  */
+    Val_GNU_NANOMIPS_ABI_MSA_128 = 1,
+};
+
 /* These constants are for the segment types stored in the image headers */
 #define PT_NULL    0
 #define PT_LOAD    1
@@ -53,6 +69,7 @@ enum {
 #define PT_MIPS_REGINFO     0x70000000
 #define PT_MIPS_OPTIONS     0x70000002
 #define PT_MIPS_ABIFLAGS    0x70000003
+#define PT_NANOMIPS_ABIFLAGS  0x70000000
 
 /* Flags in the e_flags field of the header */
 /* MIPS architecture level. */

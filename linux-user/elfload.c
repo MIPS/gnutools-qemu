@@ -871,7 +871,12 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUPPCState *en
 #else
 #define ELF_CLASS   ELFCLASS32
 #endif
+
+#ifdef TARGET_NANOMIPS
+#define ELF_ARCH    EM_NANOMIPS
+#else
 #define ELF_ARCH    EM_MIPS
+#endif
 
 static inline void init_thread(struct target_pt_regs *regs,
                                struct image_info *infop)
@@ -927,7 +932,11 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUMIPSState *e
 }
 
 #define USE_ELF_CORE_DUMP
+#ifdef TARGET_NANOMIPS
+#define ELF_EXEC_PAGESIZE        TARGET_PAGE_SIZE
+#else
 #define ELF_EXEC_PAGESIZE        4096
+#endif
 
 typedef struct {
     /* Version of flags structure.  */
@@ -2034,7 +2043,12 @@ static void load_elf_image(const char *image_name, int image_fd,
             }
             *pinterp_name = interp_name;
 #ifdef TARGET_MIPS
-        } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
+#ifdef TARGET_NANOMIPS
+#define TARGET_MIPS_PT_ABIFLAGS PT_NANOMIPS_ABIFLAGS
+#else
+#define TARGET_MIPS_PT_ABIFLAGS PT_MIPS_ABIFLAGS
+#endif
+        } else if (eppnt->p_type == TARGET_MIPS_PT_ABIFLAGS) {
             Elf_ABIFlags_v0 abiflags;
             if (eppnt->p_filesz < sizeof(Elf_ABIFlags_v0)) {
                 errmsg = "Invalid PT_MIPS_ABIFLAGS entry";

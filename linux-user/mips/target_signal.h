@@ -18,8 +18,13 @@ typedef struct target_sigaltstack {
 #define TARGET_SS_ONSTACK     1
 #define TARGET_SS_DISABLE     2
 
+#if defined(TARGET_NANOMIPS)
+#define TARGET_MINSIGSTKSZ    6144
+#define TARGET_SIGSTKSZ       12288
+#else
 #define TARGET_MINSIGSTKSZ    2048
 #define TARGET_SIGSTKSZ       8192
+#endif
 
 static inline abi_ulong get_sp_from_cpustate(CPUMIPSState *state)
 {

@@ -19,13 +19,19 @@
 #ifndef TARGET_CPU_H
 #define TARGET_CPU_H
 
+#include "config.h"
+
 static inline void cpu_clone_regs(CPUMIPSState *env, target_ulong newsp)
 {
     if (newsp) {
         env->active_tc.gpr[29] = newsp;
     }
+#if defined(TARGET_ABI_MIPSP32)
+    env->active_tc.gpr[4] = 0;
+#else
     env->active_tc.gpr[7] = 0;
     env->active_tc.gpr[2] = 0;
+#endif
 }
 
 static inline void cpu_set_tls(CPUMIPSState *env, target_ulong newtls)
