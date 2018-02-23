@@ -871,7 +871,12 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUPPCState *en
 #else
 #define ELF_CLASS   ELFCLASS32
 #endif
+
+#ifdef TARGET_NANOMIPS
+#define ELF_ARCH    EM_NANOMIPS
+#else
 #define ELF_ARCH    EM_MIPS
+#endif
 
 static inline void init_thread(struct target_pt_regs *regs,
                                struct image_info *infop)
