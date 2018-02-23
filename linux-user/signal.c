@@ -5814,7 +5814,8 @@ void process_pending_signals(CPUArchState *cpu_env)
 #endif
         /* prepare the stack frame of the virtual CPU */
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64) \
-    || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
+    || defined (TARGET_ABI_MIPSP32) || defined(TARGET_OPENRISC) \
+    || defined(TARGET_TILEGX)
         /* These targets do not have traditional signals.  */
         setup_rt_frame(sig, sa, &q->info, &target_old_set, cpu_env);
 #else

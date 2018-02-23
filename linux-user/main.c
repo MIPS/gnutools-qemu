@@ -1976,7 +1976,7 @@ void cpu_loop(CPUPPCState *env)
 
 #ifdef TARGET_MIPS
 
-# ifdef TARGET_ABI_MIPSO32
+# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
 #  define MIPS_SYS(name, args) args,
 static const uint8_t mips_syscall_args[] = {
 	MIPS_SYS(sys_syscall	, 8)	/* 4000 */
@@ -2478,6 +2478,19 @@ void cpu_loop(CPUMIPSState *env)
                                  arg5, arg6, arg7, arg8);
             }
 done_syscall:
+#elif defined( TARGET_ABI_MIPSP32)
+            {
+                abi_ulong arg8 = 0;
+                get_user_ual(arg8, env->active_tc.gpr[29] + 4);
+                ret = do_syscall(env, env->active_tc.gpr[11],
+                                 env->active_tc.gpr[4],
+                                 env->active_tc.gpr[5],
+                                 env->active_tc.gpr[6],
+                                 env->active_tc.gpr[7],
+                                 env->active_tc.gpr[8],
+                                 env->active_tc.gpr[9],
+                                 env->active_tc.gpr[10], arg8);
+            }
 # else
             ret = do_syscall(env, env->active_tc.gpr[2],
                              env->active_tc.gpr[4], env->active_tc.gpr[5],
@@ -2490,6 +2503,7 @@ done_syscall:
                    Avoid clobbering register state.  */
                 break;
             }
+#if !defined (TARGET_ABI_MIPSP32)
             if ((abi_ulong)ret >= (abi_ulong)-1133) {
                 env->active_tc.gpr[7] = 1; /* error flag */
                 ret = -ret;
@@ -2497,6 +2511,9 @@ done_syscall:
                 env->active_tc.gpr[7] = 0; /* error flag */
             }
             env->active_tc.gpr[2] = ret;
+#else
+            env->active_tc.gpr[4] = ret;
+#endif
             break;
         case EXCP_TLBL:
         case EXCP_TLBS:
@@ -4612,7 +4629,7 @@ int main(int argc, char **argv, char **envp)
             env->hflags |= MIPS_HFLAG_M16;
         }
 
-#ifdef TARGET_ABI_MIPSO32
+# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_64A
 #else
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_SOFT
@@ -4636,7 +4653,7 @@ int main(int argc, char **argv, char **envp)
         prog_req.fre &= interp_req.fre;
 
         if (prog_req.fr1 || prog_req.frdefault || prog_req.fre) {
-#ifdef TARGET_ABI_MIPSO32
+# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
             if (!prog_req.frdefault) {
                 if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
                     (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {

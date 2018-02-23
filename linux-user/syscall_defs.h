@@ -1645,7 +1645,7 @@ struct target_stat {
         int64_t      st_blocks;
 };
 
-#elif defined(TARGET_ABI_MIPSO32)
+#elif defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
 
 struct target_stat {
 	unsigned	st_dev;
