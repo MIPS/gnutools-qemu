@@ -1976,7 +1976,7 @@ void cpu_loop(CPUPPCState *env)
 
 #ifdef TARGET_MIPS
 
-# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
+# if defined(TARGET_ABI_MIPSO32)
 #  define MIPS_SYS(name, args) args,
 static const uint8_t mips_syscall_args[] = {
 	MIPS_SYS(sys_syscall	, 8)	/* 4000 */
@@ -4629,7 +4629,7 @@ int main(int argc, char **argv, char **envp)
             env->hflags |= MIPS_HFLAG_M16;
         }
 
-# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
+# if defined(TARGET_ABI_MIPSO32)
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_64A
 #else
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_SOFT
@@ -4653,7 +4653,7 @@ int main(int argc, char **argv, char **envp)
         prog_req.fre &= interp_req.fre;
 
         if (prog_req.fr1 || prog_req.frdefault || prog_req.fre) {
-# if defined(TARGET_ABI_MIPSO32) || defined(TARGET_ABI_MIPSP32)
+# if defined(TARGET_ABI_MIPSO32)
             if (!prog_req.frdefault) {
                 if ((env->CP0_Config1 & (1 << CP0C1_FP)) &&
                     (env->CP0_Status_rw_bitmask & (1 << CP0St_FR))) {

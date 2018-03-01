@@ -5673,10 +5673,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 {
     CPUState *cpu = ENV_GET_CPU(cpu_env);
     abi_long ret;
-#if defined(TARGET_NR_stat) || defined(TARGET_NR_fstat) \
-    || defined(TARGET_NR_lstat)
     struct stat st;
-#endif
     struct statfs stfs;
     void *p;
 
