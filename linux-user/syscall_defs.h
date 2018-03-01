@@ -322,7 +322,7 @@ struct target_dirent64 {
 #define TARGET_SIG_IGN	((abi_long)1)	/* ignore signal */
 #define TARGET_SIG_ERR	((abi_long)-1)	/* error return from signal */
 
-#ifdef TARGET_MIPS
+#if defined TARGET_MIPS && !defined(TARGET_NANOMIPS)
 #define TARGET_NSIG	   128
 #else
 #define TARGET_NSIG	   64
@@ -381,7 +381,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
 #define TARGET_SA_RESTART      2u
 #define TARGET_SA_NODEFER      0x20u
 #define TARGET_SA_RESETHAND    4u
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 #define TARGET_SA_NOCLDSTOP	0x00000001
 #define TARGET_SA_NOCLDWAIT	0x00010000
 #define TARGET_SA_SIGINFO	0x00000008
@@ -498,7 +498,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
 #define TARGET_SIG_UNBLOCK        0x02 /* for unblocking signals */
 #define TARGET_SIG_SETMASK        0x04 /* for setting the signal mask */
 
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 
 #define TARGET_SIGHUP		 1	/* Hangup (POSIX).  */
 #define TARGET_SIGINT		 2	/* Interrupt (ANSI).  */
@@ -576,7 +576,11 @@ int do_sigaction(int sig, const struct target_sigaction *act,
 #define TARGET_SIGIO		29
 #define TARGET_SIGPWR		30
 #define TARGET_SIGSYS		31
+#if defined(TARGET_NANOMIPS)
+#define TARGET_SIGRTMIN         35
+#else
 #define TARGET_SIGRTMIN         32
+#endif
 
 #define TARGET_SIG_BLOCK          0    /* for blocking signals */
 #define TARGET_SIG_UNBLOCK        1    /* for unblocking signals */
@@ -605,7 +609,7 @@ struct target_sigaction {
     target_sigset_t sa_mask;
     abi_ulong sa_restorer;
 };
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 struct target_sigaction {
 	uint32_t	sa_flags;
 #if defined(TARGET_ABI_MIPSN32)
@@ -615,6 +619,14 @@ struct target_sigaction {
 #endif
 	target_sigset_t	sa_mask;
 };
+#elif defined(TARGET_NANOMIPS)
+struct target_sigaction {
+    abi_ulong _sa_handler;
+    abi_uint sa_flags;
+    target_sigset_t sa_mask;
+    abi_ulong sa_restorer;
+};
+
 #else
 struct target_old_sigaction {
         abi_ulong _sa_handler;
@@ -671,7 +683,7 @@ typedef struct {
 #define TARGET_SI_PAD_SIZE ((TARGET_SI_MAX_SIZE - TARGET_SI_PREAMBLE_SIZE) / sizeof(int))
 
 typedef struct target_siginfo {
-#ifdef TARGET_MIPS
+#if defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 	int si_signo;
 	int si_code;
 	int si_errno;
@@ -748,6 +760,7 @@ typedef struct target_siginfo {
 #define TARGET_ILL_PRVREG	(6)	/* privileged register */
 #define TARGET_ILL_COPROC	(7)	/* coprocessor error */
 #define TARGET_ILL_BADSTK	(8)	/* internal stack error */
+#define TARGET_NSIGILL		(8)
 #ifdef TARGET_TILEGX
 #define TARGET_ILL_DBLFLT       (9)     /* double fault */
 #define TARGET_ILL_HARDWALL     (10)    /* user networks hardwall violation */
@@ -801,13 +814,16 @@ struct target_rlimit {
 
 #if defined(TARGET_ALPHA)
 #define TARGET_RLIM_INFINITY	0x7fffffffffffffffull
-#elif defined(TARGET_MIPS) || (defined(TARGET_SPARC) && TARGET_ABI_BITS == 32)
+#elif (defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)) \
+      || (defined(TARGET_SPARC) && TARGET_ABI_BITS == 32)
 #define TARGET_RLIM_INFINITY	0x7fffffffUL
+#elif defined(TARGET_NANOMIPS)
+#define TARGET_RLIM_INFINITY    0x76ffeec4UL
 #else
 #define TARGET_RLIM_INFINITY	((abi_ulong)-1)
 #endif
 
-#if defined(TARGET_MIPS)
+#if defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 #define TARGET_RLIMIT_CPU		0
 #define TARGET_RLIMIT_FSIZE		1
 #define TARGET_RLIMIT_DATA		2
@@ -823,6 +839,22 @@ struct target_rlimit {
 #define TARGET_RLIMIT_MSGQUEUE		12
 #define TARGET_RLIMIT_NICE		13
 #define TARGET_RLIMIT_RTPRIO		14
+#elif defined(TARGET_NANOMIPS)
+#define TARGET_RLIMIT_CPU              0
+#define TARGET_RLIMIT_FSIZE            1
+#define TARGET_RLIMIT_DATA             2
+#define TARGET_RLIMIT_STACK            3
+#define TARGET_RLIMIT_CORE             4
+#define TARGET_RLIMIT_RSS              5
+#define TARGET_RLIMIT_NPROC            6
+#define TARGET_RLIMIT_NOFILE           7
+#define TARGET_RLIMIT_MEMLOCK          8
+#define TARGET_RLIMIT_AS               9
+#define TARGET_RLIMIT_LOCKS            10
+#define TARGET_RLIMIT_SIGPENDING       11
+#define TARGET_RLIMIT_MSGQUEUE         12
+#define TARGET_RLIMIT_NICE             13
+#define TARGET_RLIMIT_RTPRIO           14
 #else
 #define TARGET_RLIMIT_CPU		0
 #define TARGET_RLIMIT_FSIZE		1
@@ -2103,7 +2135,7 @@ struct target_statfs64 {
 #define TARGET_F_UNLCK         8
 #define TARGET_F_EXLCK         16
 #define TARGET_F_SHLCK         32
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 #define TARGET_F_GETLK         14
 #define TARGET_F_SETLK         6
 #define TARGET_F_SETLKW        7
@@ -2134,7 +2166,7 @@ struct target_statfs64 {
 #define TARGET_F_SETSIG        10      /*  for sockets. */
 #define TARGET_F_GETSIG        11      /*  for sockets. */
 
-#if defined(TARGET_MIPS)
+#if defined(TARGET_MIPS)  && !defined(TARGET_NANOMIPS)
 #define TARGET_F_GETLK64       33      /*  using 'struct flock64' */
 #define TARGET_F_SETLK64       34
 #define TARGET_F_SETLKW64      35
@@ -2171,7 +2203,7 @@ struct target_statfs64 {
 #define TARGET_O_NOFOLLOW      0100000 /* don't follow links */
 #define TARGET_O_DIRECT        0200000 /* direct disk access hint */
 #define TARGET_O_LARGEFILE     0400000
-#elif defined(TARGET_MIPS)
+#elif defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)
 #define TARGET_O_APPEND         0x0008
 #define TARGET_O_DSYNC          0x0010
 #define TARGET_O_NONBLOCK       0x0080
@@ -2183,6 +2215,18 @@ struct target_statfs64 {
 #define TARGET_O_LARGEFILE      0x2000  /* allow large file opens */
 #define TARGET___O_SYNC         0x4000
 #define TARGET_O_DIRECT         0x8000  /* direct disk access hint */
+#elif defined(TARGET_NANOMIPS)
+#define TARGET_O_APPEND         0x000400
+#define TARGET_O_DSYNC          0x001000
+#define TARGET_O_NONBLOCK       0x000800
+#define TARGET_O_CREAT          0x000040
+#define TARGET_O_TRUNC          0x000200
+#define TARGET_O_EXCL           0x000080
+#define TARGET_O_NOCTTY         0x000100
+#define TARGET_FASYNC           0x002000
+#define TARGET_O_LARGEFILE      0x008000
+#define TARGET___O_SYNC         0x101000
+#define TARGET_O_DIRECT         0x004000
 #elif defined (TARGET_PPC)
 #define TARGET_O_DIRECTORY      040000 /* must be a directory */
 #define TARGET_O_NOFOLLOW      0100000 /* don't follow links */
@@ -2281,7 +2325,8 @@ struct target_flock {
 struct target_flock64 {
 	short  l_type;
 	short  l_whence;
-#if defined(TARGET_PPC) || defined(TARGET_X86_64) || defined(TARGET_MIPS) \
+#if defined(TARGET_PPC) || defined(TARGET_X86_64) \
+    || (defined(TARGET_MIPS) && !defined(TARGET_NANOMIPS)) \
     || defined(TARGET_SPARC) || defined(TARGET_HPPA) \
     || defined(TARGET_MICROBLAZE) || defined(TARGET_TILEGX)
         int __pad;

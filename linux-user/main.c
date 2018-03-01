@@ -2478,20 +2478,7 @@ void cpu_loop(CPUMIPSState *env)
                                  arg5, arg6, arg7, arg8);
             }
 done_syscall:
-#elif defined( TARGET_ABI_MIPSP32)
-            {
-                abi_ulong arg8 = 0;
-                get_user_ual(arg8, env->active_tc.gpr[29] + 4);
-                ret = do_syscall(env, env->active_tc.gpr[11],
-                                 env->active_tc.gpr[4],
-                                 env->active_tc.gpr[5],
-                                 env->active_tc.gpr[6],
-                                 env->active_tc.gpr[7],
-                                 env->active_tc.gpr[8],
-                                 env->active_tc.gpr[9],
-                                 env->active_tc.gpr[10], arg8);
-            }
-# else
+# else /* N32/N64 and P32 */
             ret = do_syscall(env, env->active_tc.gpr[2],
                              env->active_tc.gpr[4], env->active_tc.gpr[5],
                              env->active_tc.gpr[6], env->active_tc.gpr[7],
