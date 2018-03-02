@@ -5593,7 +5593,8 @@ case "$target_name" in
     echo "TARGET_ABI_MIPSO32=y" >> $config_target_mak
   ;;
   nanomips|nanomipseb)
-    TARGET_ARCH=mips
+    TARGET_ARCH=nanomips
+    TARGET_BASE_ARCH=mips
     echo "TARGET_ABI_MIPSP32=y" >> $config_target_mak
   ;;
   mipsn32|mipsn32el)
