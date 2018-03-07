@@ -17204,6 +17204,18 @@ static void gen_pool32axf_4_r7_insn(DisasContext *ctx, uint32_t opc,
         check_dsp(ctx);
         gen_helper_raddu_w_qb(cpu_gpr[ret], v1_t);
         break;
+    case R7_BITSWAP:
+        gen_bitswap(ctx, OPC_BITSWAP, ret, v1);
+        break;
+    case R7_CLO:
+        gen_cl(ctx, OPC_CLO, ret, v1);
+        break;
+    case R7_CLZ:
+        gen_cl(ctx, OPC_CLZ, ret, v1);
+        break;
+    case R7_WSBH:
+        gen_bshfl(ctx, OPC_WSBH, ret, v1);
+        break;
     default:
         generate_exception_end(ctx, EXCP_RI);
         break;
@@ -17296,18 +17308,6 @@ static void gen_pool32axf_r7_insn(CPUMIPSState *env, DisasContext *ctx)
     break;
     case POOL32AXF_5:
         switch ((ctx->opcode >> 9) & 0x7f) {
-        case R7_BITSWAP:
-            gen_bitswap(ctx, OPC_BITSWAP, rt, rs);
-            break;
-       case R7_CLO:
-            gen_cl(ctx, OPC_CLO, rt, rs);
-            break;
-        case R7_CLZ:
-            gen_cl(ctx, OPC_CLZ, rt, rs);
-            break;
-        case R7_WSBH:
-            gen_bshfl(ctx, OPC_WSBH, rs, rt);
-            break;
 #ifndef CONFIG_USER_ONLY
         case R7_TLBP:
             gen_cp0(env, ctx, OPC_TLBP, 0, 0);
