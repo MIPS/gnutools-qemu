@@ -13184,6 +13184,7 @@ enum {
     R7_MTTR     = 0x4e,
     R7_MTHTR    = 0x4f,
     R7_OR       = 0x52,
+    R7_D_E_MT_VPE = 0x56,
     R7_NOR      = 0x5a,
     R7_XOR      = 0x62,
     R7_SLT      = 0x6a,
@@ -16459,7 +16460,7 @@ static void gen_pool16c_r7_insn(DisasContext *ctx)
     }
 }
 
-static void gen_pool32a0_r7_insn(DisasContext *ctx)
+static void gen_pool32a0_r7_insn(CPUMIPSState *env, DisasContext *ctx)
 {
     int rt = (ctx->opcode >> 21) & 0x1f;
     int rs = (ctx->opcode >> 16) & 0x1f;
@@ -16629,6 +16630,83 @@ static void gen_pool32a0_r7_insn(DisasContext *ctx)
 
             gen_load_gpr(t0, rt);
             gen_mtc0(ctx, t0, rs, (ctx->opcode >> 11) & 0x7);
+            tcg_temp_free(t0);
+        }
+        break;
+    case R7_D_E_MT_VPE:
+        {
+            uint8_t sc = (ctx->opcode >> 10) & 1;
+            TCGv t0 = tcg_temp_new();
+
+            switch(sc) {
+            case 0:
+                if (rs == 1) { //DMT
+                    check_insn(ctx, ASE_MT);
+                    gen_helper_dmt(t0);
+                    gen_store_gpr(t0, rt);
+                } else if (rs == 0) { //DVPE
+                    check_insn(ctx, ASE_MT);
+                    gen_helper_dvpe(t0, cpu_env);
+                    gen_store_gpr(t0, rt);
+                } else {
+                    generate_exception_end(ctx, EXCP_RI);
+                }
+                break;
+            case 1:
+                if (rs == 1) { //EMT
+                    check_insn(ctx, ASE_MT);
+                    gen_helper_emt(t0);
+                    gen_store_gpr(t0, rt);
+                } else if (rs == 0) { //EVPE
+                    check_insn(ctx, ASE_MT);
+                    gen_helper_evpe(t0, cpu_env);
+                    gen_store_gpr(t0, rt);
+                } else {
+                    generate_exception_end(ctx, EXCP_RI);
+                }
+                break;
+            }
+
+            tcg_temp_free(t0);
+        }
+    break;
+    case R7_FORK:
+        check_insn(ctx, ASE_MT);
+        {
+            TCGv t0 = tcg_temp_new();
+            TCGv t1 = tcg_temp_new();
+
+            gen_load_gpr(t0, rt);
+            gen_load_gpr(t1, rs);
+            gen_helper_fork(t0, t1);
+            tcg_temp_free(t0);
+            tcg_temp_free(t1);
+        }
+        break;
+    case R7_MFTR:
+    case R7_MFHTR:
+        check_insn(ctx, ASE_MT);
+        if (rd == 0) {
+            /* Treat as NOP. */
+            return;
+        }
+        gen_mftr(env, ctx, rs, rt, (ctx->opcode >> 10) & 1,
+                 (ctx->opcode >> 11) & 0x1f, (ctx->opcode >> 3) & 1);
+        break;
+    case R7_MTTR:
+    case R7_MTHTR:
+        check_insn(ctx, ASE_MT);
+        gen_mttr(env, ctx, rs, rt, (ctx->opcode >> 10) & 1,
+                 (ctx->opcode >> 11) & 0x1f, (ctx->opcode >> 3) & 1);
+        break;
+    case R7_YIELD:
+        check_insn(ctx, ASE_MT);
+        {
+            TCGv t0 = tcg_temp_new();
+
+            gen_load_gpr(t0, rs);
+            gen_helper_yield(t0, cpu_env, t0);
+            gen_store_gpr(t0, rt);
             tcg_temp_free(t0);
         }
         break;
@@ -18284,7 +18362,7 @@ static int decode_micromips32_48_r7_opc(CPUMIPSState *env, DisasContext *ctx)
     case R7_POOL32A:
         switch (ctx->opcode & 0x07) {
         case POOL32A0:
-            gen_pool32a0_r7_insn(ctx);
+            gen_pool32a0_r7_insn(env, ctx);
             break;
         case POOL32A5:
         {
