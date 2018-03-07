@@ -6301,7 +6301,10 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #endif
 #ifdef TARGET_NR_pipe2
     case TARGET_NR_pipe2:
-        ret = do_pipe(cpu_env, arg1,
+        if (!arg2)
+            ret = do_pipe(cpu_env, arg1, 0, 0);
+        else
+            ret = do_pipe(cpu_env, arg1,
                       target_to_host_bitmask(arg2, fcntl_flags_tbl), 1);
         break;
 #endif
