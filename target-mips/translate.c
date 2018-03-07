@@ -13428,10 +13428,8 @@ enum {
     R7_INSV             = 0x20,
     R7_RADDU_W_QB      = 0x78,
 
-    R7_BITSWAP  = 0x05,
     R7_CLO      = 0x25,
     R7_CLZ      = 0x2d,
-    R7_WSBH     = 0x3d,
 
     R7_TLBP     = 0x01,
     R7_TLBR     = 0x09,
@@ -17372,17 +17370,11 @@ static void gen_pool32axf_4_r7_insn(DisasContext *ctx, uint32_t opc,
         check_dsp(ctx);
         gen_helper_raddu_w_qb(cpu_gpr[ret], v1_t);
         break;
-    case R7_BITSWAP:
-        gen_bitswap(ctx, OPC_BITSWAP, ret, v1);
-        break;
     case R7_CLO:
         gen_cl(ctx, OPC_CLO, ret, v1);
         break;
     case R7_CLZ:
         gen_cl(ctx, OPC_CLZ, ret, v1);
-        break;
-    case R7_WSBH:
-        gen_bshfl(ctx, OPC_WSBH, ret, v1);
         break;
     default:
         generate_exception_end(ctx, EXCP_RI);
