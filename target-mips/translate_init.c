@@ -539,7 +539,7 @@ static const mips_def_t mips_defs[] =
         .CP0_LLAddr_shift = 0,
         .SYNCI_Step = 32,
         .CCRes = 2,
-        .CP0_Status_rw_bitmask = 0x3058FF1F,
+        .CP0_Status_rw_bitmask = 0x3158FF1F,
         .CP0_PageGrain = (1 << CP0PG_IEC) | (1 << CP0PG_XIE) |
                          (1U << CP0PG_RIE),
         .CP0_PageGrain_rw_bitmask = 0,
@@ -549,7 +549,7 @@ static const mips_def_t mips_defs[] =
         .CP1_fcr31 = (1 << FCR31_ABS2008) | (1 << FCR31_NAN2008),
         .SEGBITS = 32,
         .PABITS = 32,
-        .insn_flags = CPU_MIPS32R7 | ASE_MICROMIPS,
+        .insn_flags = CPU_MIPS32R7 | ASE_MICROMIPS | ASE_DSP | ASE_DSPR2 | ASE_MT,
         .mmu_type = MMU_TYPE_R4000,
     },
     {
