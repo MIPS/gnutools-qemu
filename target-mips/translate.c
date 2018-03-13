@@ -8004,7 +8004,7 @@ die:
 }
 
 static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
-                     int u, int sel, int h, bool is_nanomips)
+                     int u, int sel, int h)
 {
     int other_tc = env->CP0_VPEControl & (0xff << CP0VPECo_TargTC);
     TCGv t0 = tcg_temp_local_new();
@@ -8114,17 +8114,7 @@ static void gen_mttr(CPUMIPSState *env, DisasContext *ctx, int rd, int rt,
     } else switch (sel) {
     /* GPR registers. */
     case 0:
-        {
-            if (is_nanomips) {
-                TCGv t0 = tcg_temp_local_new();
-
-                gen_load_gpr(t0, rd);
-                gen_helper_0e1i(mttgpr, t0, rt);
-                tcg_temp_free(t0);
-            } else {
-                gen_helper_0e1i(mttgpr, t0, rd);
-            }
-        }
+        gen_helper_0e1i(mttgpr, t0, rd);
         break;
     /* Auxiliary CPU registers */
     case 1:
@@ -8295,7 +8285,7 @@ static void gen_cp0 (CPUMIPSState *env, DisasContext *ctx, uint32_t opc, int rt,
     case OPC_MTTR:
         check_insn(ctx, ASE_MT);
         gen_mttr(env, ctx, rd, rt, (ctx->opcode >> 5) & 1,
-                 ctx->opcode & 0x7, (ctx->opcode >> 4) & 1, false);
+                 ctx->opcode & 0x7, (ctx->opcode >> 4) & 1);
         opn = "mttr";
         break;
     case OPC_TLBWI:
@@ -16705,7 +16695,7 @@ static void gen_pool32a0_r7_insn(CPUMIPSState *env, DisasContext *ctx)
     case R7_MTHTR:
         check_insn(ctx, ASE_MT);
         gen_mttr(env, ctx, rs, rt, (ctx->opcode >> 10) & 1,
-                 (ctx->opcode >> 11) & 0x1f, (ctx->opcode >> 3) & 1, true);
+                 (ctx->opcode >> 11) & 0x1f, (ctx->opcode >> 3) & 1);
         break;
     case R7_YIELD:
         check_insn(ctx, ASE_MT);
