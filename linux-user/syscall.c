@@ -5763,6 +5763,28 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         ret = get_errno(write(arg1, p, arg3));
         unlock_user(p, arg2, 0);
         break;
+#ifdef TARGET_NR_process_vm_readv
+        case TARGET_NR_process_vm_readv:
+        {
+            struct iovec *iov_l = lock_iovec(VERIFY_READ, arg2, arg3, 0);
+            struct iovec *iov_r = lock_iovec(VERIFY_READ, arg4, arg5, 0);
+            ret = process_vm_readv(arg1, iov_l, arg3, iov_r, arg5, arg6);
+            unlock_iovec(iov_l, arg2, arg3, 1);
+            unlock_iovec(iov_r, arg4, arg5, 1);
+        }
+        break;
+#endif
+#ifdef TARGET_NR_process_vm_writev
+        case TARGET_NR_process_vm_writev:
+        {
+            struct iovec *iov_l = lock_iovec(VERIFY_READ, arg2, arg3, 0);
+            struct iovec *iov_r = lock_iovec(VERIFY_READ, arg4, arg5, 0);
+            ret = process_vm_writev(arg1, iov_l, arg3, iov_r, arg5, arg6);
+            unlock_iovec(iov_l, arg2, arg3, 1);
+            unlock_iovec(iov_r, arg4, arg5, 1);
+        }
+        break;
+#endif
 #ifdef TARGET_NR_open
     case TARGET_NR_open:
         if (!(p = lock_user_string(arg1)))
