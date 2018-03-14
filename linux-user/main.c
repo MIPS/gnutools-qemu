@@ -4189,6 +4189,8 @@ int main(int argc, char **argv, char **envp)
 #elif defined(TARGET_MIPS)
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64)
         cpu_model = "5KEf";
+#elif defined(TARGET_NANOMIPS)
+        cpu_model = "nanomips-generic";
 #else
         cpu_model = "24Kf";
 #endif
