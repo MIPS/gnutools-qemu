@@ -7487,54 +7487,95 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
 #endif
 #if defined(TARGET_NR_statx)
-    case TARGET_NR_statx:{
-        int flags = arg3;
-        int dirfd = arg1;
+    case TARGET_NR_statx:
+        {
+#if defined(__NR_statx)
+            /* We assume that struct statx is arhitecture independed */
+            struct target_statx host_stx;
+            int mask = tswap32(arg4);
+#endif
+            struct target_statx *target_stx;
+            int dirfd = tswap32(arg1);
+            int flags = tswap32(arg3);
 
-        if (!(p = lock_user_string(arg2)))
-            goto efault;
+            if (!(p = lock_user_string(arg2)))
+                goto efault;
+#if defined(__NR_statx)
+            ret = get_errno(syscall(__NR_statx, dirfd, p, flags, mask,
+                                    &host_stx));
+            if (!is_error(ret)) {
+                unlock_user(p, arg2, 0);
+                if (!lock_user_struct(VERIFY_WRITE, target_stx, arg5, 0))
+                    goto efault;
+                memset(target_stx, 0, sizeof(*target_stx));
+                __put_user(host_stx.stx_dev_major, &target_stx->stx_dev_major);
+                __put_user(host_stx.stx_dev_minor, &target_stx->stx_dev_minor);
+                __put_user(host_stx.stx_ino, &target_stx->stx_ino);
+                __put_user(host_stx.stx_mode, &target_stx->stx_mode);
+                __put_user(host_stx.stx_uid, &target_stx->stx_uid);
+                __put_user(host_stx.stx_gid, &target_stx->stx_gid);
+                __put_user(host_stx.stx_nlink, &target_stx->stx_nlink);
+                __put_user(host_stx.stx_rdev_major,
+                           &target_stx->stx_rdev_major);
+                __put_user(host_stx.stx_rdev_minor,
+                           &target_stx->stx_rdev_minor);
+                __put_user(host_stx.stx_size, &target_stx->stx_size);
+                __put_user(host_stx.stx_blksize, &target_stx->stx_blksize);
+                __put_user(host_stx.stx_blocks, &target_stx->stx_blocks);
+                __put_user(host_stx.stx_atime.tv_sec,
+                           &target_stx->stx_atime.tv_sec);
+                __put_user(host_stx.stx_mtime.tv_sec,
+                           &target_stx->stx_mtime.tv_sec);
+                __put_user(host_stx.stx_ctime.tv_sec,
+                           &target_stx->stx_ctime.tv_sec);
+                unlock_user_struct(target_stx, arg5, 1);
+            }
 
-        if ((flags & AT_EMPTY_PATH) && ((p == NULL) || (*((char*)p) == 0))) {
-            /* By file descriptor */
-            ret = get_errno(fstat(dirfd, &st));
-            unlock_user(p, arg2, 0);
-        } else if (*((char*)p) == '/') { /* An absolute pathname */
-            ret = get_errno(stat(path(p), &st));
-            unlock_user(p, arg2, 0);
-        } else {
-            if (dirfd == AT_FDCWD) { /* A relative pathname */
+            if (ret != TARGET_ENOSYS)
+                break;
+#endif
+            if ((flags & AT_EMPTY_PATH) && ((p == NULL) || (*((char*)p) == 0))) {
+                /* By file descriptor */
+                ret = get_errno(fstat(dirfd, &st));
+                unlock_user(p, arg2, 0);
+            } else if (*((char*)p) == '/') {
+                /* An absolute pathname */
                 ret = get_errno(stat(path(p), &st));
                 unlock_user(p, arg2, 0);
-            } else { /* A directory-relative pathname */
-                ret = get_errno(fstatat(dirfd, path(p), &st, flags));
-                unlock_user(p, arg2, 0);
+            } else {
+                if (dirfd == AT_FDCWD) {
+                    /* A relative pathname */
+                    ret = get_errno(stat(path(p), &st));
+                    unlock_user(p, arg2, 0);
+                } else {
+                    /* A directory-relative pathname */
+                    ret = get_errno(fstatat(dirfd, path(p), &st, flags));
+                    unlock_user(p, arg2, 0);
+                }
+            }
+
+            if (!is_error(ret)) {
+                if (!lock_user_struct(VERIFY_WRITE, target_stx, arg5, 0))
+                    goto efault;
+                memset(target_stx, 0, sizeof(*target_stx));
+                __put_user(major(st.st_dev), &target_stx->stx_dev_major);
+                __put_user(minor(st.st_dev), &target_stx->stx_dev_minor);
+                __put_user(st.st_ino, &target_stx->stx_ino);
+                __put_user(st.st_mode, &target_stx->stx_mode);
+                __put_user(st.st_uid, &target_stx->stx_uid);
+                __put_user(st.st_gid, &target_stx->stx_gid);
+                __put_user(st.st_nlink, &target_stx->stx_nlink);
+                __put_user(major(st.st_rdev), &target_stx->stx_rdev_major);
+                __put_user(minor(st.st_rdev), &target_stx->stx_rdev_minor);
+                __put_user(st.st_size, &target_stx->stx_size);
+                __put_user(st.st_blksize, &target_stx->stx_blksize);
+                __put_user(st.st_blocks, &target_stx->stx_blocks);
+                __put_user(st.st_atime, &target_stx->stx_atime.tv_sec);
+                __put_user(st.st_mtime, &target_stx->stx_mtime.tv_sec);
+                __put_user(st.st_ctime, &target_stx->stx_ctime.tv_sec);
+                unlock_user_struct(target_stx, arg5, 1);
             }
         }
-
-        if (!is_error(ret)) {
-            struct target_statx *target_stx;
-
-            if (!lock_user_struct(VERIFY_WRITE, target_stx, arg5, 0))
-                goto efault;
-            memset(target_stx, 0, sizeof(*target_stx));
-            __put_user(major(st.st_dev), &target_stx->stx_dev_major);
-            __put_user(minor(st.st_dev), &target_stx->stx_dev_minor);
-            __put_user(st.st_ino, &target_stx->stx_ino);
-            __put_user(st.st_mode, &target_stx->stx_mode);
-            __put_user(st.st_uid, &target_stx->stx_uid);
-            __put_user(st.st_gid, &target_stx->stx_gid);
-            __put_user(st.st_nlink, &target_stx->stx_nlink);
-            __put_user(major(st.st_rdev), &target_stx->stx_rdev_major);
-            __put_user(minor(st.st_rdev), &target_stx->stx_rdev_minor);
-            __put_user(st.st_size, &target_stx->stx_size);
-            __put_user(st.st_blksize, &target_stx->stx_blksize);
-            __put_user(st.st_blocks, &target_stx->stx_blocks);
-            __put_user(st.st_atime, &target_stx->stx_atime.tv_sec);
-            __put_user(st.st_mtime, &target_stx->stx_mtime.tv_sec);
-            __put_user(st.st_ctime, &target_stx->stx_ctime.tv_sec);
-            unlock_user_struct(target_stx, arg5, 1);
-        }
-    }
         break;
 #endif
 #ifdef TARGET_NR_olduname
