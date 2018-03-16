@@ -2331,8 +2331,8 @@ static int do_store_exclusive(CPUMIPSState *env)
     target_ulong addr;
     target_ulong page_addr;
     target_ulong val;
-    uint32_t val_wp;
-    uint32_t llnewval_wp;
+    uint32_t val_wp  __attribute__((unused)) = 0;
+    uint32_t llnewval_wp  __attribute__((unused)) = 0;
     int flags;
     int segv = 0;
     int reg;
