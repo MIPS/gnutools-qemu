@@ -83,6 +83,12 @@ bool mips_cpu_exec_interrupt(CPUState *cpu, int int_req);
 void mips_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
                          int flags);
 hwaddr mips_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int mips_dsp_get_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
+int mips_dsp_set_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
+int mips_cp0_get_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
+int mips_cp0_set_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
+int mips_fpu_get_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
+int mips_fpu_set_reg(CPUMIPSState *cpu, uint8_t *buf, int reg);
 int mips_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int mips_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 void mips_cpu_do_unaligned_access(CPUState *cpu, vaddr addr,

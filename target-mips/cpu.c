@@ -22,7 +22,7 @@
 #include "kvm_mips.h"
 #include "qemu-common.h"
 #include "sysemu/kvm.h"
-
+#include "exec/gdbstub.h"
 
 static void mips_cpu_set_pc(CPUState *cs, vaddr value)
 {
@@ -128,9 +128,25 @@ static void mips_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
 static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
+    MIPSCPU *cpu = MIPS_CPU(cs);
     MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(dev);
+    CPUMIPSState *env = &cpu->env;
 
     cpu_reset(cs);
+    fprintf(stderr, "real\n");
+
+    if (env->CP0_Config1 & (1 << CP0C1_FP)) {
+        fprintf(stderr, "fpu\n");
+        gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
+                                 34, "nanomips-fpu.xml", 0);
+    }
+    gdb_register_coprocessor(cs, mips_cp0_get_reg, mips_cp0_set_reg,
+                             3, "nanomips-cp0.xml", 0);
+    if (env->CP0_Config3 & (1 << CP0C3_DSPP)) {
+       gdb_register_coprocessor(cs, mips_dsp_get_reg, mips_dsp_set_reg,
+                                7, "nanomips-dsp.xml", 0);
+    }
+
     qemu_init_vcpu(cs);
 
     mcc->parent_realize(dev, errp);
@@ -180,7 +196,10 @@ static void mips_cpu_class_init(ObjectClass *c, void *data)
 #endif
     cc->disas_set_info = mips_cpu_disas_set_info;
 
-    cc->gdb_num_core_regs = 73;
+    cc->gdb_num_core_regs = 35;
+
+    cc->gdb_core_xml_file = "nanomips-cpu.xml";
+
     cc->gdb_stop_before_watchpoint = true;
 
     /*
