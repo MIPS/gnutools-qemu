@@ -16733,6 +16733,53 @@ static void gen_pool32a0_r7_insn(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
+static void gen_pool32axf_1_5_r7_insn(DisasContext *ctx, uint32_t opc,
+                                    int ret, int v1, int v2)
+{
+    TCGv_i32 t0;
+
+    TCGv v0_t;
+    TCGv v1_t;
+
+    t0 = tcg_temp_new_i32();
+
+    v0_t = tcg_temp_new();
+    v1_t = tcg_temp_new();
+
+    tcg_gen_movi_i32(t0, v2 >> 3);
+
+    gen_load_gpr(v0_t, ret);
+    gen_load_gpr(v1_t, v1);
+
+    switch (opc) {
+    case R7_MAQ_S_W_PHR:
+        check_dsp(ctx);
+        gen_helper_maq_s_w_phr(t0, v1_t, v0_t, cpu_env);
+        break;
+    case R7_MAQ_S_W_PHL:
+        check_dsp(ctx);
+        gen_helper_maq_s_w_phl(t0, v1_t, v0_t, cpu_env);
+        break;
+    case R7_MAQ_SA_W_PHR:
+        check_dsp(ctx);
+        gen_helper_maq_sa_w_phr(t0, v1_t, v0_t, cpu_env);
+        break;
+    case R7_MAQ_SA_W_PHL:
+        check_dsp(ctx);
+        gen_helper_maq_sa_w_phl(t0, v1_t, v0_t, cpu_env);
+        break;
+    default:
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+
+    tcg_temp_free_i32(t0);
+
+    tcg_temp_free(v0_t);
+    tcg_temp_free(v1_t);
+}
+
+
 static void gen_pool32axf_1_r7_insn(DisasContext *ctx, uint32_t opc,
                                     int ret, int v1, int v2)
 {
@@ -16743,18 +16790,15 @@ static void gen_pool32axf_1_r7_insn(DisasContext *ctx, uint32_t opc,
 
     TCGv v0_t;
     TCGv v1_t;
-    TCGv v2_t;
 
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
 
     v0_t = tcg_temp_new();
     v1_t = tcg_temp_new();
-    v2_t = tcg_temp_new();
 
     gen_load_gpr(v0_t, ret);
     gen_load_gpr(v1_t, v1);
-    gen_load_gpr(v2_t, v2);
 
     switch (opc) {
     case POOL32AXF_1_0:
@@ -16822,26 +16866,11 @@ static void gen_pool32axf_1_r7_insn(DisasContext *ctx, uint32_t opc,
         }
         break;
     case POOL32AXF_1_5:
-        tcg_gen_movi_tl(t0, v2 >> 3);
-        switch ((ctx->opcode >> 12) & 0x03) {
-        case R7_MAQ_S_W_PHR:
-            check_dsp(ctx);
-            gen_helper_maq_s_w_phr(t0, v1_t, v0_t, cpu_env);
-            break;
-        case R7_MAQ_S_W_PHL:
-            check_dsp(ctx);
-            gen_helper_maq_s_w_phl(t0, v1_t, v0_t, cpu_env);
-            break;
-        case R7_MAQ_SA_W_PHR:
-            check_dsp(ctx);
-            gen_helper_maq_sa_w_phr(t0, v1_t, v0_t, cpu_env);
-            break;
-        case R7_MAQ_SA_W_PHL:
-            check_dsp(ctx);
-            gen_helper_maq_sa_w_phl(t0, v1_t, v0_t, cpu_env);
-            break;
-        }
+    {
+        uint32_t opc = (ctx->opcode >> 12) & 0x03;
+        gen_pool32axf_1_5_r7_insn(ctx, opc, ret, v1, v2);
         break;
+    }
     case POOL32AXF_1_7:
         tcg_gen_movi_tl(t0, v2 >> 3);
         tcg_gen_movi_tl(t1, v1);
@@ -16870,7 +16899,136 @@ static void gen_pool32axf_1_r7_insn(DisasContext *ctx, uint32_t opc,
 
     tcg_temp_free(v0_t);
     tcg_temp_free(v1_t);
-    tcg_temp_free(v2_t);
+}
+
+static void gen_pool32axf_2_multiply(DisasContext *ctx, uint32_t opc,
+                                    int ret, int v1, int v2)
+{
+    TCGv_i32 t0;
+
+    TCGv v0_t;
+    TCGv v1_t;
+
+    t0 = tcg_temp_new_i32();
+
+    v0_t = tcg_temp_new();
+    v1_t = tcg_temp_new();
+
+    tcg_gen_movi_i32(t0, v2 >> 3);
+
+    gen_load_gpr(v0_t, ret);
+    gen_load_gpr(v1_t, v1);
+
+    switch (opc) {
+    case POOL32AXF_2_0_7:
+        switch ((ctx->opcode >> 9) & 0x07) {
+        case R7_DPA_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpa_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPAQ_S_W_PH:
+            check_dsp(ctx);
+            gen_helper_dpaq_s_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPS_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dps_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPSQ_S_W_PH:
+            check_dsp(ctx);
+            gen_helper_dpsq_s_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        default:
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case POOL32AXF_2_8_15:
+        switch ((ctx->opcode >> 9) & 0x07) {
+        case R7_DPAX_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpax_w_ph(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPAQ_SA_L_W:
+            check_dsp(ctx);
+            gen_helper_dpaq_sa_l_w(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPSX_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpsx_w_ph(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPSQ_SA_L_W:
+            check_dsp(ctx);
+            gen_helper_dpsq_sa_l_w(t0, v0_t, v1_t, cpu_env);
+            break;
+        default:
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case POOL32AXF_2_16_23:
+        switch ((ctx->opcode >> 9) & 0x07) {
+        case R7_DPAU_H_QBL:
+            check_dsp(ctx);
+            gen_helper_dpau_h_qbl(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPAQX_S_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpaqx_s_w_ph(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPSU_H_QBL:
+            check_dsp(ctx);
+            gen_helper_dpsu_h_qbl(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_DPSQX_S_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpsqx_s_w_ph(t0, v0_t, v1_t, cpu_env);
+            break;
+        case R7_MULSA_W_PH:
+            check_dspr2(ctx);
+            gen_helper_mulsa_w_ph(t0, v0_t, v1_t, cpu_env);
+            break;
+        default:
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    case POOL32AXF_2_24_31:
+        switch ((ctx->opcode >> 9) & 0x07) {
+        case R7_DPAU_H_QBR:
+            check_dsp(ctx);
+            gen_helper_dpau_h_qbr(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPAQX_SA_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpaqx_sa_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPSU_H_QBR:
+            check_dsp(ctx);
+            gen_helper_dpsu_h_qbr(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_DPSQX_SA_W_PH:
+            check_dspr2(ctx);
+            gen_helper_dpsqx_sa_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        case R7_MULSAQ_S_W_PH:
+            check_dsp(ctx);
+            gen_helper_mulsaq_s_w_ph(t0, v1_t, v0_t, cpu_env);
+            break;
+        default:
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        }
+        break;
+    default:
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+
+    tcg_temp_free_i32(t0);
+
+    tcg_temp_free(v0_t);
+    tcg_temp_free(v1_t);
 }
 
 static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
@@ -16881,41 +17039,24 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
 
     TCGv v0_t;
     TCGv v1_t;
-    TCGv v2_t;
 
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
 
     v0_t = tcg_temp_new();
     v1_t = tcg_temp_new();
-    v2_t = tcg_temp_new();
 
     gen_load_gpr(v0_t, ret);
     gen_load_gpr(v1_t, v1);
-    gen_load_gpr(v2_t, v2);
 
     switch (opc) {
     case POOL32AXF_2_0_7:
         switch ((ctx->opcode >> 9) & 0x07) {
         case R7_DPA_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpa_w_ph(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPAQ_S_W_PH:
-            check_dsp(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpaq_s_w_ph(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPS_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dps_w_ph(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPSQ_S_W_PH:
-            check_dsp(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpsq_s_w_ph(t0, v1_t, v0_t, cpu_env);
+            gen_pool32axf_2_multiply(ctx, opc, ret, v1, v2);
             break;
         case R7_BALIGN:
             gen_load_gpr(t0, v1);
@@ -16976,24 +17117,10 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
     case POOL32AXF_2_8_15:
         switch ((ctx->opcode >> 9) & 0x07) {
         case R7_DPAX_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpax_w_ph(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPAQ_SA_L_W:
-            check_dsp(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpaq_sa_l_w(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPSX_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpsx_w_ph(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPSQ_SA_L_W:
-            check_dsp(ctx);
-            tcg_gen_movi_tl(t0, v2 >> 3);
-            gen_helper_dpsq_sa_l_w(t0, v0_t, v1_t, cpu_env);
+            gen_pool32axf_2_multiply(ctx, opc, ret, v1, v2);
             break;
         case R7_MADDU:
         {
@@ -17046,24 +17173,11 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
     case POOL32AXF_2_16_23:
         switch ((ctx->opcode >> 9) & 0x07) {
         case R7_DPAU_H_QBL:
-            check_dsp(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpau_h_qbl(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPAQX_S_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpaqx_s_w_ph(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPSU_H_QBL:
-            check_dsp(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpsu_h_qbl(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_DPSQX_S_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpsqx_s_w_ph(t0, v0_t, v1_t, cpu_env);
+        case R7_MULSA_W_PH:
+            gen_pool32axf_2_multiply(ctx, opc, ret, v1, v2);
             break;
         case R7_EXTPV:
             tcg_gen_movi_tl(t0, v2 >> 3);
@@ -17090,13 +17204,8 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
             tcg_temp_free_i64(t2);
         }
         break;
-        case R7_MULSA_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_mulsa_w_ph(t0, v0_t, v1_t, cpu_env);
-            break;
         case R7_EXTRV_RS_W:
-            tcg_gen_movi_i32(t0, v2 >> 3);
+            tcg_gen_movi_tl(t0, v2 >> 3);
             gen_helper_extr_rs_w(cpu_gpr[ret], t0, v1_t, cpu_env);
             break;
         }
@@ -17104,27 +17213,14 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
     case POOL32AXF_2_24_31:
         switch ((ctx->opcode >> 9) & 0x07) {
         case R7_DPAU_H_QBR:
-            check_dsp(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpau_h_qbr(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPAQX_SA_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpaqx_sa_w_ph(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPSU_H_QBR:
-            check_dsp(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpsu_h_qbr(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_DPSQX_SA_W_PH:
-            check_dspr2(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_dpsqx_sa_w_ph(t0, v1_t, v0_t, cpu_env);
+        case R7_MULSAQ_S_W_PH:
+            gen_pool32axf_2_multiply(ctx, opc, ret, v1, v2);
             break;
         case R7_EXTPDPV:
-            tcg_gen_movi_i32(t0, v2 >> 3);
+            tcg_gen_movi_tl(t0, v2 >> 3);
             gen_helper_extpdp(cpu_gpr[ret], t0, v1_t, cpu_env);
             break;
         case R7_MSUBU:
@@ -17150,20 +17246,15 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
             tcg_temp_free_i64(t2);
         }
         break;
-        case R7_MULSAQ_S_W_PH:
-            check_dsp(ctx);
-            tcg_gen_movi_i32(t0, v2 >> 3);
-            gen_helper_mulsaq_s_w_ph(t0, v1_t, v0_t, cpu_env);
-            break;
         case R7_EXTRV_S_H:
             tcg_gen_movi_tl(t0, v2 >> 3);
             gen_helper_extr_s_h(cpu_gpr[ret], t0, v1_t, cpu_env);
             break;
         }
         break;
-        default:
-            generate_exception_end(ctx, EXCP_RI);
-            break;
+    default:
+        generate_exception_end(ctx, EXCP_RI);
+        break;
     }
 
     tcg_temp_free(t0);
@@ -17171,7 +17262,6 @@ static void gen_pool32axf_2_r7_insn(DisasContext *ctx, uint32_t opc,
 
     tcg_temp_free(v0_t);
     tcg_temp_free(v1_t);
-    tcg_temp_free(v2_t);
 }
 
 static void gen_pool32axf_4_r7_insn(DisasContext *ctx, uint32_t opc,
