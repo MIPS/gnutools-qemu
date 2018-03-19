@@ -40,7 +40,5 @@
   <reg name="r30" bitsize="32"/>
   <reg name="r31" bitsize="32"/>
 
-  <reg name="lo" bitsize="32"/>
-  <reg name="hi" bitsize="32"/>
   <reg name="pc" bitsize="32"/>
 </feature>

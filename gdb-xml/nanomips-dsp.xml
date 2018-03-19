@@ -7,6 +7,8 @@
 
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
 <feature name="org.gnu.gdb.nanomips.dsp">
+  <reg name="hi0" bitsize="32"/>
+  <reg name="lo0" bitsize="32"/>
   <reg name="hi1" bitsize="32"/>
   <reg name="lo1" bitsize="32"/>
   <reg name="hi2" bitsize="32"/>
