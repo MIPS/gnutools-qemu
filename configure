@@ -3492,6 +3492,22 @@ if compile_prog "" "" ; then
   pipe2=yes
 fi
 
+# check if getrandom is there
+getrandom=no
+cat > $TMPC << EOF
+#include <unistd.h>
+#include <fcntl.h>
+
+int main(void)
+{
+    int rand[100];
+    return getrandom(rand, 100, 0);
+}
+EOF
+if compile_prog "" "" ; then
+  getrandom=yes
+fi
+
 # check if accept4 is there
 accept4=no
 cat > $TMPC << EOF
@@ -5030,6 +5046,9 @@ if test "$utimens" = "yes" ; then
 fi
 if test "$pipe2" = "yes" ; then
   echo "CONFIG_PIPE2=y" >> $config_host_mak
+fi
+if test "$getrandom" = "yes" ; then
+  echo "CONFIG_GETRANDOM=y" >> $config_host_mak
 fi
 if test "$accept4" = "yes" ; then
   echo "CONFIG_ACCEPT4=y" >> $config_host_mak

@@ -6889,6 +6889,24 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             ret = get_errno(settimeofday(ptv, ptz));
         }
         break;
+#if defined(TARGET_NR_getrandom)
+    case TARGET_NR_getrandom:
+        {
+            p = lock_user(VERIFY_WRITE, arg1, arg2, 0);
+            if (p == NULL) {
+                goto efault;
+            }
+#if defined(CONFIG_GETRANDOM)
+            ret = get_errno(getrandom(p, arg2, arg3));
+#elif defined(__NR_getrandom)
+            ret = get_errno(syscall(__NR_getrandom, p, arg2, arg3));
+#else
+            ret = -TARGET_ENOSYS;
+#endif
+            unlock_user(p, arg1, ret);
+        }
+        break;
+#endif
 #if defined(TARGET_NR_select)
     case TARGET_NR_select:
 #if defined(TARGET_S390X) || defined(TARGET_ALPHA)
