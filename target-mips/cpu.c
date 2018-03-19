@@ -144,7 +144,7 @@ static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
                              3, "nanomips-cp0.xml", 0);
     if (env->CP0_Config3 & (1 << CP0C3_DSPP)) {
        gdb_register_coprocessor(cs, mips_dsp_get_reg, mips_dsp_set_reg,
-                                7, "nanomips-dsp.xml", 0);
+                                9, "nanomips-dsp.xml", 0);
     }
 
     qemu_init_vcpu(cs);
@@ -196,7 +196,7 @@ static void mips_cpu_class_init(ObjectClass *c, void *data)
 #endif
     cc->disas_set_info = mips_cpu_disas_set_info;
 
-    cc->gdb_num_core_regs = 35;
+    cc->gdb_num_core_regs = 33;
 
     cc->gdb_core_xml_file = "nanomips-cpu.xml";
 
