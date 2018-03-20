@@ -10123,7 +10123,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
     }
 #endif
-
+#if defined(TARGET_NR_kcmp) && defined(__NR_kcmp)
+    case TARGET_NR_kcmp:
+        ret = get_errno(syscall(__NR_kcmp, arg1, arg2, arg3, arg4, arg5));
+        break;
+#endif
 #ifdef TARGET_NR_timer_create
     case TARGET_NR_timer_create:
     {
