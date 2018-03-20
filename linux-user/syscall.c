@@ -10264,7 +10264,24 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         }
         break;
 #endif
-
+#if defined(TARGET_NR_memfd_create)
+    case TARGET_NR_memfd_create:
+        p = lock_user_string(arg1);
+        if (p == NULL) {
+            goto efault;
+        }
+#if defined(CONFIG_MEMFD)
+        ret = get_errno(memfd_create(p,
+                        target_to_host_bitmask(arg2, fcntl_flags_tbl)));
+#elif defined(__NR_memfd_create)
+        ret = get_errno(syscall(__NR_memfd_create, p,
+                        target_to_host_bitmask(arg2, fcntl_flags_tbl)));
+#else
+        ret = -TARGET_ENOSYS;
+#endif
+        unlock_user(p, arg1, 0);
+        break;
+#endif
 #if defined(TARGET_NR_timerfd_settime) && defined(CONFIG_TIMERFD)
     case TARGET_NR_timerfd_settime:
         {
