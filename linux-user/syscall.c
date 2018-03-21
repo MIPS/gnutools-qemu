@@ -43,6 +43,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/swap.h>
+#include <sys/signalfd.h>
 #include <linux/capability.h>
 #include <signal.h>
 #include <sched.h>
@@ -6358,6 +6359,20 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_NR_signal
     case TARGET_NR_signal:
         goto unimplemented;
+#endif
+#ifdef TARGET_NR_signalfd
+    case TARGET_NR_signalfd4:
+        {
+            p = lock_user(VERIFY_READ, arg2, sizeof(target_sigset_t), 1);
+            if (p == NULL) {
+                goto efault;
+            }
+            ret = get_errno(signalfd(arg1, p,
+                                     target_to_host_bitmask(arg3,
+                                                            fcntl_flags_tbl)));
+            unlock_user(p, arg2, 0);
+        }
+        break;
 #endif
     case TARGET_NR_acct:
         if (arg1 == 0) {

@@ -2283,6 +2283,7 @@ struct target_statfs64 {
 #define TARGET_O_LARGEFILE      0x008000
 #define TARGET___O_SYNC         0x101000
 #define TARGET_O_DIRECT         0x004000
+#define TARGET_O_CLOEXEC        0x080000
 #elif defined (TARGET_PPC)
 #define TARGET_O_DIRECTORY      040000 /* must be a directory */
 #define TARGET_O_NOFOLLOW      0100000 /* don't follow links */
