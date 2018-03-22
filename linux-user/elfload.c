@@ -932,7 +932,11 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUMIPSState *e
 }
 
 #define USE_ELF_CORE_DUMP
+#ifdef TARGET_NANOMIPS
+#define ELF_EXEC_PAGESIZE        TARGET_PAGE_SIZE
+#else
 #define ELF_EXEC_PAGESIZE        4096
+#endif
 
 typedef struct {
     /* Version of flags structure.  */
