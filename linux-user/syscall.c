@@ -43,7 +43,6 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/swap.h>
-#include <sys/ptrace.h>
 #include <sys/signalfd.h>
 #include <linux/capability.h>
 #include <signal.h>
@@ -6133,8 +6132,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
 #endif
     case TARGET_NR_ptrace:
-        ret = get_errno(ptrace(arg1, arg2, arg3, arg4));
-        break;
+        goto unimplemented;
 #ifdef TARGET_NR_alarm /* not on alpha */
     case TARGET_NR_alarm:
         ret = alarm(arg1);
