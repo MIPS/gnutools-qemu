@@ -2043,7 +2043,12 @@ static void load_elf_image(const char *image_name, int image_fd,
             }
             *pinterp_name = interp_name;
 #ifdef TARGET_MIPS
-        } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
+#ifdef TARGET_NANOMIPS
+#define TARGET_MIPS_PT_ABIFLAGS PT_NANOMIPS_ABIFLAGS
+#else
+#define TARGET_MIPS_PT_ABIFLAGS PT_MIPS_ABIFLAGS
+#endif
+        } else if (eppnt->p_type == TARGET_MIPS_PT_ABIFLAGS) {
             Elf_ABIFlags_v0 abiflags;
             if (eppnt->p_filesz < sizeof(Elf_ABIFlags_v0)) {
                 errmsg = "Invalid PT_MIPS_ABIFLAGS entry";
