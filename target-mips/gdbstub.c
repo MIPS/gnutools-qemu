@@ -173,7 +173,7 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 
     if (n < 32) {
         return gdb_get_regl(mem_buf, env->active_tc.gpr[n]);
-    } else if (n == 33) {
+    } else if (n == 32) {
 #ifndef CONFIG_USER_ONLY
         return gdb_get_regl(mem_buf, env->active_tc.PC |
                                      (!(env->insn_flags & ISA_MIPS32R7) &&
@@ -197,7 +197,7 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     if (n < 32) {
         env->active_tc.gpr[n] = tmp;
         return sizeof(target_ulong);
-    } else if (n == 33) {
+    } else if (n == 32) {
         env->active_tc.PC = tmp & ~(target_ulong)1;
         if (!(env->insn_flags & ISA_MIPS32R7)) {
             if (tmp & 1) {

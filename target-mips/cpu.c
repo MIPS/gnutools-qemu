@@ -133,10 +133,8 @@ static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
     CPUMIPSState *env = &cpu->env;
 
     cpu_reset(cs);
-    fprintf(stderr, "real\n");
 
     if (env->CP0_Config1 & (1 << CP0C1_FP)) {
-        fprintf(stderr, "fpu\n");
         gdb_register_coprocessor(cs, mips_fpu_get_reg, mips_fpu_set_reg,
                                  34, "nanomips-fpu.xml", 0);
     }
