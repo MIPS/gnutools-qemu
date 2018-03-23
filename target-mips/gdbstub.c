@@ -29,21 +29,21 @@ int mips_dsp_set_reg(CPUMIPSState *env, uint8_t *mem_buf, int n)
 
     switch (n) {
     case 0:
-        env->active_tc.LO[0] = tmp;
-    case 1:
         env->active_tc.HI[0] = tmp;
+    case 1:
+        env->active_tc.LO[0] = tmp;
     case 2:
-        env->active_tc.LO[1] = tmp;
-    case 3:
         env->active_tc.HI[1] = tmp;
+    case 3:
+        env->active_tc.LO[1] = tmp;
     case 4:
-        env->active_tc.LO[2] = tmp;
-    case 5:
         env->active_tc.HI[2] = tmp;
+    case 5:
+        env->active_tc.LO[2] = tmp;
     case 6:
-        env->active_tc.LO[3] = tmp;
-    case 7:
         env->active_tc.HI[3] = tmp;
+    case 7:
+        env->active_tc.LO[3] = tmp;
     case 8:
         env->active_tc.DSPControl = tmp;
     default:
@@ -57,21 +57,21 @@ int mips_dsp_get_reg(CPUMIPSState *env, uint8_t *mem_buf, int n)
 {
     switch (n) {
     case 0:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[0]);
-    case 1:
         return gdb_get_regl(mem_buf, env->active_tc.HI[0]);
+    case 1:
+        return gdb_get_regl(mem_buf, env->active_tc.LO[0]);
     case 2:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[1]);
-    case 3:
         return gdb_get_regl(mem_buf, env->active_tc.HI[1]);
+    case 3:
+        return gdb_get_regl(mem_buf, env->active_tc.LO[1]);
     case 4:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[2]);
-    case 5:
         return gdb_get_regl(mem_buf, env->active_tc.HI[2]);
+    case 5:
+        return gdb_get_regl(mem_buf, env->active_tc.LO[2]);
     case 6:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[3]);
-    case 7:
         return gdb_get_regl(mem_buf, env->active_tc.HI[3]);
+    case 7:
+        return gdb_get_regl(mem_buf, env->active_tc.LO[3]);
     case 8:
         return gdb_get_regl(mem_buf, env->active_tc.DSPControl);
     default:
