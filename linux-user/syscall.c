@@ -43,6 +43,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/swap.h>
+#include <sys/signalfd.h>
 #include <linux/capability.h>
 #include <signal.h>
 #include <sched.h>
@@ -6263,6 +6264,23 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         }
         break;
 #endif
+#if defined(TARGET_NR_renameat2) && defined(__NR_renameat2)
+    case TARGET_NR_renameat2:
+        {
+            void *p2;
+            p  = lock_user_string(arg2);
+            p2 = lock_user_string(arg4);
+            if (!p || !p2) {
+                ret = -TARGET_EFAULT;
+            } else {
+                ret = get_errno(syscall(__NR_renameat2,
+                                        arg1, p, arg3, p2, arg5));
+            }
+            unlock_user(p2, arg4, 0);
+            unlock_user(p, arg2, 0);
+        }
+        break;
+#endif
 #if defined(TARGET_NR_renameat)
     case TARGET_NR_renameat:
         {
@@ -6341,6 +6359,20 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_NR_signal
     case TARGET_NR_signal:
         goto unimplemented;
+#endif
+#ifdef TARGET_NR_signalfd
+    case TARGET_NR_signalfd4:
+        {
+            p = lock_user(VERIFY_READ, arg2, sizeof(target_sigset_t), 1);
+            if (p == NULL) {
+                goto efault;
+            }
+            ret = get_errno(signalfd(arg1, p,
+                                     target_to_host_bitmask(arg3,
+                                                            fcntl_flags_tbl)));
+            unlock_user(p, arg2, 0);
+        }
+        break;
 #endif
     case TARGET_NR_acct:
         if (arg1 == 0) {
@@ -6872,6 +6904,24 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             ret = get_errno(settimeofday(ptv, ptz));
         }
         break;
+#if defined(TARGET_NR_getrandom)
+    case TARGET_NR_getrandom:
+        {
+            p = lock_user(VERIFY_WRITE, arg1, arg2, 0);
+            if (p == NULL) {
+                goto efault;
+            }
+#if defined(CONFIG_GETRANDOM)
+            ret = get_errno(getrandom(p, arg2, arg3));
+#elif defined(__NR_getrandom)
+            ret = get_errno(syscall(__NR_getrandom, p, arg2, arg3));
+#else
+            ret = -TARGET_ENOSYS;
+#endif
+            unlock_user(p, arg1, ret);
+        }
+        break;
+#endif
 #if defined(TARGET_NR_select)
     case TARGET_NR_select:
 #if defined(TARGET_S390X) || defined(TARGET_ALPHA)
@@ -10088,7 +10138,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
     }
 #endif
-
+#if defined(TARGET_NR_kcmp) && defined(__NR_kcmp)
+    case TARGET_NR_kcmp:
+        ret = get_errno(syscall(__NR_kcmp, arg1, arg2, arg3, arg4, arg5));
+        break;
+#endif
 #ifdef TARGET_NR_timer_create
     case TARGET_NR_timer_create:
     {
@@ -10225,7 +10279,24 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         }
         break;
 #endif
-
+#if defined(TARGET_NR_memfd_create)
+    case TARGET_NR_memfd_create:
+        p = lock_user_string(arg1);
+        if (p == NULL) {
+            goto efault;
+        }
+#if defined(CONFIG_MEMFD)
+        ret = get_errno(memfd_create(p,
+                        target_to_host_bitmask(arg2, fcntl_flags_tbl)));
+#elif defined(__NR_memfd_create)
+        ret = get_errno(syscall(__NR_memfd_create, p,
+                        target_to_host_bitmask(arg2, fcntl_flags_tbl)));
+#else
+        ret = -TARGET_ENOSYS;
+#endif
+        unlock_user(p, arg1, 0);
+        break;
+#endif
 #if defined(TARGET_NR_timerfd_settime) && defined(CONFIG_TIMERFD)
     case TARGET_NR_timerfd_settime:
         {

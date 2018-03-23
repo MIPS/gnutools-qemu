@@ -4620,12 +4620,14 @@ int main(int argc, char **argv, char **envp)
 
 #ifdef TARGET_ABI_MIPSO32
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_64A
+#elif defined(TARGET_NANOMIPS)
+# define MAX_FP_ABI Val_GNU_NANOMIPS_ABI_FP_SOFT
 #else
 # define MAX_FP_ABI Val_GNU_MIPS_ABI_FP_SOFT
 #endif
 
-        if ((info->fp_abi > Val_GNU_MIPS_ABI_FP_64A && info->fp_abi != -1)
-            || (info->interp_fp_abi > Val_GNU_MIPS_ABI_FP_64A &&
+        if ((info->fp_abi > MAX_FP_ABI && info->fp_abi != -1)
+            || (info->interp_fp_abi > MAX_FP_ABI &&
                 info->interp_fp_abi != -1)) {
             fprintf(stderr, "qemu: Program and interpreter have "
                             "unexpected FPU modes\n");
