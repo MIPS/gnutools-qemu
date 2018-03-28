@@ -1763,7 +1763,7 @@ void helper_mtc0_config2(CPUMIPSState *env, target_ulong arg1)
 void helper_mtc0_config3(CPUMIPSState *env, target_ulong arg1)
 {
     if ((env->insn_flags & ASE_MICROMIPS) &&
-        !(env->insn_flags & ISA_MIPS32R7)) {
+        !(env->insn_flags & ISA_NANOMIPS32)) {
         env->CP0_Config3 = (env->CP0_Config3 & ~(1 << CP0C3_ISA_ON_EXC)) |
                            (arg1 & (1 << CP0C3_ISA_ON_EXC));
     }
@@ -2448,7 +2448,7 @@ static void debug_post_eret(CPUMIPSState *env)
 static void set_pc(CPUMIPSState *env, target_ulong error_pc)
 {
     env->active_tc.PC = error_pc & ~(target_ulong)1;
-    if (env->insn_flags & ISA_MIPS32R7) {
+    if (env->insn_flags & ISA_NANOMIPS32) {
         /* Don't clear MIPS_HFLAG_M16 */
         if (error_pc & 1) {
             if (!(env->hflags & MIPS_HFLAG_DM)) {
