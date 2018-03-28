@@ -788,7 +788,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env)
     target_ulong isa_mode;
 
     isa_mode = env->hflags & MIPS_HFLAG_M16 &&
-                !(env->insn_flags & ISA_MIPS32R7);
+                !(env->insn_flags & ISA_NANOMIPS32);
     bad_pc = env->active_tc.PC | isa_mode;
     if (env->hflags & MIPS_HFLAG_BMASK) {
         /* If the exception was raised from a delay slot, come back to
@@ -802,7 +802,7 @@ target_ulong exception_resume_pc (CPUMIPSState *env)
 #if !defined(CONFIG_USER_ONLY)
 static void set_hflags_for_handler (CPUMIPSState *env)
 {
-    if (env->insn_flags & ISA_MIPS32R7) {
+    if (env->insn_flags & ISA_NANOMIPS32) {
         return;
     }
     /* Exception handlers are entered in 32-bit mode.  */
@@ -819,19 +819,19 @@ static inline void set_badinstr_registers(CPUMIPSState *env)
 {
     if (env->hflags & MIPS_HFLAG_M16) {
         uint32_t instr;
-        if (!(env->insn_flags & ISA_MIPS32R7)) {
-            /* TODO: add BadInstr support for pre-r7 microMIPS */
+        if (!(env->insn_flags & ISA_NANOMIPS32)) {
+            /* TODO: add BadInstr support for pre-nanoMIPS */
              return;
         }
         if (env->CP0_Config3 & (1 << CP0C3_BI)) {
             instr = (cpu_lduw_code(env, env->active_tc.PC)) << 16;
-            if ((env->insn_flags & ISA_MIPS32R7) &&
+            if ((env->insn_flags & ISA_NANOMIPS32) &&
                 ((instr & 0x10000000) == 0)) {
                 instr |= cpu_lduw_code(env, env->active_tc.PC + 2);
             }
             env->CP0_BadInstr = instr;
 
-            if ((env->insn_flags & ISA_MIPS32R7) &&
+            if ((env->insn_flags & ISA_NANOMIPS32) &&
                 ((instr & 0xFC000000) == 0x60000000)) {
                 instr = cpu_lduw_code(env, env->active_tc.PC + 4) << 16;
                 env->CP0_BadInstrX = instr;

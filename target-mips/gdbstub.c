@@ -104,7 +104,7 @@ int mips_fpu_set_reg(CPUMIPSState *env, uint8_t *mem_buf, int n)
         env->active_fpu.fpr[n].wr.d[1] = ldq_p(mem_buf + 8);
         return 16;
     } else if (MIPS_ALWAYS_FP64 || (env->active_fpu.fcr0 & (1 << FCR0_F64))
-               || (env->insn_flags & ISA_MIPS32R7)) {
+               || (env->insn_flags & ISA_NANOMIPS32)) {
         env->active_fpu.fpr[n].d = ldq_p(mem_buf);
         return 8;
     } else {
@@ -125,7 +125,7 @@ int mips_fpu_get_reg(CPUMIPSState *env, uint8_t *mem_buf, int n)
         return gdb_get_reg64(mem_buf, env->active_fpu.fpr[n].wr.d[0]) +
                gdb_get_reg64(mem_buf + 8, env->active_fpu.fpr[n].wr.d[1]);
     } else if (MIPS_ALWAYS_FP64 || (env->active_fpu.fcr0 & (1 << FCR0_F64))
-               || (env->insn_flags & ISA_MIPS32R7)) {
+               || (env->insn_flags & ISA_NANOMIPS32)) {
         return gdb_get_reg64(mem_buf, env->active_fpu.fpr[n].d);
     } else {
         return gdb_get_reg32(mem_buf,
@@ -176,7 +176,7 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     } else if (n == 32) {
 #ifndef CONFIG_USER_ONLY
         return gdb_get_regl(mem_buf, env->active_tc.PC |
-                                     (!(env->insn_flags & ISA_MIPS32R7) &&
+                                     (!(env->insn_flags & ISA_NANOMIPS32) &&
                                       env->hflags & MIPS_HFLAG_M16));
 #else
         return gdb_get_regl(mem_buf, exception_resume_pc(env));
@@ -199,7 +199,7 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         return sizeof(target_ulong);
     } else if (n == 32) {
         env->active_tc.PC = tmp & ~(target_ulong)1;
-        if (!(env->insn_flags & ISA_MIPS32R7)) {
+        if (!(env->insn_flags & ISA_NANOMIPS32)) {
             if (tmp & 1) {
                 env->hflags |= MIPS_HFLAG_M16;
             } else {
