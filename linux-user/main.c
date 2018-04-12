@@ -2646,6 +2646,8 @@ done_syscall:
                     } else {
                         code = ((trap_instr >> 6) & ((1 << 10) - 1));
                     }
+                } else if (env->insn_flags & ISA_NANOMIPS32) {
+                    code = ((trap_instr >> 11) & ((1 << 5) - 1));
                 }
 
                 if (do_break(env, &info, code) != 0) {
