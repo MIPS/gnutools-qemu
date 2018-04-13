@@ -5,11 +5,19 @@
 
 /* this struct defines a stack used during syscall handling */
 
+#if defined(TARGET_NANOMIPS)
+typedef struct target_sigaltstack {
+	abi_long ss_sp;
+	abi_long ss_flags;
+	abi_ulong ss_size;
+} target_stack_t;
+#else
 typedef struct target_sigaltstack {
 	abi_long ss_sp;
 	abi_ulong ss_size;
 	abi_long ss_flags;
 } target_stack_t;
+#endif
 
 
 /*
