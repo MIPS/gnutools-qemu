@@ -3864,6 +3864,36 @@ if compile_prog "" "" ; then
   timerfd=yes
 fi
 
+# check for process_vm_readv support (glibc 2.15. and newer)
+process_vm_readv=no
+cat > $TMPC << EOF
+#include <stdlib.h>
+#include <sys/uio.h>
+
+int main(void)
+{
+    return process_vm_readv(0, NULL, 0, NULL, 0, 0);
+}
+EOF
+if compile_prog "" "" ; then
+  process_vm_readv=yes
+fi
+
+# check for process_vm_writev support (glibc 2.15. and newer)
+process_vm_writev=no
+cat > $TMPC << EOF
+#include <stdlib.h>
+#include <sys/uio.h>
+
+int main(void)
+{
+    return process_vm_writev(0, NULL, 0, NULL, 0, 0);
+}
+EOF
+if compile_prog "" "" ; then
+  process_vm_writev=yes
+fi
+
 # check for setns and unshare support
 setns=no
 cat > $TMPC << EOF
@@ -5103,6 +5133,12 @@ if test "$sendfile" = "yes" ; then
 fi
 if test "$timerfd" = "yes" ; then
   echo "CONFIG_TIMERFD=y" >> $config_host_mak
+fi
+if test "$process_vm_readv" = "yes" ; then
+  echo "CONFIG_PROCESS_VM_READV=y" >> $config_host_mak
+fi
+if test "$process_vm_writev" = "yes" ; then
+  echo "CONFIG_PROCESS_VM_WRITEV=y" >> $config_host_mak
 fi
 if test "$setns" = "yes" ; then
   echo "CONFIG_SETNS=y" >> $config_host_mak
