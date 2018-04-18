@@ -7650,8 +7650,12 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                 break;
             }
 #endif
-            if ((flags & AT_EMPTY_PATH)
-                && ((p == NULL) || (*((char *)p) == 0))) {
+#ifdef AT_EMPTY_PATH
+            if ((flags & AT_EMPTY_PATH) &&
+#else
+            if (
+#endif
+               ((p == NULL) || (*((char *)p) == 0))) {
                 /* By file descriptor */
                 ret = get_errno(fstat(dirfd, &st));
                 unlock_user(p, arg2, 0);
