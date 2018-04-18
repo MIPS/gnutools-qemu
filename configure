@@ -3614,6 +3614,19 @@ if compile_prog "" "" ; then
   signalfd=yes
 fi
 
+# signalfd4 probe
+signalfd4="no"
+cat > $TMPC << EOF
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <signal.h>
+int main(void) { return syscall(SYS_signalfd4, -1, NULL, _NSIG / 8, 0); }
+EOF
+
+if compile_prog "" "" ; then
+  signalfd4=yes
+fi
+
 # check if eventfd is supported
 eventfd=no
 cat > $TMPC << EOF
@@ -5240,6 +5253,9 @@ if test "$fdt" = "yes" ; then
 fi
 if test "$signalfd" = "yes" ; then
   echo "CONFIG_SIGNALFD=y" >> $config_host_mak
+fi
+if test "$signalfd4" = "yes" ; then
+  echo "CONFIG_SIGNALFD4=y" >> $config_host_mak
 fi
 if test "$tcg_interpreter" = "yes" ; then
   echo "CONFIG_TCG_INTERPRETER=y" >> $config_host_mak

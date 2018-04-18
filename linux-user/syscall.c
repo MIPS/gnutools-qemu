@@ -43,7 +43,6 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/swap.h>
-#include <sys/signalfd.h>
 #include <linux/capability.h>
 #include <signal.h>
 #include <sched.h>
@@ -59,6 +58,7 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/statfs.h>
+#include <sys/syscall.h>
 #include <utime.h>
 #include <sys/sysinfo.h>
 //#include <sys/user.h>
@@ -6360,13 +6360,15 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
     case TARGET_NR_signal:
         goto unimplemented;
 #endif
-#ifdef TARGET_NR_signalfd
+#if defined(TARGET_NR_signalfd)
     case TARGET_NR_signalfd:
+        arg4 = 0;
 #endif
-#ifdef TARGET_NR_signalfd4
+#if defined(TARGET_NR_signalfd4)
     case TARGET_NR_signalfd4:
 #endif
-#if defined(TARGET_NR_signalfd) || defined(TARGET_NR_signalfd4)
+#if (defined(TARGET_NR_signalfd) || defined(TARGET_NR_signalfd4))
+#if (defined(CONFIG_SIGNALFD) || defined(CONFIG_SIGNALFD4))
         {
             sigset_t set;
             p = lock_user(VERIFY_READ, arg2, sizeof(target_sigset_t), 1);
@@ -6375,11 +6377,31 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
             }
             target_to_host_sigset(&set, p);
             unlock_user(p, arg2, 0);
-            ret = get_errno(signalfd(arg1, &set,
-                                     target_to_host_bitmask(arg3,
-                                                            fcntl_flags_tbl)));
+#if defined(CONFIG_SIGNALFD4)
+            ret = get_errno(syscall(SYS_signalfd4, arg1, &set, _NSIG / 8,
+                                    target_to_host_bitmask(arg4,
+                                    fcntl_flags_tbl)));
+#else
+            ret = -TARGET_ENOSYS;
+#endif
+#if defined(CONFIG_SIGNALFD)
+            if (ret == -TARGET_ENOSYS) {
+                ret = get_errno(syscall(SYS_signalfd, arg1, &set,  _NSIG / 8));
+                if (!is_error(ret)) {
+                    if (arg4 & TARGET_O_CLOEXEC) {
+                        do_fcntl(ret, TARGET_F_SETFD, TARGET_O_CLOEXEC);
+                    }
+                    if (arg4 & TARGET_O_NONBLOCK) {
+                        do_fcntl(ret, TARGET_F_SETFL, TARGET_O_NONBLOCK);
+                    }
+                }
+            }
+#endif
         }
         break;
+#else
+        goto unimplemented;
+#endif
 #endif
     case TARGET_NR_acct:
         if (arg1 == 0) {
