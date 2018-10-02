@@ -61,6 +61,10 @@ struct image_info {
         abi_ulong       interpreter_loadmap_addr;
         abi_ulong       interpreter_pt_dynamic_addr;
         struct image_info *other_info;
+#ifdef TARGET_MIPS
+        unsigned int    fp_abi;
+        unsigned int    interp_fp_abi;
+#endif
 };
 
 #ifdef TARGET_I386
@@ -154,6 +158,7 @@ extern char *exec_path;
 void init_task_state(TaskState *ts);
 void task_settid(TaskState *);
 void stop_all_tasks(void);
+void resume_all_tasks(void);
 extern const char *qemu_uname_release;
 extern unsigned long mmap_min_addr;
 

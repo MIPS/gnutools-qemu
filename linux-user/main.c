@@ -167,6 +167,10 @@ void stop_all_tasks(void)
      */
     start_exclusive();
 }
+void resume_all_tasks(void)
+{
+    end_exclusive();
+}
 
 /* Assumes contents are already zeroed.  */
 void init_task_state(TaskState *ts)
