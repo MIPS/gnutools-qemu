@@ -18,6 +18,26 @@ typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Xword;
 typedef int64_t  Elf64_Sxword;
 
+/* Object attribute values.  */
+enum {
+    /* Not tagged or not using any ABIs affected by the differences.  */
+    Val_GNU_MIPS_ABI_FP_ANY = 0,
+    /* Using hard-float -mdouble-float.  */
+    Val_GNU_MIPS_ABI_FP_DOUBLE = 1,
+    /* Using hard-float -msingle-float.  */
+    Val_GNU_MIPS_ABI_FP_SINGLE = 2,
+    /* Using soft-float.  */
+    Val_GNU_MIPS_ABI_FP_SOFT = 3,
+    /* Using -mips32r2 -mfp64.  */
+    Val_GNU_MIPS_ABI_FP_OLD_64 = 4,
+    /* Using -mfpxx */
+    Val_GNU_MIPS_ABI_FP_XX = 5,
+    /* Using -mips32r2 -mfp64.  */
+    Val_GNU_MIPS_ABI_FP_64 = 6,
+    /* Using -mips32r2 -mfp64 -mno-odd-spreg.  */
+    Val_GNU_MIPS_ABI_FP_64A = 7
+};
+
 /* These constants are for the segment types stored in the image headers */
 #define PT_NULL    0
 #define PT_LOAD    1
