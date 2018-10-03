@@ -796,4 +796,106 @@ static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
                             MIPS_HFLAG_HWRENA_ULR);
 }
 
+static inline void compute_hflags(CPUMIPSState *env)
+{
+    env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
+                     MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
+                     MIPS_HFLAG_AWRAP | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2 |
+                     MIPS_HFLAG_SBRI | MIPS_HFLAG_MSA | MIPS_HFLAG_FRE |
+                     MIPS_HFLAG_ELPA | MIPS_HFLAG_ERL);
+    if (env->CP0_Status & (1 << CP0St_ERL)) {
+        env->hflags |= MIPS_HFLAG_ERL;
+    }
+    if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
+        !(env->CP0_Status & (1 << CP0St_ERL)) &&
+        !(env->hflags & MIPS_HFLAG_DM)) {
+        env->hflags |= (env->CP0_Status >> CP0St_KSU) & MIPS_HFLAG_KSU;
+    }
+#if defined(TARGET_MIPS64)
+    if ((env->insn_flags & ISA_MIPS3) &&
+        (((env->hflags & MIPS_HFLAG_KSU) != MIPS_HFLAG_UM) ||
+         (env->CP0_Status & (1 << CP0St_PX)) ||
+         (env->CP0_Status & (1 << CP0St_UX)))) {
+        env->hflags |= MIPS_HFLAG_64;
+    }
+
+    if (!(env->insn_flags & ISA_MIPS3)) {
+        env->hflags |= MIPS_HFLAG_AWRAP;
+    } else if (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
+               !(env->CP0_Status & (1 << CP0St_UX))) {
+        env->hflags |= MIPS_HFLAG_AWRAP;
+    } else if (env->insn_flags & ISA_MIPS64R6) {
+        /* Address wrapping for Supervisor and Kernel is specified in R6 */
+        if ((((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_SM) &&
+             !(env->CP0_Status & (1 << CP0St_SX))) ||
+            (((env->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_KM) &&
+             !(env->CP0_Status & (1 << CP0St_KX)))) {
+            env->hflags |= MIPS_HFLAG_AWRAP;
+        }
+    }
+#endif
+    if (((env->CP0_Status & (1 << CP0St_CU0)) &&
+         !(env->insn_flags & ISA_MIPS32R6)) ||
+        !(env->hflags & MIPS_HFLAG_KSU)) {
+        env->hflags |= MIPS_HFLAG_CP0;
+    }
+    if (env->CP0_Status & (1 << CP0St_CU1)) {
+        env->hflags |= MIPS_HFLAG_FPU;
+    }
+    if (env->CP0_Status & (1 << CP0St_FR)) {
+        env->hflags |= MIPS_HFLAG_F64;
+    }
+    if (((env->hflags & MIPS_HFLAG_KSU) != MIPS_HFLAG_KM) &&
+        (env->CP0_Config5 & (1 << CP0C5_SBRI))) {
+        env->hflags |= MIPS_HFLAG_SBRI;
+    }
+    if (env->insn_flags & ASE_DSPR2) {
+        /* Enables access MIPS DSP resources, now our cpu is DSP ASER2,
+           so enable to access DSPR2 resources. */
+        if (env->CP0_Status & (1 << CP0St_MX)) {
+            env->hflags |= MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2;
+        }
+
+    } else if (env->insn_flags & ASE_DSP) {
+        /* Enables access MIPS DSP resources, now our cpu is DSP ASE,
+           so enable to access DSP resources. */
+        if (env->CP0_Status & (1 << CP0St_MX)) {
+            env->hflags |= MIPS_HFLAG_DSP;
+        }
+
+    }
+    if (env->insn_flags & ISA_MIPS32R2) {
+        if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    } else if (env->insn_flags & ISA_MIPS32) {
+        if (env->hflags & MIPS_HFLAG_64) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    } else if (env->insn_flags & ISA_MIPS4) {
+        /* All supported MIPS IV CPUs use the XX (CU3) to enable
+           and disable the MIPS IV extensions to the MIPS III ISA.
+           Some other MIPS IV CPUs ignore the bit, so the check here
+           would be too restrictive for them.  */
+        if (env->CP0_Status & (1U << CP0St_CU3)) {
+            env->hflags |= MIPS_HFLAG_COP1X;
+        }
+    }
+    if (env->insn_flags & ASE_MSA) {
+        if (env->CP0_Config5 & (1 << CP0C5_MSAEn)) {
+            env->hflags |= MIPS_HFLAG_MSA;
+        }
+    }
+    if (env->active_fpu.fcr0 & (1 << FCR0_FREP)) {
+        if (env->CP0_Config5 & (1 << CP0C5_FRE)) {
+            env->hflags |= MIPS_HFLAG_FRE;
+        }
+    }
+    if (env->CP0_Config3 & (1 << CP0C3_LPA)) {
+        if (env->CP0_PageGrain & (1 << CP0PG_ELPA)) {
+            env->hflags |= MIPS_HFLAG_ELPA;
+        }
+    }
+}
+
 #endif /* MIPS_CPU_H */
