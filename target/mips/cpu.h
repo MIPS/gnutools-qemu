@@ -261,6 +261,7 @@ struct CPUMIPSState {
 #define CP0GN_VPId 0
     target_ulong CP0_Context;
     target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];
+    int32_t CP0_MemoryMapID;
     int32_t CP0_PageMask;
     int32_t CP0_PageGrain_rw_bitmask;
     int32_t CP0_PageGrain;
@@ -503,6 +504,10 @@ struct CPUMIPSState {
 #define CP0C5_CV         29
 #define CP0C5_EVA        28
 #define CP0C5_MSAEn      27
+#define CP0C5_ULS        20
+#define CP0C5_CRCP       18
+#define CP0C5_MI         17
+#define CP0C5_GI         15
 #define CP0C5_XNP        13
 #define CP0C5_UFE        9
 #define CP0C5_FRE        8
