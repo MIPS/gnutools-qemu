@@ -18,7 +18,13 @@ if test $# -lt 1; then
     error "Usage: $0 <output tarball>"
 fi
 
-tar_file=`realpath "$1"`
+which realpath
+if [ $? -eq 0 ]; then
+    tar_file=`realpath "$1"`
+else
+    d=`dirname "$1"`
+    tar_file=`readlink -e "$d"`"/"`basename "$1"`
+fi
 list_file="${tar_file}.list"
 vroot_dir="${tar_file}.vroot"
 
