@@ -248,21 +248,20 @@ static void cvtstr(double value, char *str, size_t size)
 
 
 
-static struct timespec tsub(struct timespec t1, struct timespec t2)
+static struct timeval tsub(struct timeval t1, struct timeval t2)
 {
-    t1.tv_nsec -= t2.tv_nsec;
-    if (t1.tv_nsec < 0) {
-        t1.tv_nsec += NANOSECONDS_PER_SECOND;
+    t1.tv_usec -= t2.tv_usec;
+    if (t1.tv_usec < 0) {
+        t1.tv_usec += 1000000;
         t1.tv_sec--;
     }
     t1.tv_sec -= t2.tv_sec;
     return t1;
 }
 
-static double tdiv(double value, struct timespec tv)
+static double tdiv(double value, struct timeval tv)
 {
-    double seconds = tv.tv_sec + (tv.tv_nsec / 1e9);
-    return value / seconds;
+    return value / ((double)tv.tv_sec + ((double)tv.tv_usec / 1000000.0));
 }
 
 #define HOURS(sec)      ((sec) / (60 * 60))
@@ -275,27 +274,29 @@ enum {
     VERBOSE_FIXED_TIME  = 0x2,
 };
 
-static void timestr(struct timespec *tv, char *ts, size_t size, int format)
+static void timestr(struct timeval *tv, char *ts, size_t size, int format)
 {
-    double frac_sec = tv->tv_nsec / 1e9;
+    double usec = (double)tv->tv_usec / 1000000.0;
 
     if (format & TERSE_FIXED_TIME) {
         if (!HOURS(tv->tv_sec)) {
-            snprintf(ts, size, "%u:%05.2f",
-                     (unsigned int) MINUTES(tv->tv_sec),
-                     SECONDS(tv->tv_sec) + frac_sec);
+            snprintf(ts, size, "%u:%02u.%02u",
+                    (unsigned int) MINUTES(tv->tv_sec),
+                    (unsigned int) SECONDS(tv->tv_sec),
+                    (unsigned int) (usec * 100));
             return;
         }
         format |= VERBOSE_FIXED_TIME; /* fallback if hours needed */
     }
 
     if ((format & VERBOSE_FIXED_TIME) || tv->tv_sec) {
-        snprintf(ts, size, "%u:%02u:%05.2f",
+        snprintf(ts, size, "%u:%02u:%02u.%02u",
                 (unsigned int) HOURS(tv->tv_sec),
                 (unsigned int) MINUTES(tv->tv_sec),
-                 SECONDS(tv->tv_sec) + frac_sec);
+                (unsigned int) SECONDS(tv->tv_sec),
+                (unsigned int) (usec * 100));
     } else {
-        snprintf(ts, size, "%05.2f sec", frac_sec);
+        snprintf(ts, size, "0.%04u sec", (unsigned int) (usec * 10000));
     }
 }
 
@@ -375,7 +376,7 @@ static void dump_buffer(const void *buffer, int64_t offset, int64_t len)
     }
 }
 
-static void print_report(const char *op, struct timespec *t, int64_t offset,
+static void print_report(const char *op, struct timeval *t, int64_t offset,
                          int64_t count, int64_t total, int cnt, bool Cflag)
 {
     char s1[64], s2[64], ts[64];
@@ -648,7 +649,7 @@ static const cmdinfo_t read_cmd = {
 
 static int read_f(BlockBackend *blk, int argc, char **argv)
 {
-    struct timespec t1, t2;
+    struct timeval t1, t2;
     bool Cflag = false, qflag = false, vflag = false;
     bool Pflag = false, sflag = false, lflag = false, bflag = false;
     int c, cnt, ret;
@@ -757,13 +758,13 @@ static int read_f(BlockBackend *blk, int argc, char **argv)
 
     buf = qemu_io_alloc(blk, count, 0xab);
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gettimeofday(&t1, NULL);
     if (bflag) {
         ret = do_load_vmstate(blk, buf, offset, count, &total);
     } else {
         ret = do_pread(blk, buf, offset, count, &total);
     }
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("read failed: %s\n", strerror(-ret));
@@ -835,7 +836,7 @@ static const cmdinfo_t readv_cmd = {
 
 static int readv_f(BlockBackend *blk, int argc, char **argv)
 {
-    struct timespec t1, t2;
+    struct timeval t1, t2;
     bool Cflag = false, qflag = false, vflag = false;
     int c, cnt, ret;
     char *buf;
@@ -890,9 +891,9 @@ static int readv_f(BlockBackend *blk, int argc, char **argv)
         return -EINVAL;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gettimeofday(&t1, NULL);
     ret = do_aio_readv(blk, &qiov, offset, &total);
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("readv failed: %s\n", strerror(-ret));
@@ -971,7 +972,7 @@ static const cmdinfo_t write_cmd = {
 
 static int write_f(BlockBackend *blk, int argc, char **argv)
 {
-    struct timespec t1, t2;
+    struct timeval t1, t2;
     bool Cflag = false, qflag = false, bflag = false;
     bool Pflag = false, zflag = false, cflag = false;
     int flags = 0;
@@ -1090,7 +1091,7 @@ static int write_f(BlockBackend *blk, int argc, char **argv)
         buf = qemu_io_alloc(blk, count, pattern);
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gettimeofday(&t1, NULL);
     if (bflag) {
         ret = do_save_vmstate(blk, buf, offset, count, &total);
     } else if (zflag) {
@@ -1100,7 +1101,7 @@ static int write_f(BlockBackend *blk, int argc, char **argv)
     } else {
         ret = do_pwrite(blk, buf, offset, count, flags, &total);
     }
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("write failed: %s\n", strerror(-ret));
@@ -1159,7 +1160,7 @@ static const cmdinfo_t writev_cmd = {
 
 static int writev_f(BlockBackend *blk, int argc, char **argv)
 {
-    struct timespec t1, t2;
+    struct timeval t1, t2;
     bool Cflag = false, qflag = false;
     int flags = 0;
     int c, cnt, ret;
@@ -1212,9 +1213,9 @@ static int writev_f(BlockBackend *blk, int argc, char **argv)
         return -EINVAL;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gettimeofday(&t1, NULL);
     ret = do_aio_writev(blk, &qiov, offset, flags, &total);
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("writev failed: %s\n", strerror(-ret));
@@ -1249,15 +1250,15 @@ struct aio_ctx {
     bool zflag;
     BlockAcctCookie acct;
     int pattern;
-    struct timespec t1;
+    struct timeval t1;
 };
 
 static void aio_write_done(void *opaque, int ret)
 {
     struct aio_ctx *ctx = opaque;
-    struct timespec t2;
+    struct timeval t2;
 
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
 
     if (ret < 0) {
@@ -1287,9 +1288,9 @@ out:
 static void aio_read_done(void *opaque, int ret)
 {
     struct aio_ctx *ctx = opaque;
-    struct timespec t2;
+    struct timeval t2;
 
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("readv failed: %s\n", strerror(-ret));
@@ -1424,7 +1425,7 @@ static int aio_read_f(BlockBackend *blk, int argc, char **argv)
         return -EINVAL;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &ctx->t1);
+    gettimeofday(&ctx->t1, NULL);
     block_acct_start(blk_get_stats(blk), &ctx->acct, ctx->qiov.size,
                      BLOCK_ACCT_READ);
     blk_aio_preadv(blk, ctx->offset, &ctx->qiov, 0, aio_read_done, ctx);
@@ -1569,7 +1570,7 @@ static int aio_write_f(BlockBackend *blk, int argc, char **argv)
             return -EINVAL;
         }
 
-        clock_gettime(CLOCK_MONOTONIC, &ctx->t1);
+        gettimeofday(&ctx->t1, NULL);
         block_acct_start(blk_get_stats(blk), &ctx->acct, ctx->qiov.size,
                          BLOCK_ACCT_WRITE);
 
@@ -1745,7 +1746,7 @@ static const cmdinfo_t discard_cmd = {
 
 static int discard_f(BlockBackend *blk, int argc, char **argv)
 {
-    struct timespec t1, t2;
+    struct timeval t1, t2;
     bool Cflag = false, qflag = false;
     int c, ret;
     int64_t offset, bytes;
@@ -1786,9 +1787,9 @@ static int discard_f(BlockBackend *blk, int argc, char **argv)
         return -EINVAL;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gettimeofday(&t1, NULL);
     ret = blk_pdiscard(blk, offset, bytes);
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    gettimeofday(&t2, NULL);
 
     if (ret < 0) {
         printf("discard failed: %s\n", strerror(-ret));
