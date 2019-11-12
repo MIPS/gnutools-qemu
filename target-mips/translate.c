@@ -1369,6 +1369,12 @@ static TCGv_i64 msa_wr_d[64];
 
 #include "exec/gen-icount.h"
 
+#define gen_helper_0i(name, arg) do {                             \
+    TCGv_i32 helper_tmp = tcg_const_i32(arg);                     \
+    gen_helper_##name(helper_tmp);                                \
+    tcg_temp_free_i32(helper_tmp);                                \
+    } while(0)
+
 #define gen_helper_0e0i(name, arg) do {                           \
     TCGv_i32 helper_tmp = tcg_const_i32(arg);                     \
     gen_helper_##name(cpu_env, helper_tmp);                       \
@@ -20241,12 +20247,15 @@ void gen_intermediate_code(CPUMIPSState *env, struct TranslationBlock *tb)
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
+	    gen_helper_0i(dump_pc,tb->unique_id);
             decode_opc(env, &ctx);
         } else if (ctx.insn_flags & ASE_MICROMIPS) {
             ctx.opcode = cpu_lduw_code(env, ctx.pc);
+	    gen_helper_0i(dump_pc,tb->unique_id);
             insn_bytes = decode_micromips_opc(env, &ctx);
         } else if (ctx.insn_flags & ASE_MIPS16) {
             ctx.opcode = cpu_lduw_code(env, ctx.pc);
+	    gen_helper_0i(dump_pc,tb->unique_id);
             insn_bytes = decode_mips16_opc(env, &ctx);
         } else {
             generate_exception_end(&ctx, EXCP_RI);

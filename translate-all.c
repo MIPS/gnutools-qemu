@@ -837,6 +837,8 @@ bool tcg_enabled(void)
     return tcg_ctx.code_gen_buffer != NULL;
 }
 
+int tb_count=0;
+
 /*
  * Allocate a new translation block. Flush the translation buffer if
  * too many translation blocks or too much generated code.
@@ -855,6 +857,8 @@ static TranslationBlock *tb_alloc(target_ulong pc)
     tb = &tcg_ctx.tb_ctx.tbs[tcg_ctx.tb_ctx.nb_tbs++];
     tb->pc = pc;
     tb->cflags = 0;
+    tb->unique_id = tb_count;
+    tb_count++;
     tb->invalid = false;
     return tb;
 }

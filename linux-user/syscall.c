@@ -114,6 +114,8 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
 
 #include "qemu.h"
 
+void do_dump_pc(uint32_t);
+
 #ifndef CLONE_IO
 #define CLONE_IO                0x80000000      /* Clone io context */
 #endif
@@ -6729,6 +6731,9 @@ static inline abi_long target_ftruncate64(void *cpu_env, abi_long arg1,
         arg2 = arg3;
         arg3 = arg4;
     }
+#ifdef TARGET_MIPS
+   arg2=arg4;
+#endif
     return get_errno(ftruncate64(arg1, target_offset64(arg2, arg3)));
 }
 #endif
@@ -7602,6 +7607,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_GPROF
         _mcleanup();
 #endif
+        do_dump_pc(0xffffffff);
         gdb_exit(cpu_env, arg1);
         _exit(arg1);
         ret = 0; /* avoid warning */
@@ -9641,6 +9647,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_GPROF
         _mcleanup();
 #endif
+        do_dump_pc(0xffffffff);
         gdb_exit(cpu_env, arg1);
         ret = get_errno(exit_group(arg1));
         break;

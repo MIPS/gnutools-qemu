@@ -28,6 +28,8 @@
 #include "hw/i386/apic_internal.h"
 #endif
 
+#include "../bbv_routines.h"
+
 static void cpu_x86_version(CPUX86State *env, int *family, int *model)
 {
     int cpuver = env->cpuid_version;

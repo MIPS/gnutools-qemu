@@ -4379,7 +4379,7 @@ static void gen_sse(CPUX86State *env, DisasContext *s, int b,
 /* convert one instruction. s->is_jmp is set if the translation must
    be stopped. Return the next pc value */
 static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
-                               target_ulong pc_start)
+                               target_ulong pc_start, int unique_id)
 {
     int b, prefixes;
     int shift;
@@ -4537,6 +4537,20 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
     s->prefix = prefixes;
     s->aflag = aflag;
     s->dflag = dflag;
+
+    {
+       /* vmw */
+       TCGv const1;
+
+       if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
+	  const1 = tcg_const_i32(unique_id|0x80000000);
+       }
+       else {
+	  const1 = tcg_const_i32(unique_id);
+       }
+       gen_helper_dump_pc(const1);
+       tcg_temp_free(const1);     
+    }
 
     /* now check op code */
  reswitch:
@@ -8420,7 +8434,7 @@ void gen_intermediate_code(CPUX86State *env, TranslationBlock *tb)
             gen_io_start();
         }
 
-        pc_ptr = disas_insn(env, dc, pc_ptr);
+        pc_ptr = disas_insn(env, dc, pc_ptr, tb->unique_id);
         /* stop translation if indicated */
         if (dc->is_jmp)
             break;

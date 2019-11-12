@@ -253,6 +253,7 @@ struct TranslationBlock {
      */
     uintptr_t jmp_list_next[2];
     uintptr_t jmp_list_first;
+    uint32_t unique_id;
 };
 
 void tb_free(TranslationBlock *tb);

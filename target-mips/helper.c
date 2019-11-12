@@ -34,6 +34,8 @@ enum {
     TLBRET_MATCH = 0
 };
 
+#include "../bbv_routines.h"
+
 #if !defined(CONFIG_USER_ONLY)
 
 /* no MMU emulation */

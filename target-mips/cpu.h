@@ -1070,6 +1070,7 @@ static inline void compute_hflags(CPUMIPSState *env)
         }
 
     }
+    env->hflags |= MIPS_HFLAG_COP1X;
     if (env->insn_flags & ISA_MIPS32R2) {
         if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
             env->hflags |= MIPS_HFLAG_COP1X;
