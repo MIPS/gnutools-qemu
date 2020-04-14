@@ -20,7 +20,7 @@ fi
 
 which realpath
 if [ $? -eq 0 ]; then
-    tar_file=`realpath "$1"`
+    tar_file=`realpath -s "$1"`
 else
     d=`dirname "$1"`
     tar_file=`readlink -e "$d"`"/"`basename "$1"`
