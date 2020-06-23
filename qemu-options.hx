@@ -4820,6 +4820,24 @@ CN=laptop.example.com,O=Example Home,L=London,ST=London,C=GB
 
 ETEXI
 
+DEF("bbvout", HAS_ARG, QEMU_OPTION_bbv,
+    "-bbvout file     output the basic block vector information to 'file'\n",
+    QEMU_ARCH_ALL)
+STEXI
+@item -bbvout file=@var{bbv_file_name}
+@findex -bbvout
+Output file go generate basic block vector information.
+ETEXI
+
+DEF("bbv-interval", HAS_ARG, QEMU_OPTION_bbv_interval,
+    "-bbv-interval size Set the BBV interval size to 'size'\n",
+    QEMU_ARCH_ALL)
+STEXI
+@item -bbv-interval size=@var{bbv_interval_size}
+@findex -bbv-interval
+Set interval size for basic block vector information.
+ETEXI
+
 
 HXCOMM This is the last statement. Insert new options before this line!
 STEXI

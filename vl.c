@@ -184,7 +184,8 @@ bool boot_strict;
 uint8_t *boot_splash_filedata;
 int only_migratable; /* turn it off unless user states otherwise */
 bool wakeup_suspend_enabled;
-
+char bbv_file_name[PATH_MAX];
+int bbv_interval_size = 100000000; /* 100 million */
 int icount_align_option;
 
 /* The bytes in qemu_uuid are in the order specified by RFC4122, _not_ in the
@@ -3825,6 +3826,12 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_enable_sync_profile:
                 qsp_enable();
                 break;
+	    case QEMU_OPTION_bbv:
+		    strncpy (bbv_file_name, optarg, PATH_MAX);
+		    break;
+	    case QEMU_OPTION_bbv_interval:
+		    bbv_interval_size = atoi (optarg);
+		    break;
             case QEMU_OPTION_nouserconfig:
                 /* Nothing to be parsed here. Especially, do not error out below. */
                 break;

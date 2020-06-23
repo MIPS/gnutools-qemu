@@ -6377,7 +6377,10 @@ static inline abi_long target_ftruncate64(void *cpu_env, abi_long arg1,
         arg2 = arg3;
         arg3 = arg4;
     }
-    return get_errno(ftruncate64(arg1, target_offset64(arg2, arg3)));
+#ifdef TARGET_MIPS
+   arg2=arg4;
+#endif
+   return get_errno(ftruncate64(arg1, target_offset64(arg2, arg3)));
 }
 #endif
 

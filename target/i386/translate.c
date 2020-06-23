@@ -4483,7 +4483,7 @@ static void gen_sse(CPUX86State *env, DisasContext *s, int b,
 
 /* convert one instruction. s->base.is_jmp is set if the translation must
    be stopped. Return the next pc value */
-static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
+static target_ulong disas_insn(DisasContext *s, CPUState *cpu, int unique_id)
 {
     CPUX86State *env = cpu->env_ptr;
     int b, prefixes;
@@ -4652,7 +4652,21 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     s->aflag = aflag;
     s->dflag = dflag;
 
-    /* now check op code */
+    {
+       /* vmw */
+       TCGv const1;
+
+       if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
+	  const1 = tcg_const_i32(unique_id|0x80000000);
+       }
+       else {
+	  const1 = tcg_const_i32(unique_id);
+       }
+       gen_helper_dump_pc(const1);
+       tcg_temp_free(const1);     
+    }
+
+   /* now check op code */
  reswitch:
     switch(b) {
     case 0x0f:
@@ -8564,7 +8578,7 @@ static bool i386_tr_breakpoint_check(DisasContextBase *dcbase, CPUState *cpu,
 static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
-    target_ulong pc_next = disas_insn(dc, cpu);
+    target_ulong pc_next = disas_insn(dc, cpu, dc->base.tb->unique_id);
 
     if (dc->tf || (dc->base.tb->flags & HF_INHIBIT_IRQ_MASK)) {
         /* if single step mode, we generate only one instruction and

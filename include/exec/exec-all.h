@@ -403,6 +403,7 @@ struct TranslationBlock {
     uintptr_t jmp_list_head;
     uintptr_t jmp_list_next[2];
     uintptr_t jmp_dest[2];
+    uint32_t unique_id;
 };
 
 extern bool parallel_cpus;

@@ -1,3 +1,6 @@
+/* BBV tracking helper */
+DEF_HELPER_1(dump_pc, void, i32)
+
 /* Exceptions */
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 

@@ -728,13 +728,19 @@ static bool gen_shift(DisasContext *ctx, arg_r *a,
 # pragma GCC diagnostic pop
 #endif
 
-static void decode_opc(DisasContext *ctx)
+static void decode_opc(DisasContext *ctx, int unique_id)
 {
     /* check for compressed insn */
     if (extract32(ctx->opcode, 0, 2) != 3) {
         if (!has_ext(ctx, RVC)) {
             gen_exception_illegal(ctx);
         } else {
+            {
+              /* vmw */
+              TCGv const1 = tcg_const_i32(unique_id);
+              gen_helper_dump_pc(const1);
+              tcg_temp_free(const1);
+            }
             ctx->pc_succ_insn = ctx->base.pc_next + 2;
             if (!decode_insn16(ctx, ctx->opcode)) {
                 /* fall back to old decoder */
@@ -742,6 +748,12 @@ static void decode_opc(DisasContext *ctx)
             }
         }
     } else {
+        {
+              /* vmw */
+              TCGv const1 = tcg_const_i32(unique_id);
+              gen_helper_dump_pc(const1);
+              tcg_temp_free(const1);
+        }
         ctx->pc_succ_insn = ctx->base.pc_next + 4;
         if (!decode_insn32(ctx, ctx->opcode)) {
             gen_exception_illegal(ctx);
@@ -797,7 +809,7 @@ static void riscv_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     CPURISCVState *env = cpu->env_ptr;
 
     ctx->opcode = cpu_ldl_code(env, ctx->base.pc_next);
-    decode_opc(ctx);
+    decode_opc(ctx, dcbase->tb->unique_id);
     ctx->base.pc_next = ctx->pc_succ_insn;
 
     if (ctx->base.is_jmp == DISAS_NEXT) {

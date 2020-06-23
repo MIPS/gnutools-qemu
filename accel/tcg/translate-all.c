@@ -1156,6 +1156,8 @@ void tcg_exec_init(unsigned long tb_size)
 #endif
 }
 
+int tb_count;
+
 /*
  * Allocate a new translation block. Flush the translation buffer if
  * too many translation blocks or too much generated code.
@@ -1722,6 +1724,8 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     tb->cs_base = cs_base;
     tb->flags = flags;
     tb->cflags = cflags;
+    tb->unique_id = tb_count;
+    tb_count++;
     tb->trace_vcpu_dstate = *cpu->trace_dstate;
     tcg_ctx->tb_cflags = cflags;
  tb_overflow:
