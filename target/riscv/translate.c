@@ -716,13 +716,16 @@ static bool gen_shift(DisasContext *ctx, arg_r *a,
 /* Include the auto-generated decoder for 16 bit insn */
 #include "decode_insn16.inc.c"
 
-static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
+static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode, int unique_id)
 {
     /* check for compressed insn */
     if (extract16(opcode, 0, 2) != 3) {
         if (!has_ext(ctx, RVC)) {
             gen_exception_illegal(ctx);
         } else {
+            TCGv const1 = tcg_const_i32(unique_id);
+            gen_helper_dump_pc(const1);
+            tcg_temp_free(const1);
             ctx->pc_succ_insn = ctx->base.pc_next + 2;
             if (!decode_insn16(ctx, opcode)) {
                 /* fall back to old decoder */
@@ -730,7 +733,10 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
             }
         }
     } else {
+        TCGv const1 = tcg_const_i32(unique_id);
         uint32_t opcode32 = opcode;
+        gen_helper_dump_pc(const1);
+        tcg_temp_free(const1);
         opcode32 = deposit32(opcode32, 16, 16,
                              translator_lduw(env, ctx->base.pc_next + 2));
         ctx->pc_succ_insn = ctx->base.pc_next + 4;
@@ -807,7 +813,7 @@ static void riscv_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     CPURISCVState *env = cpu->env_ptr;
     uint16_t opcode16 = translator_lduw(env, ctx->base.pc_next);
 
-    decode_opc(env, ctx, opcode16);
+    decode_opc(env, ctx, opcode16, dcbase->tb->unique_id);
     ctx->base.pc_next = ctx->pc_succ_insn;
 
     if (ctx->base.is_jmp == DISAS_NEXT) {

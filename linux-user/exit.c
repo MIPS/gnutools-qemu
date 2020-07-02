@@ -22,6 +22,8 @@
 #include <sys/gmon.h>
 #endif
 
+void do_dump_pc(uint32_t);
+
 #ifdef CONFIG_GCOV
 extern void __gcov_dump(void);
 #endif
@@ -34,6 +36,7 @@ void preexit_cleanup(CPUArchState *env, int code)
 #ifdef CONFIG_GCOV
         __gcov_dump();
 #endif
+        do_dump_pc(0xffffffff);
         gdb_exit(env, code);
         qemu_plugin_atexit_cb();
 }

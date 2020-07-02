@@ -216,6 +216,9 @@ __thread TCGContext *tcg_ctx;
 TBContext tb_ctx;
 bool parallel_cpus;
 
+/* Counter for tracking basic blocks */
+int tb_count;
+
 static void page_table_config_init(void)
 {
     uint32_t v_l1_bits;
@@ -1701,6 +1704,8 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     tb->cs_base = cs_base;
     tb->flags = flags;
     tb->cflags = cflags;
+    tb->unique_id = tb_count;
+    tb_count++;
     tb->orig_tb = NULL;
     tb->trace_vcpu_dstate = *cpu->trace_dstate;
     tcg_ctx->tb_cflags = cflags;

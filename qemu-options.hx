@@ -5019,5 +5019,21 @@ SRST
             (qemu) qom-set /objects/iothread1 poll-max-ns 100000
 ERST
 
+DEF("bbvout", HAS_ARG, QEMU_OPTION_bbv,
+    "-bbvout file     output the basic block vector information to 'file'\n",
+    QEMU_ARCH_ALL)
+SRST
+``-bbvout file``
+  Output file go generate basic block vector information.
+ERST
+
+DEF("bbv-interval", HAS_ARG, QEMU_OPTION_bbv_interval,
+    "-bbv-interval size Set the BBV interval size to 'size'\n",
+    QEMU_ARCH_ALL)
+SRST
+``-bbv-interval size``
+    Set interval size for basic block vector information.
+ERST
+
 
 HXCOMM This is the last statement. Insert new options before this line!

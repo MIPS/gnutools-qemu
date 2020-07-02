@@ -59,6 +59,8 @@ static const char *seed_optarg;
 unsigned long mmap_min_addr;
 unsigned long guest_base;
 int have_guest_base;
+char bbv_file_name[PATH_MAX];
+int bbv_interval_size = 100000000; /* 100 million */
 
 /*
  * Used to implement backwards-compatibility for the `-strace`, and
@@ -218,6 +220,16 @@ CPUArchState *cpu_copy(CPUArchState *env)
     }
 
     return new_env;
+}
+
+static void handle_arg_bbvout(const char *arg)
+{
+  strncpy (bbv_file_name, arg, PATH_MAX);
+}
+
+static void handle_arg_bbv_interval(const char *arg)
+{
+  bbv_interval_size = atoi (arg);
 }
 
 static void handle_arg_help(const char *arg)
@@ -469,6 +481,10 @@ static const struct qemu_argument arg_table[] = {
     {"xtensa-abi-call0", "QEMU_XTENSA_ABI_CALL0", false, handle_arg_abi_call0,
      "",           "assume CALL0 Xtensa ABI"},
 #endif
+    {"bbvout",      "QEMU_BBV_FILE", true, handle_arg_bbvout,
+     "bbvout_file", "write basic block vector info to 'bbvout_file'"},
+    {"bbv-interval", "QEMU_BBV_INTERVAL", true, handle_arg_bbv_interval,
+     "size",       "Set interval for basic block vector information to 'size'"},
     {NULL, NULL, false, NULL, NULL, NULL}
 };
 

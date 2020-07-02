@@ -31,6 +31,8 @@
 #include "hw/i386/apic_internal.h"
 #endif
 
+#include "qemu/bbv-routines.h"
+
 void cpu_sync_bndcs_hflags(CPUX86State *env)
 {
     uint32_t hflags = env->hflags;
